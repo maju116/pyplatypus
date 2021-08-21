@@ -3,6 +3,21 @@ from typing import Tuple, List, Optional
 import numpy as np
 import os
 import pandas as pd
+from tensorflow.keras.preprocessing.image import load_img, img_to_array
+
+
+def split_masks_into_binary(
+        mask: np.ndarray,
+        colormap: List[Tuple[int, int, int]]
+) -> np.ndarray:
+    """
+    Splits multi-class mask into binary masks.
+
+    Args:
+        mask (np.ndarray): Segmentation mask.
+        colormap (List[Tuple[int, int, int]]): Class color map.
+    """
+    return np.stack([np.all(mask == c, axis=-1) * 1 for c in colormap], axis=-1)
 
 
 def read_images_from_directory(
@@ -11,8 +26,8 @@ def read_images_from_directory(
         target_size: Tuple[int, int],
         grayscale: bool,
         scale: float,
-        colormap: List[Tuple[int, int, int]]
-):
+        colormap: Optional[List[Tuple[int, int, int]]]
+) -> np.ndarray:
     """
     Reads images from directories.
 
@@ -25,8 +40,15 @@ def read_images_from_directory(
      scale (float): Scaling factor for images pixel values.
      colormap (List[Tuple[int, int, int]]): Class color map.
     """
-
-    return 4
+    selected_paths = paths[indices] if indices is not None else paths
+    selected_images = [
+        sum([img_to_array(load_img(si, grayscale=grayscale, target_size=target_size)) for si in sub_list]) for sub_list
+        in selected_paths]
+    if colormap is not None:
+        selected_images = [split_masks_into_binary(mask, colormap) for mask in selected_images]
+    else:
+        selected_images = [img * scale for img in selected_images]
+    return np.stack(selected_images, axis=0)
 
 
 def create_images_masks_paths(
@@ -41,32 +63,34 @@ def create_images_masks_paths(
 
         Args:
          path (str): Images and masks directory.
-         mode (str): Character. One of "dir", "nested_dirs", "config_file"
+         mode (str): Character. One of "nested_dirs", "config_file"
          only_images (bool): Should generator read only images (e.g. on train set for predictions).
          subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
          column_sep (str): Character. Configuration file separator.
         """
-    if mode in ["dir", 1]:
-        images_paths = [os.path.join(path, subdirs[0], s) for s in os.listdir(os.path.join(path, subdirs[0]))]
-        if not only_images:
-            masks_paths = [os.path.join(path, subdirs[1], s) for s in os.listdir(os.path.join(path, subdirs[1]))]
-    elif mode in ["nested_dirs", 2]:
+    if mode in ["nested_dirs", 1]:
         nested_dirs = os.listdir(path)
-        images_paths = [[os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))][0] for nd in nested_dirs]
+        images_paths = [
+            [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd in
+            nested_dirs]
         if not only_images:
-            masks_paths = [[os.path.join(path, nd, subdirs[1], s) for s in os.listdir(os.path.join(path, nd, subdirs[1]))] for nd in nested_dirs]
-    elif mode in ["config_file", 3]:
+            masks_paths = [
+                [os.path.join(path, nd, subdirs[1], s) for s in os.listdir(os.path.join(path, nd, subdirs[1]))] for nd
+                in nested_dirs]
+    elif mode in ["config_file", 2]:
         config = pd.read_csv(path)
         images_paths = config.images.to_list()
         if not only_images:
             masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
+    else:
+        raise ValueError("Incorrect 'mode' selected!")
     if not only_images:
         return {"images_paths": images_paths, "masks_paths": masks_paths}
     else:
         return {"images_paths": images_paths}
 
 
-class SegmentationGenerator(tf.keras.utils.Sequence):
+class segmentation_generator(tf.keras.utils.Sequence):
     """
     Generates batches of data (images and masks). The data will be looped over (in batches).
 
@@ -88,7 +112,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
     def __init__(
             self,
             path: str,
-            colormap: List[Tuple[int, int, int]],
+            colormap: Optional[List[Tuple[int, int, int]]],
             mode: str = "dir",
             only_images: bool = False,
             net_h: int = 256,
@@ -129,7 +153,10 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        images = read_images_from_directory()
+        images = read_images_from_directory(self.config["images_paths"], indexes, self.target_size, self.grayscale, self.scale, None)
+        if not self.only_images:
+            masks = read_images_from_directory(self.config["masks_paths"], indexes, self.target_size, self.grayscale, 1/255, self.colormap)
+        return (images, masks) if not self.only_images else images
 
     def __len__(self):
         """Number of batches in 1 epoch."""
