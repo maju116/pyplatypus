@@ -79,7 +79,7 @@ def read_images_from_directory(
      scale (float): Scaling factor for images pixel values.
      colormap (List[Tuple[int, int, int]]): Class color map.
     """
-    selected_paths = paths[indices] if indices is not None else paths
+    selected_paths = [paths[idx] for idx in indices] if indices is not None else paths
     selected_images = [
         sum([img_to_array(load_img(si, grayscale=grayscale, target_size=target_size)) for si in sub_list]) for sub_list
         in selected_paths]
@@ -140,6 +140,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.classes = len(colormap)
         # Add checks for generator
         self.config = create_images_masks_paths(path, mode, only_images, subdirs, column_sep)
+        self.indexes = None
         print(len(self.config["images_paths"]), "images detected!")
         print("Set 'steps_per_epoch' to:", int(np.ceil(len(self.config["images_paths"]) / self.batch_size)))
         self.on_epoch_end()
@@ -147,7 +148,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
     def on_epoch_end(self):
         """Updates indexes on epoch end."""
 
-        self.indexes = list(range(len(self.config)))
+        self.indexes = list(range(len(self.config["images_paths"])))
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
