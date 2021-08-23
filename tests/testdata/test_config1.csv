@@ -1,0 +1,4 @@
+images,masks
+tests/testdata/dir/images/test_image_1.png,tests/testdata/dir/masks/test_mask_1.png
+tests/testdata/dir/images/test_image_2.png,tests/testdata/dir/masks/test_mask_2.png
+tests/testdata/dir/images/test_image_3.png,tests/testdata/dir/masks/test_mask_3.png

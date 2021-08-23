@@ -6,6 +6,45 @@ import pandas as pd
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 
 
+def create_images_masks_paths(
+        path: str,
+        mode: str,
+        only_images: bool,
+        subdirs: Tuple[str, str],
+        column_sep: str
+) -> dict:
+    """
+        Generates images/masks path from selected configuration.
+
+        Args:
+         path (str): Images and masks directory.
+         mode (str): Character. One of "nested_dirs", "config_file"
+         only_images (bool): Should generator read only images (e.g. on train set for predictions).
+         subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
+         column_sep (str): Character. Configuration file separator.
+        """
+    if mode in ["nested_dirs", 1]:
+        nested_dirs = os.listdir(path)
+        images_paths = [
+            [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd in
+            nested_dirs]
+        if not only_images:
+            masks_paths = [
+                [os.path.join(path, nd, subdirs[1], s) for s in os.listdir(os.path.join(path, nd, subdirs[1]))] for nd
+                in nested_dirs]
+    elif mode in ["config_file", 2]:
+        config = pd.read_csv(path)
+        images_paths = [[s] for s in config.images.to_list()]
+        if not only_images:
+            masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
+    else:
+        raise ValueError("Incorrect 'mode' selected!")
+    if not only_images:
+        return {"images_paths": images_paths, "masks_paths": masks_paths}
+    else:
+        return {"images_paths": images_paths}
+
+
 def split_masks_into_binary(
         mask: np.ndarray,
         colormap: List[Tuple[int, int, int]]
@@ -49,45 +88,6 @@ def read_images_from_directory(
     else:
         selected_images = [img * scale for img in selected_images]
     return np.stack(selected_images, axis=0)
-
-
-def create_images_masks_paths(
-        path: str,
-        mode: str,
-        only_images: bool,
-        subdirs: Tuple[str, str],
-        column_sep: str
-) -> dict:
-    """
-        Generates images/masks path from selected configuration.
-
-        Args:
-         path (str): Images and masks directory.
-         mode (str): Character. One of "nested_dirs", "config_file"
-         only_images (bool): Should generator read only images (e.g. on train set for predictions).
-         subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
-         column_sep (str): Character. Configuration file separator.
-        """
-    if mode in ["nested_dirs", 1]:
-        nested_dirs = os.listdir(path)
-        images_paths = [
-            [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd in
-            nested_dirs]
-        if not only_images:
-            masks_paths = [
-                [os.path.join(path, nd, subdirs[1], s) for s in os.listdir(os.path.join(path, nd, subdirs[1]))] for nd
-                in nested_dirs]
-    elif mode in ["config_file", 2]:
-        config = pd.read_csv(path)
-        images_paths = config.images.to_list()
-        if not only_images:
-            masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
-    else:
-        raise ValueError("Incorrect 'mode' selected!")
-    if not only_images:
-        return {"images_paths": images_paths, "masks_paths": masks_paths}
-    else:
-        return {"images_paths": images_paths}
 
 
 class segmentation_generator(tf.keras.utils.Sequence):
@@ -148,7 +148,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         """Updates indexes on epoch end."""
 
         self.indexes = list(range(len(self.config)))
-        if self.shuffle == True:
+        if self.shuffle:
             np.random.shuffle(self.indexes)
 
     def __getitem__(self, index):
