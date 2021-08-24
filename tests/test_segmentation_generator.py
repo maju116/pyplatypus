@@ -166,3 +166,47 @@ def test_read_images_from_directory(paths, indices, scale, colormap, result):
         assert (read_images_from_directory(paths, indices, (2, 2), False, scale, colormap) == result).all()
     else:
         assert np.allclose(read_images_from_directory(paths, indices, (2, 2), False, scale, colormap), result)
+
+
+@pytest.mark.parametrize(
+    "path, colormap, mode, batch_size, result",
+    [
+        ("tests/testdata/nested_dirs", [(0, 0, 0), (111, 111, 111), (222, 222, 222), (255, 255, 255)], "nested_dirs", 3,
+         (
+                 np.stack([
+                     np.array([255, 255, 255,
+                               0, 0, 0,
+                               111, 111, 111,
+                               222, 222, 222]).reshape((2, 2, 3)) * (1 / 255),
+                     np.array([255, 255, 255,
+                               222, 222, 222,
+                               111, 111, 111,
+                               0, 0, 0]).reshape((2, 2, 3)) * (1 / 255),
+                     np.array([222, 222, 222,
+                               0, 0, 0,
+                               111, 111, 111,
+                               255, 255, 255]).reshape((2, 2, 3)) * (1 / 255)
+                 ], axis=0),
+                 np.stack([
+                     np.array([0, 0, 0, 1,
+                               1, 0, 0, 0,
+                               0, 1, 0, 0,
+                               0, 0, 1, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 1,
+                               0, 0, 1, 0,
+                               0, 1, 0, 0,
+                               1, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 1, 0,
+                               1, 0, 0, 0,
+                               0, 1, 0, 0,
+                               0, 0, 0, 1]).reshape((2, 2, 4))
+                 ], axis=0)
+         ))
+    ]
+)
+def test_segmentation_generator(path, colormap, mode, batch_size, result):
+    test_sg = segmentation_generator(path, colormap, mode, False, 2, 2, False, 1 / 255, batch_size, False,
+                                     ("images", "masks"), ";")
+    output = test_sg.__getitem__(0)
+    assert np.allclose(output[0], output[0])
+    assert (output[1] == output[1]).all()
