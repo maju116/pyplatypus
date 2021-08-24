@@ -25,12 +25,13 @@ def create_images_masks_paths(
         """
     if mode in ["nested_dirs", 1]:
         nested_dirs = os.listdir(path)
+        nested_dirs.sort()
         images_paths = [
             [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd in
             nested_dirs]
         if not only_images:
             masks_paths = [
-                [os.path.join(path, nd, subdirs[1], s) for s in os.listdir(os.path.join(path, nd, subdirs[1]))] for nd
+                [os.path.join(path, nd, subdirs[1], s) for s in sorted(os.listdir(os.path.join(path, nd, subdirs[1])))] for nd
                 in nested_dirs]
     elif mode in ["config_file", 2]:
         config = pd.read_csv(path)
