@@ -1,0 +1,4 @@
+images,masks
+tests/testdata/nested_dirs/image_1/images/test_image_1.png,tests/testdata/nested_dirs/image_1/masks/test_mask_1_1.png;tests/testdata/nested_dirs/image_1/masks/test_mask_1_2.png;tests/testdata/nested_dirs/image_1/masks/test_mask_1_3.png
+tests/testdata/nested_dirs/image_2/images/test_image_2.png,tests/testdata/nested_dirs/image_2/masks/test_mask_2_1.png;tests/testdata/nested_dirs/image_2/masks/test_mask_2_2.png;tests/testdata/nested_dirs/image_2/masks/test_mask_2_3.png
+tests/testdata/nested_dirs/image_3/images/test_image_3.png,tests/testdata/nested_dirs/image_3/masks/test_mask_3_1.png;tests/testdata/nested_dirs/image_3/masks/test_mask_3_2.png;tests/testdata/nested_dirs/image_3/masks/test_mask_3_3.png
