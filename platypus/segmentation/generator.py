@@ -102,7 +102,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
      only_images (bool): Should generator read only images (e.g. on train set for predictions).
      net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
      net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
-     grayscale (bool): Defines input layer color channels -  `1` if `TRUE`, `3` if `FALSE`.
+     grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
      scale (float): Scaling factor for images pixel values. Default to `1 / 255`.
      batch_size (int): Batch size.
      shuffle (bool): Should data be shuffled.
