@@ -1,0 +1,20 @@
+augmentation:
+    Blur:
+        blur_limit: 7
+        always_apply: False
+        p: 0.5
+    GaussianBlur:
+        blur_limit: [3, 7]
+        sigma_limit: 0
+        always_apply: False
+        p: 0.5
+    MedianBlur:
+        blur_limit: 9
+        always_apply: False
+        p: 0.5
+    MotionBlur:
+        always_apply: False
+        p: 0.5
+    ErrorAug:
+        always_apply: False
+        p: 0.5
