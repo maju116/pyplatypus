@@ -52,7 +52,7 @@ augmentation:
     Equalize:
         mode: 'cv'
         by_channels: True
-        mask: None
+        mask: null
         mask_params: []
         always_apply: False
         p: 0.5
@@ -112,7 +112,7 @@ augmentation:
         p: 0.5
     RandomGamma:
         gamma_limit: [80, 120]
-        eps: None
+        eps: null
         always_apply: False
         p: 0.5
     RandomRain:
@@ -123,7 +123,7 @@ augmentation:
         drop_color: [200, 200, 200]
         blur_value: 7
         brightness_coefficient: 0.7
-        rain_type: None
+        rain_type: null
         always_apply: False
         p: 0.5
     RandomSnow:
