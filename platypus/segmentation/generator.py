@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from platypus.utils.augmentation import create_augmentation_pipeline
 
 
 def create_images_masks_paths(

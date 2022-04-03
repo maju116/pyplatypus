@@ -1,9 +1,20 @@
 import numpy as np
 from typing import List
 import albumentations as A
-from albumentations import Blur, GaussianBlur, GlassBlur, MedianBlur, MotionBlur
+from albumentations import Blur, GaussianBlur, GlassBlur, MedianBlur, MotionBlur, \
+    CLAHE, ChannelDropout, ChannelShuffle, ColorJitter, Downscale, Emboss, Equalize, \
+    FancyPCA, GaussNoise, HueSaturationValue, ISONoise, InvertImg, MultiplicativeNoise, \
+    Normalize, RGBShift, RandomBrightnessContrast, RandomFog, RandomGamma, RandomRain, \
+    RandomSnow, RandomShadow, RandomSunFlare, RandomToneCurve, Sharpen, Solarize, Superpixels, \
+    ToSepia
 
-available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur']
+available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
+                     'CLAHE', 'ChannelDropout', 'ChannelShuffle', 'ColorJitter', 'Downscale',
+                     'Emboss', 'Equalize', 'FancyPCA', 'GaussNoise', 'HueSaturationValue',
+                     'ISONoise', 'InvertImg', 'MultiplicativeNoise', 'Normalize', 'RGBShift',
+                     'RandomBrightnessContrast', 'RandomFog', 'RandomGamma', 'RandomRain',
+                     'RandomSnow', 'RandomShadow', 'RandomSunFlare', 'RandomToneCurve',
+                     'Sharpen', 'Solarize', 'Superpixels', 'ToSepia']
 
 
 def filter_out_incorrect_methods(
