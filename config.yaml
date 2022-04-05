@@ -211,7 +211,7 @@ augmentation:
         p: 0.5
     CropAndPad:
         px: null
-        percent: null
+        percent: [30, 50]
         pad_mode: 0
         pad_cval: 0
         pad_cval_mask: 0
