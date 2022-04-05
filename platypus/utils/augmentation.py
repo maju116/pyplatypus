@@ -6,7 +6,10 @@ from albumentations import Blur, GaussianBlur, GlassBlur, MedianBlur, MotionBlur
     FancyPCA, GaussNoise, HueSaturationValue, ISONoise, InvertImg, MultiplicativeNoise, \
     Normalize, RGBShift, RandomBrightnessContrast, RandomFog, RandomGamma, RandomRain, \
     RandomSnow, RandomShadow, RandomSunFlare, RandomToneCurve, Sharpen, Solarize, Superpixels, \
-    ToSepia
+    ToSepia, Affine, CenterCrop, CoarseDropout, Crop, CropAndPad, CropNonEmptyMaskIfExists, \
+    ElasticTransform, Flip, GridDistortion, GridDropout, HorizontalFlip, MaskDropout, OpticalDistortion, \
+    Perspective, PiecewiseAffine, RandomCrop, RandomCropNearBBox, RandomGridShuffle, RandomResizedCrop, \
+    RandomRotate90, RandomSizedBBoxSafeCrop, Rotate, SafeRotate, Transpose, VerticalFlip
 
 available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
                      'CLAHE', 'ChannelDropout', 'ChannelShuffle', 'ColorJitter', 'Downscale',
@@ -14,7 +17,13 @@ available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionB
                      'ISONoise', 'InvertImg', 'MultiplicativeNoise', 'Normalize', 'RGBShift',
                      'RandomBrightnessContrast', 'RandomFog', 'RandomGamma', 'RandomRain',
                      'RandomSnow', 'RandomShadow', 'RandomSunFlare', 'RandomToneCurve',
-                     'Sharpen', 'Solarize', 'Superpixels', 'ToSepia']
+                     'Sharpen', 'Solarize', 'Superpixels', 'ToSepia', 'Affine', 'CenterCrop',
+                     'CoarseDropout', 'Crop', 'CropAndPad', 'CropNonEmptyMaskIfExists',
+                     'ElasticTransform', 'Flip', 'GridDistortion', 'GridDropout', 'HorizontalFlip',
+                     'MaskDropout', 'OpticalDistortion', 'Perspective', 'PiecewiseAffine', 'RandomCrop',
+                     'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
+                     'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
+                     'VerticalFlip']
 
 
 def filter_out_incorrect_methods(
