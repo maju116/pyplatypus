@@ -1,5 +1,6 @@
 import numpy as np
 from typing import List
+from collections.abc import KeysView
 import albumentations as A
 
 available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
@@ -18,7 +19,7 @@ available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionB
 
 
 def filter_out_incorrect_methods(
-        methods: List[str]
+        methods: KeysView
 ) -> List[str]:
     """
     Filters out incorrect names of augmentation methods to be used.
