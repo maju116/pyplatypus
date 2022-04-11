@@ -4,47 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from platypus.utils.augmentation import create_augmentation_pipeline
-
-
-def create_images_masks_paths(
-        path: str,
-        mode: str,
-        only_images: bool,
-        subdirs: Tuple[str, str],
-        column_sep: str
-) -> dict:
-    """
-        Generates images/masks path from selected configuration.
-
-        Args:
-         path (str): Images and masks directory.
-         mode (str): Character. One of "nested_dirs", "config_file"
-         only_images (bool): Should generator read only images (e.g. on train set for predictions).
-         subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
-         column_sep (str): Character. Configuration file separator.
-        """
-    if mode in ["nested_dirs", 1]:
-        nested_dirs = os.listdir(path)
-        nested_dirs.sort()
-        images_paths = [
-            [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd in
-            nested_dirs]
-        if not only_images:
-            masks_paths = [
-                [os.path.join(path, nd, subdirs[1], s) for s in sorted(os.listdir(os.path.join(path, nd, subdirs[1])))] for nd
-                in nested_dirs]
-    elif mode in ["config_file", 2]:
-        config = pd.read_csv(path)
-        images_paths = [[s] for s in config.images.to_list()]
-        if not only_images:
-            masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
-    else:
-        raise ValueError("Incorrect 'mode' selected!")
-    if not only_images:
-        return {"images_paths": images_paths, "masks_paths": masks_paths}
-    else:
-        return {"images_paths": images_paths}
+import albumentations as A
 
 
 def split_masks_into_binary(
@@ -61,37 +21,6 @@ def split_masks_into_binary(
     return np.stack([np.all(mask == c, axis=-1) * 1 for c in colormap], axis=-1)
 
 
-def read_images_from_directory(
-        paths: List,
-        indices: Optional[List],
-        target_size: Tuple[int, int],
-        grayscale: bool,
-        scale: float,
-        colormap: Optional[List[Tuple[int, int, int]]]
-) -> np.ndarray:
-    """
-    Reads images from directories.
-
-    Args:
-     paths (List): Images or masks paths.
-     indices (List) Indices of selected images. If `None` all images in `paths` will be selected.
-     target_size (Tuple[int, int]):
-     colormap (List[Tuple[int, int, int]]): Class color map.
-     grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-     scale (float): Scaling factor for images pixel values.
-     colormap (List[Tuple[int, int, int]]): Class color map.
-    """
-    selected_paths = [paths[idx] for idx in indices] if indices is not None else paths
-    selected_images = [
-        sum([img_to_array(load_img(si, grayscale=grayscale, target_size=target_size)) for si in sub_list]) for sub_list
-        in selected_paths]
-    if colormap is not None:
-        selected_images = [split_masks_into_binary(mask, colormap) for mask in selected_images]
-    else:
-        selected_images = [img * scale for img in selected_images]
-    return np.stack(selected_images, axis=0)
-
-
 class segmentation_generator(tf.keras.utils.Sequence):
     """
     Generates batches of data (images and masks). The data will be looped over (in batches).
@@ -105,6 +34,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
      net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
      grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
      scale (float): Scaling factor for images pixel values. Default to `1 / 255`.
+     augmentation_pipeline (Optional[A.core.composition.Compose]): Augmentation pipeline.
      batch_size (int): Batch size.
      shuffle (bool): Should data be shuffled.
      subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
@@ -121,6 +51,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
             net_w: int = 256,
             grayscale: bool = False,
             scale: float = 1 / 255,
+            augmentation_pipeline: Optional[A.core.composition.Compose] = None,
             batch_size: int = 32,
             shuffle: bool = True,
             subdirs: Tuple[str, str] = ("images", "masks"),
@@ -141,11 +72,85 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         # Add checks for generator
-        self.config = create_images_masks_paths(path, mode, only_images, subdirs, column_sep)
+        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
         self.indexes = None
         print(len(self.config["images_paths"]), "images detected!")
         print("Set 'steps_per_epoch' to:", int(np.ceil(len(self.config["images_paths"]) / self.batch_size)))
         self.on_epoch_end()
+
+    @staticmethod
+    def create_images_masks_paths(
+            path: str,
+            mode: str,
+            only_images: bool,
+            subdirs: Tuple[str, str],
+            column_sep: str
+    ) -> dict:
+        """
+            Generates images/masks path from selected configuration.
+
+            Args:
+             path (str): Images and masks directory.
+             mode (str): Character. One of "nested_dirs", "config_file"
+             only_images (bool): Should generator read only images (e.g. on train set for predictions).
+             subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
+             column_sep (str): Character. Configuration file separator.
+            """
+        if mode in ["nested_dirs", 1]:
+            nested_dirs = os.listdir(path)
+            nested_dirs.sort()
+            images_paths = [
+                [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd
+                in
+                nested_dirs]
+            if not only_images:
+                masks_paths = [
+                    [os.path.join(path, nd, subdirs[1], s) for s in
+                     sorted(os.listdir(os.path.join(path, nd, subdirs[1])))] for nd
+                    in nested_dirs]
+        elif mode in ["config_file", 2]:
+            config = pd.read_csv(path)
+            images_paths = [[s] for s in config.images.to_list()]
+            if not only_images:
+                masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
+        else:
+            raise ValueError("Incorrect 'mode' selected!")
+        if not only_images:
+            return {"images_paths": images_paths, "masks_paths": masks_paths}
+        else:
+            return {"images_paths": images_paths}
+
+    @staticmethod
+    def read_images_from_directory(
+            paths: List,
+            indices: Optional[List],
+            target_size: Tuple[int, int],
+            grayscale: bool,
+            scale: float,
+            colormap: Optional[List[Tuple[int, int, int]]]
+    ) -> np.ndarray:
+        """
+        Reads images from directories.
+
+        Args:
+         paths (List): Images or masks paths.
+         indices (List) Indices of selected images. If `None` all images in `paths` will be selected.
+         target_size (Tuple[int, int]):
+         colormap (List[Tuple[int, int, int]]): Class color map.
+         grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
+         scale (float): Scaling factor for images pixel values.
+         colormap (List[Tuple[int, int, int]]): Class color map.
+        """
+        selected_paths = [paths[idx] for idx in indices] if indices is not None else paths
+        selected_images = [
+            sum([img_to_array(load_img(si, grayscale=grayscale, target_size=target_size)) for si in sub_list]) for
+            sub_list
+            in selected_paths]
+        if colormap is not None:
+            selected_images = [split_masks_into_binary(mask, colormap) for mask in selected_images]
+        else:
+            selected_images = [img * scale for img in selected_images]
+        return np.stack(selected_images, axis=0)
 
     def on_epoch_end(self):
         """Updates indexes on epoch end."""
@@ -156,9 +161,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        images = read_images_from_directory(self.config["images_paths"], indexes, self.target_size, self.grayscale, self.scale, None)
+        images = self.read_images_from_directory(self.config["images_paths"], indexes, self.target_size, self.grayscale, self.scale, None)
         if not self.only_images:
-            masks = read_images_from_directory(self.config["masks_paths"], indexes, self.target_size, self.grayscale, 1/255, self.colormap)
+            masks = self.read_images_from_directory(self.config["masks_paths"], indexes, self.target_size, self.grayscale, 1/255, self.colormap)
         return (images, masks) if not self.only_images else images
 
     def __len__(self):
