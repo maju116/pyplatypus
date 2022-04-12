@@ -33,7 +33,6 @@ class segmentation_generator(tf.keras.utils.Sequence):
      net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
      net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
      grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-     scale (float): Scaling factor for images pixel values. Default to `1 / 255`.
      augmentation_pipeline (Optional[A.core.composition.Compose]): Augmentation pipeline.
      batch_size (int): Batch size.
      shuffle (bool): Should data be shuffled.
@@ -156,9 +155,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        images = self.read_images_from_directory(self.config["images_paths"], indexes, self.target_size, self.grayscale, self.scale, None)
+        images = self.read_images_from_directory(self.config["images_paths"], indexes, self.target_size, self.grayscale, None)
         if not self.only_images:
-            masks = self.read_images_from_directory(self.config["masks_paths"], indexes, self.target_size, self.grayscale, 1/255, self.colormap)
+            masks = self.read_images_from_directory(self.config["masks_paths"], indexes, self.target_size, self.grayscale, self.colormap)
         return (images, masks) if not self.only_images else images
 
     def __len__(self):
