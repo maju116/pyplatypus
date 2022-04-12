@@ -50,7 +50,6 @@ class segmentation_generator(tf.keras.utils.Sequence):
             net_h: int = 256,
             net_w: int = 256,
             grayscale: bool = False,
-            scale: float = 1 / 255,
             augmentation_pipeline: Optional[A.core.composition.Compose] = None,
             batch_size: int = 32,
             shuffle: bool = True,
@@ -64,7 +63,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.net_h = net_h
         self.net_w = net_w
         self.grayscale = grayscale
-        self.scale = scale
+        self.augmentation_pipeline = augmentation_pipeline
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.subdirs = subdirs
@@ -126,7 +125,6 @@ class segmentation_generator(tf.keras.utils.Sequence):
             indices: Optional[List],
             target_size: Tuple[int, int],
             grayscale: bool,
-            scale: float,
             colormap: Optional[List[Tuple[int, int, int]]]
     ) -> np.ndarray:
         """
@@ -138,7 +136,6 @@ class segmentation_generator(tf.keras.utils.Sequence):
          target_size (Tuple[int, int]):
          colormap (List[Tuple[int, int, int]]): Class color map.
          grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-         scale (float): Scaling factor for images pixel values.
          colormap (List[Tuple[int, int, int]]): Class color map.
         """
         selected_paths = [paths[idx] for idx in indices] if indices is not None else paths
@@ -148,8 +145,6 @@ class segmentation_generator(tf.keras.utils.Sequence):
             in selected_paths]
         if colormap is not None:
             selected_images = [split_masks_into_binary(mask, colormap) for mask in selected_images]
-        else:
-            selected_images = [img * scale for img in selected_images]
         return np.stack(selected_images, axis=0)
 
     def on_epoch_end(self):
