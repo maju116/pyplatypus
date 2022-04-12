@@ -1,8 +1,9 @@
 import tensorflow as tf
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Union, Any
 import numpy as np
 import os
 import pandas as pd
+from numpy import ndarray
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import albumentations as A
 
@@ -70,7 +71,8 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         # Add checks for generator
-        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
+        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
+                                                     self.column_sep)
         self.indexes = None
         print(len(self.config["images_paths"]), "images detected!")
         print("Set 'steps_per_epoch' to:", int(np.ceil(len(self.config["images_paths"]) / self.batch_size)))
@@ -118,33 +120,30 @@ class segmentation_generator(tf.keras.utils.Sequence):
         else:
             return {"images_paths": images_paths}
 
-    @staticmethod
-    def read_images_from_directory(
-            paths: List,
-            indices: Optional[List],
-            target_size: Tuple[int, int],
-            grayscale: bool,
-            colormap: Optional[List[Tuple[int, int, int]]]
-    ) -> np.ndarray:
+    def read_images_and_masks_from_directory(
+            self,
+            indices: Optional[List]
+    ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
         """
         Reads images from directories.
 
         Args:
-         paths (List): Images or masks paths.
          indices (List) Indices of selected images. If `None` all images in `paths` will be selected.
-         target_size (Tuple[int, int]):
-         colormap (List[Tuple[int, int, int]]): Class color map.
-         grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-         colormap (List[Tuple[int, int, int]]): Class color map.
         """
-        selected_paths = [paths[idx] for idx in indices] if indices is not None else paths
-        selected_images = [
-            sum([img_to_array(load_img(si, grayscale=grayscale, target_size=target_size)) for si in sub_list]) for
-            sub_list
-            in selected_paths]
-        if colormap is not None:
-            selected_images = [split_masks_into_binary(mask, colormap) for mask in selected_images]
-        return np.stack(selected_images, axis=0)
+        selected_images_paths = [self.config["images_paths"][idx] for idx in indices] if indices is not None else \
+            self.config["images_paths"]
+        selected_images = [img_to_array(load_img(img_path[0], grayscale=self.grayscale, target_size=self.target_size))
+                           for img_path in selected_images_paths]
+        if self.only_images is not None:
+            selected_masks_paths = [self.config["masks_paths"][idx] for idx in indices] if indices is not None else \
+                self.config["masks_paths"]
+            selected_masks = [
+                sum([img_to_array(load_img(si, grayscale=False, target_size=self.target_size)) for si in
+                     sub_list]) for
+                sub_list
+                in selected_masks_paths]
+            selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+        return (selected_images, selected_masks) if self.only_images is not None else selected_images
 
     def on_epoch_end(self):
         """Updates indexes on epoch end."""
@@ -155,9 +154,22 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        images = self.read_images_from_directory(self.config["images_paths"], indexes, self.target_size, self.grayscale, None)
         if not self.only_images:
-            masks = self.read_images_from_directory(self.config["masks_paths"], indexes, self.target_size, self.grayscale, self.colormap)
+            images, masks = self.read_images_and_masks_from_directory(indexes)
+            if self.augmentation_pipeline is not None:
+                transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
+                images = np.stack([tr['image'] for tr in transformed], axis=0)
+                masks = np.stack([tr['mask'] for tr in transformed], axis=0)
+            else:
+                images = np.stack(images, axis=0)
+                masks = np.stack(masks, axis=0)
+        else:
+            images = self.read_images_and_masks_from_directory(indexes)
+            if self.augmentation_pipeline is not None:
+                transformed = [self.augmentation_pipeline(image=image) for image in images]
+                images = np.stack([tr['image'] for tr in transformed], axis=0)
+            else:
+                images = np.stack(images, axis=0)
         return (images, masks) if not self.only_images else images
 
     def __len__(self):

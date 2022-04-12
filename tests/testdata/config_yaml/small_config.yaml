@@ -5,4 +5,4 @@ augmentation:
         p: 1.0
     RandomRotate90:
         always_apply: False
-        p: 0.5
+        p: 1.0
