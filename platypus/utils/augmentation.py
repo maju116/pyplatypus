@@ -15,7 +15,7 @@ available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionB
                      'MaskDropout', 'OpticalDistortion', 'Perspective', 'PiecewiseAffine', 'RandomCrop',
                      'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
                      'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
-                     'VerticalFlip']
+                     'VerticalFlip', 'FromFloat', 'ToFloat']
 
 
 def filter_out_incorrect_methods(

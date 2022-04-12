@@ -1,0 +1,8 @@
+augmentation:
+    ToFloat:
+        max_value: 255
+        always_apply: False
+        p: 1.0
+    RandomRotate90:
+        always_apply: False
+        p: 0.5

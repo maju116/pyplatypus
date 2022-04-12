@@ -326,6 +326,7 @@ augmentation:
         always_apply: False
         p: 1.0
     RandomRotate90:
+        always_apply: False
         p: 0.5
     RandomSizedBBoxSafeCrop:
         height: 30
@@ -363,7 +364,18 @@ augmentation:
         always_apply: False
         p: 0.5
     Transpose:
+        always_apply: False
         p: 0.5
     VerticalFlip:
+        always_apply: False
         p: 0.5
+    FromFloat:
+        dtype: 'uint16'
+        max_value: 255
+        always_apply: False
+        p: 1.0
+    ToFloat:
+        max_value: 255
+        always_apply: False
+        p: 1.0
 
