@@ -17,7 +17,7 @@ semantic_segmentation:
           n_class: 2
           filters: 16
           dropout: 0.1
-          batch_normalization: 0.1
+          batch_normalization: True
           kernel_initializer: 'he_normal'
         - name: 'u_net2'
           type: 'u_net'
