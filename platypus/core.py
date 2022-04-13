@@ -1,11 +1,11 @@
-from platypus.utils.config import load_config_from_yaml
+from platypus.utils.config import load_config_from_yaml, check_tasks
 from platypus.utils.augmentation import create_augmentation_pipeline
 import numpy as np
 import platypus.segmentation as seg
 import platypus.detection as det
 
 
-class platypus_engine():
+class platypus_engine:
 
     def __init__(
             self,

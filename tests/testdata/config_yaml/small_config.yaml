@@ -1,3 +1,4 @@
+object_detection:
 semantic_segmentation:
     data:
         train_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_train'
