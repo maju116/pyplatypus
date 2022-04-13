@@ -8,7 +8,7 @@ def load_config_from_yaml(
     Loads configuration from YAML file.
 
     Returns:
-        Configuration (dictionary).
+        Configuration (dict).
     """
     with open(config_path) as cfg:
         config = load(cfg, Loader=FullLoader)

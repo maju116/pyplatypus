@@ -23,23 +23,6 @@ def split_masks_into_binary(
 
 
 class segmentation_generator(tf.keras.utils.Sequence):
-    """
-    Generates batches of data (images and masks). The data will be looped over (in batches).
-
-    Args:
-     path (str): Images and masks directory.
-     colormap (List[Tuple[int, int, int]]): Class color map.
-     mode (str): Character. One of "dir", "nested_dirs", "config_file"
-     only_images (bool): Should generator read only images (e.g. on train set for predictions).
-     net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
-     net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
-     grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-     augmentation_pipeline (Optional[A.core.composition.Compose]): Augmentation pipeline.
-     batch_size (int): Batch size.
-     shuffle (bool): Should data be shuffled.
-     subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
-     column_sep (str): Character. Configuration file separator.
-    """
 
     def __init__(
             self,
@@ -56,6 +39,23 @@ class segmentation_generator(tf.keras.utils.Sequence):
             subdirs: Tuple[str, str] = ("images", "masks"),
             column_sep: str = ";"
     ) -> None:
+        """
+        Generates batches of data (images and masks). The data will be looped over (in batches).
+
+        Args:
+        path (str): Images and masks directory.
+        colormap (List[Tuple[int, int, int]]): Class color map.
+        mode (str): Character. One of "dir", "nested_dirs", "config_file"
+        only_images (bool): Should generator read only images (e.g. on train set for predictions).
+        net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
+        net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
+        grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        augmentation_pipeline (Optional[A.core.composition.Compose]): Augmentation pipeline.
+        batch_size (int): Batch size.
+        shuffle (bool): Should data be shuffled.
+        subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
+        column_sep (str): Character. Configuration file separator.
+        """
         self.path = path
         self.colormap = colormap
         self.mode = mode
@@ -145,14 +145,25 @@ class segmentation_generator(tf.keras.utils.Sequence):
             selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         return (selected_images, selected_masks) if self.only_images is not None else selected_images
 
-    def on_epoch_end(self):
+    def on_epoch_end(
+            self
+    ) -> None:
         """Updates indexes on epoch end."""
 
         self.indexes = list(range(len(self.config["images_paths"])))
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def __getitem__(self, index):
+    def __getitem__(
+            self,
+            index: int
+    ) -> Union[tuple[ndarray, ndarray], ndarray]:
+        """
+        Returns one batch of data.
+
+        Args:
+            index (int): Batch index.
+        """
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         if not self.only_images:
             images, masks = self.read_images_and_masks_from_directory(indexes)
@@ -172,7 +183,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
                 images = np.stack(images, axis=0)
         return (images, masks) if not self.only_images else images
 
-    def __len__(self):
+    def __len__(
+            self
+    ) -> int:
         """Number of batches in 1 epoch."""
 
         return int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
