@@ -15,7 +15,7 @@ def load_config_from_yaml(
     return config
 
 
-def check_tasks(
+def check_cv_tasks(
         config: dict
 ) -> list:
     """

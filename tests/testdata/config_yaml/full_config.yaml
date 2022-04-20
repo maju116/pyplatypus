@@ -5,6 +5,7 @@ semantic_segmentation:
         test_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_test'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
+        shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
     models:
@@ -19,6 +20,8 @@ semantic_segmentation:
           dropout: 0.1
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 20
         - name: 'u_net2'
           type: 'u_net'
           net_h: 256
@@ -30,6 +33,8 @@ semantic_segmentation:
           dropout: 0.1
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 20
 augmentation:
     Blur:
         blur_limit: 7

@@ -74,8 +74,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
                                                      self.column_sep)
         self.indexes = None
+        self.steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
         print(len(self.config["images_paths"]), "images detected!")
-        print("Set 'steps_per_epoch' to:", int(np.ceil(len(self.config["images_paths"]) / self.batch_size)))
+        print("Set 'steps_per_epoch' to:", self.steps_per_epoch)
         self.on_epoch_end()
 
     @staticmethod
