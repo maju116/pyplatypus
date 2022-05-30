@@ -32,6 +32,8 @@ class segmentation_generator(tf.keras.utils.Sequence):
             only_images: bool = False,
             net_h: int = 256,
             net_w: int = 256,
+            h_splits: int = 1,
+            w_splits: int = 1,
             grayscale: bool = False,
             augmentation_pipeline: Optional[A.core.composition.Compose] = None,
             batch_size: int = 32,
@@ -49,6 +51,8 @@ class segmentation_generator(tf.keras.utils.Sequence):
         only_images (bool): Should generator read only images (e.g. on train set for predictions).
         net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
         net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
+        h_splits (int): Number of vertical splits of the image.
+        w_splits (int): Number of horizontal splits of the image.
         grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
         augmentation_pipeline (Optional[A.core.composition.Compose]): Augmentation pipeline.
         batch_size (int): Batch size.
@@ -62,6 +66,8 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.only_images = only_images
         self.net_h = net_h
         self.net_w = net_w
+        self.h_splits = h_splits
+        self.w_splits = w_splits
         self.grayscale = grayscale
         self.augmentation_pipeline = augmentation_pipeline
         self.batch_size = batch_size
@@ -133,17 +139,41 @@ class segmentation_generator(tf.keras.utils.Sequence):
         """
         selected_images_paths = [self.config["images_paths"][idx] for idx in indices] if indices is not None else \
             self.config["images_paths"]
-        selected_images = [img_to_array(load_img(img_path[0], grayscale=self.grayscale, target_size=self.target_size))
-                           for img_path in selected_images_paths]
-        if self.only_images is not None:
+        if not self.only_images:
             selected_masks_paths = [self.config["masks_paths"][idx] for idx in indices] if indices is not None else \
                 self.config["masks_paths"]
-            selected_masks = [
-                sum([img_to_array(load_img(si, grayscale=False, target_size=self.target_size)) for si in
-                     sub_list]) for
-                sub_list
-                in selected_masks_paths]
-            selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+        if self.h_splits > 1 or self.w_splits > 1:
+            selected_images = [
+                img_to_array(load_img(img_path[0], grayscale=self.grayscale,
+                                      target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w)))
+                for img_path in selected_images_paths]
+            if self.h_splits > 1:
+                selected_images = [np.vsplit(se, self.h_splits) for se in selected_images]
+                selected_images = [item for sublist in selected_images for item in sublist]
+            if self.w_splits > 1:
+                selected_images = [np.hsplit(se, self.w_splits) for se in selected_images]
+                selected_images = [item for sublist in selected_images for item in sublist]
+            if not self.only_images:
+                selected_masks = [
+                    sum([img_to_array(load_img(si, grayscale=False,
+                                               target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w)))
+                         for si in sub_list]) for sub_list in selected_masks_paths]
+                selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+                if self.h_splits > 1:
+                    selected_masks = [np.vsplit(se, self.h_splits) for se in selected_masks]
+                    selected_masks = [item for sublist in selected_masks for item in sublist]
+                if self.w_splits > 1:
+                    selected_masks = [np.hsplit(se, self.w_splits) for se in selected_masks]
+                    selected_masks = [item for sublist in selected_masks for item in sublist]
+        else:
+            selected_images = [
+                img_to_array(load_img(img_path[0], grayscale=self.grayscale, target_size=self.target_size))
+                for img_path in selected_images_paths]
+            if not self.only_images:
+                selected_masks = [
+                    sum([img_to_array(load_img(si, grayscale=False, target_size=self.target_size))
+                         for si in sub_list]) for sub_list in selected_masks_paths]
+                selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         return (selected_images, selected_masks) if self.only_images is not None else selected_images
 
     def on_epoch_end(
