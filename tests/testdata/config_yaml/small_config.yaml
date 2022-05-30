@@ -1,0 +1,46 @@
+object_detection:
+semantic_segmentation:
+    data:
+        train_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_train'
+        validation_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_validation'
+        test_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_test'
+        colormap: [[0, 0, 0], [255, 255, 255]]
+        mode: 'nested_dirs'
+        shuffle: False
+        subdirs: ["images", "masks"]
+        column_sep: ';'
+    models:
+        - name: 'u_net1'
+          type: 'u_net'
+          net_h: 256
+          net_w: 256
+          grayscale: False
+          blocks: 4
+          n_class: 2
+          filters: 16
+          dropout: 0.1
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 2
+        - name: 'u_net2'
+          type: 'u_net'
+          net_h: 256
+          net_w: 256
+          grayscale: False
+          blocks: 3
+          n_class: 2
+          filters: 16
+          dropout: 0.1
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 2
+augmentation:
+    ToFloat:
+        max_value: 255
+        always_apply: False
+        p: 1.0
+    RandomRotate90:
+        always_apply: False
+        p: 1.0

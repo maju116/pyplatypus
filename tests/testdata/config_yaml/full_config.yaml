@@ -1,0 +1,418 @@
+semantic_segmentation:
+    data:
+        train_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_train'
+        validation_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_validation'
+        test_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_test'
+        colormap: [[0, 0, 0], [255, 255, 255]]
+        mode: 'nested_dirs'
+        shuffle: False
+        subdirs: ["images", "masks"]
+        column_sep: ';'
+    models:
+        - name: 'u_net1'
+          type: 'u_net'
+          net_h: 256
+          net_w: 256
+          grayscale: False
+          blocks: 4
+          n_class: 2
+          filters: 16
+          dropout: 0.1
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 20
+        - name: 'u_net2'
+          type: 'u_net'
+          net_h: 256
+          net_w: 256
+          grayscale: False
+          blocks: 3
+          n_class: 2
+          filters: 16
+          dropout: 0.1
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 20
+augmentation:
+    Blur:
+        blur_limit: 7
+        always_apply: False
+        p: 0.5
+    GaussianBlur:
+        blur_limit: [3, 7]
+        sigma_limit: 0
+        always_apply: False
+        p: 0.5
+    MedianBlur:
+        blur_limit: 9
+        always_apply: False
+        p: 0.5
+    MotionBlur:
+        always_apply: False
+        p: 0.5
+    ErrorAug:
+        always_apply: False
+        p: 0.5
+    CLAHE:
+        clip_limit: [1, 4]
+        tile_grid_size: [8, 8]
+        always_apply: False
+        p: 0.5
+    ChannelDropout:
+        channel_drop_range: [1, 1]
+        fill_value: 0
+        always_apply: False
+        p: 0.5
+    ChannelShuffle:
+        always_apply: False
+        p: 0.5
+    ColorJitter:
+        brightness: 0.2
+        contrast: 0.2
+        saturation: 0.2
+        hue: 0.2
+        always_apply: False
+        p: 0.5
+    Downscale:
+        scale_min: 0.25
+        scale_max: 0.25
+        interpolation: 0
+        always_apply: False
+        p: 0.5
+    Emboss:
+        alpha: [0.2, 0.5]
+        strength: [0.2, 0.7]
+        always_apply: False
+        p: 0.5
+    Equalize:
+        mode: 'cv'
+        by_channels: True
+        mask: null
+        mask_params: []
+        always_apply: False
+        p: 0.5
+    FancyPCA:
+        alpha: 0.1
+        always_apply: False
+        p: 0.5
+    GaussNoise:
+        var_limit: [10.0, 50.0]
+        mean: 0
+        per_channel: True
+        always_apply: False
+        p: 0.5
+    HueSaturationValue:
+        hue_shift_limit: 20
+        sat_shift_limit: 30
+        val_shift_limit: 20
+        always_apply: False
+        p: 0.5
+    ISONoise:
+        color_shift: [0.01, 0.05]
+        intensity: [0.1, 0.5]
+        always_apply: False
+        p: 0.5
+    InvertImg:
+        always_apply: False
+        p: 0.5
+    MultiplicativeNoise:
+        multiplier: [0.9, 1.1]
+        per_channel: False
+        elementwise: False
+        always_apply: False
+        p: 0.5
+    Normalize:
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+        max_pixel_value: 255
+        always_apply: False
+        p: 1.0
+    RGBShift:
+        r_shift_limit: 20
+        g_shift_limit: 20
+        b_shift_limit: 20
+        always_apply: False
+        p: 0.5
+    RandomBrightnessContrast:
+        brightness_limit: 0.2
+        contrast_limit: 0.2
+        brightness_by_max: True
+        always_apply: False
+        p: 0.5
+    RandomFog:
+        fog_coef_lower: 0.3
+        fog_coef_upper: 1
+        alpha_coef: 0.08
+        always_apply: False
+        p: 0.5
+    RandomGamma:
+        gamma_limit: [80, 120]
+        eps: null
+        always_apply: False
+        p: 0.5
+    RandomRain:
+        slant_lower: -10
+        slant_upper: 10
+        drop_length: 20
+        drop_width: 1
+        drop_color: [200, 200, 200]
+        blur_value: 7
+        brightness_coefficient: 0.7
+        rain_type: null
+        always_apply: False
+        p: 0.5
+    RandomSnow:
+        snow_point_lower: 0.1
+        snow_point_upper: 0.3
+        brightness_coeff: 2.5
+        always_apply: False
+        p: 0.5
+    RandomShadow:
+        shadow_roi: [0, 0.5, 1, 1]
+        num_shadows_lower: 1
+        num_shadows_upper: 2
+        shadow_dimension: 5
+        always_apply: False
+        p: 0.5
+    RandomSunFlare:
+        flare_roi: [0, 0, 1, 0.5]
+        angle_lower: 0
+        angle_upper: 1
+        num_flare_circles_lower: 6
+        num_flare_circles_upper: 10
+        src_radius: 400
+        src_color: [255, 255, 255]
+        always_apply: False
+        p: 0.5
+    RandomToneCurve:
+        scale: 0.1
+        always_apply: False
+        p: 0.5
+    Sharpen:
+        alpha: [0.2, 0.5]
+        lightness: [0.5, 1.0]
+        always_apply: False
+        p: 0.5
+    Solarize:
+        threshold: 128
+        always_apply: False
+        p: 0.5
+    Superpixels:
+        p_replace: 0.1
+        n_segments: 100
+        max_size: 128
+        interpolation: 1
+        always_apply: False
+        p: 0.5
+    ToSepia:
+        always_apply: False
+        p: 0.5
+    Affine:
+        scale: null
+        translate_percent: null
+        translate_px: null
+        rotate: null
+        shear: null
+        interpolation: 1
+        mask_interpolation: 0
+        cval: 0
+        cval_mask: 0
+        mode: 0
+        fit_output: False
+        always_apply: False
+        p: 0.5
+    CenterCrop:
+        height: 30
+        width: 30
+        always_apply: False
+        p: 0.5
+    CoarseDropout:
+        max_holes: 8
+        max_height: 8
+        max_width: 8
+        min_holes: null
+        min_height: null
+        min_width: null
+        fill_value: 0
+        mask_fill_value: None
+        always_apply: False
+        p: 0.5
+    Crop:
+        x_min: 0
+        y_min: 0
+        x_max: 1024
+        y_max: 1024
+        always_apply: False
+        p: 0.5
+    CropAndPad:
+        px: null
+        percent: [30, 50]
+        pad_mode: 0
+        pad_cval: 0
+        pad_cval_mask: 0
+        keep_size: True
+        sample_independently: True
+        interpolation: 1
+        always_apply: False
+        p: 1.0
+    CropNonEmptyMaskIfExists:
+        height: 30
+        width: 30
+        ignore_values: null
+        ignore_channels: null
+        always_apply: False
+        p: 1.0
+    ElasticTransform:
+        alpha: 1
+        sigma: 50
+        alpha_affine: 50
+        interpolation: 1
+        border_mode: 4
+        value: null
+        mask_value: null
+        always_apply: False
+        approximate: False
+        same_dxdy: False
+        p: 0.5
+    Flip:
+        p: 0.5
+    GridDistortion:
+        num_steps: 5
+        distort_limit: 0.3
+        interpolation: 1
+        border_mode: 4
+        value: null
+        mask_value: null
+        always_apply: False
+        p: 0.5
+    GridDropout:
+        ratio: 0.5
+        unit_size_min: null
+        unit_size_max: null
+        holes_number_x: null
+        holes_number_y: null
+        shift_x: 0
+        shift_y: 0
+        random_offset: False
+        fill_value: 0
+        mask_fill_value: null
+        always_apply: False
+        p: 0.5
+    HorizontalFlip:
+        p: 0.5
+    MaskDropout:
+        max_objects: 1
+        image_fill_value: 0
+        mask_fill_value: 0
+        always_apply: False
+        p: 0.5
+    OpticalDistortion:
+        distort_limit: 0.05
+        shift_limit: 0.05
+        interpolation: 1
+        border_mode: 4
+        value: null
+        mask_value: null
+        always_apply: False
+        p: 0.5
+    Perspective:
+        scale: [0.05, 0.1]
+        keep_size: True
+        pad_mode: 0
+        pad_val: 0
+        mask_pad_val: 0
+        fit_output: False
+        interpolation: 1
+        always_apply: False
+        p: 0.5
+    PiecewiseAffine:
+        scale: [0.03, 0.05]
+        nb_rows: 4
+        nb_cols: 4
+        interpolation: 1
+        mask_interpolation: 0
+        cval: 0
+        cval_mask: 0
+        mode: 'constant'
+        absolute_scale: False
+        always_apply: False
+        keypoints_threshold: 0.01
+        p: 0.5
+    RandomCrop:
+        height: 30
+        width: 30
+        always_apply: False
+        p: 0.5
+    RandomCropNearBBox:
+        max_part_shift: [0.3, 0.3]
+        cropping_box_key: 'cropping_bbox'
+        always_apply: False
+        p: 1.0
+    RandomGridShuffle:
+        grid: [3, 3]
+        always_apply: False
+        p: 0.5
+    RandomResizedCrop:
+        height: 30
+        width: 30
+        scale: [0.08, 1.0]
+        ratio: [0.75, 1.3333333333333333]
+        interpolation: 1
+        always_apply: False
+        p: 1.0
+    RandomRotate90:
+        always_apply: False
+        p: 0.5
+    RandomSizedBBoxSafeCrop:
+        height: 30
+        width: 30
+        erosion_rate: 0.0
+        interpolation: 1
+        always_apply: False
+        p: 1.0
+    Rotate:
+        limit: 90
+        interpolation: 1
+        border_mode: 4
+        value: null
+        mask_value: null
+        always_apply: False
+        p: 0.5
+    SafeRotate:
+        limit: 90
+        interpolation: 1
+        border_mode: 4
+        value: null
+        mask_value: null
+        always_apply: False
+        p: 0.5
+    ShiftScaleRotate:
+        shift_limit: 0.0625
+        scale_limit: 0.1
+        rotate_limit: 45
+        interpolation: 1
+        border_mode: 4
+        value: null
+        mask_value: null
+        shift_limit_x: null
+        shift_limit_y: null
+        always_apply: False
+        p: 0.5
+    Transpose:
+        always_apply: False
+        p: 0.5
+    VerticalFlip:
+        always_apply: False
+        p: 0.5
+    FromFloat:
+        dtype: 'uint16'
+        max_value: 255
+        always_apply: False
+        p: 1.0
+    ToFloat:
+        max_value: 255
+        always_apply: False
+        p: 1.0
+
