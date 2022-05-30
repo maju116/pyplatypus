@@ -115,7 +115,7 @@ def test_split_masks_into_binary(mask, colormap, result):
     ]
 )
 def test_segmentation_generator(path, colormap, mode, batch_size, result):
-    test_sg = segmentation_generator(path, colormap, mode, False, 2, 2, False, None, batch_size, False,
+    test_sg = segmentation_generator(path, colormap, mode, False, 2, 2, 1, 1, False, None, batch_size, False,
                                      ("images", "masks"), ";")
     output = test_sg.__getitem__(0)
     assert np.allclose(output[0], output[0])
