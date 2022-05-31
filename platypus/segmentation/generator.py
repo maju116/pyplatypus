@@ -102,6 +102,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
              only_images (bool): Should generator read only images (e.g. on train set for predictions).
              subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
              column_sep (str): Character. Configuration file separator.
+
+            Returns:
+                Dictionary with images and masks paths.
             """
         if mode in ["nested_dirs", 1]:
             nested_dirs = os.listdir(path)
@@ -127,6 +130,50 @@ class segmentation_generator(tf.keras.utils.Sequence):
         else:
             return {"images_paths": images_paths}
 
+    @staticmethod
+    def __read_image__(
+            path: str,
+            grayscale: bool,
+            target_size: Union[int, Tuple[int, int]]
+    ) -> ndarray:
+        """
+        Loads image as numpy array.
+
+        Args:
+            path (str): Image path.
+            grayscale (bool): Should image be loaded as grayscale.
+            target_size (Union[int, Tuple[int, int]]): Target size for the image to be loaded.
+
+        Returns:
+            Image as numpy array.
+        """
+        return img_to_array(load_img(path, grayscale=grayscale, target_size=target_size))
+
+    @staticmethod
+    def __split_images__(
+            images: List[ndarray],
+            h_splits: int,
+            w_splits: int,
+    ):
+        """
+        Splits list of images/masks onto smaller ones.
+
+        Args:
+            images (List[ndarray]): List of images or masks.
+            h_splits (int): Number of vertical splits of the image.
+            w_splits (int): Number of horizontal splits of the image.
+
+        Returns:
+            List of images or masks.
+        """
+        if h_splits > 1:
+            images = [np.vsplit(se, h_splits) for se in images]
+            images = [item for sublist in images for item in sublist]
+        if w_splits > 1:
+            images = [np.hsplit(se, w_splits) for se in images]
+            images = [item for sublist in images for item in sublist]
+        return images
+
     def read_images_and_masks_from_directory(
             self,
             indices: Optional[List]
@@ -136,6 +183,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
         Args:
          indices (List) Indices of selected images. If `None` all images in `paths` will be selected.
+
+        Returns:
+            List of images and masks.
         """
         selected_images_paths = [self.config["images_paths"][idx] for idx in indices] if indices is not None else \
             self.config["images_paths"]
@@ -144,34 +194,24 @@ class segmentation_generator(tf.keras.utils.Sequence):
                 self.config["masks_paths"]
         if self.h_splits > 1 or self.w_splits > 1:
             selected_images = [
-                img_to_array(load_img(img_path[0], grayscale=self.grayscale,
-                                      target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w)))
+                self.__read_image__(img_path[0], grayscale=self.grayscale,
+                                    target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
                 for img_path in selected_images_paths]
-            if self.h_splits > 1:
-                selected_images = [np.vsplit(se, self.h_splits) for se in selected_images]
-                selected_images = [item for sublist in selected_images for item in sublist]
-            if self.w_splits > 1:
-                selected_images = [np.hsplit(se, self.w_splits) for se in selected_images]
-                selected_images = [item for sublist in selected_images for item in sublist]
+            selected_images = self.__split_images__(selected_images, self.h_splits, self.w_splits)
             if not self.only_images:
                 selected_masks = [
-                    sum([img_to_array(load_img(si, grayscale=False,
-                                               target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w)))
+                    sum([self.__read_image__(si, grayscale=False,
+                                             target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-                if self.h_splits > 1:
-                    selected_masks = [np.vsplit(se, self.h_splits) for se in selected_masks]
-                    selected_masks = [item for sublist in selected_masks for item in sublist]
-                if self.w_splits > 1:
-                    selected_masks = [np.hsplit(se, self.w_splits) for se in selected_masks]
-                    selected_masks = [item for sublist in selected_masks for item in sublist]
+                selected_masks = self.__split_images__(selected_masks, self.h_splits, self.w_splits)
         else:
             selected_images = [
-                img_to_array(load_img(img_path[0], grayscale=self.grayscale, target_size=self.target_size))
+                self.__read_image__(img_path[0], grayscale=self.grayscale, target_size=self.target_size)
                 for img_path in selected_images_paths]
             if not self.only_images:
                 selected_masks = [
-                    sum([img_to_array(load_img(si, grayscale=False, target_size=self.target_size))
+                    sum([self.__read_image__(si, grayscale=False, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         return (selected_images, selected_masks) if self.only_images is not None else selected_images
@@ -194,6 +234,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
         Args:
             index (int): Batch index.
+
+        Returns:
+            Batch of data - images and masks.
         """
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         if not self.only_images:
