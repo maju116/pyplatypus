@@ -79,23 +79,25 @@ def test_split_masks_into_binary(mask, colormap, result):
 
 
 @pytest.mark.parametrize(
-    "path, colormap, mode, batch_size, result",
+    "path, colormap, mode, net_h, net_w, h_splits, w_splits, batch_size, result",
     [
-        ("tests/testdata/nested_dirs", [(0, 0, 0), (111, 111, 111), (222, 222, 222), (255, 255, 255)], "nested_dirs", 3,
+        ("tests/testdata/nested_dirs",
+         [(0, 0, 0), (111, 111, 111), (222, 222, 222), (255, 255, 255)],
+         "nested_dirs", 2, 2, 1, 1, 3,
          (
                  np.stack([
                      np.array([255, 255, 255,
                                0, 0, 0,
                                111, 111, 111,
-                               222, 222, 222]).reshape((2, 2, 3)) * (1 / 255),
+                               222, 222, 222]).reshape((2, 2, 3)),
                      np.array([255, 255, 255,
                                222, 222, 222,
                                111, 111, 111,
-                               0, 0, 0]).reshape((2, 2, 3)) * (1 / 255),
+                               0, 0, 0]).reshape((2, 2, 3)),
                      np.array([222, 222, 222,
                                0, 0, 0,
                                111, 111, 111,
-                               255, 255, 255]).reshape((2, 2, 3)) * (1 / 255)
+                               255, 255, 255]).reshape((2, 2, 3))
                  ], axis=0),
                  np.stack([
                      np.array([0, 0, 0, 1,
@@ -111,12 +113,117 @@ def test_split_masks_into_binary(mask, colormap, result):
                                0, 1, 0, 0,
                                0, 0, 0, 1]).reshape((2, 2, 4))
                  ], axis=0)
+         )),
+        ("tests/testdata/nested_dirs",
+         [(0, 0, 0), (111, 111, 111), (222, 222, 222), (255, 255, 255)],
+         "nested_dirs", 2, 2, 2, 2, 3,
+         (
+                 np.stack([
+                     np.array([255, 255, 255,
+                               191, 191, 191,
+                               219, 219, 219,
+                               178, 178, 178]).reshape((2, 2, 3)),
+                     np.array([63, 63, 63,
+                               0, 0, 0,
+                               96, 96, 96,
+                               55, 55, 55]).reshape((2, 2, 3)),
+                     np.array([147, 147, 147,
+                               151, 151, 151,
+                               111, 111, 111,
+                               138, 138, 138]).reshape((2, 2, 3)),
+                     np.array([161, 161, 161,
+                               166, 166, 166,
+                               194, 194, 194,
+                               222, 222, 222]).reshape((2, 2, 3)),
+                     np.array([255, 255, 255,
+                               246, 246, 246,
+                               219, 219, 219,
+                               205, 205, 205]).reshape((2, 2, 3)),
+                     np.array([230, 230, 230,
+                               222, 222, 222,
+                               179, 179, 179,
+                               166, 166, 166]).reshape((2, 2, 3)),
+                     np.array([147, 147, 147,
+                               124, 124, 124,
+                               111, 111, 111,
+                               83, 83, 83]).reshape((2, 2, 3)),
+                     np.array([78, 78, 78,
+                               55, 55, 55,
+                               27, 27, 27,
+                               0, 0, 0]).reshape((2, 2, 3)),
+                     np.array([222, 222, 222,
+                               166, 166, 166,
+                               194, 194, 194,
+                               161, 161, 161]).reshape((2, 2, 3)),
+                     np.array([55, 55, 55,
+                               0, 0, 0,
+                               96, 96, 96,
+                               63, 63, 63]).reshape((2, 2, 3)),
+                     np.array([138, 138, 138,
+                               151, 151, 151,
+                               111, 111, 111,
+                               147, 147, 147]).reshape((2, 2, 3)),
+                     np.array([178, 178, 178,
+                               191, 191, 191,
+                               219, 219, 219,
+                               255, 255, 255]).reshape((2, 2, 3))
+                 ], axis=0),
+                 np.stack([
+                     np.array([0, 0, 0, 1,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               1, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 1, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 1, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 1,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 1, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 1, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               1, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 1, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               1, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 1, 0, 0,
+                               0, 0, 0, 0]).reshape((2, 2, 4)),
+                     np.array([0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 0,
+                               0, 0, 0, 1]).reshape((2, 2, 4))
+                 ], axis=0)
          ))
     ]
 )
-def test_segmentation_generator(path, colormap, mode, batch_size, result):
-    test_sg = segmentation_generator(path, colormap, mode, False, 2, 2, False, None, batch_size, False,
-                                     ("images", "masks"), ";")
+def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_splits, batch_size, result):
+    test_sg = segmentation_generator(path, colormap, mode, False, net_h, net_w, h_splits, w_splits, False, None,
+                                     batch_size, False, ("images", "masks"), ";")
     output = test_sg.__getitem__(0)
-    assert np.allclose(output[0], output[0])
-    assert (output[1] == output[1]).all()
+    assert np.allclose(output[0], result[0])
+    assert (output[1] == result[1]).all()
