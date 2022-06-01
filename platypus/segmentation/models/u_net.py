@@ -85,20 +85,3 @@ def u_net(
         conv_layers.append(current_input)
     output = Conv2D(n_class, 1, activation="softmax")(conv_layers[2 * blocks])
     return Model(inputs=input_img, outputs=output, name="u_net")
-
-
-voc_labels = ('background', 'aeroplane', 'bicycle', 'bird', 'boat',
-              'bottle', 'bus', 'car', 'cat', 'chair', 'cow',
-              'diningtable', 'dog', 'horse', 'motorbike', 'person',
-              'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor')
-
-voc_colormap = [(0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0),
-                (0, 0, 128), (128, 0, 128), (0, 128, 128), (128, 128, 128),
-                (64, 0, 0), (192, 0, 0), (64, 128, 0), (192, 128, 0),
-                (64, 0, 128), (192, 0, 128), (64, 128, 128), (192, 128, 128),
-                (0, 64, 0), (128, 64, 0), (0, 192, 0), (128, 192, 0),
-                (0, 64, 128)]
-
-binary_colormap = [(0, 0, 0), (255, 255, 255)]
-
-binary_labels = ('background', 'object')

@@ -3,19 +3,7 @@ from typing import List
 from collections.abc import KeysView
 import albumentations as A
 
-available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
-                     'CLAHE', 'ChannelDropout', 'ChannelShuffle', 'ColorJitter', 'Downscale',
-                     'Emboss', 'Equalize', 'FancyPCA', 'GaussNoise', 'HueSaturationValue',
-                     'ISONoise', 'InvertImg', 'MultiplicativeNoise', 'Normalize', 'RGBShift',
-                     'RandomBrightnessContrast', 'RandomFog', 'RandomGamma', 'RandomRain',
-                     'RandomSnow', 'RandomShadow', 'RandomSunFlare', 'RandomToneCurve',
-                     'Sharpen', 'Solarize', 'Superpixels', 'ToSepia', 'Affine', 'CenterCrop',
-                     'CoarseDropout', 'Crop', 'CropAndPad', 'CropNonEmptyMaskIfExists',
-                     'ElasticTransform', 'Flip', 'GridDistortion', 'GridDropout', 'HorizontalFlip',
-                     'MaskDropout', 'OpticalDistortion', 'Perspective', 'PiecewiseAffine', 'RandomCrop',
-                     'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
-                     'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
-                     'VerticalFlip', 'FromFloat', 'ToFloat']
+from platypus.config.augmentation_config import available_methods
 
 
 def filter_out_incorrect_methods(

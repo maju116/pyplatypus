@@ -1,4 +1,4 @@
-from platypus.utils.config import load_config_from_yaml, check_cv_tasks
+from platypus.utils.config_processing_functions import load_config_from_yaml, check_cv_tasks
 from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
 from platypus.segmentation.models.u_net import u_net
