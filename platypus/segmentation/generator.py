@@ -6,6 +6,9 @@ import pandas as pd
 from numpy import ndarray
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import albumentations as A
+import pydicom
+from skimage.transform import resize
+from skimage.color import rgb2gray, gray2rgb
 
 
 def split_masks_into_binary(
@@ -147,7 +150,16 @@ class segmentation_generator(tf.keras.utils.Sequence):
         Returns:
             Image as numpy array.
         """
-        return img_to_array(load_img(path, grayscale=grayscale, target_size=target_size))
+        if path.lower().endswith('.dcm'):
+            pixel_array = pydicom.dcmread(path).pixel_array
+            if pixel_array.shape[2] == 3 and grayscale:
+                pixel_array = rgb2gray(pixel_array)
+            if pixel_array.shape[2] == 1 and not grayscale:
+                pixel_array = gray2rgb(pixel_array)
+            pixel_array = resize(pixel_array, target_size)
+        else:
+            pixel_array = img_to_array(load_img(path, grayscale=grayscale, target_size=target_size))
+        return pixel_array
 
     @staticmethod
     def __split_images__(
