@@ -16,8 +16,8 @@ def dice_coefficient(
     Returns:
         Dice coefficient.
     """
-    intersection = tf.cast(kb.sum(y_pred * y_actual), 'float32')
-    masks_sum = tf.cast(kb.sum(y_pred) + kb.sum(y_actual), 'float32')
+    intersection = tf.cast(kb.sum(y_actual * y_pred), 'float32')
+    masks_sum = tf.cast(kb.sum(y_actual) + kb.sum(y_pred), 'float32')
     return (2 * intersection + kb.epsilon()) / (masks_sum + kb.epsilon())
 
 
@@ -38,3 +38,19 @@ def dice_loss(
     return 1 - dice_coefficient(y_actual, y_pred)
 
 
+def BCE_dice_loss(
+        y_actual: tf.Tensor,
+        y_pred: tf.Tensor
+) -> tf.Tensor:
+    """
+    BCE-Dice loss.
+
+    Args:
+        y_actual (tf.Tensor): True segmentation mask.
+        y_pred (tf.Tensor): Predicted segmentation mask.
+
+    Returns:
+        BCE-Dice loss.
+    """
+    BCE = kb.binary_crossentropy(tf.cast(kb.sum(y_actual), 'float32'), tf.cast(kb.sum(y_pred), 'float32'))
+    return BCE + dice_loss(y_actual, y_pred)
