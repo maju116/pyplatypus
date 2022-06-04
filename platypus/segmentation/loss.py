@@ -33,7 +33,7 @@ class segmentation_loss:
         if self.background_index is not None:
             idx = list(range(y.shape.as_list()[1]))
             idx.remove(self.background_index)
-            return tf.gather(y, idx, axis=1)
+            return tf.gather(y, idx, axis=3)
         else:
             return y
 
