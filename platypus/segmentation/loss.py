@@ -7,14 +7,17 @@ class segmentation_loss:
 
     def __init__(
             self,
+            n_class: int,
             background_index: Optional[int] = None
     ) -> None:
         """
         Set of loss functions and metrics for semantic segmentation.
 
         Args:
+            n_class (int): Number of classes including background.
             background_index (int): Background index.
         """
+        self.n_class = n_class
         self.background_index = background_index
 
     def remove_background(
@@ -31,9 +34,9 @@ class segmentation_loss:
             True/predicted segmentation mask without background.
         """
         if self.background_index is not None:
-            idx = list(range(y.shape.as_list()[3]))
+            idx = list(range(self.n_class))
             idx.remove(self.background_index)
-            return tf.gather(y, idx, axis=3)
+            return tf.gather(y, idx, axis=-1)
         else:
             return y
 
@@ -52,10 +55,10 @@ class segmentation_loss:
         Returns:
             Dice coefficient.
         """
-        y_actual = self.remove_background(y_actual)
-        y_pred = self.remove_background(y_pred)
-        intersection = kb.sum(tf.cast(y_actual, 'float32') * y_pred)
-        masks_sum = kb.sum(tf.cast(y_actual, 'float32')) + kb.sum(y_pred)
+        y_actual_ = self.remove_background(y_actual)
+        y_pred_ = self.remove_background(y_pred)
+        intersection = kb.sum(tf.cast(y_actual_, 'float32') * y_pred_)
+        masks_sum = kb.sum(tf.cast(y_actual_, 'float32')) + kb.sum(y_pred_)
         return (2 * intersection + kb.epsilon()) / (masks_sum + kb.epsilon())
 
     def dice_loss(
@@ -73,8 +76,6 @@ class segmentation_loss:
         Returns:
             Dice loss.
         """
-        y_actual = self.remove_background(y_actual)
-        y_pred = self.remove_background(y_pred)
         return 1 - self.dice_coefficient(y_actual, y_pred)
 
     def BCE_dice_loss(
@@ -92,9 +93,9 @@ class segmentation_loss:
         Returns:
             BCE-Dice loss.
         """
-        y_actual = self.remove_background(y_actual)
-        y_pred = self.remove_background(y_pred)
-        BCE = kb.binary_crossentropy(tf.cast(kb.sum(y_actual), 'float32'), tf.cast(kb.sum(y_pred), 'float32'))
+        y_actual_ = self.remove_background(y_actual)
+        y_pred_ = self.remove_background(y_pred)
+        BCE = kb.binary_crossentropy(tf.cast(kb.sum(y_actual_), 'float32'), tf.cast(kb.sum(y_pred_), 'float32'))
         return BCE + self.dice_loss(y_actual, y_pred)
 
     def IoU_coefficient(
@@ -133,6 +134,4 @@ class segmentation_loss:
         Returns:
             IoU loss.
         """
-        y_actual = self.remove_background(y_actual)
-        y_pred = self.remove_background(y_pred)
         return 1 - self.IoU_coefficient(y_actual, y_pred)

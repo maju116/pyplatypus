@@ -1,6 +1,7 @@
 from platypus.utils.config import load_config_from_yaml, check_cv_tasks
 from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
+from platypus.segmentation.loss import segmentation_loss
 from platypus.segmentation.models.u_net import u_net
 import platypus.detection as det
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -80,9 +81,11 @@ class platypus_engine:
                     kernel_initializer=model_cfg['kernel_initializer']
                 )
                 # Add options for selection!!!
+                sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=0)
                 model.compile(
-                    loss='binary_crossentropy',
-                    optimizer='adam'
+                    loss=sl.dice_loss,
+                    optimizer='adam',
+                    metrics=[sl.dice_coefficient]
                 )
                 model.fit(
                     train_data_generator,
@@ -94,6 +97,8 @@ class platypus_engine:
                         filepath=model_cfg['name'] + '.hdf5',
                         save_best_only=True,
                         monitor='val_loss'
+                    ), EarlyStopping(
+                        monitor='val_dice_coefficient', mode='max', patience=5
                     )]
                 )
         return None
