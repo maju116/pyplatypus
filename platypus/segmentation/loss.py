@@ -31,7 +31,7 @@ class segmentation_loss:
             True/predicted segmentation mask without background.
         """
         if self.background_index is not None:
-            idx = list(range(y.shape.as_list()[1]))
+            idx = list(range(y.shape.as_list()[3]))
             idx.remove(self.background_index)
             return tf.gather(y, idx, axis=3)
         else:
