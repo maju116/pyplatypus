@@ -33,9 +33,11 @@ class platypus_engine:
         cv_tasks_to_perform = check_cv_tasks(self.config)
         if 'augmentation' in self.config.keys():
             if self.config['augmentation'] is not None:
-                augmentation_pipeline = create_augmentation_pipeline(self.config['augmentation'])
+                train_augmentation_pipeline = create_augmentation_pipeline(self.config['augmentation'], True)
+                validation_augmentation_pipeline = create_augmentation_pipeline(self.config['augmentation'], False)
         else:
-            augmentation_pipeline = None
+            train_augmentation_pipeline = None
+            validation_augmentation_pipeline = None
 
         if 'semantic_segmentation' in cv_tasks_to_perform:
             for model_cfg in self.config['semantic_segmentation']['models']:
@@ -49,7 +51,7 @@ class platypus_engine:
                     h_splits=model_cfg['h_splits'],
                     w_splits=model_cfg['w_splits'],
                     grayscale=model_cfg['grayscale'],
-                    augmentation_pipeline=augmentation_pipeline,
+                    augmentation_pipeline=train_augmentation_pipeline,
                     batch_size=model_cfg['batch_size'],
                     shuffle=self.config['semantic_segmentation']['data']['shuffle'],
                     subdirs=self.config['semantic_segmentation']['data']['subdirs'],
@@ -66,7 +68,7 @@ class platypus_engine:
                     h_splits=model_cfg['h_splits'],
                     w_splits=model_cfg['w_splits'],
                     grayscale=model_cfg['grayscale'],
-                    augmentation_pipeline=None,
+                    augmentation_pipeline=validation_augmentation_pipeline,
                     batch_size=model_cfg['batch_size'],
                     shuffle=self.config['semantic_segmentation']['data']['shuffle'],
                     subdirs=self.config['semantic_segmentation']['data']['subdirs'],
@@ -85,11 +87,11 @@ class platypus_engine:
                     kernel_initializer=model_cfg['kernel_initializer']
                 )
                 # Add options for selection!!!
-                sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=0)
+                sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=None)
                 model.compile(
                     loss=sl.CCE_loss,
                     optimizer='adam',
-                    metrics=[sl.dice_coefficient, sl.IoU_coefficient]
+                    metrics=['categorical_crossentropy', sl.dice_coefficient, sl.IoU_coefficient]
                 )
                 model.fit(
                     train_data_generator,
