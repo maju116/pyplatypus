@@ -32,6 +32,32 @@ import tensorflow as tf
              'IoU_coefficient': 0.12676057,
              'IoU_loss': 0.87323943
          }
+         ),
+        (4, 1,
+         tf.constant(np.array([0, 0, 0, 1,
+                               1, 0, 0, 0,
+                               0, 1, 0, 0,
+                               0, 0, 1, 0]).reshape((1, 2, 2, 4))),
+         tf.constant(np.array([0.3, 0.2, 0.4, 0.1,
+                               0.2, 0.3, 0.2, 0.3,
+                               0.6, 0.4, 0, 0,
+                               0.1, 0.1, 0.2, 0.6]).reshape((1, 2, 2, 4)), tf.float32),
+         {
+             'input_1_remove_background': tf.constant(np.array([0, 0, 1,
+                                                                1, 0, 0,
+                                                                0, 0, 0,
+                                                                0, 1, 0]).reshape((1, 2, 2, 3))),
+             'input_2_remove_background': tf.constant(np.array([0.3, 0.4, 0.1,
+                                                                0.2, 0.2, 0.3,
+                                                                0.6, 0, 0,
+                                                                0.1, 0.2, 0.6]).reshape((1, 2, 2, 3)), tf.float32),
+             'dice_coefficient': 0.16666669,
+             'dice_loss': 0.8333333134651184,
+             'CCE_loss': 4.836282,
+             'CCE_dice_loss': 5.669615313465118,
+             'IoU_coefficient': 0.090909116,
+             'IoU_loss': 0.9090908840298653
+         }
          )
     ]
 )
@@ -43,3 +69,5 @@ def test_segmentation_loss(n_class, background_index, input_1, input_2, output):
     assert np.allclose(sl.dice_loss(input_1, input_2).numpy(), output['dice_loss'])
     assert np.allclose(sl.CCE_loss(input_1, input_2).numpy(), output['CCE_loss'])
     assert np.allclose(sl.CCE_dice_loss(input_1, input_2).numpy(), output['CCE_dice_loss'])
+    assert np.allclose(sl.IoU_coefficient(input_1, input_2).numpy(), output['IoU_coefficient'])
+    assert np.allclose(sl.IoU_loss(input_1, input_2).numpy(), output['IoU_loss'])
