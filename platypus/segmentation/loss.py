@@ -129,10 +129,10 @@ class segmentation_loss:
         Returns:
             IoU coefficient.
         """
-        y_actual = self.remove_background(y_actual)
-        y_pred = self.remove_background(y_pred)
-        intersection = tf.cast(kb.sum(y_actual * y_pred), 'float32')
-        union = tf.cast(kb.sum(y_actual) + kb.sum(y_pred), 'float32') - intersection
+        y_actual_ = self.remove_background(y_actual)
+        y_pred_ = self.remove_background(y_pred)
+        intersection = kb.sum(tf.cast(y_actual_, 'float32') * y_pred_)
+        union = kb.sum(tf.cast(y_actual_, 'float32')) + kb.sum(y_pred_) - intersection
         return (intersection + kb.epsilon()) / (union + kb.epsilon())
 
     def IoU_loss(

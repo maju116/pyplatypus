@@ -28,7 +28,9 @@ import tensorflow as tf
              'dice_coefficient': 0.22500015520951436,
              'dice_loss': 0.7749998447904857,
              'CCE_loss': 6.437752,
-             'CCE_dice_loss': 7.2127518447904855
+             'CCE_dice_loss': 7.2127518447904855,
+             'IoU_coefficient': 0.12676057,
+             'IoU_loss': 0.87323943
          }
          )
     ]
