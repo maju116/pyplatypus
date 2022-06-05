@@ -226,7 +226,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
                     sum([self.__read_image__(si, grayscale=False, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-        return (selected_images, selected_masks) if self.only_images is not None else selected_images
+        return (selected_images, selected_masks) if not self.only_images else selected_images
 
     def on_epoch_end(
             self
