@@ -29,6 +29,8 @@ semantic_segmentation:
           type: 'u_net'
           net_h: 256
           net_w: 256
+          h_splits: 0
+          w_splits: 0
           grayscale: False
           blocks: 3
           n_class: 2
