@@ -78,25 +78,41 @@ class segmentation_loss:
         """
         return 1 - self.dice_coefficient(y_actual, y_pred)
 
-    def BCE_dice_loss(
+    def CCE_loss(
             self,
             y_actual: tf.Tensor,
             y_pred: tf.Tensor
     ) -> tf.Tensor:
         """
-        BCE-Dice loss.
+        CCE (categorical cross-entropy) loss.
 
         Args:
             y_actual (tf.Tensor): True segmentation mask.
             y_pred (tf.Tensor): Predicted segmentation mask.
 
         Returns:
-            BCE-Dice loss.
+            CCE (categorical cross-entropy) loss.
         """
         y_actual_ = self.remove_background(y_actual)
         y_pred_ = self.remove_background(y_pred)
-        BCE = kb.binary_crossentropy(tf.cast(kb.sum(y_actual_), 'float32'), tf.cast(kb.sum(y_pred_), 'float32'))
-        return BCE + self.dice_loss(y_actual, y_pred)
+        return kb.sum(kb.categorical_crossentropy(tf.cast(y_actual_, 'float32'), tf.cast(y_pred_, 'float32')))
+
+    def CCE_dice_loss(
+            self,
+            y_actual: tf.Tensor,
+            y_pred: tf.Tensor
+    ) -> tf.Tensor:
+        """
+        CCE-Dice loss.
+
+        Args:
+            y_actual (tf.Tensor): True segmentation mask.
+            y_pred (tf.Tensor): Predicted segmentation mask.
+
+        Returns:
+            CCE-Dice loss.
+        """
+        return self.CCE_loss(y_actual, y_pred) + self.dice_loss(y_actual, y_pred)
 
     def IoU_coefficient(
             self,
