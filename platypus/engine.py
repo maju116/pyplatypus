@@ -87,9 +87,9 @@ class platypus_engine:
                 # Add options for selection!!!
                 sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=0)
                 model.compile(
-                    loss=sl.dice_loss,
+                    loss=sl.CCE_loss,
                     optimizer='adam',
-                    metrics=[sl.dice_coefficient]
+                    metrics=[sl.dice_coefficient, sl.IoU_coefficient]
                 )
                 model.fit(
                     train_data_generator,
@@ -100,7 +100,7 @@ class platypus_engine:
                     callbacks=[ModelCheckpoint(
                         filepath=model_cfg['name'] + '.hdf5',
                         save_best_only=True,
-                        monitor='val_loss'
+                        monitor='val_dice_coefficient'
                     ), EarlyStopping(
                         monitor='val_dice_coefficient', mode='max', patience=5
                     )]
