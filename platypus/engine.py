@@ -89,7 +89,7 @@ class platypus_engine:
                 # Add options for selection!!!
                 sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=None)
                 model.compile(
-                    loss=sl.CCE_loss,
+                    loss=sl.IoU_loss,
                     optimizer='adam',
                     metrics=['categorical_crossentropy', sl.dice_coefficient, sl.IoU_coefficient]
                 )
@@ -102,9 +102,10 @@ class platypus_engine:
                     callbacks=[ModelCheckpoint(
                         filepath=model_cfg['name'] + '.hdf5',
                         save_best_only=True,
-                        monitor='val_dice_coefficient'
+                        monitor='val_IoU_coefficient',
+                        mode='max'
                     ), EarlyStopping(
-                        monitor='val_dice_coefficient', mode='max', patience=5
+                        monitor='val_IoU_coefficient', mode='max', patience=5
                     )]
                 )
         return None

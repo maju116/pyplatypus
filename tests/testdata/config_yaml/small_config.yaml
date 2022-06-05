@@ -17,7 +17,7 @@ semantic_segmentation:
           h_splits: 0
           w_splits: 0
           grayscale: False
-          blocks: 4
+          blocks: 5
           n_class: 2
           filters: 16
           dropout: 0.1
@@ -32,7 +32,7 @@ semantic_segmentation:
           h_splits: 0
           w_splits: 0
           grayscale: False
-          blocks: 3
+          blocks: 5
           n_class: 2
           filters: 16
           dropout: 0.1
