@@ -93,9 +93,7 @@ class segmentation_loss:
         Returns:
             CCE (categorical cross-entropy) loss.
         """
-        y_actual_ = self.remove_background(y_actual)
-        y_pred_ = self.remove_background(y_pred)
-        return kb.sum(kb.categorical_crossentropy(tf.cast(y_actual_, 'float32'), tf.cast(y_pred_, 'float32')))
+        return kb.sum(kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32')))
 
     def CCE_dice_loss(
             self,
