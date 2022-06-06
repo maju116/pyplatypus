@@ -24,7 +24,7 @@ semantic_segmentation:
           batch_normalization: True
           kernel_initializer: 'he_normal'
           batch_size: 32
-          epochs: 20
+          epochs: 100
         - name: 'u_net2'
           type: 'u_net'
           net_h: 256
@@ -39,7 +39,7 @@ semantic_segmentation:
           batch_normalization: True
           kernel_initializer: 'he_normal'
           batch_size: 32
-          epochs: 20
+          epochs: 100
 augmentation:
     ToFloat:
         max_value: 255

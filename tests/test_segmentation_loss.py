@@ -53,8 +53,8 @@ import tensorflow as tf
                                                                 0.1, 0.2, 0.6]).reshape((1, 2, 2, 3)), tf.float32),
              'dice_coefficient': 0.16666669,
              'dice_loss': 0.8333333134651184,
-             'CCE_loss': 4.836282,
-             'CCE_dice_loss': 5.669615313465118,
+             'CCE_loss': 6.437752,
+             'CCE_dice_loss': 7.271085313465118,
              'IoU_coefficient': 0.090909116,
              'IoU_loss': 0.9090908840298653
          }
