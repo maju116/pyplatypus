@@ -12,14 +12,14 @@ semantic_segmentation:
     models:
         - name: 'u_net1'
           type: 'u_net'
-          net_h: 256
+          net_h: 250
           net_w: 256
           h_splits: 0
           w_splits: 0
           grayscale: False
           blocks: 5
           n_class: 2
-          filters: 32
+          filters: 16
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
@@ -34,7 +34,7 @@ semantic_segmentation:
           grayscale: False
           blocks: 4
           n_class: 2
-          filters: 32
+          filters: 16
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'

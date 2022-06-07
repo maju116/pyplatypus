@@ -1,5 +1,6 @@
 from tensorflow.keras.layers import SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, \
-    Concatenate
+    Concatenate, Cropping2D, Resizing
+from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
 from typing import Tuple
@@ -71,6 +72,23 @@ class u_net:
             input = ReLU()(input)
         return input
 
+    @staticmethod
+    def get_crop_shape(target, reference):
+        height_change = target[1] - reference[1]
+        assert (height_change >= 0)
+        if height_change % 2 != 0:
+            ch1, ch2 = int(height_change / 2), int(height_change / 2) + 1
+        else:
+            ch1, ch2 = int(height_change / 2), int(height_change / 2)
+        width_change = target[2] - reference[2]
+        assert (width_change >= 0)
+        if width_change % 2 != 0:
+            cw1, cw2 = int(width_change / 2), int(width_change / 2) + 1
+        else:
+            cw1, cw2 = int(width_change / 2), int(width_change / 2)
+
+        return (ch1, ch2), (cw1, cw2)
+
     def build_model(
             self
     ) -> tf.keras.Model:
@@ -100,13 +118,17 @@ class u_net:
             current_input = Conv2DTranspose(self.filters * 2 ** (self.blocks - block - 1),
                                             kernel_size=(3, 3), strides=2, padding="same")(
                 conv_layers[self.blocks + block])
-            current_input = Concatenate()([current_input, conv_layers[self.blocks - block - 1]])
+            ch, cw = self.get_crop_shape(int_shape(conv_layers[self.blocks - block - 1]), int_shape(current_input))
+            current_input = Concatenate()([current_input,
+                                           Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
+                                           ])
             current_input = Dropout(rate=self.dropout)(current_input)
             conv_tr_layers.append(current_input)
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
                                                      kernel_size=(3, 3))
             conv_layers.append(current_input)
-        output = SeparableConv2D(self.n_class, 1, activation="softmax")(conv_layers[2 * self.blocks])
+        output = SeparableConv2D(self.n_class, 1, activation="softmax", padding="same")(conv_layers[2 * self.blocks])
+        output = Resizing(height=self.net_h, width=self.net_w)(output)
         return Model(inputs=input_img, outputs=output, name="u_net")
 
 
