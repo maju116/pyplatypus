@@ -1,24 +1,28 @@
 from tensorflow.keras.layers import SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, Concatenate
 from tensorflow.keras import Model, Input
-from typing import Tuple, List, Optional
+import tensorflow as tf
+from typing import Tuple
 
 
 def u_net_double_conv2d(
-        input,
+        input: tf.Tensor,
         filters: int,
         kernel_size: Tuple[int, int],
         batch_normalization: bool,
         kernel_initializer: str
-):
+) -> tf.Tensor:
     """
     Creates a double convolutional U-Net block.
 
     Args:
-     input (): Model or layer object.
+     input (tf.Tensor): Model or layer object.
      filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
      kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. Can be a single integer to specify the same value for all spatial dimensions.
      batch_normalization (bool): Should batch normalization be used in the block.
      kernel_initializer (str): Initializer for the kernel weights matrix.
+
+    Returns:
+        Double convolutional bloc of U-Net model.
     """
     for i in range(2):
         input = SeparableConv2D(filters=filters, kernel_size=kernel_size, padding="same", kernel_initializer=kernel_initializer)(
@@ -38,7 +42,8 @@ def u_net(
         filters: int = 16,
         dropout: float = 0.1,
         batch_normalization: bool = True,
-        kernel_initializer: str = "he_normal"):
+        kernel_initializer: str = "he_normal"
+) -> tf.keras.Model:
     """
     Creates a U-Net architecture.
 
@@ -52,6 +57,9 @@ def u_net(
         dropout (float): Dropout rate.
         batch_normalization (bool): Should batch normalization be used in the block.
         kernel_initializer (str): Initializer for the kernel weights matrix.
+
+    Returns:
+        U-Net model.
     """
     # Add checks
     channels = 1 if grayscale else 3
