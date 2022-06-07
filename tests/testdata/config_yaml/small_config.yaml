@@ -12,7 +12,7 @@ semantic_segmentation:
     models:
         - name: 'u_net1'
           type: 'u_net'
-          net_h: 250
+          net_h: 300
           net_w: 256
           h_splits: 0
           w_splits: 0
@@ -27,7 +27,7 @@ semantic_segmentation:
           epochs: 100
         - name: 'u_net2'
           type: 'u_net'
-          net_h: 256
+          net_h: 300
           net_w: 256
           h_splits: 0
           w_splits: 0
