@@ -1,4 +1,4 @@
-from tensorflow.keras.layers import Conv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, Concatenate
+from tensorflow.keras.layers import SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, Concatenate
 from tensorflow.keras import Model, Input
 from typing import Tuple, List, Optional
 
@@ -21,7 +21,7 @@ def u_net_double_conv2d(
      kernel_initializer (str): Initializer for the kernel weights matrix.
     """
     for i in range(2):
-        input = Conv2D(filters=filters, kernel_size=kernel_size, padding="same", kernel_initializer=kernel_initializer)(
+        input = SeparableConv2D(filters=filters, kernel_size=kernel_size, padding="same", kernel_initializer=kernel_initializer)(
             input)
         if batch_normalization:
             input = BatchNormalization()(input)
@@ -83,7 +83,7 @@ def u_net(
                                             batch_normalization=batch_normalization,
                                             kernel_initializer=kernel_initializer)
         conv_layers.append(current_input)
-    output = Conv2D(n_class, 1, activation="softmax")(conv_layers[2 * blocks])
+    output = SeparableConv2D(n_class, 1, activation="softmax")(conv_layers[2 * blocks])
     return Model(inputs=input_img, outputs=output, name="u_net")
 
 

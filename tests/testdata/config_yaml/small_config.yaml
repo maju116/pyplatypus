@@ -19,8 +19,8 @@ semantic_segmentation:
           grayscale: False
           blocks: 5
           n_class: 2
-          filters: 16
-          dropout: 0.1
+          filters: 32
+          dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
           batch_size: 32
@@ -32,10 +32,10 @@ semantic_segmentation:
           h_splits: 0
           w_splits: 0
           grayscale: False
-          blocks: 5
+          blocks: 4
           n_class: 2
-          filters: 16
-          dropout: 0.1
+          filters: 32
+          dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
           batch_size: 32
