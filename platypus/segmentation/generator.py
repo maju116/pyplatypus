@@ -31,7 +31,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
             self,
             path: str,
             colormap: Optional[List[Tuple[int, int, int]]],
-            mode: str = "dir",
+            mode: str = "nested_dirs",
             only_images: bool = False,
             net_h: int = 256,
             net_w: int = 256,
@@ -50,7 +50,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         Args:
         path (str): Images and masks directory.
         colormap (List[Tuple[int, int, int]]): Class color map.
-        mode (str): Character. One of "dir", "nested_dirs", "config_file"
+        mode (str): Character. One of "nested_dirs", "config_file"
         only_images (bool): Should generator read only images (e.g. on train set for predictions).
         net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
         net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
@@ -226,7 +226,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
                     sum([self.__read_image__(si, grayscale=False, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-        return (selected_images, selected_masks) if self.only_images is not None else selected_images
+        return (selected_images, selected_masks) if not self.only_images else selected_images
 
     def on_epoch_end(
             self
