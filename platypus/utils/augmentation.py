@@ -16,7 +16,7 @@ train_available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'M
                            'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
                            'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
                            'VerticalFlip', 'FromFloat', 'ToFloat']
-validation_test_available_methods = ['FromFloat', 'ToFloat']
+validation_test_available_methods = ['FromFloat', 'ToFloat', 'InvertImg']
 
 
 def filter_out_incorrect_methods(
