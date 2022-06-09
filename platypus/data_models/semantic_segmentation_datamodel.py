@@ -1,6 +1,6 @@
 from pydantic import BaseModel, validator
-from pydantic import PositiveInt, conint, conlist, contuple, confloat
-from typing import List, Optional, Union
+from pydantic import PositiveInt, conint, conlist, confloat
+from typing import List, Optional, Union, Tuple
 
 from platypus.config.input_config import implemented_models, implemented_modes
 
@@ -10,8 +10,8 @@ class SemanticSegmentationData(BaseModel):
     validation_path: str
     test_path: str
     colormap: Union[
-        List[conlist(conint(ge=0, le=255), min_items=3, max_items=3)],
-        List[contuple(conint(ge=0, le=255), min_items=3, max_items=3)]
+        List[List[conint(ge=0, le=255)]],
+        List[Tuple[conint(ge=0, le=255)]]
         ]
     mode: str
     shuffle: bool
@@ -35,6 +35,12 @@ class SemanticSegmentationData(BaseModel):
         if v.exists():
             return v
         raise NotADirectoryError("Specified test path does not exist!")
+
+    @validator("colormap")
+    def check_colormanp_length(cls, v: list):
+        if all([len(c) == 3 for c in v]):
+            return v
+        raise ValueError("The colormap must consist of three-element lists or tuples!")
 
     @validator('mode')
     def check_mode_value(cls, v: str):
