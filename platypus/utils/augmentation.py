@@ -55,7 +55,6 @@ def create_augmentation_pipeline(
         Augmentation pipeline
     """
     correct_methods = filter_out_incorrect_methods(augmentation_dict.keys(), train)
-    print(correct_methods)
     augmentation_dict = {your_key: augmentation_dict[your_key] for your_key in correct_methods}
     pipes = [getattr(A, method)(**augmentation_dict[method]) for method in correct_methods]
     pipeline = A.Compose(pipes, p=1.0)
