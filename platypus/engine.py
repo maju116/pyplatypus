@@ -1,6 +1,7 @@
 from platypus.utils.config_processing_functions import check_cv_tasks # TODO move to pydantic as well
 from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
+from platypus.segmentation.loss import segmentation_loss
 from platypus.segmentation.models.u_net import u_net
 import platypus.detection as det
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
@@ -33,9 +34,11 @@ class platypus_engine:
         cv_tasks_to_perform = check_cv_tasks(self.config)
         if 'augmentation' in self.config.keys():
             if self.config['augmentation'] is not None:
-                augmentation_pipeline = create_augmentation_pipeline(self.config['augmentation'])
+                train_augmentation_pipeline = create_augmentation_pipeline(self.config['augmentation'], True)
+                validation_augmentation_pipeline = create_augmentation_pipeline(self.config['augmentation'], False)
         else:
-            augmentation_pipeline = None
+            train_augmentation_pipeline = None
+            validation_augmentation_pipeline = None
 
         if 'semantic_segmentation' in cv_tasks_to_perform:
             for model_cfg in self.config['semantic_segmentation']['models']:
@@ -46,8 +49,10 @@ class platypus_engine:
                     only_images=False,
                     net_h=model_cfg['net_h'],
                     net_w=model_cfg['net_w'],
+                    h_splits=model_cfg['h_splits'],
+                    w_splits=model_cfg['w_splits'],
                     grayscale=model_cfg['grayscale'],
-                    augmentation_pipeline=augmentation_pipeline,
+                    augmentation_pipeline=train_augmentation_pipeline,
                     batch_size=model_cfg['batch_size'],
                     shuffle=self.config['semantic_segmentation']['data']['shuffle'],
                     subdirs=self.config['semantic_segmentation']['data']['subdirs'],
@@ -61,8 +66,10 @@ class platypus_engine:
                     only_images=False,
                     net_h=model_cfg['net_h'],
                     net_w=model_cfg['net_w'],
+                    h_splits=model_cfg['h_splits'],
+                    w_splits=model_cfg['w_splits'],
                     grayscale=model_cfg['grayscale'],
-                    augmentation_pipeline=None,
+                    augmentation_pipeline=validation_augmentation_pipeline,
                     batch_size=model_cfg['batch_size'],
                     shuffle=self.config['semantic_segmentation']['data']['shuffle'],
                     subdirs=self.config['semantic_segmentation']['data']['subdirs'],
@@ -79,11 +86,13 @@ class platypus_engine:
                     dropout=model_cfg['dropout'],
                     batch_normalization=model_cfg['batch_normalization'],
                     kernel_initializer=model_cfg['kernel_initializer']
-                )
+                ).model
                 # Add options for selection!!!
+                sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=None)
                 model.compile(
-                    loss='binary_crossentropy',
-                    optimizer='adam'
+                    loss=sl.IoU_loss,
+                    optimizer='adam',
+                    metrics=['categorical_crossentropy', sl.dice_coefficient, sl.IoU_coefficient]
                 )
                 model.fit(
                     train_data_generator,
@@ -94,7 +103,10 @@ class platypus_engine:
                     callbacks=[ModelCheckpoint(
                         filepath=model_cfg['name'] + '.hdf5',
                         save_best_only=True,
-                        monitor='val_loss'
+                        monitor='val_IoU_coefficient',
+                        mode='max'
+                    ), EarlyStopping(
+                        monitor='val_IoU_coefficient', mode='max', patience=5
                     )]
                 )
         return None

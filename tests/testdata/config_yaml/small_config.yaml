@@ -12,35 +12,49 @@ semantic_segmentation:
     models:
         - name: 'u_net1'
           type: 'u_net'
-          net_h: 256
-          net_w: 256
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
+          grayscale: False
+          blocks: 5
+          n_class: 2
+          filters: 16
+          dropout: 0.2
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          batch_size: 32
+          epochs: 100
+        - name: 'u_net2'
+          type: 'u_net'
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
           grayscale: False
           blocks: 4
           n_class: 2
           filters: 16
-          dropout: 0.1
+          dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
           batch_size: 32
-          epochs: 2
-        - name: 'u_net2'
-          type: 'u_net'
-          net_h: 256
-          net_w: 256
-          grayscale: False
-          blocks: 3
-          n_class: 2
-          filters: 16
-          dropout: 0.1
-          batch_normalization: True
-          kernel_initializer: 'he_normal'
-          batch_size: 32
-          epochs: 2
+          epochs: 100
 augmentation:
-    ToFloat:
-        max_value: 255
+    InvertImg:
+        always_apply: True
+        p: 1
+    Blur:
+        blur_limit: 7
         always_apply: False
-        p: 1.0
+        p: 0.5
+    Flip:
+        always_apply: False
+        p: 0.5
     RandomRotate90:
         always_apply: False
+        p: 0.5
+    ToFloat:
+        max_value: 255
+        always_apply: True
         p: 1.0
