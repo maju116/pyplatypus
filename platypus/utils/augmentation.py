@@ -33,7 +33,11 @@ def filter_out_incorrect_methods(
     Returns:
         List of correct names with augmentation methods.
     """
-    return list(set(methods).intersection(train_available_methods)) if train else list(set(methods).intersection(validation_test_available_methods))
+    if train:
+        available_methods = train_available_methods
+    else:
+        available_methods = validation_test_available_methods
+    return [m for m in methods if m in set(available_methods)]
 
 
 def create_augmentation_pipeline(
@@ -51,6 +55,7 @@ def create_augmentation_pipeline(
         Augmentation pipeline
     """
     correct_methods = filter_out_incorrect_methods(augmentation_dict.keys(), train)
+    print(correct_methods)
     augmentation_dict = {your_key: augmentation_dict[your_key] for your_key in correct_methods}
     pipes = [getattr(A, method)(**augmentation_dict[method]) for method in correct_methods]
     pipeline = A.Compose(pipes, p=1.0)
