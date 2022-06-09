@@ -1,16 +1,17 @@
-from platypus.utils.config_processing_functions import load_config_from_yaml, check_cv_tasks
+from platypus.utils.config_processing_functions import check_cv_tasks # TODO move to pydantic as well
 from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
 from platypus.segmentation.models.u_net import u_net
 import platypus.detection as det
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 
 
 class platypus_engine:
 
     def __init__(
             self,
-            config_yaml_path: str
+            config: PlatypusSolverInput
     ) -> None:
         """
         Performs Computer Vision tasks based on YAML config file.
@@ -18,7 +19,7 @@ class platypus_engine:
         Args:
             config_yaml_path (str): Path to the config YAML file.
         """
-        self.config = load_config_from_yaml(config_path=config_yaml_path)
+        self.config = config
 
     def train(
             self
