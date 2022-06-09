@@ -16,7 +16,7 @@ train_available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'M
                            'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
                            'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
                            'VerticalFlip', 'FromFloat', 'ToFloat']
-validation_test_available_methods = ['FromFloat', 'ToFloat']
+validation_test_available_methods = ['FromFloat', 'ToFloat', 'InvertImg']
 
 
 def filter_out_incorrect_methods(
@@ -33,7 +33,11 @@ def filter_out_incorrect_methods(
     Returns:
         List of correct names with augmentation methods.
     """
-    return list(set(methods).intersection(train_available_methods)) if train else list(set(methods).intersection(validation_test_available_methods))
+    if train:
+        available_methods = train_available_methods
+    else:
+        available_methods = validation_test_available_methods
+    return [m for m in methods if m in set(available_methods)]
 
 
 def create_augmentation_pipeline(
