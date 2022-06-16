@@ -138,7 +138,8 @@ class u_net_plus_plus:
             ch, cw = self.get_crop_shape(int_shape(conv_layers[self.blocks - block - 1]), int_shape(current_input))
             current_input = Concatenate()([current_input,
                                            Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
-                                           ] + [Cropping2D(cropping=(ch, cw))(lr) for lr in locals()["subconv_layers_" + str((self.blocks - block - 1))]]
+                                           ] + [Cropping2D(cropping=(ch, cw))(lr) for lr in
+                                                locals()["subconv_layers_" + str((self.blocks - block - 1))]]
                                           )
             current_input = Dropout(rate=self.dropout)(current_input)
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
