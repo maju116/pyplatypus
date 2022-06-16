@@ -98,13 +98,11 @@ class u_net:
         Returns:
             U-Net model.
         """
-        # Add checks
         channels = 1 if self.grayscale else 3
         input_shape = (self.net_h, self.net_w, channels)
         input_img = Input(shape=input_shape, name='input_img')
         conv_layers = []
         pool_layers = []
-        conv_tr_layers = []
         for block in range(self.blocks):
             current_input = input_img if block == 0 else pool_layers[block - 1]
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** block, kernel_size=(3, 3))
@@ -123,7 +121,6 @@ class u_net:
                                            Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
                                            ])
             current_input = Dropout(rate=self.dropout)(current_input)
-            conv_tr_layers.append(current_input)
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
                                                      kernel_size=(3, 3))
             conv_layers.append(current_input)
