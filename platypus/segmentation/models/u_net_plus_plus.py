@@ -35,7 +35,7 @@ class u_net_plus_plus:
             batch_normalization (bool): Should batch normalization be used in the block.
             kernel_initializer (str): Initializer for the kernel weights matrix.
         """
-        self.type = 'u_net++'
+        self.type = 'u_net_plus_plus'
         self.net_h = net_h
         self.net_w = net_w
         self.grayscale = grayscale
@@ -147,4 +147,4 @@ class u_net_plus_plus:
             conv_layers.append(current_input)
         output = SeparableConv2D(self.n_class, 1, activation="softmax", padding="same")(conv_layers[2 * self.blocks])
         output = Resizing(height=self.net_h, width=self.net_w)(output)
-        return Model(inputs=input_img, outputs=output, name="u_net++")
+        return Model(inputs=input_img, outputs=output, name="u_netplus_plus")
