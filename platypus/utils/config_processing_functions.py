@@ -5,9 +5,7 @@ from platypus.data_models.semantic_segmentation_datamodel import (
     SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
     )
 from platypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from platypus.data_models.augmentation_datamodel import (
-    AugmentationSpecFull, ToFloatSpec, RandomRotate90Spec
-    )  # TODO How to make it more generic?
+from platypus.data_models import augmentation_datamodel as AM 
 
 
 class YamlConfigLoader(object):
@@ -50,9 +48,12 @@ class YamlConfigLoader(object):
 
     @staticmethod
     def create_augmentation_config(config: dict):
-        tofloat_ = ToFloatSpec(**config.get("augmentation").get("ToFloat"))
-        randomrotate_ = RandomRotate90Spec(**config.get("augmentation").get("RandomRotate90"))
-        augmentation_ = AugmentationSpecFull(ToFloat=tofloat_, RandomRotate90=randomrotate_)
+        augmentation_config_ = config.get("augmentation")
+        augmentation_raw = dict()
+        for transform in augmentation_config_.keys():
+            spec = getattr(AM, f"{transform}Spec")(**dict(augmentation_config_.get(transform)))
+            augmentation_raw.update({transform: spec})
+        augmentation_ = AM.AugmentationSpecFull(**augmentation_raw)
         return augmentation_
 
     def load(self):

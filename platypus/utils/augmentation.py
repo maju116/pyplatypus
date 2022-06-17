@@ -7,7 +7,7 @@ from platypus.config.augmentation_config import train_available_methods, validat
 
 
 def filter_out_incorrect_methods(
-        methods: KeysView,
+        augmentation_dict: dict,
         train: bool
 ) -> List[str]:
     """
@@ -24,7 +24,11 @@ def filter_out_incorrect_methods(
         available_methods = train_available_methods
     else:
         available_methods = validation_test_available_methods
-    return [m for m in methods if m in set(available_methods)]
+
+    methods = augmentation_dict.keys()
+    chosen_transformations = [m for m in augmentation_dict.keys() if augmentation_dict.get(m) is not None]
+
+    return [m for m in methods if (m in available_methods) and (m in chosen_transformations)]
 
 
 def create_augmentation_pipeline(
@@ -41,7 +45,7 @@ def create_augmentation_pipeline(
     Returns:
         Augmentation pipeline
     """
-    correct_methods = filter_out_incorrect_methods(augmentation_dict.keys(), train)
+    correct_methods = filter_out_incorrect_methods(augmentation_dict, train)
     augmentation_dict = {your_key: augmentation_dict[your_key] for your_key in correct_methods}
     pipes = [getattr(A, method)(**dict(augmentation_dict[method])) for method in correct_methods]
     pipeline = A.Compose(pipes, p=1.0)

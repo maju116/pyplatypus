@@ -36,7 +36,10 @@ class platypus_engine:
         cv_tasks_to_perform = check_cv_tasks(self.config)  # Move to pydantic...
         if 'augmentation' in self.config.keys():
             if self.config['augmentation'] is not None:
-                train_augmentation_pipeline = create_augmentation_pipeline(dict(self.config['augmentation']), True)
+                train_augmentation_pipeline = create_augmentation_pipeline(
+                    augmentation_dict=dict(self.config['augmentation']),
+                    train=True
+                    )
                 validation_augmentation_pipeline = create_augmentation_pipeline(dict(self.config['augmentation']), False)
         else:
             train_augmentation_pipeline = None
