@@ -18,7 +18,8 @@ class u_net:
             filters: int = 16,
             dropout: float = 0.1,
             batch_normalization: bool = True,
-            kernel_initializer: str = "he_normal"
+            kernel_initializer: str = "he_normal",
+            **kwargs
     ) -> None:
         """
         Creates U-Net model architecture.
