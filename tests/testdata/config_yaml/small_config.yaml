@@ -17,9 +17,9 @@ semantic_segmentation:
           h_splits: 0
           w_splits: 0
           grayscale: False
-          blocks: 5
+          blocks: 2
           n_class: 2
-          filters: 16
+          filters: 8
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
