@@ -1,6 +1,7 @@
 from pydantic import BaseModel, validator
 from pydantic import PositiveInt, conint, conlist, confloat
 from typing import List, Optional, Union, Tuple
+from pathlib import Path
 
 from platypus.config.input_config import implemented_models, implemented_modes
 
@@ -20,19 +21,19 @@ class SemanticSegmentationData(BaseModel):
 
     @validator('train_path')
     def check_if_train_path_exists(cls, v: str):
-        if v.exists():
+        if Path(v).exists():
             return v
         raise NotADirectoryError("Specified train path does not exist!")
 
     @validator('validation_path')
     def check_if_validation_path_exists(cls, v: str):
-        if v.exists():
+        if Path(v).exists():
             return v
         raise NotADirectoryError("Specified validation path does not exist!")
 
     @validator('test_path')
     def check_if_test_path_exists(cls, v: str):
-        if v.exists():
+        if Path(v).exists():
             return v
         raise NotADirectoryError("Specified test path does not exist!")
 
