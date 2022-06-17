@@ -1,5 +1,5 @@
 from tensorflow.keras.layers import SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, \
-    Concatenate, Cropping2D, Resizing
+    Concatenate, Cropping2D, Resizing, Average
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
@@ -147,4 +147,9 @@ class u_net_plus_plus:
             conv_layers.append(current_input)
         output = SeparableConv2D(self.n_class, 1, activation="softmax", padding="same")(conv_layers[2 * self.blocks])
         output = Resizing(height=self.net_h, width=self.net_w)(output)
+        outputs = locals()["subconv_layers_0"].copy()
+        outputs = [SeparableConv2D(self.n_class, 1, activation="softmax", padding="same")(o) for o in outputs]
+        outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
+        outputs.append(output)
+        output = Average()(outputs)
         return Model(inputs=input_img, outputs=output, name="u_netplus_plus")
