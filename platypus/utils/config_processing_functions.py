@@ -43,6 +43,7 @@ class YamlConfigLoader(object):
         semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)
         return semantic_segmentation_
 
+    @staticmethod
     def create_object_detection_config(config: dict):
         # Placeholder for now
         return ObjectDetectionInput()
