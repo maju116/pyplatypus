@@ -2,30 +2,6 @@ from pydantic import BaseModel, PositiveFloat, conlist, confloat
 from typing import Optional
 
 
-class AugmentationSpecFull(BaseModel):
-    ToFloat: ToFloatSpec
-    RandomRotate90: RandomRotate90Spec
-    Blur: BlurSpec
-    GaussianBlur = GaussianBlurSpec
-    MedianBlur = MedianBlurSpec
-    MotionBlur = MotionBlurSpec
-    ErrorAug = ErrorAugSpec
-    CLAHE = CLAHESpec
-    ChannelDropout = ChannelDropoutSpec
-    ChannelShuffle = ChannelShuffleSpec
-    
-
-class ToFloatSpec(BaseModel):
-    max_value: Optional[PositiveFloat] = 255
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = 1.
-
-
-class RandomRotate90Spec(BaseModel):
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
-
-
 class BlurSpec(BaseModel):
     blur_limit: Optional[float] = 7
     always_apply: Optional[bool] = False
@@ -69,14 +45,10 @@ class ChannelDropoutSpec(BaseModel):
     p: Optional[confloat(ge=0, le=1)] = .5
 
 
-class ChannelShuffle(BaseModel):
+class ChannelShuffleSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
 
-
-class ErrorAugSpec(BaseModel):
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
 
 class ColorJitterSpec(BaseModel):
     brightness: Optional[float] = .2
@@ -105,8 +77,8 @@ class EmbossSpec(BaseModel):
 class EqualizeSpec(BaseModel):
     mode: Optional[str] = "cv"
     by_channel: Optional[bool] = True
-    mask: Optional = None  # TODO What type?
-    mask_params: Optional[list] = [] # TODO what type?
+    mask: Optional[float] = None  # TODO What type?
+    mask_params: Optional[list] = []  # TODO what type?
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
 
@@ -240,6 +212,296 @@ class RandomToneCurveSpec(BaseModel):
     p: Optional[confloat(ge=0, le=1)] = .5
 
 
+class SharpenSpec(BaseModel):
+    alpha: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [0.2, 0.5]
+    lightness: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [0.5, 1.0]
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class SolarizeSpec(BaseModel):
+    threshold: Optional[float] = 128
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class SuperpixelsSpec(BaseModel):
+    p_replace: Optional[float] = 0.1
+    n_segments: Optional[float] = 100
+    max_size: Optional[float] = 128
+    interpolation: Optional[float] = 1
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class ToSepiaSpec(BaseModel):
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class AffineSpec(BaseModel):
+    scale: Optional[float] = None
+    translate_percent: Optional[float] = None
+    translate_px: Optional[float] = None
+    rotate: Optional[bool] = None
+    shear: Optional[bool] = None
+    interpolation: Optional[float] = 1
+    mask_interpolation: Optional[float] = 0
+    cval: Optional[float] = 0
+    cval_mask: Optional[float] = 0
+    mode: Optional[float] = 0
+    fit_output: Optional[bool] = False
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class CenterCropSpec(BaseModel):
+    height: Optional[PositiveFloat] = 30
+    width: Optional[PositiveFloat] = 30
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class CoarseDropoutSpec(BaseModel):
+    max_holes: Optional[PositiveFloat] = 8
+    max_height: Optional[PositiveFloat] = 8
+    max_width: Optional[PositiveFloat] = 8
+    max_holes: Optional[PositiveFloat] = None
+    max_height: Optional[PositiveFloat] = None
+    max_width: Optional[PositiveFloat] = None
+    fill_value: Optional[float] = 0
+    mask_fill_value: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class CropSpec(BaseModel):
+    x_min: Optional[PositiveFloat] = 0
+    y_min: Optional[PositiveFloat] = 0
+    x_max: Optional[PositiveFloat] = 1024
+    y_max: Optional[PositiveFloat] = 1024
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class CropAndPadSpec(BaseModel):
+    px: Optional[float] = None
+    percent: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [30, 50]
+    pad_mode: Optional[float] = 0
+    pad_cval: Optional[float] = 1024
+    pad_cval_mask: Optional[float] = 0
+    keep_size: Optional[bool] = True
+    sample_independently: Optional[bool] = True
+    interpolation: Optional[PositiveFloat] = 1
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class CropNonEmptyMaskIfExistsSpec(BaseModel):
+    height: Optional[PositiveFloat] = 30
+    width: Optional[PositiveFloat] = 30
+    ignore_values: Optional[bool] = None
+    ignore_channels: Optional[bool] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class ElasticTransformSpec(BaseModel):
+    alpha: Optional[float] = 1
+    sigma: Optional[float] = 50
+    alpha_affine: Optional[float] = 50
+    interpolation: Optional[float] = 1
+    border_mode: Optional[float] = 4    
+    value: Optional[float] = None
+    mask_value: Optional[float] = None
+    approximate: Optional[bool] = False
+    same_dxdy: Optional[bool] = False
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class FlipSpec(BaseModel):
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class GridDistortionSpec(BaseModel):
+    num_steps: Optional[PositiveFloat] = 5
+    distort_limit: Optional[float] = .3
+    interpolation: Optional[float] = 1
+    border_mode: Optional[float] = 4
+    value: Optional[float] = None
+    mask_value: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class GridDropoutSpec(BaseModel):
+    ratio: Optional[float] = 0.5
+    unit_size_min: Optional[PositiveFloat] = None
+    unit_size_max: Optional[PositiveFloat] = None
+    holes_number_x: Optional[PositiveFloat] = None
+    holes_number_y: Optional[PositiveFloat] = None
+    shift_x: Optional[float] = 0
+    shift_y: Optional[float] = 0
+    random_offset: Optional[bool] = False
+    fill_value: Optional[float] = 0
+    mask_fill_value: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class HorizontalFlipSpec(BaseModel):
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class MaskDropoutSpec(BaseModel):
+    max_objects: Optional[PositiveFloat] = 1
+    image_fill_value: Optional[float] = 0
+    mask_fill_value: Optional[float] = 0
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class OpticalDistortionSpec(BaseModel):
+    distort_limit: Optional[float] = 0.05
+    shift_limit: Optional[float] = 0.05
+    interpolation: Optional[float] = 1
+    border_mode: Optional[float] = 4
+    value: Optional[float] = None
+    mask_value: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class PerspectiveSpec(BaseModel):
+    scale: Optional[conlist(float, min_items=2, max_items=2)] = [0.05, 0.1]
+    keep_size: Optional[bool] = True
+    pad_mode: Optional[float] = 0
+    pad_val: Optional[float] = 0
+    mask_pad_val: Optional[float] = 0
+    fit_output: Optional[bool] = False
+    interpolation: Optional[float] = 1
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class PiecewiseAffineSpec(BaseModel):
+    scale: Optional[conlist(float, min_items=2, max_items=2)] = [0.03, 0.05]
+    nb_rows: Optional[float] = 4
+    nb_cols: Optional[float] = 4
+    interpolation: Optional[float] = 1
+    mask_interpolation: Optional[float] = 0
+    cval: Optional[float] = 0
+    cval_mask: Optional[float] = 0
+    mode: Optional[str] = "constant"
+    absolute_scale: Optional[bool] = False
+    keypoints_threshold: Optional[float] = 0.01
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class RandomCropSpec(BaseModel):
+    height: Optional[PositiveFloat] = 30
+    width: Optional[PositiveFloat] = 30
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class RandomCropNearBBoxSpec(BaseModel):
+    max_part_shift: Optional[conlist(float, min_items=2, max_items=2)] = [0.3, 0.3]
+    cropping_box_key: Optional[str] = "cropping_bbox"
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class RandomGridShuffleSpec(BaseModel):
+    grid: Optional[conlist(float, min_items=2, max_items=2)] = [3, 3]
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = .5
+
+
+class RandomResizedCropSpec(BaseModel):
+    height: Optional[PositiveFloat] = 30
+    width: Optional[PositiveFloat] = 30
+    scale: Optional[conlist(float, min_items=2, max_items=2)] = [0.08, 1.0]
+    ratio: Optional[conlist(float, min_items=2, max_items=2)] = [0.75, 1.3333333333333333]
+    interpolation: Optional[float] = 1
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class RandomRotate90Spec(BaseModel):
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class RandomSizedBBoxSafeCropSpec(BaseModel):
+    height: Optional[PositiveFloat] = 30
+    width: Optional[PositiveFloat] = 30
+    erosion_rate: Optional[float] = 0.0
+    interpolation: Optional[float] = 1
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class RotateSpec(BaseModel):
+    limit: Optional[PositiveFloat] = 90
+    interpolation: Optional[float] = 1
+    border_mode: Optional[float] = 4
+    value: Optional[float] = None
+    mask_value: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 0.5
+
+
+class SafeRotateSpec(BaseModel):
+    limit: Optional[PositiveFloat] = 90
+    interpolation: Optional[float] = 1
+    border_mode: Optional[float] = 4
+    value: Optional[float] = None
+    mask_value: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 0.5
+
+
+class ShiftRotateSpec(BaseModel):
+    shift_limit: Optional[PositiveFloat] = 0.0625
+    scale_limit: Optional[PositiveFloat] = 0.1
+    rotate_limit: Optional[PositiveFloat] = 45
+    interpolation: Optional[float] = 1
+    border_mode: Optional[float] = 4
+    value: Optional[float] = None
+    mask_value: Optional[float] = None
+    shift_limit_x: Optional[float] = None
+    shift_limit_y: Optional[float] = None
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 0.5
+
+
+class TransposeSpec(BaseModel):
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 0.5
+
+
+class VerticalFlipSpec(BaseModel):
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 0.5
+
+
+class FromFloatSpec(BaseModel):
+    dtype: Optional[str] = "uint16"
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
+class ToFloatSpec(BaseModel):
+    max_value: Optional[float] = 255
+    always_apply: Optional[bool] = False
+    p: Optional[confloat(ge=0, le=1)] = 1
+
+
 class AugmentationSpecFull(BaseModel):
     ToFloat: ToFloatSpec
     RandomRotate90: RandomRotate90Spec
@@ -273,246 +535,32 @@ class AugmentationSpecFull(BaseModel):
     RandomToneCurve = RandomToneCurveSpec
     Sharpen = SharpenSpec
     Solarize = SolarizeSpec
-
-class SharpenSpec(BaseModel):
-    alpha: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [0.2, 0.5]
-    lightness: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [0.5, 1.0]
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
-
-
-class SolarizeSpec(BaseModel):
-    threshold: Optional[float] = 128
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
-
-class SuperpixelsSpec(BaseModel):
-    p_replace: Optional[float] = 0.1
-    n_segments: Optional[float] = 100
-    max_size: Optional[float] = 128
-    interpolation: Optional[float] = 1
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
-
-
-class ToSepiaSpec(BaseModel):
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
-
-
-class AffineSpec(BaseModel):
-    scale: Optional[float] = None
-    translate_percent: Optional[float] = None
-    translate_px: Optional[float] = None
-    rotate: Optional[bool] = None
-    shear: Optional[bool] = None
-    interpolation: Optional[float] = 1
-    mask_interpolation: Optional[float] = 0
-    cval: Optional[float] = 0
-    cval_mask: Optional[float] = 0
-    mode: Optional[float] = 0
-    fit_output: Optional[bool] = False
-    always_apply: Optional[bool] = False
-    p: Optional[confloat(ge=0, le=1)] = .5
-
-
-# =====================================
-augmentation:
-
-    CenterCrop:
-        height: 30
-        width: 30
-        always_apply: False
-        p: 0.5
-    CoarseDropout:
-        max_holes: 8
-        max_height: 8
-        max_width: 8
-        min_holes: null
-        min_height: null
-        min_width: null
-        fill_value: 0
-        mask_fill_value: None
-        always_apply: False
-        p: 0.5
-    Crop:
-        x_min: 0
-        y_min: 0
-        x_max: 1024
-        y_max: 1024
-        always_apply: False
-        p: 0.5
-    CropAndPad:
-        px: null
-        percent: [30, 50]
-        pad_mode: 0
-        pad_cval: 0
-        pad_cval_mask: 0
-        keep_size: True
-        sample_independently: True
-        interpolation: 1
-        always_apply: False
-        p: 1.0
-    CropNonEmptyMaskIfExists:
-        height: 30
-        width: 30
-        ignore_values: null
-        ignore_channels: null
-        always_apply: False
-        p: 1.0
-    ElasticTransform:
-        alpha: 1
-        sigma: 50
-        alpha_affine: 50
-        interpolation: 1
-        border_mode: 4
-        value: null
-        mask_value: null
-        always_apply: False
-        approximate: False
-        same_dxdy: False
-        p: 0.5
-    Flip:
-        always_apply: False
-        p: 0.5
-    GridDistortion:
-        num_steps: 5
-        distort_limit: 0.3
-        interpolation: 1
-        border_mode: 4
-        value: null
-        mask_value: null
-        always_apply: False
-        p: 0.5
-    GridDropout:
-        ratio: 0.5
-        unit_size_min: null
-        unit_size_max: null
-        holes_number_x: null
-        holes_number_y: null
-        shift_x: 0
-        shift_y: 0
-        random_offset: False
-        fill_value: 0
-        mask_fill_value: null
-        always_apply: False
-        p: 0.5
-    HorizontalFlip:
-        p: 0.5
-    MaskDropout:
-        max_objects: 1
-        image_fill_value: 0
-        mask_fill_value: 0
-        always_apply: False
-        p: 0.5
-    OpticalDistortion:
-        distort_limit: 0.05
-        shift_limit: 0.05
-        interpolation: 1
-        border_mode: 4
-        value: null
-        mask_value: null
-        always_apply: False
-        p: 0.5
-    Perspective:
-        scale: [0.05, 0.1]
-        keep_size: True
-        pad_mode: 0
-        pad_val: 0
-        mask_pad_val: 0
-        fit_output: False
-        interpolation: 1
-        always_apply: False
-        p: 0.5
-    PiecewiseAffine:
-        scale: [0.03, 0.05]
-        nb_rows: 4
-        nb_cols: 4
-        interpolation: 1
-        mask_interpolation: 0
-        cval: 0
-        cval_mask: 0
-        mode: 'constant'
-        absolute_scale: False
-        always_apply: False
-        keypoints_threshold: 0.01
-        p: 0.5
-    RandomCrop:
-        height: 30
-        width: 30
-        always_apply: False
-        p: 0.5
-    RandomCropNearBBox:
-        max_part_shift: [0.3, 0.3]
-        cropping_box_key: 'cropping_bbox'
-        always_apply: False
-        p: 1.0
-    RandomGridShuffle:
-        grid: [3, 3]
-        always_apply: False
-        p: 0.5
-    RandomResizedCrop:
-        height: 30
-        width: 30
-        scale: [0.08, 1.0]
-        ratio: [0.75, 1.3333333333333333]
-        interpolation: 1
-        always_apply: False
-        p: 1.0
-    RandomRotate90:
-        always_apply: False
-        p: 0.5
-    RandomSizedBBoxSafeCrop:
-        height: 30
-        width: 30
-        erosion_rate: 0.0
-        interpolation: 1
-        always_apply: False
-        p: 1.0
-    Rotate:
-        limit: 90
-        interpolation: 1
-        border_mode: 4
-        value: null
-        mask_value: null
-        always_apply: False
-        p: 0.5
-    SafeRotate:
-        limit: 90
-        interpolation: 1
-        border_mode: 4
-        value: null
-        mask_value: null
-        always_apply: False
-        p: 0.5
-    ShiftScaleRotate:
-        shift_limit: 0.0625
-        scale_limit: 0.1
-        rotate_limit: 45
-        interpolation: 1
-        border_mode: 4
-        value: null
-        mask_value: null
-        shift_limit_x: null
-        shift_limit_y: null
-        always_apply: False
-        p: 0.5
-    Transpose:
-        always_apply: False
-        p: 0.5
-    VerticalFlip:
-        always_apply: False
-        p: 0.5
-    FromFloat:
-        dtype: 'uint16'
-        max_value: 255
-        always_apply: False
-        p: 1.0
-    ToFloat:
-        max_value: 255
-        always_apply: False
-        p: 1.0
-
-
-
-
+    Superpixels = SuperpixelsSpec
+    Affine = AffineSpec
+    CenterCrop = CenterCropSpec
+    CoarseDropout = CoarseDropoutSpec
+    Crop = CropSpec
+    CropAndPad = CropAndPadSpec
+    CropNonEmptyMaskIfExists = CropNonEmptyMaskIfExistsSpec
+    ElasticTransform = ElasticTransformSpec
+    Flip = FlipSpec
+    GridDistortion = GridDistortionSpec
+    GridDropout = GridDropoutSpec
+    HorizontalFlip = HorizontalFlipSpec
+    MaskDropout = MaskDropoutSpec
+    OpticalDistortion = OpticalDistortionSpec
+    Perspective = PerspectiveSpec
+    PiecewiseAffineSpec = PiecewiseAffineSpec
+    RandomCrop = RandomCropSpec
+    RandomCropNearBBox = RandomCropNearBBoxSpec
+    RandomGridShuffle = RandomGridShuffleSpec
+    RandomResizedCrop = RandomResizedCropSpec
+    RandomRotate90 = RandomRotate90Spec
+    RandomSizedBBoxSafeCrop = RandomSizedBBoxSafeCropSpec
+    Rotate = RotateSpec
+    SafeRotate = SafeRotateSpec
+    ShiftRotate = ShiftRotateSpec
+    Transpose = TransposeSpec
+    VerticalFlip = VerticalFlipSpec
+    FromFloat = FromFloatSpec
+    ToFloat = ToFloatSpec
