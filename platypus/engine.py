@@ -85,8 +85,8 @@ class platypus_engine:
                     dropout=model_cfg['dropout'],
                     batch_normalization=model_cfg['batch_normalization'],
                     kernel_initializer=model_cfg['kernel_initializer'],
-                    plus_plus=model_cfg['kernel_initializer']['plus_plus'],
-                    deep_supervision=model_cfg['kernel_initializer']['deep_supervision']
+                    plus_plus=model_cfg['plus_plus'],
+                    deep_supervision=model_cfg['deep_supervision']
                 ).model
                 # Add options for selection!!!
                 sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=None)
