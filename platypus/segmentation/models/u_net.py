@@ -1,5 +1,5 @@
 from tensorflow.keras.layers import SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, \
-    Concatenate, Cropping2D, Resizing
+    Concatenate, Cropping2D, Resizing, Average
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
@@ -18,7 +18,9 @@ class u_net:
             filters: int = 16,
             dropout: float = 0.1,
             batch_normalization: bool = True,
-            kernel_initializer: str = "he_normal"
+            kernel_initializer: str = "he_normal",
+            plus_plus: bool = False,
+            deep_supervision: bool = False
     ) -> None:
         """
         Creates U-Net model architecture.
@@ -33,6 +35,8 @@ class u_net:
             dropout (float): Dropout rate.
             batch_normalization (bool): Should batch normalization be used in the block.
             kernel_initializer (str): Initializer for the kernel weights matrix.
+            plus_plus (bool): Should U-Net++ instead od U-Net architecture be used.
+            deep_supervision (bool): Should deep supervision be used when using U-Net++ architecture.
         """
         self.type = 'u_net'
         self.net_h = net_h
@@ -44,6 +48,8 @@ class u_net:
         self.dropout = dropout
         self.batch_normalization = batch_normalization
         self.kernel_initializer = kernel_initializer
+        self.plus_plus = plus_plus
+        self.deep_supervision = deep_supervision
         self.model = self.build_model()
 
     def u_net_double_conv2d(
@@ -103,6 +109,9 @@ class u_net:
         input_img = Input(shape=input_shape, name='input_img')
         conv_layers = []
         pool_layers = []
+        if self.plus_plus:
+            for block in range(self.blocks):
+                exec("subconv_layers_" + str(block) + "=[]")
         for block in range(self.blocks):
             current_input = input_img if block == 0 else pool_layers[block - 1]
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** block, kernel_size=(3, 3))
@@ -110,6 +119,24 @@ class u_net:
             current_input = MaxPool2D(pool_size=2)(current_input)
             current_input = Dropout(rate=self.dropout)(current_input)
             pool_layers.append(current_input)
+            if self.plus_plus:
+                for subblock in list(reversed(range(block))):
+                    if subblock == block - 1:
+                        down_layer = conv_layers[block]
+                    else:
+                        down_layer = locals()["subconv_layers_" + str(subblock + 1)][-1]
+                    down_layer = Conv2DTranspose(self.filters * 2 ** (self.blocks - block - 1),
+                                                 kernel_size=(3, 3), strides=2, padding="same")(down_layer)
+                    left_layers = locals()["subconv_layers_" + str(subblock)].copy()
+                    left_layers.append(down_layer)
+                    ch = int_shape(conv_layers[subblock])[1]
+                    cw = int_shape(conv_layers[subblock])[2]
+                    left_layers = [Resizing(height=ch, width=cw)(lr) for lr in left_layers]
+                    left_layers.append(conv_layers[subblock])
+                    subblock_layer = Concatenate()(left_layers)
+                    subblock_layer = self.u_net_double_conv2d(subblock_layer, self.filters * 2 ** block,
+                                                              kernel_size=(3, 3))
+                    locals()["subconv_layers_" + str(subblock)].append(subblock_layer)
         current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** self.blocks, kernel_size=(3, 3))
         conv_layers.append(current_input)
         for block in range(self.blocks):
@@ -117,15 +144,28 @@ class u_net:
                                             kernel_size=(3, 3), strides=2, padding="same")(
                 conv_layers[self.blocks + block])
             ch, cw = self.get_crop_shape(int_shape(conv_layers[self.blocks - block - 1]), int_shape(current_input))
-            current_input = Concatenate()([current_input,
-                                           Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
-                                           ])
+            if self.plus_plus:
+                current_input = Concatenate()([current_input,
+                                               Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
+                                               ] + [Cropping2D(cropping=(ch, cw))(lr) for lr in
+                                                    locals()["subconv_layers_" + str((self.blocks - block - 1))]]
+                                              )
+            else:
+                current_input = Concatenate()([current_input,
+                                            Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
+                                            ])
             current_input = Dropout(rate=self.dropout)(current_input)
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
                                                      kernel_size=(3, 3))
             conv_layers.append(current_input)
         output = SeparableConv2D(self.n_class, 1, activation="softmax", padding="same")(conv_layers[2 * self.blocks])
         output = Resizing(height=self.net_h, width=self.net_w)(output)
+        if self.plus_plus and self.deep_supervision:
+            outputs = locals()["subconv_layers_0"].copy()
+            outputs = [SeparableConv2D(self.n_class, 1, activation="softmax", padding="same")(o) for o in outputs]
+            outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
+            outputs.append(output)
+            output = Average()(outputs)
         return Model(inputs=input_img, outputs=output, name="u_net")
 
 
