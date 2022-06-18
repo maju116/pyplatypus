@@ -3,7 +3,6 @@ from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
 from platypus.segmentation.loss import segmentation_loss
 from platypus.segmentation.models.u_net import u_net
-from platypus.segmentation.models.u_net_plus_plus import u_net_plus_plus
 import platypus.detection as det
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -76,7 +75,7 @@ class platypus_engine:
                     column_sep=self.config['semantic_segmentation']['data']['column_sep']
                 )
                 # Ad function for model selection based on type!!!
-                model = u_net_plus_plus(
+                model = u_net(
                     net_h=model_cfg['net_h'],
                     net_w=model_cfg['net_w'],
                     grayscale=model_cfg['grayscale'],
@@ -85,7 +84,9 @@ class platypus_engine:
                     filters=model_cfg['filters'],
                     dropout=model_cfg['dropout'],
                     batch_normalization=model_cfg['batch_normalization'],
-                    kernel_initializer=model_cfg['kernel_initializer']
+                    kernel_initializer=model_cfg['kernel_initializer'],
+                    plus_plus=model_cfg['kernel_initializer']['plus_plus'],
+                    deep_supervision=model_cfg['kernel_initializer']['deep_supervision']
                 ).model
                 # Add options for selection!!!
                 sl = segmentation_loss(n_class=model_cfg['n_class'], background_index=None)
