@@ -112,6 +112,19 @@ class u_net:
                 subconv_layers[block] = []
         return conv_layers, pool_layers, subconv_layers
 
+    def generate_input(
+            self
+    ) -> tf.Tensor:
+        """
+        Generates input for U-Net/U-Net++ model.
+
+        Returns:
+            Input for U-Net/U-Net++ model.
+        """
+        channels = 1 if self.grayscale else 3
+        input_shape = (self.net_h, self.net_w, channels)
+        return Input(shape=input_shape, name='input_img')
+
     def generate_output(
             self,
             output_tensor: tf.Tensor,
@@ -146,9 +159,7 @@ class u_net:
         Returns:
             U-Net/U-Net++ model.
         """
-        channels = 1 if self.grayscale else 3
-        input_shape = (self.net_h, self.net_w, channels)
-        input_img = Input(shape=input_shape, name='input_img')
+        input_img = self.generate_input()
         conv_layers, pool_layers, subconv_layers = self.init_empty_layers_placeholders()
         for block in range(self.blocks):
             current_input = input_img if block == 0 else pool_layers[block - 1]
@@ -186,12 +197,11 @@ class u_net:
                 current_input = Concatenate()([current_input,
                                                Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
                                                ] + [Cropping2D(cropping=(ch, cw))(lr) for lr in
-                                                    subconv_layers[self.blocks - block - 1]]
-                                              )
+                                                    subconv_layers[self.blocks - block - 1]])
             else:
                 current_input = Concatenate()([current_input,
-                                            Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
-                                            ])
+                                               Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
+                                               ])
             current_input = Dropout(rate=self.dropout)(current_input)
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
                                                      kernel_size=(3, 3))
