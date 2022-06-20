@@ -65,6 +65,8 @@ class SemanticSegmentationModelSpec(BaseModel):
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: Optional[PositiveInt] = 32
     epochs: Optional[PositiveInt] = 2
+    plus_plus: Optional[bool] = False
+    deep_supervision: Optional[bool] = False
 
     @validator("type")
     def check_model_type(cls, v: str):

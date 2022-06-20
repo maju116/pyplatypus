@@ -1,4 +1,4 @@
-from platypus.utils.config_processing_functions import check_cv_tasks # TODO move to pydantic as well
+from platypus.utils.config_processing_functions import check_cv_tasks
 from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
 from platypus.segmentation.loss import segmentation_loss
@@ -36,7 +36,7 @@ class platypus_engine:
         the selected tasks e.g. semantic segmentation, which consists of compilation and fitting the model
         using the train and validation data generators created prior to the fitting.
         """
-        cv_tasks_to_perform = check_cv_tasks(self.config)  # Move to pydantic...
+        cv_tasks_to_perform = check_cv_tasks(self.config)
         if 'augmentation' in self.config.keys():
             if self.config['augmentation'] is not None:
                 train_augmentation_pipeline = create_augmentation_pipeline(
