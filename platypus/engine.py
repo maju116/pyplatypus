@@ -16,22 +16,25 @@ class platypus_engine:
             cache: dict
     ) -> None:
         """
-        Performs Computer Vision tasks based on YAML config file.
+        Performs Computer Vision tasks based on the certain data model, defined via the Pydantic parser.
 
         Args:
-            config_yaml_path (str): Path to the config YAML file.
+            config: PlatypusSolverInput
+                Stores the specific task-related configs nested as its attributes e.g. to the models that are to
+                be trained can be accessed as config.semantic_segmentation.models.
+            cache: dict
+                Dictionary that could be used as the handy storage for both outputs and intermediate results.
         """
         self.config = dict(config)
         self.cache = cache
 
     def train(
-            self
+        self
     ) -> None:
         """
-        Trains selected CV models.
-
-        Returns:
-
+        Creates the augmentation pipeline based on the input config. Then the function performs
+        the selected tasks e.g. semantic segmentation, which consists of compilation and fitting the model
+        using the train and validation data generators created prior to the fitting.
         """
         cv_tasks_to_perform = check_cv_tasks(self.config)  # Move to pydantic...
         if 'augmentation' in self.config.keys():
