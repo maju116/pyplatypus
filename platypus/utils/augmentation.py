@@ -3,24 +3,11 @@ from typing import List
 from collections.abc import KeysView
 import albumentations as A
 
-train_available_methods = ['Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
-                           'CLAHE', 'ChannelDropout', 'ChannelShuffle', 'ColorJitter', 'Downscale',
-                           'Emboss', 'Equalize', 'FancyPCA', 'GaussNoise', 'HueSaturationValue',
-                           'ISONoise', 'InvertImg', 'MultiplicativeNoise', 'Normalize', 'RGBShift',
-                           'RandomBrightnessContrast', 'RandomFog', 'RandomGamma', 'RandomRain',
-                           'RandomSnow', 'RandomShadow', 'RandomSunFlare', 'RandomToneCurve',
-                           'Sharpen', 'Solarize', 'Superpixels', 'ToSepia', 'Affine', 'CenterCrop',
-                           'CoarseDropout', 'Crop', 'CropAndPad', 'CropNonEmptyMaskIfExists',
-                           'ElasticTransform', 'Flip', 'GridDistortion', 'GridDropout', 'HorizontalFlip',
-                           'MaskDropout', 'OpticalDistortion', 'Perspective', 'PiecewiseAffine', 'RandomCrop',
-                           'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
-                           'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
-                           'VerticalFlip', 'FromFloat', 'ToFloat']
-validation_test_available_methods = ['FromFloat', 'ToFloat', 'InvertImg']
+from platypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
 
 def filter_out_incorrect_methods(
-        methods: KeysView,
+        augmentation_dict: dict,
         train: bool
 ) -> List[str]:
     """
@@ -37,7 +24,11 @@ def filter_out_incorrect_methods(
         available_methods = train_available_methods
     else:
         available_methods = validation_test_available_methods
-    return [m for m in methods if m in set(available_methods)]
+
+    methods = augmentation_dict.keys()
+    chosen_transformations = [m for m in augmentation_dict.keys() if augmentation_dict.get(m) is not None]
+
+    return [m for m in methods if (m in available_methods) and (m in chosen_transformations)]
 
 
 def create_augmentation_pipeline(
@@ -54,8 +45,8 @@ def create_augmentation_pipeline(
     Returns:
         Augmentation pipeline
     """
-    correct_methods = filter_out_incorrect_methods(augmentation_dict.keys(), train)
+    correct_methods = filter_out_incorrect_methods(augmentation_dict, train)
     augmentation_dict = {your_key: augmentation_dict[your_key] for your_key in correct_methods}
-    pipes = [getattr(A, method)(**augmentation_dict[method]) for method in correct_methods]
+    pipes = [getattr(A, method)(**dict(augmentation_dict[method])) for method in correct_methods]
     pipeline = A.Compose(pipes, p=1.0)
     return pipeline

@@ -20,7 +20,8 @@ class u_net:
             batch_normalization: bool = True,
             kernel_initializer: str = "he_normal",
             plus_plus: bool = False,
-            deep_supervision: bool = False
+            deep_supervision: bool = False,
+            **kwargs
     ) -> None:
         """
         Creates U-Net model architecture.
@@ -62,9 +63,10 @@ class u_net:
         Creates a double convolutional U-Net block.
 
         Args:
-         input (tf.Tensor): Model or layer object.
-         filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
-         kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. Can be a single integer to specify the same value for all spatial dimensions.
+            input (tf.Tensor): Model or layer object.
+            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+            kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
+            Can be a single integer to specify the same value for all spatial dimensions.
 
         Returns:
             Double convolutional bloc of U-Net model.
@@ -208,20 +210,3 @@ class u_net:
             conv_layers.append(current_input)
         output = self.generate_output(conv_layers[2 * self.blocks], subconv_layers)
         return Model(inputs=input_img, outputs=output, name="u_net")
-
-
-voc_labels = ('background', 'aeroplane', 'bicycle', 'bird', 'boat',
-              'bottle', 'bus', 'car', 'cat', 'chair', 'cow',
-              'diningtable', 'dog', 'horse', 'motorbike', 'person',
-              'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor')
-
-voc_colormap = [(0, 0, 0), (128, 0, 0), (0, 128, 0), (128, 128, 0),
-                (0, 0, 128), (128, 0, 128), (0, 128, 128), (128, 128, 128),
-                (64, 0, 0), (192, 0, 0), (64, 128, 0), (192, 128, 0),
-                (64, 0, 128), (192, 0, 128), (64, 128, 128), (192, 128, 128),
-                (0, 64, 0), (128, 64, 0), (0, 192, 0), (128, 192, 0),
-                (0, 64, 128)]
-
-binary_colormap = [(0, 0, 0), (255, 255, 255)]
-
-binary_labels = ('background', 'object')
