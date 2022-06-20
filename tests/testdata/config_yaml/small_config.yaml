@@ -10,22 +10,7 @@ semantic_segmentation:
         subdirs: ["images", "masks"]
         column_sep: ';'
     models:
-        - name: 'u_net1'
-          type: 'u_net'
-          net_h: 300
-          net_w: 300
-          h_splits: 0
-          w_splits: 0
-          grayscale: False
-          blocks: 5
-          n_class: 2
-          filters: 16
-          dropout: 0.2
-          batch_normalization: True
-          kernel_initializer: 'he_normal'
-          batch_size: 32
-          epochs: 100
-        - name: 'u_net2'
+        - name: 'u_net'
           type: 'u_net'
           net_h: 300
           net_w: 300
@@ -38,6 +23,25 @@ semantic_segmentation:
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          plus_plus: False
+          deep_supervision: False
+          batch_size: 32
+          epochs: 100
+        - name: 'u_net_plus_plus'
+          type: 'u_net'
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
+          grayscale: False
+          blocks: 2
+          n_class: 2
+          filters: 16
+          dropout: 0.2
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          plus_plus: True
+          deep_supervision: True
           batch_size: 32
           epochs: 100
 augmentation:
