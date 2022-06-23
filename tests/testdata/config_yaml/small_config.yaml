@@ -23,6 +23,7 @@ semantic_segmentation:
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          linknet: True
           plus_plus: False
           deep_supervision: False
           batch_size: 32
@@ -40,6 +41,7 @@ semantic_segmentation:
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          linknet: False
           plus_plus: True
           deep_supervision: True
           batch_size: 32
