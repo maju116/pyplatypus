@@ -65,6 +65,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: Optional[PositiveInt] = 32
     epochs: Optional[PositiveInt] = 2
+    linknet: Optional[bool] = False
     plus_plus: Optional[bool] = False
     deep_supervision: Optional[bool] = False
 
