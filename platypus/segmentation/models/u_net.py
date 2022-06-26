@@ -1,5 +1,5 @@
 from tensorflow.keras.layers import SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose, \
-    Concatenate, Cropping2D, Resizing, Average
+    Concatenate, Cropping2D, Resizing, Average, Add
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
@@ -19,6 +19,7 @@ class u_net:
             dropout: float = 0.1,
             batch_normalization: bool = True,
             kernel_initializer: str = "he_normal",
+            linknet: bool = False,
             plus_plus: bool = False,
             deep_supervision: bool = False,
             **kwargs
@@ -36,6 +37,7 @@ class u_net:
             dropout (float): Dropout rate.
             batch_normalization (bool): Should batch normalization be used in the block.
             kernel_initializer (str): Initializer for the kernel weights matrix.
+            linknet (bool): Should Linknet connections (Add) instead of U-Net connections (Concatenate) be used.
             plus_plus (bool): Should U-Net++ instead od U-Net architecture be used.
             deep_supervision (bool): Should deep supervision be used when using U-Net++ architecture.
         """
@@ -49,6 +51,7 @@ class u_net:
         self.dropout = dropout
         self.batch_normalization = batch_normalization
         self.kernel_initializer = kernel_initializer
+        self.linknet = linknet
         self.plus_plus = plus_plus
         self.deep_supervision = deep_supervision
         self.model = self.build_model()
@@ -152,6 +155,17 @@ class u_net:
             output = Average()(outputs)
         return output
 
+    def horizontal_connection(
+            self
+    ):
+        """
+        Generates function for horizontal connection.
+
+        Returns:
+            Horizontal connection function.
+        """
+        return Add if self.linknet else Concatenate
+
     def build_model(
             self
     ) -> tf.keras.Model:
@@ -201,9 +215,10 @@ class u_net:
                                                ] + [Cropping2D(cropping=(ch, cw))(lr) for lr in
                                                     subconv_layers[self.blocks - block - 1]])
             else:
-                current_input = Concatenate()([current_input,
-                                               Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
-                                               ])
+                current_input = self.horizontal_connection()()([current_input,
+                                                                Cropping2D(cropping=(ch, cw))(
+                                                                    conv_layers[self.blocks - block - 1]),
+                                                                ])
             current_input = Dropout(rate=self.dropout)(current_input)
             current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
                                                      kernel_size=(3, 3))
