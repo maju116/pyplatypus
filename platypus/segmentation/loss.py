@@ -149,3 +149,94 @@ class segmentation_loss:
             IoU loss.
         """
         return 1 - self.IoU_coefficient(y_actual, y_pred)
+
+    def focal_loss(
+        self,
+        y_actual: tf.Tensor,
+        y_pred: tf.Tensor,
+        gamma: Optional[float] = 2,
+        alpha: Optional[float] = 0.8
+            ):
+        """Calculates the focal loss using the categorical cross-entropy in the background.
+
+        Args:
+            y_actual (tf.Tensor): True segmentation mask.
+            y_pred (tf.Tensor): Predicted segmentation mask.
+            gamma (float): The higher the gamma is the more focues is shifted towards uncertain predictions.
+            alpha (float): Weight parameter.
+
+        Returns:
+            focal_loss.
+        """
+        # TODO Should alpha be kept? To discuss.
+        CEE = self.CCE_loss(y_actual, y_pred)
+        pt = kb.exp(-CEE)
+        return CEE*alpha*(1-pt)**gamma
+
+    def tversky_coefficient(
+        self,
+        y_actual: tf.Tensor,
+        y_pred: tf.Tensor,
+        alpha: Optional[float] = .5,
+        beta: Optional[float] = .5
+            ):
+        y_actual = tf.cast(self.remove_background(y_actual), "float32")
+        y_pred = self.remove_background(y_pred)
+
+        TP = kb.sum((y_actual * y_pred))
+        FP = kb.sum(((1 - y_actual) * y_pred))
+        FN = kb.sum((y_actual * (1 - y_pred)))
+
+        tversky_coefficient = (TP + kb.epsilon()) / (TP + alpha*FP + beta*FN + kb.epsilon())  
+
+        return tversky_coefficient
+
+    def tversky_loss(
+        self,
+        y_actual: tf.Tensor,
+        y_pred: tf.Tensor,
+        alpha: Optional[float] = .5,
+        beta: Optional[float] = .5
+            ):
+        return 1 - self.tversky_coefficient(y_actual, y_pred, alpha, beta)
+
+    def focal_tversky_loss(
+        self,
+        y_actual: tf.Tensor,
+        y_pred: tf.Tensor,
+        gamma: Optional[float] = 2,
+        alpha: Optional[float] = .5,
+        beta: Optional[float] = .5
+            ):
+        tversky_coefficient = self.tversky_coefficient(y_actual, y_pred, alpha, beta)
+        return (1 - tversky_coefficient) ** gamma
+
+    def combo_loss(
+        self,
+        y_actual: tf.Tensor,
+        y_pred: tf.Tensor,
+        alpha: Optional[float] = .5,
+        ce_ratio: Optional[float] = .5
+            ):
+        """Calculates the combo loss, being the combination od dice loss and false-negatives, false-positives penalization.
+    
+        Args:
+            y_actual (tf.Tensor): True segmentation mask.
+            y_pred (tf.Tensor): Predicted segmentation mask.
+            alpha (float): Alpha < 0.5 penalizes FP more, otherwise the FN are penalized drastically.
+            ce_ratio (float): Weighted contribution of modified CE loss compared to the Dice loss.
+
+        Returns:
+            combo_loss."""
+        y_actual = tf.cast(self.remove_background(y_actual), "float32")
+        y_pred = self.remove_background(y_pred)
+
+        dice = self.dice_loss(y_actual, y_pred)
+
+        y_pred = kb.clip(y_pred, kb.epsilon(), 1.0 - kb.epsilon())
+        out = - (alpha * ((y_actual * kb.log(y_pred)) + ((1 - alpha) * (1.0 - y_actual) * kb.log(1.0 - y_pred))))
+
+        weighted_ce = kb.mean(out, axis=-1)
+
+        combo_loss = kb.mean((ce_ratio * weighted_ce) - ((1 - ce_ratio) * dice))  # TODO Check
+        return combo_loss
