@@ -48,7 +48,7 @@ class LovaszSoftmaxLoss(object):
         loss = self.lovasz_softmax(probas, labels)
         return loss
 
-    def lovasz_softmax(self, probas: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:  # TODO Per image, Binary
+    def lovasz_softmax(self, probas: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:  # TODO Binary
         """
         Calculates the Lovasz-Softmax loss for the Multi-class case.
         It is important note that the inputs are expected to be of the same format as used within the
@@ -71,7 +71,51 @@ class LovaszSoftmaxLoss(object):
         loss = self.lovasz_softmax_flat(probas, labels)
         return loss
 
-    def lovasz_softmax_flat(self, probas, labels):
+    def flatten_and_select(self, labels: tf.Tensor, probas: tf.Tensor, index: int) -> tuple:
+        """Selects the image layer associated with the certain class i.e. index and then flattens the
+        selections.
+
+        Parameters
+        ----------
+        probas: tf.Tensor
+            The tensor containing each class' probabilities.
+        labels: tf.Tensor
+            Ground truth label probabilities (binary variates).
+
+        Returns
+        -------
+        (fg, class_prob): Tuple[tf.Tensor, tf.Tensor]
+            Flattened selections.
+        """
+        fg = kb.flatten(tf.cast(labels[:, :, :, index], probas.dtype))
+        class_prob = kb.flatten(probas[:, :, :, index])
+        return fg, class_prob
+
+    def calculate_and_sort_errors(self, fg: tf.Tensor, class_prob: tf.Tensor) -> tuple:
+        """Calculates the absolute errors to then sort them alongside the input flattened tensor.
+
+        Parameters
+        ----------
+        fg: tf.Tensor
+            Flat tensor, representing the ground truth class.
+        class_prob: tf.Tensor
+            Flat tensor representing class' probabilities produced by model
+
+        Returns
+        -------
+        fg_sorted: tf.Tensor
+            Sorted input tensor, permutation is the same as the one used for sorting the absolute errors.
+        errors: tf.Tensor
+            Absolute errors.
+        errors_sorted: tf.Tensor
+            Sorted absolute errors.
+        """
+        errors = tf.abs(fg - class_prob)
+        errors_sorted, perm = tf.nn.top_k(errors, k=tf.shape(errors)[0])
+        fg_sorted = tf.gather(fg, perm)
+        return fg_sorted, errors, errors_sorted
+
+    def lovasz_softmax_flat(self, probas, labels) -> tf.Tensor:
         """
         Calculates the Lovasz-Softmax loss for the Multi-class case.
 
@@ -91,15 +135,12 @@ class LovaszSoftmaxLoss(object):
         losses = []
         class_to_sum = list(range(C))
         for c in class_to_sum:
-            fg = kb.flatten(tf.cast(labels[:, :, :, c], probas.dtype))  # TODO To do images separately, the additional loop or fn_map is needed.
-            class_prob = kb.flatten(probas[:, :, :, c])
+            fg, class_prob = self.flatten_and_select(labels, probas, index=c)
             # Calculate the current class prediction errors, probablity based.
-            errors = tf.abs(fg - class_prob)
-            errors_sorted, perm = tf.nn.top_k(errors, k=tf.shape(errors)[0], name="descending_sort_{}".format(c))
-            fg_sorted = tf.gather(fg, perm)
-            grad = self.lovasz_grad(fg_sorted)  # TODO Equals fg sorted, why???
+            fg_sorted, errors, errors_sorted = self.calculate_and_sort_errors(fg, class_prob)
+            grad = self.lovasz_grad(fg_sorted)
             losses.append(
-                tf.tensordot(errors_sorted, tf.stop_gradient(grad), 1, name="loss_class_{}".format(c))
+                tf.tensordot(errors_sorted, tf.stop_gradient(grad), 1)
                         )
         losses_tensor = tf.stack(losses)
         loss = tf.reduce_mean(losses_tensor)

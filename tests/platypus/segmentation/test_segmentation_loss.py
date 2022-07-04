@@ -116,7 +116,7 @@ class TestSegmentationLoss:
 
         result = self.sl._extract_confusion_matrix(y_actual, y_pred)
         assert result == (tf.constant(.5), tf.constant(.5), tf.constant(1.5))
-    
+
     def test_tversky_coefficient(self, mocker):
         alpha = 1
         beta = 1
