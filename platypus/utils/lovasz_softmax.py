@@ -29,6 +29,25 @@ class LovaszSoftmaxLoss(object):
         jaccard = tf.concat((jaccard[0:1], jaccard[1:] - jaccard[:-1]), 0)
         return jaccard
 
+    def lovasz_softmax_batch(self, probas_labels: tuple) -> tf.Tensor:
+        """
+        Calculates the Lovasz-Softmax loss for the Multi-class case, adapted to accept the tf.map_fn-produced arguments.
+
+        Parameters
+        ----------
+        probas_labels: tuple
+            Tuple containing the class' probabilities tensor and the one with the truth label probabilities.
+
+        Returns
+        -------
+        loss: tf.Tensor
+            Lovasz loss, one-element float tensor.
+        """
+        probas, labels = probas_labels
+        probas, labels = tf.expand_dims(probas, 0), tf.expand_dims(labels, 0)
+        loss = self.lovasz_softmax(probas, labels)
+        return loss
+
     def lovasz_softmax(self, probas: tf.Tensor, labels: tf.Tensor) -> tf.Tensor:  # TODO Per image, Binary
         """
         Calculates the Lovasz-Softmax loss for the Multi-class case.

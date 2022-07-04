@@ -1,6 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras.backend as kb
 from typing import Optional
+from platypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
 
 
 class segmentation_loss:
@@ -156,7 +157,7 @@ class segmentation_loss:
         y_pred: tf.Tensor,
         gamma: Optional[float] = 2,
         alpha: Optional[float] = 0.8
-            ):
+            ) -> tf.Tensor:
         """Calculates the focal loss using the categorical cross-entropy in the background.
 
         Args:
@@ -179,7 +180,7 @@ class segmentation_loss:
         y_pred: tf.Tensor,
         alpha: Optional[float] = .5,
         beta: Optional[float] = .5
-            ):
+            ) -> tf.Tensor:
         y_actual = tf.cast(self.remove_background(y_actual), "float32")
         y_pred = self.remove_background(y_pred)
 
@@ -197,7 +198,7 @@ class segmentation_loss:
         y_pred: tf.Tensor,
         alpha: Optional[float] = .5,
         beta: Optional[float] = .5
-            ):
+            ) -> tf.Tensor:
         return 1 - self.tversky_coefficient(y_actual, y_pred, alpha, beta)
 
     def focal_tversky_loss(
@@ -207,7 +208,7 @@ class segmentation_loss:
         gamma: Optional[float] = 2,
         alpha: Optional[float] = .5,
         beta: Optional[float] = .5
-            ):
+            ) -> tf.Tensor:
         tversky_coefficient = self.tversky_coefficient(y_actual, y_pred, alpha, beta)
         return (1 - tversky_coefficient) ** gamma
 
@@ -217,9 +218,9 @@ class segmentation_loss:
         y_pred: tf.Tensor,
         alpha: Optional[float] = .5,
         ce_ratio: Optional[float] = .5
-            ):
+            ) -> tf.Tensor:
         """Calculates the combo loss, being the combination od dice loss and false-negatives, false-positives penalization.
-    
+
         Args:
             y_actual (tf.Tensor): True segmentation mask.
             y_pred (tf.Tensor): Predicted segmentation mask.
@@ -240,3 +241,21 @@ class segmentation_loss:
 
         combo_loss = kb.mean((ce_ratio * weighted_ce) - ((1 - ce_ratio) * dice))  # TODO Check
         return combo_loss
+
+    def lovasz_loss(self, y_actual: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        """Calculates the Lovasz loss.
+
+        Args:
+            y_actual (tf.Tensor): True segmentation mask.
+            y_pred (tf.Tensor): Predicted segmentation mask.
+
+        Returns:
+            lovasz_loss."""
+        y_actual = tf.cast(self.remove_background(y_actual), tf.float64)
+        y_pred = tf.cast(self.remove_background(y_pred), tf.float64)
+
+        # TODO Think about the efficiency, it is said to yield better results though.
+        # Calculated for each image separately.
+        losses = tf.map_fn(LSL().lovasz_softmax_batch, (y_pred, y_actual), dtype=tf.float64)
+        loss = tf.reduce_mean(losses)
+        return lovasz_loss
