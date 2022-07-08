@@ -28,6 +28,7 @@ semantic_segmentation:
           deep_supervision: False
           use_separable_conv2d: True
           use_spatial_droput2d: True
+          u_net_conv_block_width: 4
           batch_size: 32
           epochs: 100
         - name: 'u_net_plus_plus'

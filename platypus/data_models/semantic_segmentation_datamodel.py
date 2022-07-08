@@ -71,6 +71,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_separable_conv2d: Optional[bool] = True
     use_spatial_dropout2d: Optional[bool] = True
     use_up_sampling2d: Optional[bool] = False
+    u_net_conv_block_width: Optional[int] = 2
 
     @validator("type")
     def check_model_type(cls, v: str):

@@ -71,11 +71,12 @@ class u_net:
             droput_layer = Dropout(rate=self.dropout)
         return droput_layer
 
-    def u_net_double_conv2d(
+    def u_net_multiple_conv2d(
             self,
             input: tf.Tensor,
             filters: int,
-            kernel_size: Tuple[int, int]
+            kernel_size: Tuple[int, int],
+            u_net_conv_block_width: int = 2
     ) -> tf.Tensor:
         """
         Creates a double convolutional U-Net block.
@@ -85,11 +86,12 @@ class u_net:
             filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
             kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
             Can be a single integer to specify the same value for all spatial dimensions.
+            u_net_conv_block_width (int): Controls the amount of convolutional layers in the block.
 
         Returns:
             Double convolutional bloc of U-Net model.
         """
-        for i in range(2):
+        for i in range(u_net_conv_block_width):
             if self.use_separable_conv2d:
                 input = SeparableConv2D(
                     filters=filters, kernel_size=kernel_size, padding="same",
@@ -204,7 +206,7 @@ class u_net:
         conv_layers, pool_layers, subconv_layers = self.init_empty_layers_placeholders()
         for block in range(self.blocks):
             current_input = input_img if block == 0 else pool_layers[block - 1]
-            current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** block, kernel_size=(3, 3))
+            current_input = self.u_net_multiple_conv2d(current_input, self.filters * 2 ** block, kernel_size=(3, 3))
             conv_layers.append(current_input)
             current_input = MaxPool2D(pool_size=2)(current_input)
             current_input = self.dropout_layer()(current_input)
@@ -223,7 +225,7 @@ class u_net:
                     else:
                         down_layer = UpSampling2D((2,2))(down_layer)  # TODO subconv layers empty and without additional convolution less filters
                         # down_layer = Conv2D(
-                        #     self.filters * 2 ** (self.blocks - block - 1), kernel_size=(1, 1), strides=(1,1)
+                        #     self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2), padding="same"
                         # )(down_layer)  # TODO Switch-on to keep the same number of filters?
                     left_layers = subconv_layers[subblock].copy()
                     left_layers.append(down_layer)
@@ -232,10 +234,10 @@ class u_net:
                     left_layers = [Resizing(height=ch, width=cw)(lr) for lr in left_layers]
                     left_layers.append(conv_layers[subblock])
                     subblock_layer = Concatenate()(left_layers)
-                    subblock_layer = self.u_net_double_conv2d(subblock_layer, self.filters * 2 ** block,
+                    subblock_layer = self.u_net_multiple_conv2d(subblock_layer, self.filters * 2 ** block,
                                                               kernel_size=(3, 3))
                     subconv_layers[subblock].append(subblock_layer)
-        current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** self.blocks, kernel_size=(3, 3))
+        current_input = self.u_net_multiple_conv2d(current_input, self.filters * 2 ** self.blocks, kernel_size=(3, 3))
         conv_layers.append(current_input)
         for block in range(self.blocks):
             if not self.use_up_sampling2d:
@@ -257,7 +259,7 @@ class u_net:
                                                                     conv_layers[self.blocks - block - 1]),
                                                                 ])
             current_input = self.dropout_layer()(current_input)
-            current_input = self.u_net_double_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
+            current_input = self.u_net_multiple_conv2d(current_input, self.filters * 2 ** (self.blocks - block - 1),
                                                      kernel_size=(3, 3))
             conv_layers.append(current_input)
         output = self.generate_output(conv_layers[2 * self.blocks], subconv_layers)
