@@ -1,5 +1,5 @@
 from pydantic import BaseModel, PositiveFloat, conlist, confloat
-from typing import Optional
+from typing import Optional, List
 
 
 class BlurSpec(BaseModel):
@@ -77,8 +77,8 @@ class EmbossSpec(BaseModel):
 class EqualizeSpec(BaseModel):
     mode: Optional[str] = "cv"
     by_channel: Optional[bool] = True
-    mask: Optional[float] = None  # TODO What type?
-    mask_params: Optional[list] = []  # TODO what type?
+    mask: Optional[float] = None
+    mask_params: Optional[List[str]] = []
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
 
