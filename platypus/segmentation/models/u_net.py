@@ -221,9 +221,10 @@ class u_net:
                             kernel_size=(3, 3), strides=2, padding="same"
                             )(down_layer)
                     else:
-                        down_layer = UpSampling2D((2,2))(down_layer) # TODO subconv layers empty and without additional convolution less filters
-                    #down_layer = 
-
+                        down_layer = UpSampling2D((2,2))(down_layer)  # TODO subconv layers empty and without additional convolution less filters
+                        # down_layer = Conv2D(
+                        #     self.filters * 2 ** (self.blocks - block - 1), kernel_size=(1, 1), strides=(1,1)
+                        # )(down_layer)  # TODO Switch-on to keep the same number of filters?
                     left_layers = subconv_layers[subblock].copy()
                     left_layers.append(down_layer)
                     ch = int_shape(conv_layers[subblock])[1]
