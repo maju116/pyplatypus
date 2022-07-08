@@ -3,7 +3,7 @@ from pydantic import PositiveInt, conint, conlist, confloat
 from typing import List, Optional, Union, Tuple
 from pathlib import Path
 
-from platypus.config.input_config import implemented_models, implemented_modes
+from platypus.config.input_config import implemented_models, implemented_modes, available_activations
 
 
 class SemanticSegmentationData(BaseModel):
@@ -72,6 +72,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_spatial_dropout2d: Optional[bool] = True
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
+    activation_function_name: Optional[str] = "relu"
 
     @validator("type")
     def check_model_type(cls, v: str):
@@ -79,6 +80,14 @@ class SemanticSegmentationModelSpec(BaseModel):
             return v
         raise NotImplementedError(f"The model type must be one of: {', '.join(implemented_models)}")
 
+    @validator("activation_function_name")
+    def check_activation_type(cls, v: str):
+        if v in available_activations:
+            return v
+        raise ValueError(f"""
+            The selected activation function: {v} is not available in keras! As a note, the activation
+            functions' names should be lowercase, maybe that solves the problem?
+            """)
 
 class SemanticSegmentationInput(BaseModel):
     data: SemanticSegmentationData

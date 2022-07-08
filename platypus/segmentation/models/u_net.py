@@ -1,7 +1,9 @@
 from tensorflow.keras.layers import (
-    SeparableConv2D, BatchNormalization, ReLU, MaxPool2D, Dropout, Conv2DTranspose,
-    Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D, UpSampling2D
+    SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,
+    Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D,
+    UpSampling2D
     )
+from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
@@ -27,6 +29,7 @@ class u_net:
             use_separable_conv2d: bool = True,
             use_spatial_dropout2d: bool = True,
             use_up_sampling2d: bool = False,
+            activation_function_name: str = "ReLU",
             **kwargs
     ) -> None:
         """
@@ -62,6 +65,7 @@ class u_net:
         self.use_separable_conv2d = use_separable_conv2d
         self.use_spatial_droput2d = use_spatial_dropout2d
         self.use_up_sampling2d = use_up_sampling2d
+        self.activation_function_name = activation_function_name
         self.model = self.build_model()
 
     def dropout_layer(self):
@@ -106,8 +110,12 @@ class u_net:
                     )
             if self.batch_normalization:
                 input = BatchNormalization()(input)
-            input = ReLU()(input)
+            input = self.activation_layer()(input)
         return input
+
+    def activation_layer(self):
+        activation_layer = getattr(KRACT, self.activation_function_name)
+        return activation_layer
 
     @staticmethod
     def get_crop_shape(target, reference):
@@ -223,10 +231,10 @@ class u_net:
                             kernel_size=(3, 3), strides=2, padding="same"
                             )(down_layer)
                     else:
-                        down_layer = UpSampling2D((2,2))(down_layer)  # TODO subconv layers empty and without additional convolution less filters
-                        # down_layer = Conv2D(
-                        #     self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2), padding="same"
-                        # )(down_layer)  # TODO Switch-on to keep the same number of filters?
+                        down_layer = UpSampling2D((2, 2))(down_layer)
+                        down_layer = Conv2D(
+                            self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2), padding="same"
+                        )(down_layer)
                     left_layers = subconv_layers[subblock].copy()
                     left_layers.append(down_layer)
                     ch = int_shape(conv_layers[subblock])[1]
@@ -245,7 +253,7 @@ class u_net:
                                                 kernel_size=(3, 3), strides=2, padding="same")(
                     conv_layers[self.blocks + block])
             else:
-                current_input = UpSampling2D((2,2))(conv_layers[self.blocks + block])            
+                current_input = UpSampling2D((2, 2))(conv_layers[self.blocks + block])
 
             ch, cw = self.get_crop_shape(int_shape(conv_layers[self.blocks - block - 1]), int_shape(current_input))
             if self.plus_plus:
