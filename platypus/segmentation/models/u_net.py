@@ -7,7 +7,7 @@ from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
-from typing import Tuple, List, Any, Dict
+from typing import Tuple, Any
 
 
 class u_net:
@@ -48,6 +48,10 @@ class u_net:
             linknet (bool): Should Linknet connections (Add) instead of U-Net connections (Concatenate) be used.
             plus_plus (bool): Should U-Net++ instead od U-Net architecture be used.
             deep_supervision (bool): Should deep supervision be used when using U-Net++ architecture.
+            use_separable_conv2d (bool): Determines if the SeparableConv2D layers should be used, if set to false, the Conv2D is used.
+            use_spatial_droput2d (bool): Indicates whether the spatial or regular droput should be used.
+            use_up_sampling2d (bool): If set to False, the transpozed convolutional layer is used.
+            activation_function_name (str): Allows the user to choose any activation layer available in the tensorflow.keras.activations.
         """
         self.type = 'u_net'
         self.net_h = net_h
@@ -69,11 +73,18 @@ class u_net:
         self.model = self.build_model()
 
     def dropout_layer(self):
+        """Creates the dropout layer of the preferred kind.
+
+        Returns
+        -------
+        dropout_layer: KerasTensor
+            Dropout created by the chosen method.
+        """
         if self.use_spatial_droput2d:
-            droput_layer = SpatialDropout2D(rate=self.dropout)
+            dropout_layer = SpatialDropout2D(rate=self.dropout)
         else:
-            droput_layer = Dropout(rate=self.dropout)
-        return droput_layer
+            dropout_layer = Dropout(rate=self.dropout)
+        return dropout_layer
 
     def u_net_multiple_conv2d(
             self,
@@ -83,7 +94,7 @@ class u_net:
             u_net_conv_block_width: int = 2
     ) -> tf.Tensor:
         """
-        Creates a double convolutional U-Net block.
+        Creates a multiple convolutional U-Net block.
 
         Args:
             input (tf.Tensor): Model or layer object.
@@ -93,7 +104,7 @@ class u_net:
             u_net_conv_block_width (int): Controls the amount of convolutional layers in the block.
 
         Returns:
-            Double convolutional bloc of U-Net model.
+            Multiple convolutional bloc of U-Net model.
         """
         for i in range(u_net_conv_block_width):
             if self.use_separable_conv2d:
@@ -114,11 +125,36 @@ class u_net:
         return input
 
     def activation_layer(self):
+        """Creates the layer applying the specified activation function.
+
+        Returns
+        -------
+        activation_layer: function
+            Layer later used to apply the chosen activation function.
+        """
         activation_layer = getattr(KRACT, self.activation_function_name)
         return activation_layer
 
     @staticmethod
-    def get_crop_shape(target, reference):
+    def get_crop_shape(target: tuple, reference: tuple) -> Tuple[tuple]:
+        """Creates the cropping specifications exemplary used in the Cropping2D layer.
+        Based on the reference shape, it decides how many rows/columns should be dropped from each side
+        of the input frame.
+
+        Parameters
+        ----------
+        target: tuple
+            The shape of frame to be cropped.
+        reference: tuple
+            The desired shape.
+
+        Returns
+        -------
+        ch: tuple
+            Vertical crop specification.
+        cw: tuple
+            Horizontal crop specification.
+        """
         height_change = target[1] - reference[1]
         assert (height_change >= 0)
         if height_change % 2 != 0:
@@ -131,8 +167,8 @@ class u_net:
             cw1, cw2 = int(width_change / 2), int(width_change / 2) + 1
         else:
             cw1, cw2 = int(width_change / 2), int(width_change / 2)
-
-        return (ch1, ch2), (cw1, cw2)
+        ch, cw = (ch1, ch2), (cw1, cw2)
+        return ch, cw
 
     def init_empty_layers_placeholders(
             self
