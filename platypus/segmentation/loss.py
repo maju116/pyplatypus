@@ -79,7 +79,7 @@ class segmentation_loss:
         """
         return 1 - self.dice_coefficient(y_actual, y_pred)
 
-    def CCE_loss(
+    def cce_loss(
             self,
             y_actual: tf.Tensor,
             y_pred: tf.Tensor
@@ -96,7 +96,7 @@ class segmentation_loss:
         """
         return kb.sum(kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32')))
 
-    def CCE_dice_loss(
+    def cce_dice_loss(
             self,
             y_actual: tf.Tensor,
             y_pred: tf.Tensor
@@ -111,9 +111,9 @@ class segmentation_loss:
         Returns:
             CCE-Dice loss.
         """
-        return self.CCE_loss(y_actual, y_pred) + self.dice_loss(y_actual, y_pred)
+        return self.cce_loss(y_actual, y_pred) + self.dice_loss(y_actual, y_pred)
 
-    def IoU_coefficient(
+    def iou_coefficient(
             self,
             y_actual: tf.Tensor,
             y_pred: tf.Tensor
@@ -134,7 +134,7 @@ class segmentation_loss:
         union = kb.sum(tf.cast(y_actual_, 'float32')) + kb.sum(y_pred_) - intersection
         return (intersection + kb.epsilon()) / (union + kb.epsilon())
 
-    def IoU_loss(
+    def iou_loss(
             self,
             y_actual: tf.Tensor,
             y_pred: tf.Tensor
@@ -149,7 +149,7 @@ class segmentation_loss:
         Returns:
             IoU loss.
         """
-        return 1 - self.IoU_coefficient(y_actual, y_pred)
+        return 1 - self.iou_coefficient(y_actual, y_pred)
 
     def focal_loss(
         self,
@@ -170,7 +170,7 @@ class segmentation_loss:
             focal_loss.
         """
         # TODO Should alpha be kept? To discuss.
-        CEE = self.CCE_loss(y_actual, y_pred)
+        CEE = self.cce_loss(y_actual, y_pred)
         pt = kb.exp(-CEE)
         return CEE*alpha*(1-pt)**gamma
 
