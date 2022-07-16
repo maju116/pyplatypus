@@ -67,10 +67,10 @@ def test_segmentation_loss(n_class, background_index, input_1, input_2, output):
     assert (sl.remove_background(input_2) == output['input_2_remove_background']).numpy().all()
     assert np.allclose(sl.dice_coefficient(input_1, input_2).numpy(), output['dice_coefficient'])
     assert np.allclose(sl.dice_loss(input_1, input_2).numpy(), output['dice_loss'])
-    assert np.allclose(sl.CCE_loss(input_1, input_2).numpy(), output['CCE_loss'])
-    assert np.allclose(sl.CCE_dice_loss(input_1, input_2).numpy(), output['CCE_dice_loss'])
-    assert np.allclose(sl.IoU_coefficient(input_1, input_2).numpy(), output['IoU_coefficient'])
-    assert np.allclose(sl.IoU_loss(input_1, input_2).numpy(), output['IoU_loss'])
+    assert np.allclose(sl.cce_loss(input_1, input_2).numpy(), output['CCE_loss'])
+    assert np.allclose(sl.cce_dice_loss(input_1, input_2).numpy(), output['CCE_dice_loss'])
+    assert np.allclose(sl.iou_coefficient(input_1, input_2).numpy(), output['IoU_coefficient'])
+    assert np.allclose(sl.iou_loss(input_1, input_2).numpy(), output['IoU_loss'])
 
 
 class TestSegmentationLoss:
@@ -97,7 +97,7 @@ class TestSegmentationLoss:
         gamma = 1
         alpha = 1
         CEE = 1
-        mocker.patch(self.losses_path + ".CCE_loss", return_value=tf.constant([CEE], dtype=tf.float32))
+        mocker.patch(self.losses_path + ".cce_loss", return_value=tf.constant([CEE], dtype=tf.float32))
         result = self.sl.focal_loss(self.y_actual, self.y_pred, gamma=gamma, alpha=alpha)
         assert result == alpha*(1-np.exp(-CEE))**gamma
 
