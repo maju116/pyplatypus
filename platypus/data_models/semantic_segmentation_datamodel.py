@@ -5,7 +5,8 @@ from pathlib import Path
 
 from platypus.utils.toolbox import convert_to_snake_case
 from platypus.config.input_config import (
-    implemented_models, implemented_modes, implemented_losses, implemented_metrics, implemented_optimizers
+    implemented_models, implemented_modes, implemented_losses, implemented_metrics,
+    implemented_optimizers, available_activations
     )
 
 
@@ -93,12 +94,26 @@ class SemanticSegmentationModelSpec(BaseModel):
     linknet: Optional[bool] = False
     plus_plus: Optional[bool] = False
     deep_supervision: Optional[bool] = False
+    use_separable_conv2d: Optional[bool] = True
+    use_spatial_dropout2d: Optional[bool] = True
+    use_up_sampling2d: Optional[bool] = False
+    u_net_conv_block_width: Optional[int] = 2
+    activation_function_name: Optional[str] = "relu"
 
     @validator("type")
     def check_model_type(cls, v: str):
         if v in implemented_models:
             return v
         raise NotImplementedError(f"The model type must be one of: {', '.join(implemented_models)}")
+
+    @validator("activation_function_name")
+    def check_activation_type(cls, v: str):
+        if v in available_activations:
+            return v
+        raise ValueError(f"""
+            The selected activation function: {v} is not available in keras! As a note, the activation
+            functions' names should be lowercase, maybe that solves the problem?
+            """)
 
 
 class SemanticSegmentationInput(BaseModel):
