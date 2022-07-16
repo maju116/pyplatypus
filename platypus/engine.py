@@ -84,11 +84,11 @@ class platypus_engine:
                     subdirs=spec.data.subdirs,
                     column_sep=spec.data.column_sep
                 )
-                # Ad function for model selection based on type!!!
+                # TODO Ad function for model selection based on type!!!
                 model = u_net(
                     **dict(model_cfg)
                 ).model
-                # Add options for selection!!!
+                # TODO Add options for selection!!!
                 sl = segmentation_loss(n_class=model_cfg.n_class, background_index=None)
                 model.compile(
                     loss=sl.IoU_loss,
