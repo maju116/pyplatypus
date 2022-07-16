@@ -10,7 +10,9 @@ semantic_segmentation:
         subdirs: ["images", "masks"]
         column_sep: ';'
         loss: 'focal loss'
-        metrics: ['tversky coefficient', 'dice coefficient']
+        metrics: ['tversky coefficient', 'iou coefficient']
+        optimizer: 'adam'
+
     models:
         - name: 'u_net'
           type: 'u_net'

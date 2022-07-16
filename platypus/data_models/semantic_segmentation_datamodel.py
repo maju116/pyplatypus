@@ -4,7 +4,9 @@ from typing import List, Optional, Union, Tuple
 from pathlib import Path
 
 from platypus.utils.toolbox import convert_to_snake_case
-from platypus.config.input_config import implemented_models, implemented_modes, implemented_losses, implemented_metrics
+from platypus.config.input_config import (
+    implemented_models, implemented_modes, implemented_losses, implemented_metrics, implemented_optimizers
+    )
 
 
 class SemanticSegmentationData(BaseModel):
@@ -20,7 +22,8 @@ class SemanticSegmentationData(BaseModel):
     subdirs: conlist(str, min_items=2, max_items=2)
     column_sep: str
     loss: Optional[str] = "Iou loss"
-    metrics: Optional[List[str]] = []
+    metrics: Optional[List[str]] = ["IoU Coefficient"]
+    optimizer: Optional[str] = "adam"
 
     @validator('train_path')
     def check_if_train_path_exists(cls, v: str):
@@ -64,6 +67,13 @@ class SemanticSegmentationData(BaseModel):
         if set(v_converted).issubset(set(implemented_metrics)):
             return v
         raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
+
+    @validator("optimizer")
+    def check_the_opimizer(cls, v: str):
+        v_converted = v.lower()
+        if v_converted in implemented_optimizers:
+            return v
+        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str

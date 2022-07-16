@@ -64,7 +64,7 @@ class platypus_engine:
 
     def prepare_metrics(
         self, metrics: list, n_class: int, background_index: Optional[int] = None
-        ):
+            ):
         """
         Returns the metrics as the functions.
 
@@ -82,12 +82,13 @@ class platypus_engine:
         metrics_to_apply: list
             List of functions serving as the trainining/validation sets evaluators.
         """
-        metrics_to_apply = ['categorical_crossentropy', "iou_coefficient"]
+        metrics_to_apply = ["categorical_crossentropy"]
         for metric in metrics:
             metric_function = self.prepare_loss_function(
                 loss=metric, n_class=n_class, background_index=background_index
                 )
             metrics_to_apply.append(metric_function)
+        metrics_to_apply = list(set(metrics_to_apply))
         return metrics_to_apply
 
     @staticmethod
@@ -148,10 +149,11 @@ class platypus_engine:
         pipelines = (train_augmentation_pipeline, validation_augmentation_pipeline)
         return pipelines
 
+    @staticmethod
     def prepare_data_generators(
         data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
         train_augmentation_pipeline: Compose, validation_augmentation_pipeline: Compose
-            ):
+            ) -> tuple:
         generators = []
         for path, pipeline in zip(
             [data.train_path, data.validation_path], [train_augmentation_pipeline, validation_augmentation_pipeline]
@@ -173,7 +175,7 @@ class platypus_engine:
                 column_sep=data.column_sep
             )
             generators.append(generator_)
-        generators = tuple(generators)    
+        generators = tuple(generators)
         return generators
 
     def train(self) -> None:
@@ -183,33 +185,23 @@ class platypus_engine:
         using the train and validation data generators created prior to the fitting.
         """
         cv_tasks_to_perform = check_cv_tasks(self.config)
-        train_augmentation_pipeline, validation_augmentation_pipeline = self.prepare_augmentation_pipelines(
-            config=self.config
-            )
+        train_augmentation_pipeline, validation_augmentation_pipeline = self.prepare_augmentation_pipelines(config=self.config)
         if 'semantic_segmentation' in cv_tasks_to_perform:
-            # TODO Add validation only if selected!!!
-            # If validation path is present, perform validation. Else if validation split is set (some %) split the training set
-            # then add validation_split to the fit() method inside the generator, no validation generator in this case.
-            # If there is no path nor split do not run the validation at all.
-            # TODO Testing set and statistics, to ponder!
-            # TODO Move generators to the separate function, generating the tuple of generators.
             spec = self.config['semantic_segmentation']
             for model_cfg in self.config['semantic_segmentation'].models:
-                train_data_generator, validation_data_generator = self.prepare_data_generators()
-                # TODO Ad function for model selection based on type!!!
-                # TODO Rename it to make it sound more universal.
-                # Add the argument (bool) res_u_net and get rid off the type field from the config.
-                # TODO Make Linket plus plus work or prevent the user from setting it on the pydantic level.
+                train_data_generator, validation_data_generator = self.prepare_data_generators(
+                    data=spec.data, model_cfg=model_cfg, train_augmentation_pipeline=train_augmentation_pipeline,
+                    validation_augmentation_pipeline=validation_augmentation_pipeline
+                    )
                 model = u_net(
                     **dict(model_cfg)
                 ).model
                 training_loss, metrics = self.prepare_loss_and_metrics(
                     loss=spec.data.loss, metrics=spec.data.metrics, n_class=model_cfg.n_class
                     )
-                # TODO Allow the optimizer to be chosen freely.
                 model.compile(
                     loss=training_loss,
-                    optimizer='adam',
+                    optimizer=spec.data.optimizer.lower(),
                     metrics=metrics
                 )
                 model.fit(
@@ -221,10 +213,10 @@ class platypus_engine:
                     callbacks=[ModelCheckpoint(
                         filepath=model_cfg.name + '.hdf5',
                         save_best_only=True,
-                        monitor='val_IoU_coefficient', # TODO Add the monitor function and check if it is one of the metrics
-                        mode='max'
+                        monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
+                        mode='max'  # TODO Is monitor supposed to be the str or our function?
                     ), EarlyStopping(
-                        monitor='val_IoU_coefficient', mode='max', patience=5
+                        monitor='categorical_crossentropy', mode='max', patience=5
                     )]
                 )
         return None
