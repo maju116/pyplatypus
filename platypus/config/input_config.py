@@ -1,4 +1,4 @@
-implemented_models = ["u_net"]
+implemented_models = ["u_net", "res_u_net"]
 implemented_modes = ["nested_dirs", "config_file"]
 implemented_losses = [
     "iou_loss", "focal_loss", "dice_loss", "cce_loss", "cce_dice_loss",
@@ -8,3 +8,4 @@ implemented_metrics = ["iou_coefficient", "tversky_coefficient", "dice_coefficie
 implemented_optimizers = [
     "adam", "adadelta", "adagrad", "adamax", "ftrl", "nadam", "rmsprop", "sgd"
     ]
+available_activations = ["relu", "sigmoid", "softmax", "softplus", "softsign", "tanh", "selu", "elu", "exponential"]
