@@ -89,6 +89,7 @@ class SemanticSegmentationModelSpec(BaseModel):
             functions' names should be lowercase, maybe that solves the problem?
             """)
 
+
 class SemanticSegmentationInput(BaseModel):
     data: SemanticSegmentationData
     models: List[SemanticSegmentationModelSpec]

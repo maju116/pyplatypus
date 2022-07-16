@@ -10,8 +10,8 @@ semantic_segmentation:
         subdirs: ["images", "masks"]
         column_sep: ';'
     models:
-        - name: 'u_net'
-          type: 'u_net'
+        - name: 'res_u_net'
+          type: 'res_u_net'
           net_h: 300
           net_w: 300
           h_splits: 0
@@ -28,8 +28,9 @@ semantic_segmentation:
           deep_supervision: False
           use_separable_conv2d: True
           use_spatial_droput2d: True
+          use_up_sampling2d: False
           u_net_conv_block_width: 4
-          activation_layer: "softplus"
+          activation_layer: "relu"
           batch_size: 32
           epochs: 100
         - name: 'u_net_plus_plus'
