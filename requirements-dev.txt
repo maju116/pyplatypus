@@ -1,6 +1,7 @@
 pytest==7.0.0
 coverage==6.4
 pydantic==1.9.1
+flake8==4.0.1
 pytest-mock==3.8.2
 
 # # Maybe to trimm down?
