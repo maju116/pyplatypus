@@ -1,6 +1,7 @@
 pytest==6.2.4
 coverage==6.4
 pydantic==1.9.1
+flake8==4.0.1
 
 # # Maybe to trimm down?
 # astor==0.8.1

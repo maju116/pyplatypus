@@ -2,8 +2,7 @@ from platypus.utils.config_processing_functions import check_cv_tasks
 from platypus.utils.augmentation import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
 from platypus.segmentation.loss import segmentation_loss
-from platypus.segmentation.models.u_net import u_net
-import platypus.detection as det
+from platypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 
@@ -85,7 +84,7 @@ class platypus_engine:
                     column_sep=spec.data.column_sep
                 )
                 # TODO Ad function for model selection based on type!!!
-                model = u_net(
+                model = u_shaped_model(
                     **dict(model_cfg)
                 ).model
                 # TODO Add options for selection!!!

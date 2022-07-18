@@ -3,7 +3,7 @@ from pydantic import PositiveInt, conint, conlist, confloat
 from typing import List, Optional, Union, Tuple
 from pathlib import Path
 
-from platypus.config.input_config import implemented_models, implemented_modes, available_activations
+from platypus.config.input_config import implemented_modes, available_activations
 
 
 class SemanticSegmentationData(BaseModel):
@@ -52,7 +52,6 @@ class SemanticSegmentationData(BaseModel):
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str
-    type: str
     net_h: PositiveInt
     net_w: PositiveInt
     blocks: PositiveInt
@@ -65,6 +64,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: Optional[PositiveInt] = 32
     epochs: Optional[PositiveInt] = 2
+    resunet: Optional[bool] = False
     linknet: Optional[bool] = False
     plus_plus: Optional[bool] = False
     deep_supervision: Optional[bool] = False
@@ -73,12 +73,6 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
     activation_function_name: Optional[str] = "relu"
-
-    @validator("type")
-    def check_model_type(cls, v: str):
-        if v in implemented_models:
-            return v
-        raise NotImplementedError(f"The model type must be one of: {', '.join(implemented_models)}")
 
     @validator("activation_function_name")
     def check_activation_type(cls, v: str):
