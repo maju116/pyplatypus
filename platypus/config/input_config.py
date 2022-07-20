@@ -1,4 +1,3 @@
-implemented_models = ["u_net", "res_u_net"]
 implemented_modes = ["nested_dirs", "config_file"]
 implemented_losses = [
     "iou_loss", "focal_loss", "dice_loss", "cce_loss", "cce_dice_loss",

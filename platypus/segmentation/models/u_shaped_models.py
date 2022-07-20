@@ -7,30 +7,31 @@ from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
-from typing import Tuple, Any
+from typing import Tuple, Any, Optional
 
 
-class u_net:
+class u_shaped_model:
 
     def __init__(
-            self,
-            net_h: int,
-            net_w: int,
-            grayscale: bool,
-            blocks: int = 4,
-            n_class: int = 2,
-            filters: int = 16,
-            dropout: float = 0.1,
-            batch_normalization: bool = True,
-            kernel_initializer: str = "he_normal",
-            linknet: bool = False,
-            plus_plus: bool = False,
-            deep_supervision: bool = False,
-            use_separable_conv2d: bool = True,
-            use_spatial_dropout2d: bool = True,
-            use_up_sampling2d: bool = False,
-            activation_function_name: str = "ReLU",
-            **kwargs
+        self,
+        net_h: int,
+        net_w: int,
+        grayscale: bool,
+        blocks: Optional[int] = 4,
+        n_class: Optional[int] = 2,
+        filters: Optional[int] = 16,
+        dropout: Optional[float] = 0.1,
+        batch_normalization: Optional[bool] = True,
+        kernel_initializer: Optional[str] = "he_normal",
+        resunet: Optional[bool] = False,
+        linknet: Optional[bool] = False,
+        plus_plus: Optional[bool] = False,
+        deep_supervision: Optional[bool] = False,
+        use_separable_conv2d: Optional[bool] = True,
+        use_spatial_dropout2d: Optional[bool] = True,
+        use_up_sampling2d: Optional[bool] = False,
+        activation_function_name: Optional[str] = "ReLU",
+        **kwargs
     ) -> None:
         """
         Creates U-Net model architecture.
@@ -53,7 +54,6 @@ class u_net:
             use_up_sampling2d (bool): If set to False, the transpozed convolutional layer is used.
             activation_function_name (str): Allows the user to choose any activation layer available in the tensorflow.keras.activations.
         """
-        self.type = 'u_net'
         self.net_h = net_h
         self.net_w = net_w
         self.grayscale = grayscale
@@ -63,6 +63,7 @@ class u_net:
         self.dropout = dropout
         self.batch_normalization = batch_normalization
         self.kernel_initializer = kernel_initializer
+        self.resunet = resunet
         self.linknet = linknet
         self.plus_plus = plus_plus
         self.deep_supervision = deep_supervision
@@ -86,6 +87,31 @@ class u_net:
             dropout_layer = Dropout(rate=self.dropout)
         return dropout_layer
 
+    def convolutional_layer(
+        self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
+            ):
+        """
+        Returns the convolutional layer of the demanded type.
+
+        Args:
+            input (tf.Tensor): Model or layer object.
+            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+            kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
+            Can be a single integer to specify the same value for all spatial dimensions.
+
+        Returns:
+            convolutional layer.
+        """
+        if self.use_separable_conv2d:
+            convolutional_layer = SeparableConv2D(
+                filters=filters, kernel_size=kernel_size, padding="same",
+                kernel_initializer=self.kernel_initializer, activation=activation)
+        else:
+            convolutional_layer = Conv2D(
+                filters=filters, kernel_size=kernel_size, padding="same",
+                kernel_initializer=self.kernel_initializer, activation=activation)
+        return convolutional_layer
+
     def u_net_multiple_conv2d(
             self,
             input: tf.Tensor,
@@ -107,18 +133,7 @@ class u_net:
             Multiple convolutional bloc of U-Net model.
         """
         for i in range(u_net_conv_block_width):
-            if self.use_separable_conv2d:
-                input = SeparableConv2D(
-                    filters=filters, kernel_size=kernel_size, padding="same",
-                    kernel_initializer=self.kernel_initializer)(
-                        input
-                    )
-            else:
-                input = Conv2D(
-                    filters=filters, kernel_size=kernel_size, padding="same",
-                    kernel_initializer=self.kernel_initializer)(
-                        input
-                    )
+            input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
             input = self.activation_layer()(input)
@@ -144,24 +159,18 @@ class u_net:
         Returns:
             Multiple convolutional bloc of U-Net model.
         """
-        raw_input = input
+        # TODO The input number of filters must be the same as the one used within the block, to discuss.
+        raw_input = Conv2D(
+            filters=filters, kernel_size=kernel_size, padding="same",
+            kernel_initializer=self.kernel_initializer)(
+                input
+            )
         for i in range(res_u_net_conv_block_width):
-            if self.use_separable_conv2d:
-                input = SeparableConv2D(
-                    filters=filters, kernel_size=kernel_size, padding="same",
-                    kernel_initializer=self.kernel_initializer)(
-                        input
-                    )
-            else:
-                input = Conv2D(
-                    filters=filters, kernel_size=kernel_size, padding="same",
-                    kernel_initializer=self.kernel_initializer)(
-                        input
-                    )
+            input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
         # Add the input to the block output and let it flow through the ReLU and BN.
-        input = Add()[raw_input, input]
+        input = Add()([raw_input, input])
         input = self.activation_layer()(input)
         if self.batch_normalization:
             input = BatchNormalization()(input)
@@ -187,12 +196,10 @@ class u_net:
         Returns:
             Multiple convolutional bloc of the model.
         """
-        if self.type == "res_u_net":
+        if self.resunet:
             conv_block = self.res_u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
-        elif self.type == "u_net":
-            conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
         else:
-            raise NotImplementedError(f"The selected model type: {self.type} is not implemented!")
+            conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
         return conv_block
 
     def activation_layer(self):
@@ -286,12 +293,11 @@ class u_net:
         Returns:
             Output for U-Net/U-Net++ model.
         """
-        conv_layer = SeparableConv2D if self.use_separable_conv2d else Conv2D
-        output = conv_layer(self.n_class, 1, activation="softmax", padding="same")(output_tensor)
+        output = self.convolutional_layer(filters=self.n_class, kernel_size=1)(output_tensor)
         output = Resizing(height=self.net_h, width=self.net_w)(output)
         if self.plus_plus and self.deep_supervision:
             outputs = subconv_layers[0].copy()
-            outputs = [conv_layer(self.n_class, 1, activation="softmax", padding="same")(o) for o in outputs]
+            outputs = [self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(o) for o in outputs]
             outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
             outputs.append(output)
             output = Average()(outputs)

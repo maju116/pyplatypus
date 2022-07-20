@@ -15,7 +15,6 @@ semantic_segmentation:
 
     models:
         - name: 'res_u_net'
-          type: 'res_u_net'
           net_h: 300
           net_w: 300
           h_splits: 0
@@ -27,7 +26,8 @@ semantic_segmentation:
           dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
-          linknet: True
+          resunet: True
+          linknet: False
           plus_plus: False
           deep_supervision: False
           use_separable_conv2d: True
