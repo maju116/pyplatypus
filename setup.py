@@ -1,6 +1,6 @@
-import setuptools
+from setuptools import setup
 
-setuptools.setup(
+setup(
     name="platypus",
     version="0.1.0",
     author="Michał Maj",
