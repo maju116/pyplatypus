@@ -94,7 +94,7 @@ class segmentation_loss:
         Returns:
             CCE (categorical cross-entropy) loss.
         """
-        return kb.sum(kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32')))
+        return kb.mean(kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32')))
 
     def cce_dice_loss(
             self,
@@ -169,10 +169,10 @@ class segmentation_loss:
         Returns:
             focal_loss.
         """
-        # TODO Should alpha be kept? To discuss.
-        CEE = self.cce_loss(y_actual, y_pred)
-        pt = kb.exp(-CEE)
-        return CEE*alpha*(1-pt)**gamma
+        CEE_pixelwise = kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32'))
+        pt = kb.exp(-CEE_pixelwise)
+        focal_loss = kb.mean(CEE_pixelwise*alpha*(1-pt)**gamma)
+        return focal_loss
 
     @staticmethod
     def _extract_confusion_matrix(y_actual: tf.Tensor, y_pred: tf.Tensor) -> tuple:
