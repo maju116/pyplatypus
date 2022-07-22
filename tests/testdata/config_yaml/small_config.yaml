@@ -1,14 +1,18 @@
 object_detection:
 semantic_segmentation:
     data:
-        train_path: 'tests/testdata/nested_dirs'
-        validation_path: 'tests/testdata/nested_dirs'
-        test_path: 'tests/testdata/nested_dirs'
+        train_path: 'tests/testdata/nested_dirs/'
+        validation_path: 'tests/testdata/nested_dirs/'
+        test_path: 'tests/testdata/nested_dirs/'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
+        loss: 'focal loss'
+        metrics: ['tversky coefficient', 'iou coefficient']
+        optimizer: 'adam'
+
     models:
         - name: 'res_u_net'
           net_h: 300
