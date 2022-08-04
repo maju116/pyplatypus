@@ -8,8 +8,12 @@ from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from platypus.utils.toolbox import convert_to_snake_case
 
 from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from platypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from albumentations import Compose
+import numpy as np
+from pathlib import Path
 from typing import Optional, Tuple
+from PIL import Image
 
 
 class platypus_engine:
@@ -175,8 +179,32 @@ class platypus_engine:
                 column_sep=data.column_sep
             )
             generators.append(generator_)
+        test_generator = segmentation_generator(
+            path=path,
+            mode=data.mode,
+            colormap=data.colormap,
+            only_images=True,  # TODO To be changed later, maybe different generator for test than for prediction?
+            net_h=model_cfg.net_h,
+            net_w=model_cfg.net_w,
+            h_splits=model_cfg.h_splits,
+            w_splits=model_cfg.w_splits,
+            grayscale=model_cfg.grayscale,
+            augmentation_pipeline=None,
+            batch_size=model_cfg.batch_size,
+            shuffle=False,
+            subdirs=data.subdirs,
+            column_sep=data.column_sep,
+            test=True
+            )
+        generators.append(test_generator)
         generators = tuple(generators)
         return generators
+
+    def update_cache(self, model_name: str, model, model_specification: dict, generator):
+        """Stores the trained model in the cache, under its"""
+        self.cache.get("semantic_segmentation").update({
+            model_name: {"model": model, "model_specification": model_specification, "data_generator": generator}
+            })
 
     def train(self) -> None:
         """
@@ -187,9 +215,10 @@ class platypus_engine:
         cv_tasks_to_perform = check_cv_tasks(self.config)
         train_augmentation_pipeline, validation_augmentation_pipeline = self.prepare_augmentation_pipelines(config=self.config)
         if 'semantic_segmentation' in cv_tasks_to_perform:
+            self.cache.update(semantic_segmentation={})
             spec = self.config['semantic_segmentation']
             for model_cfg in self.config['semantic_segmentation'].models:
-                train_data_generator, validation_data_generator = self.prepare_data_generators(
+                train_data_generator, validation_data_generator, test_data_generator = self.prepare_data_generators(
                     data=spec.data, model_cfg=model_cfg, train_augmentation_pipeline=train_augmentation_pipeline,
                     validation_augmentation_pipeline=validation_augmentation_pipeline
                     )
@@ -219,4 +248,48 @@ class platypus_engine:
                         monitor='categorical_crossentropy', mode='max', patience=5
                     )]
                 )
-        return None
+                self.update_cache(
+                    model_name=model_cfg.name, model=model, model_specification=dict(model_cfg), generator=test_data_generator
+                    )
+
+    def predict_based_on_test_generator(self, model_name: str):
+        m = self.cache.get("semantic_segmentation").get(model_name).get("model")
+        g = self.cache.get("semantic_segmentation").get(model_name).get("data_generator")
+        colormap = g.colormap
+        predictions, paths = self.predict_from_generator(model=m, generator=g)
+        return predictions, paths, colormap
+
+    @staticmethod
+    def predict_from_generator(model, generator):
+        predictions = []
+        paths = []
+        for images_batch, paths_batch in generator:
+            prediction = model.predict(images_batch)
+            predictions.append(prediction)
+            paths += [pt[0] for pt in paths_batch]
+        predictions = np.concatenate(predictions, axis=0)
+        return predictions, paths
+
+    def produce_and_save_predicted_masks(self, model_name):
+        predictions, paths, colormap = self.predict_based_on_test_generator(model_name)
+        predictions_binary = transform_probabilities_into_binaries(predictions)
+        image_masks = []
+        for prediction_binary in predictions_binary:
+            prediction_mask = concatenate_binary_masks(binary_mask=prediction_binary, colormap=colormap)
+            image_masks.append(prediction_mask)
+        self.save_masks(image_masks, paths, model_name)
+
+    def save_masks(image_masks: list, paths: list, model_name: str):
+        for im, path in zip(image_masks, paths):
+            img_directory = Path(path).parents[1]
+            masks_path = img_directory/"predicted_masks"
+            Path.mkdir(masks_path, exist_ok=True)
+            img_name, img_type = Path(path).name.split(".")
+            # TODO how to store the masks?
+            if image_type != "png":
+                raise NotImplementedError("Types other than PNG to be handled soon.")
+            for i in range(len(im)):
+                mask = im[i]
+                mask_as_image = Image.fromarray(mask[:, :, 0]).convert("RGB")
+                mask_path = masks_path/f"{model_name}_predicted_mask_{i+1}.png"
+                mask_as_image.save(mask_path)

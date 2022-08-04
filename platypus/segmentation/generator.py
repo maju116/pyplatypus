@@ -9,20 +9,7 @@ import albumentations as A
 import pydicom
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
-
-
-def split_masks_into_binary(
-        mask: np.ndarray,
-        colormap: List[Tuple[int, int, int]]
-) -> np.ndarray:
-    """
-    Splits multi-class mask into binary masks.
-
-    Args:
-        mask (np.ndarray): Segmentation mask.
-        colormap (List[Tuple[int, int, int]]): Class color map.
-    """
-    return np.stack([np.all(mask == c, axis=-1) * 1 for c in colormap], axis=-1)
+from platypus.utils.toolbox import split_masks_into_binary
 
 
 class segmentation_generator(tf.keras.utils.Sequence):
@@ -42,7 +29,8 @@ class segmentation_generator(tf.keras.utils.Sequence):
             batch_size: int = 32,
             shuffle: bool = True,
             subdirs: Tuple[str, str] = ("images", "masks"),
-            column_sep: str = ";"
+            column_sep: str = ";",
+            test: bool = False
     ) -> None:
         """
         Generates batches of data (images and masks). The data will be looped over (in batches).
@@ -62,6 +50,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         shuffle (bool): Should data be shuffled.
         subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
         column_sep (str): Character. Configuration file separator.
+        test (bool): Indicates whether the generator is supposed to be of latter use as the test/prediction generator.
         """
         self.path = path
         self.colormap = colormap
@@ -79,6 +68,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.column_sep = column_sep
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
+        self.test = test
         # Add checks for generator
         self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
                                                      self.column_sep)
@@ -226,7 +216,11 @@ class segmentation_generator(tf.keras.utils.Sequence):
                     sum([self.__read_image__(si, grayscale=False, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-        return (selected_images, selected_masks) if not self.only_images else selected_images
+        if not self.only_images:
+            to_return = (selected_images, selected_masks, selected_images_paths)
+        else:
+            to_return = (selected_images, selected_images_paths)
+        return to_return
 
     def on_epoch_end(
             self
@@ -239,7 +233,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     def __getitem__(
             self,
-            index: int
+            index: int,
     ) -> Union[tuple[ndarray, ndarray], ndarray]:
         """
         Returns one batch of data.
@@ -252,7 +246,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         """
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         if not self.only_images:
-            images, masks = self.read_images_and_masks_from_directory(indexes)
+            images, masks, paths = self.read_images_and_masks_from_directory(indexes)
             if self.augmentation_pipeline is not None:
                 transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
                 images = np.stack([tr['image'] for tr in transformed], axis=0)
@@ -260,14 +254,18 @@ class segmentation_generator(tf.keras.utils.Sequence):
             else:
                 images = np.stack(images, axis=0)
                 masks = np.stack(masks, axis=0)
+            to_return = (images, masks)
         else:
-            images = self.read_images_and_masks_from_directory(indexes)
+            images, paths = self.read_images_and_masks_from_directory(indexes)
             if self.augmentation_pipeline is not None:
                 transformed = [self.augmentation_pipeline(image=image) for image in images]
                 images = np.stack([tr['image'] for tr in transformed], axis=0)
             else:
                 images = np.stack(images, axis=0)
-        return (images, masks) if not self.only_images else images
+            to_return = (images)
+        if self.test:
+            to_return = (images, paths)
+        return to_return
 
     def __len__(
             self
