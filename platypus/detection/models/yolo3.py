@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import (
     SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,
     Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D,
-    UpSampling2D, ReLU, LeakyReLu, ZeroPadding2D
+    UpSampling2D, ReLU, LeakyReLu, ZeroPadding2D, Reshape
 )
 from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
@@ -134,6 +134,114 @@ class yolo3:
         return Model(inputs=input, outputs=[output1, output2, output3], name='darknet53')
 
     def yolo3_conv2d(
-            self
+            self,
+            inputs: Any[tf.Tensor, List[tf.Tensor]],
+            filters: int,
+            name: str
     ) -> tf.Tensor:
-        return 33
+        """
+        Creates a convolutional Yolo3 unit.
+
+        Args:
+            inputs (Any[tf.Tensor, List[tf.Tensor]]): Models or layer objects.
+            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+            name (str): Model name.
+
+        Returns:
+            Convolutional Yolo3 unit.
+        """
+        if type(inputs) == list:
+            input1 = Input(shape=inputs[0].shape.as_list()[1:3])
+            input2 = Input(shape=inputs[1].shape.as_list()[1:3])
+            input = [input1, input2]
+            net_out = self.darknet53_conv2d(input1, strides=1, filters=filters,
+                                            kernel_size=1, batch_normalization=True,
+                                            leaky_relu=True)
+            net_out = UpSampling2D()(net_out)
+            net_out = Concatenate()([net_out, input2])
+        else:
+            input = Input(shape=inputs.shape.as_list()[1:3])
+            net_out = input
+        net_out = self.darknet53_conv2d(net_out, strides=1, filters=filters,
+                                        kernel_size=1, batch_normalization=True,
+                                        leaky_relu=True)
+        net_out = self.darknet53_conv2d(net_out, strides=1, filters=filters * 2,
+                                        kernel_size=3, batch_normalization=True,
+                                        leaky_relu=True)
+        net_out = self.darknet53_conv2d(net_out, strides=1, filters=filters,
+                                        kernel_size=1, batch_normalization=True,
+                                        leaky_relu=True)
+        net_out = self.darknet53_conv2d(net_out, strides=1, filters=filters * 2,
+                                        kernel_size=3, batch_normalization=True,
+                                        leaky_relu=True)
+        net_out = self.darknet53_conv2d(net_out, strides=1, filters=filters,
+                                        kernel_size=1, batch_normalization=True,
+                                        leaky_relu=True)
+        return Model(input, net_out, name=name)(inputs)
+
+    def yolo3_output(
+            self,
+            inputs: Any[tf.Tensor, List[tf.Tensor]],
+            filters: int,
+            anchors_per_grid: int,
+            n_class: int,
+            name: str
+    ) -> tf.Tensor:
+        """
+        Creates Yolo3 output grid of dimensionality `(S, H, W, anchors_per_grid, 5 + n_class)`.
+
+        Args:
+            inputs (Any[tf.Tensor, List[tf.Tensor]]): Models or layer objects.
+            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+            anchors_per_grid (int): Number of anchors/boxes per one output grid.
+            n_class (int): Number of prediction classes.
+            name (str): Model name.
+
+        Returns:
+            Yolo3 output grid.
+        """
+        input = Input(shape=inputs.shape.as_list()[1:3])
+        net_out = self.darknet53_conv2d(input, strides=1, filters=filters * 2,
+                                        kernel_size=3, batch_normalization=True,
+                                        leaky_relu=True)
+        net_out = self.darknet53_conv2d(net_out, strides=1, filters=anchors_per_grid * (n_class + 5),
+                                        kernel_size=1, batch_normalization=False,
+                                        leaky_relu=False)
+        net_out_shape = net_out.shape.as_list()
+        net_out = Reshape(target_shape=(net_out_shape[1], net_out_shape[2],
+                                        anchors_per_grid, n_class + 5))(net_out)
+        return Model(input, net_out, name=name)(inputs)
+
+    def yolo3(
+            self,
+            net_h: int = 416,
+            net_w: int = 416,
+            grayscale: bool = False,
+            n_class: int = 80,
+            anchors: List = coco_anchors
+    ) -> tf.Tensor:
+        """
+        Creates a Yolo3 architecture.
+
+        Args:
+            net_h (int): Input layer height. Must be divisible by `32`.
+            net_w (int): Input layer width. Must be divisible by `32`.
+            grayscale (bool): Defines input layer color channels.
+            n_class (int): Number of prediction classes.
+            anchors (List): Prediction anchors.
+
+        Returns:
+            Yolo3 model.
+        """
+        anchors_per_grid = len(anchors[0])
+        channels = 1 if grayscale else 3
+        input_shape = (net_h, net_w, channels)
+        input_img = Input(shape=input_shape, name='input_img')
+        darknet = self.darknet53(channels)(input_img)
+        net_out = self.yolo3_conv2d(darknet[2], 512, name="yolo3_conv1")
+        grid_1 = self.yolo3_output(net_out, 512, anchors_per_grid, n_class, name="grid1")
+        net_out = self.yolo3_conv2d([net_out, darknet[1]], 256, name="yolo3_conv2")
+        grid_2 = self.yolo3_output(net_out, 256, anchors_per_grid, n_class, name="grid2")
+        net_out = self.yolo3_conv2d([net_out, darknet[0]], 128, name="yolo3_conv3")
+        grid_3 = self.yolo3_output(net_out, 128, anchors_per_grid, n_class, name="grid3")
+        return Model(input_img, (grid_1, grid_2, grid_3), name="yolo3")
