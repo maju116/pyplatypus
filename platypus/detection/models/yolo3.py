@@ -157,7 +157,7 @@ class yolo3:
             net_out = self.darknet53_conv2d(input1, strides=1, filters=filters,
                                             kernel_size=1, batch_normalization=True,
                                             leaky_relu=True)
-            net_out = UpSampling2D()(net_out)
+            net_out = UpSampling2D(size=2)(net_out)
             net_out = Concatenate()([net_out, input2])
         else:
             input = Input(shape=inputs.shape.as_list()[1:4])
