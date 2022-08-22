@@ -59,7 +59,17 @@ class yolo3_predict:
     def transform_boxes(
             self
     ):
-        return 33
+        image_boxes = []
+        for image_nr in range(self.n_images):
+            current_preds = [im[image_nr, :, :, :, :] for im in self.predictions]
+            current_boxes = []
+            for i in range(3):
+                grid_predictions = current_preds[i]
+                grid_anchors = self.anchors[i]
+                current_boxes.append(self.transform_boxes_for_grid(grid_predictions, grid_anchors))
+            current_boxes = [item for sublist in current_boxes for item in sublist]
+            image_boxes.append(current_boxes)
+        return image_boxes
 
     def transform_boxes_for_grid(
             self,
