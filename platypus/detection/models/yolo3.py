@@ -3,12 +3,10 @@ from tensorflow.keras.layers import (
     Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D,
     UpSampling2D, ReLU, LeakyReLU, ZeroPadding2D, Reshape
 )
-from tensorflow.keras import activations as KRACT
-from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 from tensorflow.keras.regularizers import L2
 import tensorflow as tf
-from typing import Tuple, Any, Optional, List, Union
+from typing import Tuple, List, Union
 
 coco_anchors = [
     [(116 / 416, 90 / 416), (156 / 416, 198 / 416), (373 / 416, 326 / 416)],
