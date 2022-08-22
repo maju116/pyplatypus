@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Tuple, List, Union, Optional
 import itertools
+import pandas as pd
+
 
 class yolo3_predict:
 
@@ -67,7 +69,7 @@ class yolo3_predict:
                 grid_predictions = current_preds[i]
                 grid_anchors = self.anchors[i]
                 current_boxes.append(self.transform_boxes_for_grid(grid_predictions, grid_anchors))
-            current_boxes = [item for sublist in current_boxes for item in sublist]
+            current_boxes = np.stack([item for sublist in current_boxes for item in sublist], axis=0)
             image_boxes.append(current_boxes)
         return image_boxes
 
@@ -93,7 +95,7 @@ class yolo3_predict:
                     box_data[4] = self.sigmoid(box_data[4])
                     box_data[5:] = box_data[4] * self.sigmoid(box_data[5:])
                     box_data[5:] = (box_data[5:] == max(box_data[5:])) & (
-                                box_data[5:] > self.obj_threshold)
+                            box_data[5:] > self.obj_threshold)
                     xmin = box_data[0] - box_data[2] / 2
                     ymin = box_data[1] - box_data[3] / 2
                     xmax = box_data[0] + box_data[2] / 2
@@ -101,3 +103,44 @@ class yolo3_predict:
                     box_data[:4] = (xmin, ymin, xmax, ymax)
                     boxes.append(box_data)
         return boxes
+
+    def check_boxes_intersect(box1, box2):
+        x_intersect = box1[0] < box2[2] and box1[2] > box2[0]
+        y_intersect = box1[1] < box2[3] and box1[3] > box2[1]
+        return x_intersect and y_intersect
+
+    def intersection_over_union(self, box1, box2):
+        boxes_intersect = self.check_boxes_intersect(box1, box2)
+        if boxes_intersect:
+            intersection = (min(box1[2], box2[2]) - (box1[0] if box2[0] < box1[0] else box2[0])) * \
+                           (min(box1[3], box2[3]) - (box1[1] if box2[1] < box1[1] else box2[1]))
+            union = (box1[2] - box1[0]) * (box1[3] - box1[1]) + \
+                    (box2[2] - box2[0]) * (box2[3] - box2[1]) - intersection
+            iou = intersection / union
+        else:
+            iou = 0
+        return iou
+
+    def class_nms(self, boxes):
+        comb = list(itertools.product(range(len(boxes)), range(len(boxes))))
+        comb = [c for c in comb if c[0] < c[1]]
+        ious = [self.intersection_over_union(boxes[c[0]], boxes[c[1]]) for c in comb]
+        bb = np.stack([np.array([c[0], c[1], iou]) for c, iou in zip(comb, ious)], axis=0)
+        bb = pd.DataFrame(bb, columns=['box1', 'box2', 'iou'])
+        p1 = pd.DataFrame(boxes[:, 4], columns=['p1'])
+        p1['box1'] = range(len(boxes))
+        p2 = pd.DataFrame(boxes[:, 4], columns=['p2'])
+        p2['box2'] = range(len(boxes))
+        bb = pd.merge(bb, p1, on='box1', how='left')
+        bb = pd.merge(bb, p2, on='box2', how='left')
+        boxes_df = pd.DataFrame(boxes, columns=['xmin', 'ymin', 'xmax', 'ymax', 'p'])
+        boxes_df['box'] = range(len(boxes))
+        boxes_to_remove = []
+        for b in range(len(bb)):
+            if bb.loc[b, 'iou'] > self.nms_threshold:
+                if bb.loc[b, 'p1'] < bb.loc[b, 'p2']:
+                    boxes_to_remove.append(bb.loc[b, 'box1'])
+                else:
+                    boxes_to_remove.append(bb.loc[b, 'box2'])
+        boxes_to_remove = list(set(boxes_to_remove))
+        return boxes_df[~boxes_df.box.isin(boxes_to_remove)]
