@@ -12,9 +12,7 @@ class yolo3_predict:
             anchors: List[List[Tuple]],
             labels: List[str],
             obj_threshold: float = 0.6,
-            nms: bool = True,
             nms_threshold: float = 0.6,
-            correct_hw: bool = False,
             image_h: Optional[int] = None,
             image_w: Optional[int] = None
     ) -> None:
@@ -26,9 +24,7 @@ class yolo3_predict:
             anchors (List[List[Tuple]]): Prediction anchors.
             labels (List[str]): Character vector containing class labels.
             obj_threshold (float): Minimum objectness score. Must be in range `[0, 1]`. All boxes with objectness score less than `obj_threshold` will be filtered out.
-            nms (bool): Logical. Should `Non-Maximum-Suppression` be applied.
             nms_threshold (float): `Non-Maximum-Suppression` threshold.
-            correct_hw (bool): Logical. Should height/width rescaling of bounding boxes be applied. If `TRUE` `xmin/xmax` coordinates are multiplied by `image_w` and `ymin/ymax` coordinates are multiplied by `image_h`.
             image_h (Optional[int]): Rescaling factor for `ymin/ymax` box coordinates.
             image_w (Optional[int]): Rescaling factor for `xmin/xmax` box coordinates.
         """
@@ -37,9 +33,7 @@ class yolo3_predict:
         self.labels = labels
         self.n_class = len(labels)
         self.obj_threshold = obj_threshold
-        self.nms = nms
         self.nms_threshold = nms_threshold
-        self.correct_hw = correct_hw
         self.image_h = image_h
         self.image_w = image_w
         self.anchors_per_grid = len(anchors[0])
@@ -70,7 +64,8 @@ class yolo3_predict:
                 image_nms_boxes.append(class_nms_boxes)
             image_nms_boxes = pd.concat(image_nms_boxes)
             nms_boxes.append(image_nms_boxes)
-        return nms_boxes
+        clean_nms_boxes = self.clean_boxes(nms_boxes)
+        return self.correct_hw(clean_nms_boxes)
 
     def transform_boxes(
             self
@@ -163,3 +158,30 @@ class yolo3_predict:
         else:
             class_nms_boxes = pd.DataFrame(boxes, columns=['xmin', 'ymin', 'xmax', 'ymax', 'p'])
         return class_nms_boxes
+
+    @staticmethod
+    def clean_boxes(
+            boxes
+    ):
+        clean_boxes = []
+        for b in boxes:
+            b['xmin'] = b.xmin.clip(0, 1).round(decimals=3)
+            b['ymin'] = b.ymin.clip(0, 1).round(decimals=3)
+            b['xmax'] = b.xmax.clip(0, 1).round(decimals=3)
+            b['ymax'] = b.ymax.clip(0, 1).round(decimals=3)
+            clean_boxes.append(b[(b.xmin < b.xmax) & (b.ymin < b.ymax)])
+        return clean_boxes
+
+    def correct_hw(
+            self,
+            boxes
+    ):
+        if self.image_h is not None and self.image_w is not None:
+            for b in boxes:
+                b['xmin'] = (b.xmin * self.image_w).astype(int)
+                b['ymin'] = (b.ymin * self.image_h).astype(int)
+                b['xmax'] = (b.xmax * self.image_w).astype(int)
+                b['ymax'] = (b.ymax * self.image_h).astype(int)
+        return boxes
+
+
