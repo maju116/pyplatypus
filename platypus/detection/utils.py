@@ -283,6 +283,8 @@ class yolo3_predict:
                 b['ymin'] = (b.ymin * self.image_h).astype(int)
                 b['xmax'] = (b.xmax * self.image_w).astype(int)
                 b['ymax'] = (b.ymax * self.image_h).astype(int)
+                b.reset_index(inplace=True)
+                b.drop(columns='index', inplace=True)
         return boxes
 
 
