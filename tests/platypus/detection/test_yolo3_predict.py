@@ -5,7 +5,7 @@ from platypus.detection.utils import yolo3_predict
 from platypus.detection.models.yolo3 import coco_anchors, coco_labels
 import pickle
 
-with open('testdata/detection/yolo3_test_predictions.pickle', 'rb') as handle:
+with open('tests/testdata/detection/yolo3_test_predictions.pickle', 'rb') as handle:
     test_img_preds = pickle.load(handle)
 test_y3p = yolo3_predict(test_img_preds, coco_anchors, coco_labels, image_h=416, image_w=416)
 
