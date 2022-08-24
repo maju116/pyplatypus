@@ -3,7 +3,12 @@ from pydantic import PositiveInt, conint, conlist, confloat
 from typing import List, Optional, Union, Tuple
 from pathlib import Path
 
-from platypus.config.input_config import implemented_models, implemented_modes, available_activations
+
+from platypus.utils.toolbox import convert_to_snake_case
+from platypus.config.input_config import (
+    implemented_modes, implemented_losses, implemented_metrics,
+    implemented_optimizers, available_activations
+    )
 
 
 class SemanticSegmentationData(BaseModel):
@@ -18,6 +23,9 @@ class SemanticSegmentationData(BaseModel):
     shuffle: bool
     subdirs: conlist(str, min_items=2, max_items=2)
     column_sep: str
+    loss: Optional[str] = "Iou loss"
+    metrics: Optional[List[str]] = ["IoU Coefficient"]
+    optimizer: Optional[str] = "adam"
 
     @validator('train_path')
     def check_if_train_path_exists(cls, v: str):
@@ -49,10 +57,28 @@ class SemanticSegmentationData(BaseModel):
             return v
         raise ValueError(f"Mode is supposed to be one of: {', '.join(implemented_modes)}!")
 
+    @validator("loss")
+    def check_the_loss_name(cls, v: str):
+        if convert_to_snake_case(v) in implemented_losses:
+            return v
+        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
+
+    @validator("metrics")
+    def check_the_metrics(cls, v: list):
+        v_converted = [convert_to_snake_case(case) for case in v]
+        if set(v_converted).issubset(set(implemented_metrics)):
+            return v
+        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
+
+    @validator("optimizer")
+    def check_the_opimizer(cls, v: str):
+        v_converted = v.lower()
+        if v_converted in implemented_optimizers:
+            return v
+        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str
-    type: str
     net_h: PositiveInt
     net_w: PositiveInt
     blocks: PositiveInt
@@ -65,6 +91,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: Optional[PositiveInt] = 32
     epochs: Optional[PositiveInt] = 2
+    resunet: Optional[bool] = False
     linknet: Optional[bool] = False
     plus_plus: Optional[bool] = False
     deep_supervision: Optional[bool] = False
@@ -73,12 +100,6 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
     activation_function_name: Optional[str] = "relu"
-
-    @validator("type")
-    def check_model_type(cls, v: str):
-        if v in implemented_models:
-            return v
-        raise NotImplementedError(f"The model type must be one of: {', '.join(implemented_models)}")
 
     @validator("activation_function_name")
     def check_activation_type(cls, v: str):
