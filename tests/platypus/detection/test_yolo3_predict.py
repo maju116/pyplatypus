@@ -26,7 +26,7 @@ def test_logit(x, y):
 @pytest.mark.parametrize("predictions, result",
                          [(test_img_preds,
                           [pd.DataFrame({
-                              'xmin': (86, 337, 145, 182, 201, 208, 25, 222),
+                              'xmin': (86, 337, 145, 182, 201, 208, 225, 222),
                               'ymin': (298, 315, 292, 251, 225, 225, 230, 237),
                               'xmax': (98, 351, 204, 195, 207, 214, 277, 280),
                               'ymax': (359, 361, 367, 267, 232, 231, 336, 340),
