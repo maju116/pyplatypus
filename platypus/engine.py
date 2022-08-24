@@ -252,6 +252,23 @@ class platypus_engine:
                     model_name=model_cfg.name, model=model, model_specification=dict(model_cfg), generator=test_data_generator
                     )
 
+    def produce_and_save_predicted_masks(self, model_name):
+        if model_name is None:
+            model_names = self.get_model_names(config=self.config)
+            for model_name in model_names:
+                self.produce_and_save_predicted_masks_for_model(model_name)
+        else:
+            self.produce_and_save_predicted_masks_for_model(model_name)
+
+    def produce_and_save_predicted_masks_for_model(self, model_name):
+        predictions, paths, colormap = self.predict_based_on_test_generator(model_name)
+        image_masks = []
+        for prediction in predictions:
+            prediction_binary = transform_probabilities_into_binaries(prediction)
+            prediction_mask = concatenate_binary_masks(binary_mask=prediction_binary, colormap=colormap)
+            image_masks.append(prediction_mask)
+        self.save_masks(image_masks, paths, model_name)
+
     def predict_based_on_test_generator(self, model_name: str):
         m = self.cache.get("semantic_segmentation").get(model_name).get("model")
         g = self.cache.get("semantic_segmentation").get(model_name).get("data_generator")
@@ -270,26 +287,22 @@ class platypus_engine:
         predictions = np.concatenate(predictions, axis=0)
         return predictions, paths
 
-    def produce_and_save_predicted_masks(self, model_name):
-        predictions, paths, colormap = self.predict_based_on_test_generator(model_name)
-        predictions_binary = transform_probabilities_into_binaries(predictions)
-        image_masks = []
-        for prediction_binary in predictions_binary:
-            prediction_mask = concatenate_binary_masks(binary_mask=prediction_binary, colormap=colormap)
-            image_masks.append(prediction_mask)
-        self.save_masks(image_masks, paths, model_name)
+    @staticmethod
+    def get_model_names(config: dict, task: str = "semantic_segmentation"):
+        model_names = [model_cfg.name for model_cfg in config.get(task).models]
+        return model_names
 
+    @staticmethod
     def save_masks(image_masks: list, paths: list, model_name: str):
         for im, path in zip(image_masks, paths):
             img_directory = Path(path).parents[1]
             masks_path = img_directory/"predicted_masks"
             Path.mkdir(masks_path, exist_ok=True)
             img_name, img_type = Path(path).name.split(".")
-            # TODO how to store the masks?
-            if image_type != "png":
+            if img_type != "png":
                 raise NotImplementedError("Types other than PNG to be handled soon.")
             for i in range(len(im)):
                 mask = im[i]
-                mask_as_image = Image.fromarray(mask[:, :, 0]).convert("RGB")
+                mask_as_image = Image.fromarray(mask[:, :, 0].astype(np.uint8)).convert("RGB")
                 mask_path = masks_path/f"{model_name}_predicted_mask_{i+1}.png"
                 mask_as_image.save(mask_path)
