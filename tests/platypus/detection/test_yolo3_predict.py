@@ -32,7 +32,7 @@ def test_logit(x, y):
                               'ymax': (359, 361, 367, 267, 232, 231, 336, 340),
                               'p': (0.950761, 0.958715, 0.999735, 0.841772,
                                     0.837264, 0.820939, 0.999457, 0.954366),
-                              'lebel_id': (0, 0, 2, 2, 2, 2, 5, 6),
+                              'label_id': (0, 0, 2, 2, 2, 2, 5, 6),
                               'label': ('person', 'person', 'car', 'car', 'car', 'car',
                                         'bus', 'train')
                           }),
@@ -42,8 +42,8 @@ def test_logit(x, y):
                                   'xmax': (188, 303, 352),
                                   'ymax': (378, 374, 386),
                                   'p': (0.999947, 0.997230, 0.999533),
-                                  'lebel_id': (22, 22, 22),
-                                  'lebel': ('zebra', 'zebra', 'zebra')
+                                  'label_id': (22, 22, 22),
+                                  'label': ('zebra', 'zebra', 'zebra')
                               })
                           ])])
 def test_get_boxes(predictions, result):
