@@ -50,6 +50,6 @@ def test_get_boxes(predictions, result):
     boxes = test_y3p.get_boxes()
     for i in range(len(result)):
         assert boxes[i].loc[:, ["xmin", "ymin", "xmax", "ymax", "label_id", "label"]].equals(
-            result[1].loc[:, ["xmin", "ymin", "xmax", "ymax", "label_id", "label"]]
+            result[i].loc[:, ["xmin", "ymin", "xmax", "ymax", "label_id", "label"]]
         )
         assert np.allclose(boxes[i].p, result[i].p)
