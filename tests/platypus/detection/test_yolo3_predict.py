@@ -24,7 +24,7 @@ def test_logit(x, y):
 
 
 @pytest.mark.parametrize("predictions, result",
-                         (test_img_preds,
+                         [(test_img_preds,
                           [pd.DataFrame({
                               'xmin': (86, 337, 145, 182, 201, 208, 25, 222),
                               'ymin': (298, 315, 292, 251, 225, 225, 230, 237),
@@ -44,6 +44,7 @@ def test_logit(x, y):
                                   'p': (0.999947, 0.997230, 0.999533),
                                   'lebel_id': (22, 22, 22),
                                   'lebel': ('zebra', 'zebra', 'zebra')
-                              })]))
+                              })
+                          ])])
 def test_get_boxes(predictions, result):
     assert test_y3p.get_boxes() == result
