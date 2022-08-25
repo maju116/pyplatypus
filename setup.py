@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="pyplatypus",
-    version="0.1.2",
+    version="0.1.0",
     author="Michał Maj",
     author_email="michalmaj116@gmail.com",
     description="""
@@ -12,9 +12,9 @@ setup(
     """,
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
-    url="https://github.com/maju116/platypus",
+    url="https://github.com/maju116/pyplatypus",
     project_urls={
-        "Bug Tracker": "https://github.com/maju116/platypus/issues",
+        "Bug Tracker": "https://github.com/maju116/pyplatypus/issues",
     },
     classifiers=[
         "Programming Language :: Python :: 3",
