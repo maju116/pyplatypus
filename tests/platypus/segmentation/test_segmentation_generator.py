@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from platypus.segmentation.generator import *
+from platypus.segmentation.generator import segmentation_generator, split_masks_into_binary
 
 
 @pytest.mark.parametrize(
