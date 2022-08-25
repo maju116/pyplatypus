@@ -27,7 +27,6 @@ setup(
         "scikit-image==0.19.1",
         "scikit-learn==1.0.2",
         "scipy==1.8.1",
-        #"tensorboard-plugin-wit==1.6.0",
         "tensorflow-estimator==2.5.0",
         "pandas==1.3.1",
         "numpy==1.22.4",
