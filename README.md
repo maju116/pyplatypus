@@ -27,3 +27,10 @@ Only after testing it there should you proceed with the release:
 
 And then install your package!
 `pip install platypus`
+
+Note!
+Pip dependencies will be installed during the package build but there is one conda dependency that
+needs to be installed by hand:
+`conda install -c conda-forge tensorflow==2.9.1`
+
+We are working on this :)

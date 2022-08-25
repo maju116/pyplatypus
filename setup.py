@@ -21,6 +21,19 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=[],
+    install_requires=[
+        "albumentations==1.1.0",
+        "Keras-Preprocessing==1.1.2",
+        "scikit-image==0.19.1",
+        "scikit-learn==1.0.2",
+        "scipy==1.8.1",
+        #"tensorboard-plugin-wit==1.6.0",
+        "tensorflow-estimator==2.5.0",
+        "pandas==1.3.1",
+        "numpy==1.22.4",
+        "tensorboard==2.9.0",
+        "PyYAML==6.0",
+        "pydicom==2.2.0"
+        ],
     python_requires=">=3.6",
 )
