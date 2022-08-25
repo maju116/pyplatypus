@@ -1,4 +1,7 @@
-from platypus.utils.toolbox import convert_to_snake_case, split_masks_into_binary, concatenate_binary_masks, sum_multiclass_masks, transform_probabilities_into_binaries
+from platypus.utils.toolbox import (
+    convert_to_snake_case, split_masks_into_binary, concatenate_binary_masks,
+    sum_multiclass_masks, transform_probabilities_into_binaries, binary_based_on_arg_max
+    )
 import tensorflow as tf
 import numpy as np
 import pytest
@@ -45,6 +48,16 @@ def test_sum_multiclass_masks():
     expected = np.array([255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0]).reshape(2, 2, 3)
     assert (sum_multiclass_masks(multiclass_masks_list, colormap) == expected).all()
 
-def test_transform_probabilities_into_binaries():
-    prediction = np.array([.9, .8, .9, .8]).reshape(2, 2)
-    assert (transform_probabilities_into_binaries(prediction) == np.array([1, 0, 1, 0]).reshape(2, 2)).all()
+binaries_data = [
+    (np.array([.3, .4]), np.array([0, 1])),
+    (np.array([.4, .3]), np.array([1, 0])),
+    (np.array([.4, .4]), np.array([1, 1]))
+]
+@pytest.mark.parametrize("raw, binary", binaries_data)
+def test_binary_based_on_arg_max(raw, binary):
+    assert (binary_based_on_arg_max(raw) == binary).all() 
+
+def test_transform_probabilities_into_binaries(mocker):
+    prediction = np.array([.4, .5, .4, .2, .4, .5, .4, .2]).reshape(2, 2, 2)
+    mocker.patch("platypus.utils.toolbox.binary_based_on_arg_max", return_value=1)
+    assert (transform_probabilities_into_binaries(prediction) == np.array([1, 1, 1, 1]).reshape(2, 2, 1)).all()
