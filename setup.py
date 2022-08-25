@@ -1,11 +1,15 @@
 from setuptools import setup
 
 setup(
-    name="platypus",
+    name="pyplatypus",
     version="0.1.0",
     author="Michał Maj",
     author_email="michalmaj116@gmail.com",
-    description="Set of tools for Computer Vision like YOLOv3 for object detection and U-Net for image segmentation.",
+    description="""
+    Set of tools for Computer Vision handling the object detection and image
+    segmentation as end-to-end process, from loading a data via training the
+    multiple models of choice to plotting the models' predictions.
+    """,
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
     url="https://github.com/maju116/platypus",
