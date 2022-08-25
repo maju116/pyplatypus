@@ -68,9 +68,11 @@ def sum_multiclass_masks(masks_multiclass: List[tf.Tensor], colormap: List[Tuple
 
 
 def transform_probabilities_into_binaries(prediction: np.ndarray):
-    max_prob = prediction.max()
-    if max_prob > 0:
-        prediction_binary = np.where(prediction == max_prob, 1, 0)
-    else:
-        prediction_binary = prediction
+    prediction_binary = np.apply_along_axis(binary_based_on_arg_max, 2, prediction)
     return prediction_binary
+
+
+def binary_based_on_arg_max(array: np.array):
+    highest_prob = array.max()
+    array_binary = np.where(array == highest_prob, 1, 0)
+    return array_binary
