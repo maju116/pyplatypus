@@ -4,8 +4,8 @@ from typing import List, Optional, Union, Tuple
 from pathlib import Path
 
 
-from platypus.utils.toolbox import convert_to_snake_case
-from platypus.config.input_config import (
+from pyplatypus.utils.toolbox import convert_to_snake_case
+from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
     implemented_optimizers, available_activations
     )

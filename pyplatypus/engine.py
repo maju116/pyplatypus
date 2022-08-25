@@ -1,13 +1,13 @@
-from platypus.utils.config_processing_functions import check_cv_tasks
-from platypus.utils.augmentation import create_augmentation_pipeline
-from platypus.segmentation.generator import segmentation_generator
-from platypus.segmentation.loss_functions import segmentation_loss
-from platypus.segmentation.models.u_shaped_models import u_shaped_model
+from pyplatypus.utils.config_processing_functions import check_cv_tasks
+from pyplatypus.utils.augmentation import create_augmentation_pipeline
+from pyplatypus.segmentation.generator import segmentation_generator
+from pyplatypus.segmentation.loss_functions import segmentation_loss
+from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from platypus.utils.toolbox import convert_to_snake_case
+from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
+from pyplatypus.utils.toolbox import convert_to_snake_case
 
-from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
 from albumentations import Compose
 from typing import Optional, Tuple
 

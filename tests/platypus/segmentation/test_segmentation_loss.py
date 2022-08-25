@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from platypus.segmentation.loss_functions import segmentation_loss
+from pyplatypus.segmentation.loss_functions import segmentation_loss
 import tensorflow as tf
 from keras.backend import mean as kb_mean
 from keras.backend import exp as kb_exp
@@ -96,13 +96,13 @@ class TestSegmentationLoss:
             0.1, 0.1, 0.2, 0.6
             ]).reshape((2, 2, 2, 2)), tf.float32)
 
-    losses_path = 'platypus.segmentation.loss_functions.segmentation_loss'
+    losses_path = 'pyplatypus.segmentation.loss_functions.segmentation_loss'
 
     def test_focal_loss(self, mocker):
         gamma = 1
         alpha = 1
         mocked_CEE_pixelwise = tf.constant([[1, 1, 1, 1]], dtype=tf.float32)
-        mocker.patch("platypus.segmentation.loss_functions.kb.categorical_crossentropy", return_value=mocked_CEE_pixelwise)
+        mocker.patch("pyplatypus.segmentation.loss_functions.kb.categorical_crossentropy", return_value=mocked_CEE_pixelwise)
         result = self.sl.focal_loss(self.y_actual, self.y_pred, gamma=gamma, alpha=alpha)
         
         pt = kb_exp(-mocked_CEE_pixelwise)
@@ -168,6 +168,6 @@ class TestSegmentationLoss:
 
     def test_lovasz_loss(self, mocker):
         batch_losses = tf.constant([1, 0], dtype=tf.float64)
-        mocker.patch("platypus.utils.lovasz_softmax.LovaszSoftmaxLoss.lovasz_softmax_batch", return_value=batch_losses)
+        mocker.patch("pyplatypus.utils.lovasz_softmax.LovaszSoftmaxLoss.lovasz_softmax_batch", return_value=batch_losses)
         result = self.sl.lovasz_loss(self.y_actual, self.y_pred)
         assert result == np.mean(batch_losses)

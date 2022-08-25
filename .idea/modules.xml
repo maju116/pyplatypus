@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/pyplatypus.iml" filepath="$PROJECT_DIR$/.idea/pyplatypus.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/pypyplatypus.iml" filepath="$PROJECT_DIR$/.idea/pypyplatypus.iml" />
     </modules>
   </component>
 </project>

@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="pyplatypus",
-    version="0.1.0",
+    version="0.1.2",
     author="Michał Maj",
     author_email="michalmaj116@gmail.com",
     description="""

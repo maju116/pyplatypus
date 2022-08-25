@@ -1,11 +1,11 @@
 from yaml import load, FullLoader
 from pathlib import Path
-from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from platypus.data_models.semantic_segmentation_datamodel import (
+from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation_datamodel import (
     SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
     )
-from platypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from platypus.data_models import augmentation_datamodel as AM
+from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
+from pyplatypus.data_models import augmentation_datamodel as AM
 
 
 class YamlConfigLoader(object):

@@ -1,6 +1,6 @@
-from platypus.engine import platypus_engine
-from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from platypus.utils.config_processing_functions import YamlConfigLoader
+from pyplatypus.engine import platypus_engine
+from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
+from pyplatypus.utils.config_processing_functions import YamlConfigLoader
 from pathlib import Path
 
 from typing import Optional

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras.backend as kb
 from typing import Optional
-from platypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
+from pyplatypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
 
 
 class segmentation_loss:

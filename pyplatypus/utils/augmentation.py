@@ -3,7 +3,7 @@ from typing import List
 from collections.abc import KeysView
 import albumentations as A
 
-from platypus.config.augmentation_config import train_available_methods, validation_test_available_methods
+from pyplatypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
 
 def filter_out_incorrect_methods(
