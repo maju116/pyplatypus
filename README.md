@@ -20,17 +20,17 @@ wheels aside from the archive source distribution, use this line:
 `twine upload --repository-url https://test.pypi.org/legacy/ folder/*`
 
 Then try installing from TestPyPI:
-`pip install --index-url https://test.pypi.org/simple/ platypus`
+`pip install --index-url https://test.pypi.org/simple/ pyplatypus`
 
 Only after testing it there should you proceed with the release:
 `twine upload dist/*`
 
 And then install your package!
-`pip install platypus`
+`pip install pyplatypus`
 
 Note!
 Pip dependencies will be installed during the package build but there is one conda dependency that
-needs to be installed by hand:
+needs to be installed by hand if you are planning to play around with the GPU.
 `conda install -c conda-forge tensorflow==2.9.1`
 
-We are working on this :)
+We are working on creating the deployment script for this :)
