@@ -33,7 +33,8 @@ setup(
         "numpy==1.22.4",
         "tensorboard==2.9.0",
         "PyYAML==6.0",
-        "pydicom==2.2.0"
+        "pydicom==2.2.0",
+        "pydantic==1.9.1"
         ],
     python_requires=">=3.6",
 )

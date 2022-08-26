@@ -20,7 +20,7 @@ wheels aside from the archive source distribution, use this line:
 `twine upload --repository-url https://test.pypi.org/legacy/ folder/*`
 
 Then try installing from TestPyPI:
-`pip install --index-url https://test.pypi.org/simple/ pyplatypus`
+`pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple pyplatypus`
 
 Only after testing it there should you proceed with the release:
 `twine upload dist/*`
