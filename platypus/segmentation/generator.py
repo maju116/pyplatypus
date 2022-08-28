@@ -10,6 +10,7 @@ import pydicom
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
 from platypus.utils.toolbox import split_masks_into_binary
+import logging as log
 
 
 class segmentation_generator(tf.keras.utils.Sequence):
@@ -102,15 +103,25 @@ class segmentation_generator(tf.keras.utils.Sequence):
         if mode in ["nested_dirs", 1]:
             nested_dirs = os.listdir(path)
             nested_dirs.sort()
-            images_paths = [
-                [os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))] for nd
-                in
-                nested_dirs]
-            if not only_images:
-                masks_paths = [
-                    [os.path.join(path, nd, subdirs[1], s) for s in
-                     sorted(os.listdir(os.path.join(path, nd, subdirs[1])))] for nd
-                    in nested_dirs]
+
+            images_paths = []
+            masks_paths = []
+            for nd in nested_dirs:
+                try:
+                    images_paths_batch = [
+                        os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))
+                        ]
+                    images_paths.append(images_paths_batch)
+
+                    if not only_images:
+                        masks_paths_batch = [
+                            os.path.join(path, nd, subdirs[1], s) for s in sorted(os.listdir(os.path.join(path, nd, subdirs[1])))
+                            ]
+                        masks_paths.append(masks_paths_batch)
+                except FileNotFoundError:
+                    log.warning(f"The current image {nd} is incomplete for it contains only masks or images!")
+                    pass
+
         elif mode in ["config_file", 2]:
             config = pd.read_csv(path)
             images_paths = [[s] for s in config.images.to_list()]
