@@ -260,8 +260,8 @@ class platypus_engine:
         else:
             self.produce_and_save_predicted_masks_for_model(model_name)
 
-    def produce_and_save_predicted_masks_for_model(self, model_name):
-        predictions, paths, colormap = self.predict_based_on_test_generator(model_name)
+    def produce_and_save_predicted_masks_for_model(self, model_name, custom_data_path=None):
+        predictions, paths, colormap = self.predict_based_on_test_generator(model_name, custom_data_path)
         image_masks = []
         for prediction in predictions:
             prediction_binary = transform_probabilities_into_binaries(prediction)
@@ -269,9 +269,11 @@ class platypus_engine:
             image_masks.append(prediction_mask)
         self.save_masks(image_masks, paths, model_name)
 
-    def predict_based_on_test_generator(self, model_name: str):
+    def predict_based_on_test_generator(self, model_name: str, custom_data_path: str):
         m = self.cache.get("semantic_segmentation").get(model_name).get("model")
         g = self.cache.get("semantic_segmentation").get(model_name).get("data_generator")
+        if custom_data_path is not None:
+            g.path = custom_data_path
         colormap = g.colormap
         predictions, paths = self.predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap
