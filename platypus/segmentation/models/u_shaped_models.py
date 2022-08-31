@@ -30,7 +30,7 @@ class u_shaped_model:
         use_separable_conv2d: Optional[bool] = True,
         use_spatial_dropout2d: Optional[bool] = True,
         use_up_sampling2d: Optional[bool] = False,
-        activation_function_name: Optional[str] = "ReLU",
+        activation_function_name: Optional[str] = "relu",
         **kwargs
     ) -> None:
         """
