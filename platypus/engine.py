@@ -243,7 +243,7 @@ class platypus_engine:
                         filepath=model_cfg.name + '.hdf5',
                         save_best_only=True,
                         monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
-                        mode='max'  # TODO Is monitor supposed to be the str or our function?
+                        mode='min'  # TODO Is monitor supposed to be the str or our function?
                     ), EarlyStopping(
                         monitor='categorical_crossentropy', mode='max', patience=5
                     )]
