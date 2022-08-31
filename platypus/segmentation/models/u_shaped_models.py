@@ -293,7 +293,7 @@ class u_shaped_model:
         Returns:
             Output for U-Net/U-Net++ model.
         """
-        output = self.convolutional_layer(filters=self.n_class, kernel_size=1)(output_tensor)
+        output = self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(output_tensor)
         output = Resizing(height=self.net_h, width=self.net_w)(output)
         if self.plus_plus and self.deep_supervision:
             outputs = subconv_layers[0].copy()
