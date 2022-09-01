@@ -30,7 +30,7 @@ class u_shaped_model:
         use_separable_conv2d: Optional[bool] = True,
         use_spatial_dropout2d: Optional[bool] = True,
         use_up_sampling2d: Optional[bool] = False,
-        activation_function_name: Optional[str] = "relu",
+        activation_layer: Optional[str] = "relu",
         **kwargs
     ) -> None:
         """
@@ -52,7 +52,7 @@ class u_shaped_model:
             use_separable_conv2d (bool): Determines if the SeparableConv2D layers should be used, if set to false, the Conv2D is used.
             use_spatial_droput2d (bool): Indicates whether the spatial or regular droput should be used.
             use_up_sampling2d (bool): If set to False, the transpozed convolutional layer is used.
-            activation_function_name (str): Allows the user to choose any activation layer available in the tensorflow.keras.activations.
+            activation_layer (str): Allows the user to choose any activation layer available in the tensorflow.keras.activations.
         """
         self.net_h = net_h
         self.net_w = net_w
@@ -70,7 +70,7 @@ class u_shaped_model:
         self.use_separable_conv2d = use_separable_conv2d
         self.use_spatial_droput2d = use_spatial_dropout2d
         self.use_up_sampling2d = use_up_sampling2d
-        self.activation_function_name = activation_function_name
+        self.activation_layer = activation_layer
         self.model = self.build_model()
 
     def dropout_layer(self):
@@ -210,7 +210,7 @@ class u_shaped_model:
         activation_layer: function
             Layer later used to apply the chosen activation function.
         """
-        activation_layer = getattr(KRACT, self.activation_function_name)
+        activation_layer = getattr(KRACT, self.activation_layer)
         return activation_layer
 
     @staticmethod
