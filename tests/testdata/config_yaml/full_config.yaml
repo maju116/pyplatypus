@@ -10,7 +10,6 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: 'u_net1'
-          type: 'u_net'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -25,7 +24,6 @@ semantic_segmentation:
           batch_size: 32
           epochs: 20
         - name: 'u_net2'
-          type: 'u_net'
           net_h: 256
           net_w: 256
           h_splits: 0

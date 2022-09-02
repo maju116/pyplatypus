@@ -38,7 +38,6 @@ semantic_segmentation:
           batch_size: 32
           epochs: 100
         - name: 'u_net_plus_plus'
-          type: 'u_net'
           net_h: 256
           net_w: 256
           h_splits: 0

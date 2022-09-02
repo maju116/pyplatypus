@@ -99,9 +99,9 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_spatial_dropout2d: Optional[bool] = True
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
-    activation_function_name: Optional[str] = "relu"
+    activation_layer: Optional[str] = "relu"
 
-    @validator("activation_function_name")
+    @validator("activation_layer")
     def check_activation_type(cls, v: str):
         if v in available_activations:
             return v
