@@ -245,7 +245,7 @@ class platypus_engine:
                         monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
                         mode='min'  # TODO Is monitor supposed to be the str or our function?
                     ), EarlyStopping(
-                        monitor='categorical_crossentropy', mode='max', patience=5
+                        monitor='val_iou_coefficient', mode='max', patience=5
                     )]
                 )
                 self.update_cache(
@@ -303,8 +303,6 @@ class platypus_engine:
             img_name, img_type = Path(path).name.split(".")
             if img_type != "png":
                 raise NotImplementedError("Types other than PNG to be handled soon.")
-            for i in range(len(im)):
-                mask = im[i]
-                mask_as_image = Image.fromarray(mask[:, :, 0].astype(np.uint8)).convert("RGB")
-                mask_path = masks_path/f"{model_name}_predicted_mask_{i+1}.png"
-                mask_as_image.save(mask_path)
+            mask_as_image = Image.fromarray(im.astype(np.uint8)).convert("RGB")
+            mask_path = masks_path/f"{model_name}_predicted_mask.png"
+            mask_as_image.save(mask_path)
