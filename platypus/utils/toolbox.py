@@ -24,7 +24,7 @@ def convert_to_snake_case(any_case: str):
 def split_masks_into_binary(
         mask: np.ndarray,
         colormap: List[Tuple[int, int, int]]
-        ) -> np.ndarray:
+) -> np.ndarray:
     """
     Splits multi-class mask into binary masks.
 
@@ -38,33 +38,25 @@ def split_masks_into_binary(
     return np.stack([np.all(mask == c, axis=-1) * 1 for c in colormap], axis=-1)
 
 
-def concatenate_binary_masks(binary_mask: np.ndarray, colormap: List[Tuple[int, int, int]]):
+def concatenate_binary_masks(
+        binary_mask: np.ndarray,
+        colormap: List[Tuple[int, int, int]]
+) -> np.ndarray:
     """
     Concatenates the binary masks back to the multi-class
 
     Parameters
     ----------
-    mask: np.ndarray
-        Segmentation mask.
+    binary_mask: np.ndarray
+        Binary segmentation mask.
     colormap: List[Tuple[int, int, int]]
         Class color map.
     """
-    n_class = len(colormap)
-    for c, i in zip(colormap, range(n_class)):
-        class_slice_binary = binary_mask[:, :, i]
-        class_slice_mask = np.where(class_slice_binary == 1, c[0], class_slice_binary)
-        # Put decoded slice back into the input
-        binary_mask[:, :, i] = class_slice_mask
-    masks_multiclass = np.split(binary_mask, axis=2, indices_or_sections=n_class)
-    return masks_multiclass
-
-
-def sum_multiclass_masks(masks_multiclass: List[tf.Tensor], colormap: List[Tuple[int, int, int]]):
-    n_layers = len(colormap[0])
-    masks_multiclass = sum(masks_multiclass)
-    # Mimic the original number of layers
-    masks_multiclass = np.repeat(masks_multiclass, n_layers, axis=2)
-    return masks_multiclass
+    multiclass_mask = np.zeros((binary_mask.shape[0], binary_mask.shape[1], 3))
+    for count, color in enumerate(colormap):
+        idx = np.where(binary_mask[:, :, count] == 1)
+        multiclass_mask[idx] = color
+    return multiclass_mask
 
 
 def transform_probabilities_into_binaries(prediction: np.ndarray):
