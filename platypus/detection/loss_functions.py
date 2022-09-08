@@ -194,20 +194,14 @@ class yolo3_loss:
         return total_loss
 
     def yolo3_loss(
-            self,
-            y_true: tf.Tensor,
-            y_pred: tf.Tensor
+            self
     ) -> List:
         """
         Generates `Yolo3` loss function.
 
-        Agrs:
-            y_true (tf.Tensor): Tensor of true coordinates/scores.
-            y_pred (tf.Tensor): Tensor of predicted coordinates/scores.
-
         Returns:
             `Yolo3` loss function.
         """
-        return [lambda yt, yp: self.yolo3_grid_loss(yt, yp, a) for yt, yp, a in zip(y_true, y_pred, self.anchors)]
+        return [lambda y_true, y_pred: self.yolo3_grid_loss(y_true, y_pred, a) for a in self.anchors]
 
 
