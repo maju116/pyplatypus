@@ -208,6 +208,6 @@ class yolo3_loss:
         Returns:
             `Yolo3` loss function.
         """
-        return [self.yolo3_grid_loss(yt, yp, a) for yt, yp, a in zip(y_true, y_pred, self.anchors)]
+        return [lambda yt, yp: self.yolo3_grid_loss(yt, yp, a) for yt, yp, a in zip(y_true, y_pred, self.anchors)]
 
 
