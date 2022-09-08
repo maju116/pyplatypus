@@ -1,10 +1,10 @@
 object_detection:
 semantic_segmentation:
     data:
-        train_path: 'tests/testdata/nested_dirs/'
-        validation_path: 'tests/testdata/nested_dirs/'
-        test_path: 'tests/testdata/nested_dirs/'
-        colormap: [[0, 0, 0], [255, 255, 255]]
+        train_path: 'examples/data/data_science_bowl/stage1_train'
+        validation_path: 'examples/data/data_science_bowl/stage1_validation'
+        test_path: 'examples/data/data_science_bowl/stage1_test'
+        colormap: [[0, 0, 0], [1, 1, 1]]
         mode: 'nested_dirs'
         shuffle: False
         subdirs: ["images", "masks"]
@@ -15,8 +15,8 @@ semantic_segmentation:
 
     models:
         - name: 'res_u_net'
-          net_h: 300
-          net_w: 300
+          net_h: 256
+          net_w: 256
           h_splits: 0
           w_splits: 0
           grayscale: False
@@ -38,8 +38,8 @@ semantic_segmentation:
           batch_size: 32
           epochs: 100
         - name: 'u_net_plus_plus'
-          net_h: 300
-          net_w: 300
+          net_h: 256
+          net_w: 256
           h_splits: 0
           w_splits: 0
           grayscale: False
@@ -55,12 +55,9 @@ semantic_segmentation:
           use_separable_conv2d: True
           use_spatial_dropout2d: True
           use_up_sampling2d: True
-          batch_size: 32
-          epochs: 100
+          batch_size: 8
+          epochs: 5
 augmentation:
-    InvertImg:
-        always_apply: True
-        p: 1
     Blur:
         blur_limit: 7
         always_apply: False
