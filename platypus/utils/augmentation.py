@@ -1,8 +1,7 @@
-import numpy as np
-from typing import List
-from collections.abc import KeysView
-import albumentations as A
+"""TODO Add the module documentation"""
 
+from typing import List
+import albumentations as A
 from platypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
 
@@ -11,24 +10,29 @@ def filter_out_incorrect_methods(
         train: bool
 ) -> List[str]:
     """
-    Filters out incorrect names of augmentation methods to be used.
+    Filters the names of augmentations methods that are yet to be implemented out of the input list.
 
-    Args:
-        methods (List[str]): List of names with augmentation methods to be used.
-        train (bool): Should the train methods list be used.
+    Parameters
+    ----------
+    methods: list
+        List of names of the augmentation methods to be used.
+    train: bool
+        Should the train methods list be used, essentialy it switches us between the
+        lists of valid methods.
 
-    Returns:
-        List of correct names with augmentation methods.
+    Returns
+    -------
+        valid_methods: list
+            List produced out of the inpur of correct names of the augmentation methods.
     """
     if train:
         available_methods = train_available_methods
     else:
         available_methods = validation_test_available_methods
-
     methods = augmentation_dict.keys()
     chosen_transformations = [m for m in augmentation_dict.keys() if augmentation_dict.get(m) is not None]
-
-    return [m for m in methods if (m in available_methods) and (m in chosen_transformations)]
+    valid_methods = [m for m in methods if (m in available_methods) and (m in chosen_transformations)]
+    return valid_methods
 
 
 def create_augmentation_pipeline(
@@ -36,14 +40,22 @@ def create_augmentation_pipeline(
         train: bool,
 ) -> A.core.composition.Compose:
     """
-    Create augmentation pipeline based on dictionary.
+    Creates augmentation pipeline based on dictionary. It is done by importing the certain classes from the Albumentations
+    module. This is why it is crucial to use the proper names here hence the additional validation. The incorrect keys are
+    deleted from the dictionary.
 
-    Args:
-        augmentation_dict (dict): Augmentation dictionary.
-        train (bool): Should the train methods list be used.
+    Parameters
+    ----------
+    augmentation_dict: dict
+        Augmentation dictionary, connecting the methods names to theirs configs.
+        Refer to platypus/data_models/augmentation_datamodel.py to learn about their exact structure.
+    train: bool
+        Switches between different lists of allowed methods.
 
-    Returns:
-        Augmentation pipeline
+    Returns
+    -------
+    pipeline: Albumetations.core.composition.Compose class
+        The iterator-like object compliant with the data generators present in the PyPlatypus.
     """
     correct_methods = filter_out_incorrect_methods(augmentation_dict, train)
     augmentation_dict = {your_key: augmentation_dict[your_key] for your_key in correct_methods}

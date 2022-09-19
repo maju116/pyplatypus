@@ -1,21 +1,25 @@
 import numpy as np
-import tensorflow as tf
 from typing import List, Tuple
 
 
-def convert_to_snake_case(any_case: str):
+def convert_to_snake_case(any_case: str) -> str:
     """
-    Converts the name to the snake case.
+    Converts any given string to the snake case.
 
     Parameters
     ----------
     any_case: str
-        Name to convert e.g. "Dice loss"
+        String to convert.
 
     Returns
     -------
     snake_case: str
-        Snake case string e.g. "dice_loss"
+        Snake case string.
+
+    Examples
+    --------
+    >>> convert_to_snake_case("Dice loss")
+    'dice_loss'
     """
     snake_case = "_".join(any_case.lower().split(" "))
     return snake_case
@@ -24,7 +28,7 @@ def convert_to_snake_case(any_case: str):
 def split_masks_into_binary(
         mask: np.ndarray,
         colormap: List[Tuple[int, int, int]]
-) -> np.ndarray:
+        ) -> np.ndarray:
     """
     Splits multi-class mask into binary masks.
 
@@ -41,7 +45,7 @@ def split_masks_into_binary(
 def concatenate_binary_masks(
         binary_mask: np.ndarray,
         colormap: List[Tuple[int, int, int]]
-) -> np.ndarray:
+        ) -> np.ndarray:
     """
     Concatenates the binary masks back to the multi-class
 
@@ -59,12 +63,47 @@ def concatenate_binary_masks(
     return multiclass_mask
 
 
-def transform_probabilities_into_binaries(prediction: np.ndarray):
+def transform_probabilities_into_binaries(prediction: np.ndarray) -> np.array:
+    """Over the last dimension, the function sets the argmax of the probabilities,
+    sets the value for it to be one whilst zeroing out the rest of elements.
+
+    Parameters
+    ----------
+    prediction : np.ndarray
+        Multidimensional array containing the probabilities of each pixel belonging to each class.
+
+    Returns
+    -------
+    prediction_binary: np.array
+        Array containing only binary values.
+
+    Examples
+    --------
+    >>> transform_probabilities_into_binaries(np.array([0.9, 0.8, 0.7]).reshape((1, 1, 3)))
+    array([[[1, 0, 0]]])
+    """
     prediction_binary = np.apply_along_axis(binary_based_on_arg_max, 2, prediction)
     return prediction_binary
 
 
 def binary_based_on_arg_max(array: np.array):
+    """Replaces the highest probability with one and zeros the rest.
+
+    Parameters
+    ----------
+    array : np.array
+        Input array containing the probablities between zero and one.
+
+    Returns
+    -------
+    array_binary: np.array
+        Binary array.
+
+    Examples
+    --------
+    >>> binary_based_on_arg_max(np.array([0.9, 0.8, 0.7]))
+    array([1, 0, 0])
+    """
     highest_prob = array.max()
     array_binary = np.where(array == highest_prob, 1, 0)
     return array_binary
