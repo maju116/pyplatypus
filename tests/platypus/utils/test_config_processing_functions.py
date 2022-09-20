@@ -3,6 +3,13 @@ from pathlib import Path
 import yaml
 import pytest
 
+from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
+from platypus.data_models.semantic_segmentation_datamodel import (
+    SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
+    )
+from platypus.data_models.object_detection_datamodel import ObjectDetectionInput
+from platypus.data_models import augmentation_datamodel as AM
+
 
 class TestCheckCVTasks:
     config_none = dict({"random_tast_name": None, "semantic_segmenatation": None, "object_detection": None})
@@ -67,6 +74,9 @@ class TestYAMLConfigLoader:
     }
     }
 
+    def mocked_solver_datamodel(*args, **kwargs):
+        return {}
+
     def test_initialize_invalid_path(self):
         with pytest.raises(NotADirectoryError):
             YamlConfigLoader(Path("/noexistent_file"))
@@ -84,3 +94,40 @@ class TestYAMLConfigLoader:
             yaml.dump(self.mocked_config, mocked_file)
 
         assert self.mocked_config == YamlConfigLoader.load_config_from_yaml(mocked_file_path)
+
+    def test_create_semantic_segmentation_config(self):
+        config = self.mocked_config
+        parsed_config = YamlConfigLoader.create_semantic_segmentation_config(config)
+        assert parsed_config.data == SemanticSegmentationData(**config.get("semantic_segmentation").get("data"))
+        assert parsed_config.models[0] == SemanticSegmentationModelSpec(**config.get("semantic_segmentation").get("models")[0])
+        assert isinstance(parsed_config, SemanticSegmentationInput)
+
+    def test_create_object_detection_config(self):
+        config = self.mocked_config
+        assert YamlConfigLoader.create_object_detection_config(config) == ObjectDetectionInput()
+
+    def test_create_augmentation_config(self):
+        input_dict = {
+            "augmentation": {
+                "InvertImg": {
+                    "always_apply": True,
+                    "p": 1
+                }
+                }
+            }
+        parsed_config = YamlConfigLoader.create_augmentation_config(config=input_dict)
+        parsed_config_as_dict = parsed_config.dict()
+        for key in parsed_config_as_dict.keys():
+            if key != "InvertImg":
+                assert parsed_config_as_dict.get(key) is None
+        assert isinstance(parsed_config, AM.AugmentationSpecFull)
+        assert isinstance(parsed_config.InvertImg, AM.InvertImgSpec)
+
+    def test_load(self, mocker):
+        ycl_path = "platypus.utils.config_processing_functions.YamlConfigLoader."
+        mocker.patch(ycl_path + "load_config_from_yaml", return_value=None)
+        mocker.patch(ycl_path + "create_semantic_segmentation_config", return_value=None)
+        mocker.patch(ycl_path + "create_object_detection_config", return_value=None)
+        mocker.patch(ycl_path + "create_augmentation_config", return_value=None)
+        mocker.patch("platypus.utils.config_processing_functions.PlatypusSolverInput", self.mocked_solver_datamodel)
+        assert YamlConfigLoader(Path("")).load() == {}
