@@ -1,5 +1,5 @@
 from platypus.utils.config_processing_functions import check_cv_tasks
-from platypus.utils.augmentation import create_augmentation_pipeline
+from platypus.utils.augmentation_toolbox import create_augmentation_pipeline
 from platypus.segmentation.generator import segmentation_generator
 from platypus.segmentation.loss_functions import segmentation_loss
 from platypus.segmentation.models.u_shaped_models import u_shaped_model

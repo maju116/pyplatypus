@@ -1,4 +1,4 @@
-from platypus.utils.augmentation import filter_out_incorrect_methods, create_augmentation_pipeline
+from platypus.utils.augmentation_toolbox import filter_out_incorrect_methods, create_augmentation_pipeline
 import albumentations as A
 import mock, pytest
 
@@ -11,17 +11,17 @@ class TestFilterOutIncorrectMethods:
         "method_name4": "method_spec4"
     }
     def test_filter_out_incorrect_methods_train_no_valid_methods(self, mocker):
-        with mock.patch("platypus.utils.augmentation.train_available_methods", ["method_name5"]):
+        with mock.patch("platypus.utils.augmentation_toolbox.train_available_methods", ["method_name5"]):
             assert filter_out_incorrect_methods(self.augmentation_dict, train=True) == []
 
     
     def test_filter_out_incorrect_methods_train_some_valid_methods(self, mocker):
-        with mock.patch("platypus.utils.augmentation.train_available_methods", ["method_name2", "method_name1"]):
+        with mock.patch("platypus.utils.augmentation_toolbox.train_available_methods", ["method_name2", "method_name1"]):
             assert filter_out_incorrect_methods(self.augmentation_dict, train=True) == ["method_name1", "method_name2"]
 
         
     def test_filter_out_incorrect_methods_validation_no_valid_methods(self, mocker):
-        with mock.patch("platypus.utils.augmentation.validation_test_available_methods", ["method_name2", "method_name1"]):
+        with mock.patch("platypus.utils.augmentation_toolbox.validation_test_available_methods", ["method_name2", "method_name1"]):
             assert filter_out_incorrect_methods(self.augmentation_dict, train=False) == ["method_name1", "method_name2"]
 
 class TestCreateAugmentationPipeline:
@@ -47,10 +47,10 @@ class TestCreateAugmentationPipeline:
 
     def test_create_augmentation_pipeline(self, monkeypatch):
         monkeypatch.setattr(
-            "platypus.utils.augmentation.filter_out_incorrect_methods",
+            "platypus.utils.augmentation_toolbox.filter_out_incorrect_methods",
             self.mocked_filter_out_incorrect_methods
             )
-        albumentations_path = "platypus.utils.augmentation.A"
+        albumentations_path = "platypus.utils.augmentation_toolbox.A"
         monkeypatch.setattr(
             albumentations_path+".method_name1", self.mocked_method1, raising=False
             )

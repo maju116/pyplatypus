@@ -1,24 +1,40 @@
 from platypus.engine import platypus_engine
-from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from platypus.utils.config_processing_functions import YamlConfigLoader
 from pathlib import Path
 
-from typing import Optional
-
 
 class PlatypusSolver(platypus_engine):
+    """The wrapper around the mighty platypus engine which arms it with the tools for training
+    multiple models tackling the CV tasks such as: semantic segmentation, object detections and
+    image classification.
+    """
+    def __init__(self, config_yaml_path: str):
+        """The initialization method offers loading the YAML config on the run with the use of validated config path.
+        After the initialization we have global_cache and parsed config at hand, ready to be used.
 
-    def __init__(self, config_yaml_path: str, config: Optional[dict] = None):
+        Parameters
+        ----------
+        config_yaml_path : str
+            The path pointing at the YAML config to be used for the specific run.
+
+        Raises
+        ------
+        NotADirectoryError
+            In case of the config path being invalid.
+        """
         if not Path(config_yaml_path).exists():
             raise NotADirectoryError(
-                "The specified config path does not exist while the already loaded config was not provided!"
+                "The specified config path does not exist!"
                 )
         else:
             ycl = YamlConfigLoader(config_yaml_path)
             self.config = ycl.load()
-            self.cache = dict()
-            super().__init__(self.config, self.cache)
+            self.global_cache = dict()
+            super().__init__(self.config, self.global_cache)
 
     def run(self):
+        """For the time being the sole function of this method is to invoke the training mechanism but it is meant to be the tool
+        for ordering the tasks and making the underlying actions clear for the user.
+        """
         self.train()
         return None

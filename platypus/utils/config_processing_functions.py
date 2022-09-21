@@ -1,3 +1,17 @@
+"""This module offers the tools crucial in the config ingestion but also it's latter validation
+while some of the validation steps could get moved to the pydantic side but for now they are kept here.
+
+Classes
+-------
+YamlConfigLoader(object)
+    Provides the framework allowing us to ingest the raw config from the YAML shaped by an user.
+
+Functions
+---------
+check_cv_tasks(config: dict)
+    Checks which Computer Vision tasks are to be performed.
+"""
+
 from yaml import load, FullLoader
 from pathlib import Path
 from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
@@ -14,6 +28,24 @@ class YamlConfigLoader(object):
     of data contained in the config through the branching PlatypusSolverInput
     structure. Therefore the essential information is extracted, validated, parsed
     and neatly organized in the expected structure.
+
+    Methods
+    -------
+    load_config_from_yaml(config_path: str)
+        Loads configuration from YAML file.
+
+    create_semantic_segmentation_config(config: dict)
+        Extracts the data regarding the semantic segmentation CV task to be performed.
+
+    create_object_detection_config(config: dict)
+        Extracts the data regarding the object detection CV task to be performed.
+
+    create_augmentation_config(config: dict)
+        Extracts the configuration later used during the augmentation pipeline and data generators creation.
+
+    load()
+        Loads the raw config from the YAML file, then each crucial configuration gets extracted from the main config
+        and parsed through the Pydantic datamodel.
     """
 
     def __init__(self, config_yaml_path: str) -> None:
@@ -36,9 +68,7 @@ class YamlConfigLoader(object):
             self.config_yaml_path = config_yaml_path
 
     @staticmethod
-    def load_config_from_yaml(
-            config_path: str
-    ) -> dict:
+    def load_config_from_yaml(config_path: str) -> dict:
         """
         Loads configuration from YAML file.
 
