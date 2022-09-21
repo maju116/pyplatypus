@@ -1,14 +1,20 @@
-"""TODO Add the module documentation"""
+"""The module delivers tools related strictly to the topic of augmentation.
+
+Functions
+---------
+filter_out_incorrect_methods(augmentation_dict: dict, train: bool)
+    Filters the names of augmentations methods that are yet to be implemented out of the input list.
+
+create_augmentation_pipeline(augmentation_dict: dict, train: bool)
+    Creates augmentation pipeline based on dictionary.
+"""
 
 from typing import List
 import albumentations as A
 from platypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
 
-def filter_out_incorrect_methods(
-        augmentation_dict: dict,
-        train: bool
-) -> List[str]:
+def filter_out_incorrect_methods(augmentation_dict: dict, train: bool) -> List[str]:
     """
     Filters the names of augmentations methods that are yet to be implemented out of the input list.
 
@@ -35,10 +41,7 @@ def filter_out_incorrect_methods(
     return valid_methods
 
 
-def create_augmentation_pipeline(
-        augmentation_dict: dict,
-        train: bool,
-) -> A.core.composition.Compose:
+def create_augmentation_pipeline(augmentation_dict: dict, train: bool) -> A.core.composition.Compose:
     """
     Creates augmentation pipeline based on dictionary. It is done by importing the certain classes from the Albumentations
     module. This is why it is crucial to use the proper names here hence the additional validation. The incorrect keys are
