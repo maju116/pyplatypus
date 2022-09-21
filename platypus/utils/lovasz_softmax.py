@@ -9,6 +9,27 @@ class LovaszSoftmaxLoss(object):
     """The class makes the computation of Lovasz Softmax Loss possible.
     This implementation follows the logic of [1]_.
 
+    Methods
+    -------
+    lovasz_grad(gt_sorted: tf.Tensor)
+        Computes gradient of the Lovasz extension, based on sorted errors.
+
+    lovasz_softmax_batch(self, probas_labels: tuple)
+        Calculates the Lovasz-Softmax loss for the Multi-class case, adapted to accept the tf.map_fn-produced arguments.
+
+    lovasz_softmax(self, probas: tf.Tensor, labels: tf.Tensor)
+        Calculates the Lovasz-Softmax loss for the Multi-class case.
+
+    flatten_and_select(self, labels: tf.Tensor, probas: tf.Tensor, index: int)
+        Selects the image layer associated with the certain class i.e. index and then flattens the selections.
+
+    calculate_and_sort_errors(self, fg: tf.Tensor, class_prob: tf.Tensor)
+        Calculates the absolute errors to then sort them alongside the input flattened tensor.
+
+    lovasz_softmax_flat(self, probas: tf.Tensor, labels: tf.Tensor)
+        Calculates the Lovasz-Softmax loss for the Multi-class case.
+
+
     References
     ----------
     [1] Maxim Berman, Amal Rannen Triki, Matthew B. Blaschko
@@ -84,8 +105,7 @@ class LovaszSoftmaxLoss(object):
         return loss
 
     def flatten_and_select(self, labels: tf.Tensor, probas: tf.Tensor, index: int) -> tuple:
-        """Selects the image layer associated with the certain class i.e. index and then flattens the
-        selections.
+        """Selects the image layer associated with the certain class i.e. index and then flattens the selections.
 
         Parameters
         ----------

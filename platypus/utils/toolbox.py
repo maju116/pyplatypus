@@ -1,3 +1,24 @@
+"""This module offers the set of tools shared between the various tasks connected by the fact of being related to the Computer Vision topic.
+
+Functions
+---------
+convert_to_snake_case(any_case: str)
+    Converts any given string to the snake case.
+
+split_masks_into_binary(mask: np.ndarray, colormap: List[Tuple[int, int, int]])
+    Splits multi-class mask into binary masks.
+
+concatenate_binary_masks(binary_mask: np.ndarray, colormap: List[Tuple[int, int, int]])
+    Concatenates the binary masks back to the multi-class.
+
+transform_probabilities_into_binaries(prediction: np.ndarray)
+    Over the last dimension, the function sets the argmax of the probabilities,
+    sets the value for it to be one whilst zeroing out the rest of elements.
+
+binary_based_on_arg_max(array: np.array)
+    Replaces the highest probability with one and zeros the rest.
+"""
+
 import numpy as np
 from typing import List, Tuple
 
