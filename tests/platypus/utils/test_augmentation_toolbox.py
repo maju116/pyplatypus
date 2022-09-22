@@ -1,4 +1,6 @@
-from platypus.utils.augmentation_toolbox import filter_out_incorrect_methods, create_augmentation_pipeline
+from platypus.utils.augmentation_toolbox import (
+    filter_out_incorrect_methods, create_augmentation_pipeline, prepare_augmentation_pipelines
+    )
 import albumentations as A
 import mock, pytest
 
@@ -56,3 +58,16 @@ class TestCreateAugmentationPipeline:
             )
         monkeypatch.setattr(albumentations_path+".Compose", self.mocked_compose)
         assert create_augmentation_pipeline(self.augmentation_dict, train=True) == ["method_name1"]
+
+
+class TestPrepareAugmentationPipelines:
+    def test_prepare_augmentation_pipelines_no_augmentation(self):
+        config = {}
+        assert prepare_augmentation_pipelines(config) == (None, None)
+
+    def test_prepare_augmentation_pipelines(self, mocker):
+        config = {
+            "augmentation": {"augmentation_spec": "spec"}
+        }
+        mocker.patch("platypus.utils.augmentation_toolbox.create_augmentation_pipeline", return_value="pipeline")
+        assert prepare_augmentation_pipelines(config) == ("pipeline", "pipeline")
