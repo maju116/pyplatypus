@@ -1,3 +1,6 @@
+"""This script defines the available augmentation methods, camel case names are compliant with the methods available
+in the Albumentations package."""
+
 train_available_methods = [
     'Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
     'CLAHE', 'ChannelDropout', 'ChannelShuffle', 'ColorJitter', 'Downscale',

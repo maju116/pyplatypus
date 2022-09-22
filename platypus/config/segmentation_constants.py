@@ -1,4 +1,5 @@
-# Here the constants related to the specific models are stored.
+"""Here the constants related to the specific models are stored."""
+
 voc_labels = ('background', 'aeroplane', 'bicycle', 'bird', 'boat',
               'bottle', 'bus', 'car', 'cat', 'chair', 'cow',
               'diningtable', 'dog', 'horse', 'motorbike', 'person',
