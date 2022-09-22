@@ -10,6 +10,8 @@ import pydicom
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
 from platypus.utils.toolbox import split_masks_into_binary
+from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+
 import logging as log
 
 
@@ -326,3 +328,68 @@ class segmentation_generator(tf.keras.utils.Sequence):
     def __len__(self) -> int:
         """Returns the number of batches that one epoch is comprised of."""
         return int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
+
+
+def prepare_data_generators(
+    data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
+    train_augmentation_pipeline: Optional[A.Compose], validation_augmentation_pipeline: Optional[A.Compose]
+        ) -> tuple:
+    """Prepares the train, validation and test generators, for each model separately.
+
+    Parameters
+    ----------
+    data : SemanticSegmentationData
+        Stores the data crucial for designing the data flow within the generators.
+    model_cfg : SemanticSegmentationModelSpec
+        From this data model information regarding the model is taken.
+    train_augmentation_pipeline : Optional[Compose]
+        Albumentations package native augmentation pipeline, None is allowed.
+    validation_augmentation_pipeline : Optional[Compose]
+        Albumentations package native augmentation pipeline, None is allowed.
+
+    Returns
+    -------
+    generators: tuple
+        Tuple composed of the generators.
+    """
+    generators = []
+    for path, pipeline in zip(
+        [data.train_path, data.validation_path], [train_augmentation_pipeline, validation_augmentation_pipeline]
+            ):
+        generator_ = segmentation_generator(
+            path=path,
+            mode=data.mode,
+            colormap=data.colormap,
+            only_images=False,
+            net_h=model_cfg.net_h,
+            net_w=model_cfg.net_w,
+            h_splits=model_cfg.h_splits,
+            w_splits=model_cfg.w_splits,
+            grayscale=model_cfg.grayscale,
+            augmentation_pipeline=pipeline,
+            batch_size=model_cfg.batch_size,
+            shuffle=data.shuffle,
+            subdirs=data.subdirs,
+            column_sep=data.column_sep
+        )
+        generators.append(generator_)
+    test_generator = segmentation_generator(
+        path=path,
+        mode=data.mode,
+        colormap=data.colormap,
+        only_images=True,  # TODO To be changed later, maybe different generator for test than for prediction?
+        net_h=model_cfg.net_h,
+        net_w=model_cfg.net_w,
+        h_splits=model_cfg.h_splits,
+        w_splits=model_cfg.w_splits,
+        grayscale=model_cfg.grayscale,
+        augmentation_pipeline=None,
+        batch_size=model_cfg.batch_size,
+        shuffle=False,
+        subdirs=data.subdirs,
+        column_sep=data.column_sep,
+        test=True
+        )
+    generators.append(test_generator)
+    generators = tuple(generators)
+    return generators

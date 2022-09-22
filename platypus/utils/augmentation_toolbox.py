@@ -9,7 +9,7 @@ create_augmentation_pipeline(augmentation_dict: dict, train: bool)
     Creates augmentation pipeline based on dictionary.
 """
 
-from typing import List
+from typing import List, Tuple
 import albumentations as A
 from platypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
@@ -65,3 +65,32 @@ def create_augmentation_pipeline(augmentation_dict: dict, train: bool) -> A.core
     pipes = [getattr(A, method)(**dict(augmentation_dict[method])) for method in correct_methods]
     pipeline = A.Compose(pipes, p=1.0)
     return pipeline
+
+
+def prepare_augmentation_pipelines(config: dict) -> Tuple[A.Compose]:
+    """
+    Prepares the pipelines consisting of the transforms taken from the albumentations module.
+
+    Parameters
+    ----------
+    config: dict
+        Config steering the workflow, it is checked for the presence of the "augmentation" key.
+
+    Returns
+    -------
+    augmentation_pipelines: Tuple[albumentations.Compose]
+        Composed of the augmentation pipelines.
+    """
+    if config.get("augmentation") is not None:
+        train_augmentation_pipeline = create_augmentation_pipeline(
+            augmentation_dict=dict(config.get("augmentation")),
+            train=True
+            )
+        validation_augmentation_pipeline = create_augmentation_pipeline(
+            dict(config.get("augmentation")), False
+            )
+    else:
+        train_augmentation_pipeline = None
+        validation_augmentation_pipeline = None
+    pipelines = (train_augmentation_pipeline, validation_augmentation_pipeline)
+    return pipelines
