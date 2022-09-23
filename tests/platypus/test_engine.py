@@ -6,14 +6,16 @@ from platypus.data_models.augmentation_datamodel import AugmentationSpecFull
 import pytest
 
 
+class mocked_model:
+    def compile(**kwargs):
+        return None
+
 class mocked_u_shaped_model:
+    model = mocked_model
 
     def fit(self, *args, **kwargs):
         return None
-    
-    def compile(self, *args, **kwargs):
-        return None
-        
+
 class mocked_generator:
     steps_per_epoch = 10
     colormap = [(0, 0, 0), (255, 255, 255)]
@@ -102,7 +104,7 @@ class TestPlatypusEngine:
 
     def test_compile_u_shaped_model(self, mocker):
         model_cfg = self.config.semantic_segmentation.models[0]
-        mocker.patch(self.engine_path + ".compile_u_shaped_model", return_value=mocked_u_shaped_model)
+        mocker.patch("platypus.engine.u_shaped_model", return_value=mocked_u_shaped_model)
         mocker.patch("platypus.engine.prepare_loss_and_metrics", return_value=(None, None))
         self.initialized_engine.compile_u_shaped_model(model_cfg=model_cfg, segmentation_spec=self.config.semantic_segmentation)
         assert True

@@ -150,7 +150,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
                     if not only_images:
                         masks_paths_batch = [
-                            os.path.join(path, nd, subdirs[1], s) for s in sorted(os.listdir(os.path.join(path, nd, subdirs[1])))
+                            os.path.join(path, nd, subdirs[1], s) for s in sorted(
+                                os.listdir(os.path.join(path, nd, subdirs[1]))
+                                )
                             ]
                         masks_paths.append(masks_paths_batch)
                 except FileNotFoundError:
