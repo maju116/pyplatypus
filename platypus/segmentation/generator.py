@@ -10,6 +10,7 @@ import pydicom
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
 from platypus.utils.toolbox import split_masks_into_binary
+from platypus.segmentation.models.u_shaped_models import u_shaped_model
 from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
 
 import logging as log
@@ -393,7 +394,25 @@ def prepare_data_generators(
     return generators
 
 
-def predict_from_generator(model, generator: segmentation_generator):
+def predict_from_generator(model: u_shaped_model, generator: segmentation_generator) -> tuple:
+    """Serves the batches of images to the supplied model and returns predictions alongside the paths to the
+    images that the batch is comprised of.
+
+    Parameters
+    ----------
+    model : u_shaped_model
+        For now it is the U-shaped one but in the future it is expected to be one from the models
+        associated with the tasks implemented within Platypus.
+    generator : segmentation_generator
+        Generator created on the course of preparing the modelling pipeline.
+
+    Returns
+    -------
+    predictions: np.array
+        Consists of the predictions for all the data yielded by the generator.
+    paths: list
+        Paths to the original images.
+    """
     predictions = []
     paths = []
     for images_batch, paths_batch in generator:
