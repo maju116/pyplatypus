@@ -5,9 +5,13 @@ from platypus.data_models.object_detection_datamodel import ObjectDetectionInput
 from platypus.data_models.augmentation_datamodel import AugmentationSpecFull
 
 class mocked_u_shaped_model:
-    def fit(*args, **kwargs):
-        return None
 
+    def fit(self, *args, **kwargs):
+        return None
+    
+    def compile(self, *args, **kwargs):
+        return None
+        
 class mocked_generator:
     steps_per_epoch = 10
 
@@ -84,16 +88,14 @@ class TestPlatypusEngine:
             "model_name", mocked_u_shaped_model, self.config.semantic_segmentation.models[0].dict(), mocked_generator
             )
 
-    
-    # def compile_u_shaped_model(model_cfg: SemanticSegmentationModelSpec, segmentation_spec: SemanticSegmentationInput):
-    #     model = u_shaped_model(
-    #         **dict(model_cfg)
-    #     ).model
-    #     training_loss, metrics = prepare_loss_and_metrics(
-    #         loss=segmentation_spec.data.loss, metrics=segmentation_spec.data.metrics, n_class=model_cfg.n_class
-    #         )
-    #     model.compile(
-    #         loss=training_loss,
-    #         optimizer=segmentation_spec.data.optimizer.lower(),
-    #         metrics=metrics
-    #     )
+    def test_compile_u_shaped_model(self, mocker):
+        model_cfg = self.config.semantic_segmentation.models[0]
+        mocker.patch(self.engine_path + ".compile_u_shaped_model", return_value=mocked_u_shaped_model)
+        mocker.patch("platypus.engine.prepare_loss_and_metrics", return_value=(None, None))
+        self.initialized_engine.compile_u_shaped_model(model_cfg=model_cfg, segmentation_spec=self.config.semantic_segmentation)
+        assert True
+
+    def test_get_model_names(self):
+        model_names = self.initialized_engine.get_model_names(config=dict(self.config), task="semantic_segmentation")
+        assert model_names == ["model_name"]
+

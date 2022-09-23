@@ -8,11 +8,10 @@ from platypus.data_models.semantic_segmentation_datamodel import SemanticSegment
 from platypus.utils.prepare_loss_metrics import prepare_loss_and_metrics
 
 from platypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
+from platypus.utils.prediction_utils import save_masks
 from albumentations import Compose
 import numpy as np
 from typing import Optional
-from pathlib import Path
-from PIL import Image
 
 
 class platypus_engine:
@@ -145,7 +144,7 @@ class platypus_engine:
             prediction_binary = transform_probabilities_into_binaries(prediction)
             prediction_mask = concatenate_binary_masks(binary_mask=prediction_binary, colormap=colormap)
             image_masks.append(prediction_mask)
-        self.save_masks(image_masks, paths, model_name)
+        save_masks(image_masks, paths, model_name)
 
     def predict_based_on_test_generator(self, model_name: str, custom_data_path: str):
         m = self.cache.get("semantic_segmentation").get(model_name).get("model")
@@ -157,30 +156,6 @@ class platypus_engine:
         return predictions, paths, colormap
 
     @staticmethod
-    def predict_from_generator(model, generator):
-        predictions = []
-        paths = []
-        for images_batch, paths_batch in generator:
-            prediction = model.predict(images_batch)
-            predictions.append(prediction)
-            paths += [pt[0] for pt in paths_batch]
-        predictions = np.concatenate(predictions, axis=0)
-        return predictions, paths
-
-    @staticmethod
     def get_model_names(config: dict, task: str = "semantic_segmentation"):
         model_names = [model_cfg.name for model_cfg in config.get(task).models]
         return model_names
-
-    @staticmethod
-    def save_masks(image_masks: list, paths: list, model_name: str):
-        for im, path in zip(image_masks, paths):
-            img_directory = Path(path).parents[1]
-            masks_path = img_directory/"predicted_masks"
-            Path.mkdir(masks_path, exist_ok=True)
-            img_name, img_type = Path(path).name.split(".")
-            if img_type != "png":
-                raise NotImplementedError("Types other than PNG to be handled soon.")
-            mask_as_image = Image.fromarray(im.astype(np.uint8)).convert("RGB")
-            mask_path = masks_path/f"{model_name}_predicted_mask.png"
-            mask_as_image.save(mask_path)

@@ -26,8 +26,6 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     read_images_and_masks_from_directory(self, indices: Optional[List])
         Composes the batch of data out of the loaded images and optionally masks.
-
-    
     """
 
     def __init__(
@@ -288,7 +286,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def __getitem__(self, index: int,) -> Union[tuple[ndarray, ndarray], ndarray]:
+    def __getitem__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
         """
         Returns one batch of data.
 
@@ -332,7 +330,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
 def prepare_data_generators(
     data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
-    train_augmentation_pipeline: Optional[A.Compose], validation_augmentation_pipeline: Optional[A.Compose]
+    train_augmentation_pipeline: Optional[A.Compose] = None, validation_augmentation_pipeline: Optional[A.Compose] = None
         ) -> tuple:
     """Prepares the train, validation and test generators, for each model separately.
 
@@ -393,3 +391,14 @@ def prepare_data_generators(
     generators.append(test_generator)
     generators = tuple(generators)
     return generators
+
+
+def predict_from_generator(model, generator: segmentation_generator):
+    predictions = []
+    paths = []
+    for images_batch, paths_batch in generator:
+        prediction = model.predict(images_batch)
+        predictions.append(prediction)
+        paths += [pt[0] for pt in paths_batch]
+    predictions = np.concatenate(predictions, axis=0)
+    return predictions, paths
