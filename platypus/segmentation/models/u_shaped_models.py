@@ -136,7 +136,7 @@ class u_shaped_model:
             input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
-            input = self.activation_layer()(input)
+            input = self.activation()(input)
         return input
 
     def res_u_net_multiple_conv2d(
@@ -171,7 +171,7 @@ class u_shaped_model:
                 input = BatchNormalization()(input)
         # Add the input to the block output and let it flow through the ReLU and BN.
         input = Add()([raw_input, input])
-        input = self.activation_layer()(input)
+        input = self.activation()(input)
         if self.batch_normalization:
             input = BatchNormalization()(input)
         return input
@@ -202,7 +202,7 @@ class u_shaped_model:
             conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
         return conv_block
 
-    def activation_layer(self):
+    def activation(self):
         """Creates the layer applying the specified activation function.
 
         Returns
