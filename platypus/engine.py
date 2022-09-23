@@ -154,6 +154,7 @@ class platypus_engine:
             optimizer=segmentation_spec.data.optimizer.lower(),
             metrics=metrics
         )
+        return model
 
     def produce_and_save_predicted_masks(self, model_name: Optional[str] = None):
         """If the name parameter is set to None, then the outputs are produced for all the trained models.

@@ -15,8 +15,8 @@ semantic_segmentation:
 
     models:
         - name: 'res_u_net'
-          net_h: 10
-          net_w: 10
+          net_h: 300
+          net_w: 300
           h_splits: 0
           w_splits: 0
           grayscale: False
@@ -35,8 +35,8 @@ semantic_segmentation:
           use_up_sampling2d: False
           u_net_conv_block_width: 4
           activation_layer: "relu"
-          batch_size: 8
-          epochs: 5
+          batch_size: 4
+          epochs: 1
 augmentation:
     InvertImg:
         always_apply: True
