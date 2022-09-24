@@ -10,6 +10,7 @@ from tensorflow.keras.layers import (
 from tensorflow.keras import Input
 from numpy import array
 import pytest
+from tensorflow import math as tf_math
 
 
 class TestUShapedModel:
@@ -71,24 +72,18 @@ class TestUShapedModel:
     def test_multiple_conv_layer(self, mocker, batch_normalization, expected_conv):
         model = self.initialize_model(mocker)
         input_layer = Input(shape=(8, 8, 3), name='input_img')
-        mocker.patch(self.u_shaped_path + ".activation",return_value=self.mocked_activation)
+        mocker.patch(self.u_shaped_path + ".activation", return_value=self.mocked_activation)
         mocker.patch(
             self.u_shaped_path + ".convolutional_layer",
             return_value=Conv2D(filters=2, kernel_size=(3, 3), padding="same")
             )
         model.batch_normalization = batch_normalization
-        # assert model.u_net_multiple_conv2d(
-        #     input=input_layer,
-        #     filters=2,
-        #     kernel_size=(3, 3),
-        #     u_net_conv_block_width=1
-        #     ) == expected_conv
-        model.u_net_multiple_conv2d(
+        assert model.u_net_multiple_conv2d(
             input=input_layer,
             filters=2,
             kernel_size=(3, 3),
             u_net_conv_block_width=1
-            )
+            ).shape[1:] == expected_conv.shape[1:]
 
     @pytest.mark.parametrize(
     "batch_normalization, expected_conv",
@@ -107,12 +102,12 @@ class TestUShapedModel:
             return_value=Conv2D(filters=2, kernel_size=(3, 3), padding="same")
             )
         model.batch_normalization = batch_normalization
-        # assert model.res_u_net_multiple_conv2d(
-            # input=input_layer,
-            # filters=2,
-            # kernel_size=(3, 3),
-            # res_u_net_conv_block_width=1
-            # ) == expected_conv
+        assert model.res_u_net_multiple_conv2d(
+            input=input_layer,
+            filters=2,
+            kernel_size=(3, 3),
+            res_u_net_conv_block_width=1
+            ).shape[1:] == expected_conv.shape[1:]
         model.res_u_net_multiple_conv2d(
             input=input_layer,
             filters=2,
@@ -179,7 +174,7 @@ class TestUShapedModel:
         model.net_w = 2
         model.grayscale = grayscale
         model.generate_input()
-        # assert model.generate_input() == result
+        assert model.generate_input().shape[1:] == result.shape[1:]
 
 
     @pytest.mark.parametrize(
@@ -195,8 +190,7 @@ class TestUShapedModel:
         output_tensor = Input((300, 300, 3))
         mocker.patch(self.u_shaped_path + ".convolutional_layer", return_value=self.mocked_activation)
         mocker.patch("platypus.segmentation.models.u_shaped_models.Average", return_value=self.mocked_activation)
-        model.generate_output(output_tensor=output_tensor, subconv_layers={0: []})
-        # assert model.generate_output() == result
+        assert model.generate_output(output_tensor=output_tensor, subconv_layers={0: []})[0].shape[1:] == result_tensor[0].shape[1:]
 
     @pytest.mark.parametrize("use_linknet, result_connection", [(True, Add), (False, Concatenate)])
     def test_horizontal_connection(self, use_linknet, result_connection, mocker):
