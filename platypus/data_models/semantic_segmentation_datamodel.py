@@ -1,3 +1,5 @@
+"""This script provides pydantic models for both the u-shaped architectures and the data that is to be fed to a model."""
+
 from pydantic import BaseModel, validator
 from pydantic import PositiveInt, conint, conlist, confloat
 from typing import List, Optional, Union, Tuple
@@ -46,7 +48,7 @@ class SemanticSegmentationData(BaseModel):
         raise NotADirectoryError("Specified test path does not exist!")
 
     @validator("colormap")
-    def check_colormanp_length(cls, v: list):
+    def check_colormap_length(cls, v: list):
         if all([len(c) == 3 for c in v]):
             return v
         raise ValueError("The colormap must consist of three-element lists or tuples!")
@@ -76,6 +78,7 @@ class SemanticSegmentationData(BaseModel):
         if v_converted in implemented_optimizers:
             return v
         raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str

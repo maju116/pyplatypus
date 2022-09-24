@@ -1,0 +1,12 @@
+# mkdocs.yml
+site_name: Calculation Docs
+
+theme:
+  name: "material"
+
+nav:
+  - index.md
+  - tutorials.md
+  - how-to-guides.md
+  - reference.md
+  - explanation.md

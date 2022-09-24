@@ -1,3 +1,5 @@
+"""This scripts is comprised of the various implemented scenarios for different fields in the user-defined config."""
+
 implemented_modes = ["nested_dirs", "config_file"]
 implemented_losses = [
     "iou_loss", "focal_loss", "dice_loss", "cce_loss", "cce_dice_loss",

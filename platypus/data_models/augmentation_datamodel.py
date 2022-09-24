@@ -1,3 +1,6 @@
+"""Here the pydantic models represents configuration of each implemented transformation. There are all later used for
+composing the AugmentationSpecFull data model used while building the augmentation pipelines in the platypus engine."""
+
 from pydantic import BaseModel, PositiveFloat, conlist, confloat
 from typing import Optional, List
 

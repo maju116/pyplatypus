@@ -10,48 +10,78 @@ import pydicom
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
 from platypus.utils.toolbox import split_masks_into_binary
+from platypus.segmentation.models.u_shaped_models import u_shaped_model
+from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+
 import logging as log
 
 
 class segmentation_generator(tf.keras.utils.Sequence):
+    """The class can be used as train, validation or test generator. It is also utilized by the engine
+    while producing the output plots, based on the trained models.
+
+    Methods
+    -------
+    create_images_masks_paths(path: str, mode: str, only_images: bool, subdirs: Tuple[str, str], column_sep: str)
+        Generates the dictionary storing the paths to the images and optionally coresponding masks.
+
+    read_images_and_masks_from_directory(self, indices: Optional[List])
+        Composes the batch of data out of the loaded images and optionally masks.
+    """
 
     def __init__(
-            self,
-            path: str,
-            colormap: Optional[List[Tuple[int, int, int]]],
-            mode: str = "nested_dirs",
-            only_images: bool = False,
-            net_h: int = 256,
-            net_w: int = 256,
-            h_splits: int = 1,
-            w_splits: int = 1,
-            grayscale: bool = False,
-            augmentation_pipeline: Optional[A.core.composition.Compose] = None,
-            batch_size: int = 32,
-            shuffle: bool = True,
-            subdirs: Tuple[str, str] = ("images", "masks"),
-            column_sep: str = ";",
-            test: bool = False
-    ) -> None:
+        self,
+        path: str,
+        colormap: Optional[List[Tuple[int, int, int]]],
+        mode: str = "nested_dirs",
+        only_images: bool = False,
+        net_h: int = 256,
+        net_w: int = 256,
+        h_splits: int = 1,
+        w_splits: int = 1,
+        grayscale: bool = False,
+        augmentation_pipeline: Optional[A.core.composition.Compose] = None,
+        batch_size: int = 32,
+        shuffle: bool = True,
+        subdirs: Tuple[str, str] = ("images", "masks"),
+        column_sep: str = ";",
+        test: bool = False
+            ) -> None:
         """
         Generates batches of data (images and masks). The data will be looped over (in batches).
 
-        Args:
-        path (str): Images and masks directory.
-        colormap (List[Tuple[int, int, int]]): Class color map.
-        mode (str): Character. One of "nested_dirs", "config_file"
-        only_images (bool): Should generator read only images (e.g. on train set for predictions).
-        net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
-        net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
-        h_splits (int): Number of vertical splits of the image.
-        w_splits (int): Number of horizontal splits of the image.
-        grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-        augmentation_pipeline (Optional[A.core.composition.Compose]): Augmentation pipeline.
-        batch_size (int): Batch size.
-        shuffle (bool): Should data be shuffled.
-        subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
-        column_sep (str): Character. Configuration file separator.
-        test (bool): Indicates whether the generator is supposed to be of latter use as the test/prediction generator.
+        Parameters
+        ----------
+        path: str
+            Images and masks directory.
+        colormap: List[Tuple[int, int, int]]
+            Class color map.
+        mode: str
+            Character. One of "nested_dirs", "config_file"
+        only_images: bool
+            Should generator read only images (e.g. on train set for predictions).
+        net_h: int
+            Input layer height. Must be equal to `2^x, x - natural`.
+        net_w: int
+            Input layer width. Must be equal to `2^x, x - natural`.
+        h_splits: int
+            Number of vertical splits of the image.
+        w_splits: int
+            Number of horizontal splits of the image.
+        grayscale: bool
+            Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        augmentation_pipeline: Optional[A.core.composition.Compose]
+            Augmentation pipeline.
+        batch_size: int
+            Batch size.
+        shuffle: bool
+            Should data be shuffled.
+        subdirs: Tuple[str, str]
+            Vector of two characters containing names of subdirectories with images and masks.
+        column_sep: str
+            Character. Configuration file separator.
+        test: bool
+            Indicates whether the generator is supposed to be of latter use as the test/prediction generator.
         """
         self.path = path
         self.colormap = colormap
@@ -81,25 +111,30 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     @staticmethod
     def create_images_masks_paths(
-            path: str,
-            mode: str,
-            only_images: bool,
-            subdirs: Tuple[str, str],
-            column_sep: str
-    ) -> dict:
+        path: str, mode: str, only_images: bool, subdirs: Tuple[str, str], column_sep: str
+            ) -> dict:
         """
-            Generates images/masks path from selected configuration.
+        Generates the dictionary storing the paths to the images and optionally coresponding masks.
+        It is the latter foundation upon which the batches are generated.
 
-            Args:
-             path (str): Images and masks directory.
-             mode (str): Character. One of "nested_dirs", "config_file"
-             only_images (bool): Should generator read only images (e.g. on train set for predictions).
-             subdirs (Tuple[str, str]): Vector of two characters containing names of subdirectories with images and masks.
-             column_sep (str): Character. Configuration file separator.
+        Parameters
+        ----------
+        path: str
+            Images and masks directory.
+        mode: str
+            Character. One of "nested_dirs", "config_file"
+        only_images: bool
+            Should generator read only images (e.g. on train set for predictions).
+        subdirs: Tuple[str, str]
+            Vector of two characters containing names of subdirectories with images and masks.
+        column_sep: str
+            Configuration file separator.
 
-            Returns:
-                Dictionary with images and masks paths.
-            """
+        Returns
+        -------
+        path_dict: dict
+            Dictionary with images and optionally masks paths.
+        """
         if mode in ["nested_dirs", 1]:
             nested_dirs = os.listdir(path)
             nested_dirs.sort()
@@ -115,7 +150,9 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
                     if not only_images:
                         masks_paths_batch = [
-                            os.path.join(path, nd, subdirs[1], s) for s in sorted(os.listdir(os.path.join(path, nd, subdirs[1])))
+                            os.path.join(path, nd, subdirs[1], s) for s in sorted(
+                                os.listdir(os.path.join(path, nd, subdirs[1]))
+                                )
                             ]
                         masks_paths.append(masks_paths_batch)
                 except FileNotFoundError:
@@ -130,25 +167,29 @@ class segmentation_generator(tf.keras.utils.Sequence):
         else:
             raise ValueError("Incorrect 'mode' selected!")
         if not only_images:
-            return {"images_paths": images_paths, "masks_paths": masks_paths}
+            path_dict = {"images_paths": images_paths, "masks_paths": masks_paths}
+            return path_dict
         else:
-            return {"images_paths": images_paths}
+            path_dict = {"images_paths": images_paths}
+            return path_dict
 
     @staticmethod
-    def __read_image__(
-            path: str,
-            grayscale: bool,
-            target_size: Union[int, Tuple[int, int]]
-    ) -> ndarray:
+    def __read_image__(path: str, grayscale: bool, target_size: Union[int, Tuple[int, int]]) -> ndarray:
         """
         Loads image as numpy array.
 
-        Args:
-            path (str): Image path.
-            grayscale (bool): Should image be loaded as grayscale.
-            target_size (Union[int, Tuple[int, int]]): Target size for the image to be loaded.
+        Parameters
+        ----------
+        path: str
+            Image path.
+        grayscale: bool
+            Should image be loaded as grayscale.
+        target_size: Union[int, Tuple[int, int]]
+            Target size for the image to be loaded.
 
-        Returns:
+        Returns
+        -------
+        pixel_array: ndarray
             Image as numpy array.
         """
         if path.lower().endswith('.dcm'):
@@ -164,19 +205,25 @@ class segmentation_generator(tf.keras.utils.Sequence):
 
     @staticmethod
     def __split_images__(
-            images: List[ndarray],
-            h_splits: int,
-            w_splits: int,
-    ):
+        images: List[ndarray],
+        h_splits: int,
+        w_splits: int,
+            ) -> list:
         """
         Splits list of images/masks onto smaller ones.
 
-        Args:
-            images (List[ndarray]): List of images or masks.
-            h_splits (int): Number of vertical splits of the image.
-            w_splits (int): Number of horizontal splits of the image.
+        Parameters
+        ----------
+        images: List[ndarray]
+            List of images or masks.
+        h_splits: int
+            Number of vertical splits of the image.
+        w_splits: int
+            Number of horizontal splits of the image.
 
-        Returns:
+        Returns
+        -------
+        images: list
             List of images or masks.
         """
         if h_splits > 1:
@@ -188,16 +235,19 @@ class segmentation_generator(tf.keras.utils.Sequence):
         return images
 
     def read_images_and_masks_from_directory(
-            self,
-            indices: Optional[List]
-    ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
+        self, indices: Optional[List]
+            ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
         """
-        Reads images from directories.
+        Composes the batch of data out of the loaded images and optionally masks.
 
-        Args:
-         indices (List) Indices of selected images. If `None` all images in `paths` will be selected.
+        Parameters
+        ----------
+        indices: List
+            Indices of selected images. If `None` all images in `paths` will be selected.
 
-        Returns:
+        Returns
+        -------
+        loaded_images: list
             List of images and masks.
         """
         selected_images_paths = [self.config["images_paths"][idx] for idx in indices] if indices is not None else \
@@ -228,32 +278,30 @@ class segmentation_generator(tf.keras.utils.Sequence):
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         if not self.only_images:
-            to_return = (selected_images, selected_masks, selected_images_paths)
+            loaded_images = (selected_images, selected_masks, selected_images_paths)
         else:
-            to_return = (selected_images, selected_images_paths)
-        return to_return
+            loaded_images = (selected_images, selected_images_paths)
+        return loaded_images
 
-    def on_epoch_end(
-            self
-    ) -> None:
-        """Updates indexes on epoch end."""
-
+    def on_epoch_end(self) -> None:
+        """Updates indexes on epoch end, optionally shuffles them for the sake of randomization."""
         self.indexes = list(range(len(self.config["images_paths"])))
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def __getitem__(
-            self,
-            index: int,
-    ) -> Union[tuple[ndarray, ndarray], ndarray]:
+    def __getitem__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
         """
         Returns one batch of data.
 
-        Args:
-            index (int): Batch index.
+        Parameters
+        ----------
+        index: int
+            Batch index.
 
-        Returns:
-            Batch of data - images and masks.
+        Returns
+        -------
+        batch: tuple
+            Batch of data being images and masks.
         """
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         if not self.only_images:
@@ -265,7 +313,7 @@ class segmentation_generator(tf.keras.utils.Sequence):
             else:
                 images = np.stack(images, axis=0)
                 masks = np.stack(masks, axis=0)
-            to_return = (images, masks)
+            batch = (images, masks)
         else:
             images, paths = self.read_images_and_masks_from_directory(indexes)
             if self.augmentation_pipeline is not None:
@@ -273,14 +321,105 @@ class segmentation_generator(tf.keras.utils.Sequence):
                 images = np.stack([tr['image'] for tr in transformed], axis=0)
             else:
                 images = np.stack(images, axis=0)
-            to_return = (images)
+            batch = (images)
         if self.test:
-            to_return = (images, paths)
-        return to_return
+            batch = (images, paths)
+        return batch
 
-    def __len__(
-            self
-    ) -> int:
-        """Number of batches in 1 epoch."""
-
+    def __len__(self) -> int:
+        """Returns the number of batches that one epoch is comprised of."""
         return int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
+
+
+def prepare_data_generators(
+    data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
+    train_augmentation_pipeline: Optional[A.Compose] = None, validation_augmentation_pipeline: Optional[A.Compose] = None
+        ) -> tuple:
+    """Prepares the train, validation and test generators, for each model separately.
+
+    Parameters
+    ----------
+    data : SemanticSegmentationData
+        Stores the data crucial for designing the data flow within the generators.
+    model_cfg : SemanticSegmentationModelSpec
+        From this data model information regarding the model is taken.
+    train_augmentation_pipeline : Optional[Compose]
+        Albumentations package native augmentation pipeline, None is allowed.
+    validation_augmentation_pipeline : Optional[Compose]
+        Albumentations package native augmentation pipeline, None is allowed.
+
+    Returns
+    -------
+    generators: tuple
+        Tuple composed of the generators.
+    """
+    generators = []
+    for path, pipeline in zip(
+        [data.train_path, data.validation_path], [train_augmentation_pipeline, validation_augmentation_pipeline]
+            ):
+        generator_ = segmentation_generator(
+            path=path,
+            mode=data.mode,
+            colormap=data.colormap,
+            only_images=False,
+            net_h=model_cfg.net_h,
+            net_w=model_cfg.net_w,
+            h_splits=model_cfg.h_splits,
+            w_splits=model_cfg.w_splits,
+            grayscale=model_cfg.grayscale,
+            augmentation_pipeline=pipeline,
+            batch_size=model_cfg.batch_size,
+            shuffle=data.shuffle,
+            subdirs=data.subdirs,
+            column_sep=data.column_sep
+        )
+        generators.append(generator_)
+    test_generator = segmentation_generator(
+        path=path,
+        mode=data.mode,
+        colormap=data.colormap,
+        only_images=True,  # TODO To be changed later, maybe different generator for test than for prediction?
+        net_h=model_cfg.net_h,
+        net_w=model_cfg.net_w,
+        h_splits=model_cfg.h_splits,
+        w_splits=model_cfg.w_splits,
+        grayscale=model_cfg.grayscale,
+        augmentation_pipeline=None,
+        batch_size=model_cfg.batch_size,
+        shuffle=False,
+        subdirs=data.subdirs,
+        column_sep=data.column_sep,
+        test=True
+        )
+    generators.append(test_generator)
+    generators = tuple(generators)
+    return generators
+
+
+def predict_from_generator(model: u_shaped_model, generator: segmentation_generator) -> tuple:
+    """Serves the batches of images to the supplied model and returns predictions alongside the paths to the
+    images that the batch is comprised of.
+
+    Parameters
+    ----------
+    model : u_shaped_model
+        For now it is the U-shaped one but in the future it is expected to be one from the models
+        associated with the tasks implemented within Platypus.
+    generator : segmentation_generator
+        Generator created on the course of preparing the modelling pipeline.
+
+    Returns
+    -------
+    predictions: np.array
+        Consists of the predictions for all the data yielded by the generator.
+    paths: list
+        Paths to the original images.
+    """
+    predictions = []
+    paths = []
+    for images_batch, paths_batch in generator:
+        prediction = model.predict(images_batch)
+        predictions.append(prediction)
+        paths += [pt[0] for pt in paths_batch]
+    predictions = np.concatenate(predictions, axis=0)
+    return predictions, paths
