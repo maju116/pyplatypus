@@ -7,7 +7,7 @@ from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
-from typing import Tuple, Any, Optional
+from typing import Tuple, Any, Optional, Union
 
 
 class u_shaped_model:
@@ -32,27 +32,45 @@ class u_shaped_model:
         use_up_sampling2d: Optional[bool] = False,
         activation_layer: Optional[str] = "relu",
         **kwargs
-    ) -> None:
-        """
-        Creates U-Net model architecture.
+            ) -> None:
+        """Creates U-Net model architecture.
 
-        Args:
-            net_h (int): Input layer height. Must be equal to `2^x, x - natural`.
-            net_w (int): Input layer width. Must be equal to `2^x, x - natural`.
-            grayscale (bool): Defines input layer color channels -  `1` if `True`, `3` if `False`.
-            blocks (int): Number of blocks in the model.
-            n_class (int): Number of classes. Minimum is `2` (background + other object).
-            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
-            dropout (float): Dropout rate.
-            batch_normalization (bool): Should batch normalization be used in the block.
-            kernel_initializer (str): Initializer for the kernel weights matrix.
-            linknet (bool): Should Linknet connections (Add) instead of U-Net connections (Concatenate) be used.
-            plus_plus (bool): Should U-Net++ instead od U-Net architecture be used.
-            deep_supervision (bool): Should deep supervision be used when using U-Net++ architecture.
-            use_separable_conv2d (bool): Determines if the SeparableConv2D layers should be used, if set to false, the Conv2D is used.
-            use_spatial_droput2d (bool): Indicates whether the spatial or regular droput should be used.
-            use_up_sampling2d (bool): If set to False, the transpozed convolutional layer is used.
-            activation_layer (str): Allows the user to choose any activation layer available in the tensorflow.keras.activations.
+        Parameters
+        ----------
+        net_h : int
+            Input layer height.
+        net_w : int
+            Input layer width.
+        grayscale : bool
+            Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        blocks : Optional[int], optional
+            Number of blocks in the model, by default 4
+        n_class : Optional[int], optional
+            Number of classes. Minimum is `2` (background + other object), by default 2
+        filters : Optional[int], optional
+            Integer, dimensionality of the output space (i.e. the number of output filters in the convolution), by default 16
+        dropout : Optional[float], optional
+            Dropout rate, by default 0.1
+        batch_normalization : Optional[bool], optional
+            Should batch normalization be used in the block., by default True
+        kernel_initializer : Optional[str], optional
+            Initializer for the kernel weights matrix, by default "he_normal"
+        resunet : Optional[bool], optional
+            Should Res-U-Net connections (Residual) instead of U-Net connections (Concatenate) be used, by default False
+        linknet : Optional[bool], optional
+            Should Linknet connections (Add) instead of U-Net connections (Concatenate) be used, by default False
+        plus_plus : Optional[bool], optional
+            Should U-Net++ instead od U-Net architecture be used, by default False
+        deep_supervision : Optional[bool], optional
+            Should deep supervision be used when using U-Net++ architecture, by default False
+        use_separable_conv2d : Optional[bool], optional
+             Determines if the SeparableConv2D layers should be used, if set to false, the Conv2D is used, by default True
+        use_spatial_dropout2d : Optional[bool], optional
+            Indicates whether the spatial or regular droput should be used, by default True
+        use_up_sampling2d : Optional[bool], optional
+            If set to False, the transpozed convolutional layer is used, by default False
+        activation_layer : Optional[str], optional
+            Allows the user to choose any activation layer available in the tensorflow.keras.activations, by default "relu"
         """
         self.net_h = net_h
         self.net_w = net_w
@@ -89,18 +107,23 @@ class u_shaped_model:
 
     def convolutional_layer(
         self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
-            ):
+            ) -> Union[SeparableConv2D, Conv2D]:
         """
         Returns the convolutional layer of the demanded type.
 
-        Args:
-            input (tf.Tensor): Model or layer object.
-            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
-            kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
-            Can be a single integer to specify the same value for all spatial dimensions.
+        Parameters
+        ----------
+        input: tf.Tensor
+            Model or layer object.
+        filters: int
+            Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+        kernel_size: Tuple[int, int])
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
+            If single integer is supplied the same value is used for all spatial dimensions.
 
-        Returns:
-            convolutional layer.
+        Returns
+        -------
+        convolutional layer.
         """
         if self.use_separable_conv2d:
             convolutional_layer = SeparableConv2D(
@@ -118,19 +141,26 @@ class u_shaped_model:
             filters: int,
             kernel_size: Tuple[int, int],
             u_net_conv_block_width: int = 2
-    ) -> tf.Tensor:
+            ) -> tf.Tensor:
         """
         Creates a multiple convolutional U-Net block.
 
-        Args:
-            input (tf.Tensor): Model or layer object.
-            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
-            kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
-            Can be a single integer to specify the same value for all spatial dimensions.
-            u_net_conv_block_width (int): Controls the amount of convolutional layers in the block.
+        Parameters
+        ----------
+        input: tf.Tensor
+            Model or layer object.
+        filters: int
+            Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+        kernel_size: Tuple[int, int]
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
+            It is allowed to be a single integer to specify the same value for all spatial dimensions.
+        u_net_conv_block_width: int
+            Controls the amount of convolutional layers in the block, by default 2
 
-        Returns:
-            Multiple convolutional bloc of U-Net model.
+        Returns
+        -------
+        input:
+            Multiple convolutional block of the U-Net model.
         """
         for i in range(u_net_conv_block_width):
             input = self.convolutional_layer(filters, kernel_size)(input)
@@ -140,21 +170,26 @@ class u_shaped_model:
         return input
 
     def res_u_net_multiple_conv2d(
-            self,
-            input: tf.Tensor,
-            filters: int,
-            kernel_size: Tuple[int, int],
-            res_u_net_conv_block_width: int = 2
+        self,
+        input: tf.Tensor,
+        filters: int,
+        kernel_size: Tuple[int, int],
+        res_u_net_conv_block_width: int = 2
             ) -> tf.Tensor:
         """
         Creates a multiple convolutional Res-U-Net block, with the raw input added before the final activation.
 
-        Args:
-            input (tf.Tensor): Model or layer object.
-            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
-            kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
-            Can be a single integer to specify the same value for all spatial dimensions.
-            res_u_net_conv_block_width (int): Controls the amount of convolutional layers in the block.
+        Parameters
+        ----------
+        input: tf.Tensor
+            Model or layer object.
+        filters: int
+            Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+        kernel_size: Tuple[int, int]
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
+            It is allowed to be a single integer to specify the same value for all spatial dimensions.
+        res_u_net_conv_block_width: int
+            Controls the amount of convolutional layers in the block, by default 2.
 
         Returns:
             Multiple convolutional bloc of U-Net model.
@@ -186,15 +221,22 @@ class u_shaped_model:
         """
         Creates a multiple convolutional block, suiting the chosen architecture.
 
-        Args:
-            input (tf.Tensor): Model or layer object.
-            filters (int): Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
-            kernel_size (Tuple[int, int]): An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
-            Can be a single integer to specify the same value for all spatial dimensions.
-            conv_block_width (int): Controls the amount of convolutional layers in the block.
+        Parameters
+        ----------
+        input: tf.Tensor
+            Model or layer object.
+        filters: int
+            Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+        kernel_size: Tuple[int, int]
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
+            It is allowed to be a single integer to specify the same value for all spatial dimensions.
+        conv_block_width: int
+            Controls the amount of convolutional layers in the block, by default 2.
 
-        Returns:
-            Multiple convolutional bloc of the model.
+        Returns
+        -------
+        conv_block:
+            Multiple convolutional block of the model.
         """
         if self.resunet:
             conv_block = self.res_u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
@@ -248,14 +290,13 @@ class u_shaped_model:
         ch, cw = (ch1, ch2), (cw1, cw2)
         return ch, cw
 
-    def init_empty_layers_placeholders(
-            self
-    ) -> tuple[list[Any], list[Any], dict[Any, Any]]:
+    def init_empty_layers_placeholders(self) -> tuple[list[Any], list[Any], dict[Any, Any]]:
         """
         Creates layers placeholders.
 
-        Returns:
-            Layers placeholders.
+        Returns
+        -------
+        Layers placeholders.
         """
         conv_layers = []
         pool_layers = []
@@ -265,32 +306,34 @@ class u_shaped_model:
                 subconv_layers[block] = []
         return conv_layers, pool_layers, subconv_layers
 
-    def generate_input(
-            self
-    ) -> tf.Tensor:
+    def generate_input(self) -> tf.Tensor:
         """
         Generates input for U-Net/U-Net++ model.
 
-        Returns:
+        Returns
+        -------
+        input_layer:
             Input for U-Net/U-Net++ model.
         """
         channels = 1 if self.grayscale else 3
         input_shape = (self.net_h, self.net_w, channels)
-        return Input(shape=input_shape, name='input_img')
+        input_layer = Input(shape=input_shape, name='input_img')
+        return input_layer
 
-    def generate_output(
-            self,
-            output_tensor: tf.Tensor,
-            subconv_layers: dict
-    ) -> tf.Tensor:
+    def generate_output(self, output_tensor: tf.Tensor, subconv_layers: dict) -> tf.Tensor:
         """
         Generates output for U-Net/U-Net++ model.
 
-        Args:
-            output_tensor (tf.Tensor): Output tensor.
-            subconv_layers (list): Sub-convolutional layers of U-Net++.
+        Parameters
+        ----------
+        output_tensor: tf.Tensor
+            Output tensor.
+        subconv_layers: list
+            Sub-convolutional layers of U-Net++.
 
-        Returns:
+        Returns
+        -------
+        output:
             Output for U-Net/U-Net++ model.
         """
         output = self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(output_tensor)
@@ -303,24 +346,25 @@ class u_shaped_model:
             output = Average()(outputs)
         return output
 
-    def horizontal_connection(
-            self
-    ):
+    def horizontal_connection(self):
         """
         Generates function for horizontal connection.
 
-        Returns:
+        Returns
+        -------
+        horizontal_connection:
             Horizontal connection function.
         """
-        return Add if self.linknet else Concatenate
+        horizontal_connection = Add if self.linknet else Concatenate
+        return horizontal_connection
 
-    def build_model(
-            self
-    ) -> tf.keras.Model:
+    def build_model(self) -> tf.keras.Model:
         """
         Creates a U-Net architecture.
 
-        Returns:
+        Returns
+        -------
+        model:
             U-Net/U-Net++ model.
         """
         input_img = self.generate_input()
@@ -385,4 +429,5 @@ class u_shaped_model:
                 )
             conv_layers.append(current_input)
         output = self.generate_output(conv_layers[2 * self.blocks], subconv_layers)
-        return Model(inputs=input_img, outputs=output, name="u_net")
+        model = Model(inputs=input_img, outputs=output, name="u_net")
+        return model
