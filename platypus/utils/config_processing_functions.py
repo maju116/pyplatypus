@@ -4,7 +4,7 @@ while some of the validation steps could get moved to the pydantic side but for 
 Classes
 -------
 YamlConfigLoader(object)
-    Provides the framework allowing us to ingest the raw config from the YAML shaped by an user.
+    Provides the framework allowing us to ingest the raw config from the YAML shaped by a user.
 
 Functions
 ---------
@@ -24,7 +24,7 @@ from platypus.data_models import augmentation_datamodel as AM
 
 class YamlConfigLoader(object):
     """Provides the framework allowing us to ingest the raw config from the
-    YAML shaped by an user. It provides us with the tool for directing the flow
+    YAML shaped by a user. It provides us with the tool for directing the flow
     of data contained in the config through the branching PlatypusSolverInput
     structure. Therefore the essential information is extracted, validated, parsed
     and neatly organized in the expected structure.
