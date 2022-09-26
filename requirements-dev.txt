@@ -7,40 +7,4 @@ mkdocs==1.3.1
 mkdocstrings-python==0.7.1
 mkdocs-material==8.5.0
 mock==4.0.3
-
-
-# # Maybe to trimm down?
-# astor==0.8.1
-# astunparse==1.6.3
-# async-timeout==3.0.1
-# blinker==1.4
-# brotlipy==0.7.0
-# certifi==2021.10.8
-# fonttools==4.25.0
-# google-pasta==0.2.0
-# h5py # TODO
-# imageio==2.14.1
-# joblib==1.1.0
-# matplotlib # TODO 
-# mkl-fft==1.3.0
-# mkl-service==2.4.0
-# munkres==1.1.4
-# networkx==2.6.3
-# olefile==0.46
-# packaging # TODO
-
-
-# Pillow==9.0.1
-# protobuf==3.17.2
-# pyasn1==0.4.8
-# pyasn1-modules==0.2.8
-# PyWavelets==1.2.0
-# qudida==0.0.4
-# requests-oauthlib==1.3.0
-# sip==4.19.13
-# termcolor==1.1.0
-# threadpoolctl==3.1.0
-# tifffile==2021.11.2
-
-# # Rather not necessary
-# platypus==0.1.0
+matplotlib==3.6.0

@@ -65,7 +65,7 @@ class platypus_engine:
     def update_cache(
         self, model_name: str, model: u_shaped_model, model_specification: dict, generator: segmentation_generator
             ):
-        """Stores the trained model in the cache, under its name defined by an user.
+        """Stores the trained model in the cache, under its name defined by a user.
 
         Parameters
         ----------

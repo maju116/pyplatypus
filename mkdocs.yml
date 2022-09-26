@@ -1,12 +1,17 @@
 # mkdocs.yml
-site_name: Calculation Docs
+site_name: PyPlatypus Docs
 
 theme:
   name: "material"
 
+plugins:
+- mkdocstrings
+
 nav:
-  - index.md
-  - tutorials.md
-  - how-to-guides.md
-  - reference.md
-  - explanation.md
+  - Welcome!: index.md
+  - The Creators: authors.md
+  - Platypus Input: platypus_input.md
+  - Platypus Engine: platypus_engine.md
+  - But why?: explanation.md
+  - Examples: examples.md
+  
