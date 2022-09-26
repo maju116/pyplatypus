@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
-from platypus.segmentation.generator import segmentation_generator, split_masks_into_binary
+from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from platypus.segmentation.generator import segmentation_generator, split_masks_into_binary, prepare_data_generators, predict_from_generator
 
 
 @pytest.mark.parametrize(
@@ -226,3 +227,54 @@ def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_
     output = test_sg.__getitem__(0)
     assert np.allclose(output[0], result[0])
     assert (output[1] == result[1]).all()
+
+def test_prepare_data_generators(mocker):
+    data = SemanticSegmentationData(**{
+        "train_path": "tests/",
+        "validation_path": "tests/",
+        "test_path": "tests/",
+        "colormap": [[0,0,0]],
+        "mode": "nested_dirs",
+        "shuffle": True,
+        "subdirs": ["images", "masks"],
+        "column_sep": ","
+        })
+    model_cfg = SemanticSegmentationModelSpec(**{
+        "name": "model_name",
+        "net_h": 8,
+        "net_w": 8,
+        "blocks": 4,
+        "n_class": 2,
+        "filters": 2,
+        "dropout": .1
+    })
+    mocker.patch("platypus.segmentation.generator.segmentation_generator", return_value="semantic_generator")
+    assert prepare_data_generators(data, model_cfg) == ("semantic_generator", "semantic_generator", "semantic_generator")
+
+
+class mocked_model:
+    def predict(images_batch: list):
+        return [images_batch + "_predicted_mask"]
+
+class mocked_generator:
+    def __init__(self, max=3):
+        self.n = 1
+        self.max = max
+    
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.n > self.max:
+            raise StopIteration
+
+        result_img = f"img_{self.n}"
+        result_path = [[f"path_{self.n}"]]
+        self.n += 1
+        return result_img, result_path
+
+
+def test_predict_from_generator():
+    predictions, paths = predict_from_generator(model=mocked_model, generator=mocked_generator())
+    assert set(predictions) == set(["img_1_predicted_mask", "img_2_predicted_mask", "img_3_predicted_mask"])
+    assert paths == ["path_1", "path_2", "path_3"]

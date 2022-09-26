@@ -66,16 +66,14 @@ from keras.backend import categorical_crossentropy
 )
 def test_segmentation_loss(n_class, background_index, input_1, input_2, output):
     sl = segmentation_loss(n_class=n_class, background_index=background_index)
-    # assert (sl.remove_background(input_1) == output['input_1_remove_background']).numpy().all()
-    # assert (sl.remove_background(input_2) == output['input_2_remove_background']).numpy().all()
-    # assert np.allclose(sl.dice_coefficient(input_1, input_2).numpy(), output['dice_coefficient'])
-    # assert np.allclose(sl.dice_loss(input_1, input_2).numpy(), output['dice_loss'])
-    
-    #assert np.allclose(sl.cce_loss(input_1, input_2).numpy(), output['CCE_loss'])
-    
+    assert (sl.remove_background(input_1) == output['input_1_remove_background']).numpy().all()
+    assert (sl.remove_background(input_2) == output['input_2_remove_background']).numpy().all()
+    assert np.allclose(sl.dice_coefficient(input_1, input_2).numpy(), output['dice_coefficient'])
+    assert np.allclose(sl.dice_loss(input_1, input_2).numpy(), output['dice_loss'])
+    assert np.allclose(sl.cce_loss(input_1, input_2).numpy(), output['CCE_loss'])
     assert np.allclose(sl.cce_dice_loss(input_1, input_2).numpy(), output['CCE_dice_loss'])
-    # assert np.allclose(sl.iou_coefficient(input_1, input_2).numpy(), output['IoU_coefficient'])
-    # assert np.allclose(sl.iou_loss(input_1, input_2).numpy(), output['IoU_loss'])
+    assert np.allclose(sl.iou_coefficient(input_1, input_2).numpy(), output['IoU_coefficient'])
+    assert np.allclose(sl.iou_loss(input_1, input_2).numpy(), output['IoU_loss'])
 
 
 class TestSegmentationLoss:

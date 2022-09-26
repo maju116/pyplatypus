@@ -1,0 +1,17 @@
+# mkdocs.yml
+site_name: PyPlatypus Docs
+
+theme:
+  name: "material"
+
+plugins:
+- mkdocstrings
+
+nav:
+  - Welcome!: index.md
+  - The Creators: authors.md
+  - Platypus Input: platypus_input.md
+  - Platypus Engine: platypus_engine.md
+  - But why?: explanation.md
+  - Examples: examples.md
+  
