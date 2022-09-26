@@ -9,6 +9,7 @@ plugins:
 
 nav:
   - Welcome!: index.md
+  - The Creators: authors.md
   - Platypus Input: platypus_input.md
   - Platypus Engine: platypus_engine.md
   - But why?: explanation.md

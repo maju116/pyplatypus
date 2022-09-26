@@ -72,9 +72,32 @@ It is defined as a list, with each element following the below structure:
 Here just a few exemplary fields are presented, but you may put any of the Albumentations-powered transforms.
 Find out more at the [albumentations.ai](https://albumentations.ai/docs/api_reference/augmentations/).
 
+Some key points to keep in mind while building your own augmentation pipeline:
+
+* The ordering of transforms defined in the config will be respected further in the engine itself.
+
+* Not all of the Albumentations-supported transforms are available in the PyPlatypus. The ones that you may use in our package are listed here:
+[
+    'Blur', 'GaussianBlur', 'GlassBlur', 'MedianBlur', 'MotionBlur',
+    'CLAHE', 'ChannelDropout', 'ChannelShuffle', 'ColorJitter', 'Downscale',
+    'Emboss', 'Equalize', 'FancyPCA', 'GaussNoise', 'HueSaturationValue',
+    'ISONoise', 'InvertImg', 'MultiplicativeNoise', 'Normalize', 'RGBShift',
+    'RandomBrightnessContrast', 'RandomFog', 'RandomGamma', 'RandomRain',
+    'RandomSnow', 'RandomShadow', 'RandomSunFlare', 'RandomToneCurve',
+    'Sharpen', 'Solarize', 'Superpixels', 'ToSepia', 'Affine', 'CenterCrop',
+    'CoarseDropout', 'Crop', 'CropAndPad', 'CropNonEmptyMaskIfExists',
+    'ElasticTransform', 'Flip', 'GridDistortion', 'GridDropout', 'HorizontalFlip',
+    'MaskDropout', 'OpticalDistortion', 'Perspective', 'PiecewiseAffine', 'RandomCrop',
+    'RandomCropNearBBox', 'RandomGridShuffle', 'RandomResizedCrop', 'RandomRotate90',
+    'RandomSizedBBoxSafeCrop', 'Rotate', 'SafeRotate', 'ShiftScaleRotate', 'Transpose',
+    'VerticalFlip', 'FromFloat', 'ToFloat'
+    ]
+
+* Also beware the fact that the following transforms are the only ones available for the validation and test data, for the sake of good practices:
+['FromFloat', 'ToFloat', 'InvertImg']
 
 | Name | Type | Required |
-|---|---|---|---|---|
+|---|---|---|
 | InvertImg | InvertImgSpec | no, initialized with the default attributes |
 | Blur | BlurSpec | no, initialized with the default attributes  |
 | Flip | FlipSpec |  no, initialized with the default attributes  |
