@@ -8,7 +8,7 @@ Our branching paths finally meets here and from their intersection the PyPlatypu
 
 ![](Images/author_maju116.jpg)
 
-I am a Chief Data Scientist and co-founder of [Climatica.ai](climatica.ai) with over 7 years of experience in the field of data science. During that time I was responsible for designing, testing and development of advanced deep and machine learning models in R and Python. Nowadays I’m mainly focused on applications of deep computer vision models for medicine and climate change.  I love challenges and I’m always ready to help solving data science problems.
+I am a Chief Data Scientist and co-founder of [Climatica.ai](https://www.climatica.ai/) with over 7 years of experience in the field of data science. During that time I was responsible for designing, testing and development of advanced deep and machine learning models in R and Python. Nowadays I’m mainly focused on applications of deep computer vision models for medicine and climate change.  I love challenges and I’m always ready to help solving data science problems.
 
 Find me at:
 
