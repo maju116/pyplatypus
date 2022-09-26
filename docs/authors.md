@@ -8,7 +8,7 @@ Our branching paths finally meets here and from their intersection the PyPlatypu
 
 ![](Images/author_maju116.jpg)
 
-I am data scientist with over 5 years of experience in the field, R/Shiny developer and a freelancer interested in deep/machine learning and statistics. I love challenges and I’m always ready to help solving data science problems. In my day to day work I am responsible for designing, testing and development of advanced deep and machine learning models in R and Python.
+I am a Chief Data Scientist and co-founder of [Climatica.ai](https://www.climatica.ai/) with over 7 years of experience in the field of data science. During that time I was responsible for designing, testing and development of advanced deep and machine learning models in R and Python. Nowadays I’m mainly focused on applications of deep computer vision models for medicine and climate change.  I love challenges and I’m always ready to help solving data science problems.
 
 Find me at:
 
@@ -23,7 +23,7 @@ Find me at:
 
 ![](Images/author_borkowski1110.jpg)
 
-For the time being I have been in existence in the Data Science World for over three years. The cornerstone of my experience will always remain the R&D Team Chionis that my colleagues and I founded during the studies.
+I have been into the Data Science World for over three years thus far. The cornerstone of my experience will always remain the R&D Team Chionis that my colleagues and I founded during the studies.
 From that point onward the major career aim of mine would always be to associate my occupation with Computer Vision and XAI technology. My interests caused me to delve into medtech, brand marketing and product ownership realms as well.
 
 Find me at:
