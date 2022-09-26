@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import (
     SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,
     Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D,
-    UpSampling2D, ReLU
+    UpSampling2D
     )
 from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
@@ -228,7 +228,7 @@ class u_shaped_model:
         filters: int
             Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
         kernel_size: Tuple[int, int]
-            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window. 
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             It is allowed to be a single integer to specify the same value for all spatial dimensions.
         conv_block_width: int
             Controls the amount of convolutional layers in the block, by default 2.
@@ -371,7 +371,9 @@ class u_shaped_model:
         conv_layers, pool_layers, subconv_layers = self.init_empty_layers_placeholders()
         for block in range(self.blocks):
             current_input = input_img if block == 0 else pool_layers[block - 1]
-            current_input = self.multiple_conv2d_block(input=current_input, filters=self.filters * 2 ** block, kernel_size=(3, 3))
+            current_input = self.multiple_conv2d_block(
+                input=current_input, filters=self.filters * 2 ** block, kernel_size=(3, 3)
+                )
             conv_layers.append(current_input)
             current_input = MaxPool2D(pool_size=2)(current_input)
             current_input = self.dropout_layer()(current_input)
@@ -403,7 +405,9 @@ class u_shaped_model:
                         input=subblock_layer, filters=self.filters * 2 ** block, kernel_size=(3, 3)
                         )
                     subconv_layers[subblock].append(subblock_layer)
-        current_input = self.multiple_conv2d_block(input=current_input, filters=self.filters * 2 ** self.blocks, kernel_size=(3, 3))
+        current_input = self.multiple_conv2d_block(
+            input=current_input, filters=self.filters * 2 ** self.blocks, kernel_size=(3, 3)
+            )
         conv_layers.append(current_input)
         for block in range(self.blocks):
             if not self.use_up_sampling2d:
