@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras.backend as kb
 from typing import Optional
-from platypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
+from pyplatypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
 
 
 class segmentation_loss:
@@ -375,7 +375,7 @@ class segmentation_loss:
 
         See also
         --------
-        LovaszSoftmaxLoss from platypus.utils.lovasz_softmax
+        LovaszSoftmaxLoss from pyplatypus.utils.lovasz_softmax
         """
         y_actual = tf.cast(self.remove_background(y_actual), tf.float64)
         y_pred = tf.cast(self.remove_background(y_pred), tf.float64)

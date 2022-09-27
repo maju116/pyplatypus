@@ -1,14 +1,14 @@
-from platypus.utils.config_processing_functions import check_cv_tasks
-from platypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
-from platypus.segmentation.generator import prepare_data_generators, segmentation_generator, predict_from_generator
-from platypus.segmentation.models.u_shaped_models import u_shaped_model
+from pyplatypus.utils.config_processing_functions import check_cv_tasks
+from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
+from pyplatypus.segmentation.generator import prepare_data_generators, segmentation_generator, predict_from_generator
+from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
-from platypus.utils.prepare_loss_metrics import prepare_loss_and_metrics
+from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
+from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics
 
-from platypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
-from platypus.utils.prediction_utils import save_masks
+from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
+from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
 from typing import Optional
 
