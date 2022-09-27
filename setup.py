@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pyplatypus",
-    version="0.1.7",
+    version="0.1.0",
     packages=find_packages(),
     author="Michał Maj, Jakub Borkowski",
     author_email="michalmaj116@gmail.com, jakub.borkowski@chionis.co",
