@@ -1,5 +1,5 @@
-from platypus.segmentation.models.u_shaped_models import u_shaped_model
-from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec
+from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec
 
 from tensorflow.keras.layers import (
     SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,
@@ -35,7 +35,7 @@ class TestUShapedModel:
         "activation_layer": "relu"
         })
 
-    u_shaped_path = "platypus.segmentation.models.u_shaped_models.u_shaped_model"
+    u_shaped_path = "pyplatypus.segmentation.models.u_shaped_models.u_shaped_model"
     raw_input = Conv2D(filters=2, kernel_size=(3, 3), padding="same")(Input(shape=(8, 8, 3), name='input_img'))
 
     @staticmethod
@@ -125,7 +125,7 @@ class TestUShapedModel:
 
 
     def test_activation(self, monkeypatch, mocker):
-        monkeypatch.setattr("platypus.segmentation.models.u_shaped_models.KRACT.activation_1", "activation_function_1", raising=False)
+        monkeypatch.setattr("pyplatypus.segmentation.models.u_shaped_models.KRACT.activation_1", "activation_function_1", raising=False)
         model = self.initialize_model(mocker)
         model.activation_layer = "activation_1"
         assert model.activation() == "activation_function_1"
@@ -189,7 +189,7 @@ class TestUShapedModel:
         model.deep_supervision = deep_supervision
         output_tensor = Input((300, 300, 3))
         mocker.patch(self.u_shaped_path + ".convolutional_layer", return_value=self.mocked_activation)
-        mocker.patch("platypus.segmentation.models.u_shaped_models.Average", return_value=self.mocked_activation)
+        mocker.patch("pyplatypus.segmentation.models.u_shaped_models.Average", return_value=self.mocked_activation)
         assert model.generate_output(output_tensor=output_tensor, subconv_layers={0: []})[0].shape[1:] == result_tensor[0].shape[1:]
 
     @pytest.mark.parametrize("use_linknet, result_connection", [(True, Add), (False, Concatenate)])

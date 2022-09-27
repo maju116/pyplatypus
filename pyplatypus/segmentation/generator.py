@@ -9,9 +9,9 @@ import albumentations as A
 import pydicom
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
-from platypus.utils.toolbox import split_masks_into_binary
-from platypus.segmentation.models.u_shaped_models import u_shaped_model
-from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.utils.toolbox import split_masks_into_binary
+from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
 
 import logging as log
 

@@ -1,4 +1,4 @@
-from platypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
+from pyplatypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
 import tensorflow as tf
 import numpy as np
 
@@ -17,7 +17,7 @@ class TestLovaszSoftmax:
             0, 0, 0, 0.5,
             0.5, 0, 0, 0,
             ]).reshape((1, 2, 2, 2)), tf.float32)
-    lsl_path = "platypus.utils.lovasz_softmax.LovaszSoftmaxLoss"
+    lsl_path = "pyplatypus.utils.lovasz_softmax.LovaszSoftmaxLoss"
     lsl = LSL()
 
     def mocked_lovasz_softmax_batch(self, probas, labels):

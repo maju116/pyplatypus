@@ -1,5 +1,5 @@
-from platypus.engine import platypus_engine
-from platypus.utils.config_processing_functions import YamlConfigLoader
+from pyplatypus.engine import platypus_engine
+from pyplatypus.utils.config_processing_functions import YamlConfigLoader
 from pathlib import Path
 
 

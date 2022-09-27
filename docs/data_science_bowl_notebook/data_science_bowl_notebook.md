@@ -22,6 +22,9 @@ In the "images" folder you will find an image of shape (256, 256, 4) with the va
 # The preparation
 After downloading the data, unpack it and move to any preferred destination. For this example we will be interested only in stage1_train and stage1_test subdirectories, thus other files could be put aside. Let's take a look at the exemplary image.
 
+```python
+!pip install pyplatypus
+```
 
 ```python
 from pathlib import Path
@@ -236,7 +239,7 @@ Hereafter the models' building process is rather straightforward.
 
 
 ```python
-from platypus.solvers.platypus_cv_solver import PlatypusSolver
+from pyplatypus.solvers.platypus_cv_solver import PlatypusSolver
 
 
 ps = PlatypusSolver(

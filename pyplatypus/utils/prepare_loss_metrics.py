@@ -1,5 +1,5 @@
 """This module provides us with the tools for preparing the ready-to-use loss functions taken from
-platypus.segmentation.loss_functions.segmentation_loss class. These tools are mainly used in the platypus_engine.
+pyplatypus.segmentation.loss_functions.segmentation_loss class. These tools are mainly used in the platypus_engine.
 
 Functions
 ---------
@@ -14,8 +14,8 @@ prepare_loss_function(loss: str, n_class: int, background_index: Optional[int] =
 """
 
 from typing import Optional, Callable
-from platypus.utils.toolbox import convert_to_snake_case
-from platypus.segmentation.loss_functions import segmentation_loss
+from pyplatypus.utils.toolbox import convert_to_snake_case
+from pyplatypus.segmentation.loss_functions import segmentation_loss
 
 
 def prepare_loss_and_metrics(
