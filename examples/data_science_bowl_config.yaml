@@ -4,7 +4,7 @@ semantic_segmentation:
         train_path: 'examples/data/data_science_bowl/stage1_train'
         validation_path: 'examples/data/data_science_bowl/stage1_validation'
         test_path: 'examples/data/data_science_bowl/stage1_test'
-        colormap: [[0, 0, 0], [1, 1, 1]]
+        colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
         subdirs: ["images", "masks"]
@@ -51,12 +51,12 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           linknet: False
           plus_plus: True
-          deep_supervision: True
+          deep_supervision: False
           use_separable_conv2d: True
           use_spatial_dropout2d: True
           use_up_sampling2d: True
           batch_size: 8
-          epochs: 5
+          epochs: 100
 augmentation:
     Blur:
         blur_limit: 7

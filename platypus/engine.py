@@ -125,7 +125,7 @@ class platypus_engine:
                     monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
                     mode='min'  # TODO Is monitor supposed to be the str or our function?
                 ), EarlyStopping(
-                    monitor='val_iou_coefficient', mode='max', patience=5
+                    monitor='val_iou_coefficient', mode='max', patience=25
                 )]
             )
             self.update_cache(
