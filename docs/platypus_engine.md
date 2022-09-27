@@ -6,4 +6,4 @@ state-of-the-art Computer Vision models, compiled, calibrated and evaluated on t
 All the engine needs is the YAML config provided by a user, which is validated on the course of parsing through the branching structure
 of PlatypusSolverInput.
 
-::: platypus.engine
+::: pyplatypus.engine
