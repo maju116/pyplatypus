@@ -1,4 +1,4 @@
-from platypus.utils.toolbox import (
+from pyplatypus.utils.toolbox import (
     convert_to_snake_case, split_masks_into_binary, concatenate_binary_masks,
     transform_probabilities_into_binaries, binary_based_on_arg_max
     )
@@ -49,5 +49,5 @@ def test_binary_based_on_arg_max(raw, binary):
 
 def test_transform_probabilities_into_binaries(mocker):
     prediction = np.array([.4, .5, .4, .2, .4, .5, .4, .2]).reshape(2, 2, 2)
-    mocker.patch("platypus.utils.toolbox.binary_based_on_arg_max", return_value=1)
+    mocker.patch("pyplatypus.utils.toolbox.binary_based_on_arg_max", return_value=1)
     assert (transform_probabilities_into_binaries(prediction) == np.array([1, 1, 1, 1]).reshape(2, 2, 1)).all()

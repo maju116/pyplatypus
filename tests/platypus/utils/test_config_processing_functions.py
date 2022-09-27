@@ -1,14 +1,14 @@
-from platypus.utils.config_processing_functions import YamlConfigLoader, check_cv_tasks
+from pyplatypus.utils.config_processing_functions import YamlConfigLoader, check_cv_tasks
 from pathlib import Path
 import yaml
 import pytest
 
-from platypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from platypus.data_models.semantic_segmentation_datamodel import (
+from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation_datamodel import (
     SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
     )
-from platypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from platypus.data_models import augmentation_datamodel as AM
+from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
+from pyplatypus.data_models import augmentation_datamodel as AM
 
 
 class TestCheckCVTasks:
@@ -124,10 +124,10 @@ class TestYAMLConfigLoader:
         assert isinstance(parsed_config.InvertImg, AM.InvertImgSpec)
 
     def test_load(self, mocker):
-        ycl_path = "platypus.utils.config_processing_functions.YamlConfigLoader."
+        ycl_path = "pyplatypus.utils.config_processing_functions.YamlConfigLoader."
         mocker.patch(ycl_path + "load_config_from_yaml", return_value=None)
         mocker.patch(ycl_path + "create_semantic_segmentation_config", return_value=None)
         mocker.patch(ycl_path + "create_object_detection_config", return_value=None)
         mocker.patch(ycl_path + "create_augmentation_config", return_value=None)
-        mocker.patch("platypus.utils.config_processing_functions.PlatypusSolverInput", self.mocked_solver_datamodel)
+        mocker.patch("pyplatypus.utils.config_processing_functions.PlatypusSolverInput", self.mocked_solver_datamodel)
         assert YamlConfigLoader(Path("")).load() == {}

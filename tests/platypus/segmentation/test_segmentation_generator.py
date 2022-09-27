@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
-from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
-from platypus.segmentation.generator import segmentation_generator, split_masks_into_binary, prepare_data_generators, predict_from_generator
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.segmentation.generator import segmentation_generator, split_masks_into_binary, prepare_data_generators, predict_from_generator
 
 
 @pytest.mark.parametrize(
@@ -248,7 +248,7 @@ def test_prepare_data_generators(mocker):
         "filters": 2,
         "dropout": .1
     })
-    mocker.patch("platypus.segmentation.generator.segmentation_generator", return_value="semantic_generator")
+    mocker.patch("pyplatypus.segmentation.generator.segmentation_generator", return_value="semantic_generator")
     assert prepare_data_generators(data, model_cfg) == ("semantic_generator", "semantic_generator", "semantic_generator")
 
 

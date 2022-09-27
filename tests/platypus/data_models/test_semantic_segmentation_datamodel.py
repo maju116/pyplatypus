@@ -1,11 +1,11 @@
-from platypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
 from pathlib import Path
 import pytest
 
 
 class TestSemanticSegmentationData:
 
-    data_models_path = "platypus.data_models.semantic_segmentation_datamodel"
+    data_models_path = "pyplatypus.data_models.semantic_segmentation_datamodel"
 
     @staticmethod
     def create_input(tmpdir):
@@ -87,6 +87,6 @@ class TestSemanticSegmentationModelSpec:
             "dropout": 0.1,
             "activation_layer": "invalid_activation"
         }
-        mocker.patch("platypus.data_models.semantic_segmentation_datamodel.available_activations", ["valid_activation"])
+        mocker.patch("pyplatypus.data_models.semantic_segmentation_datamodel.available_activations", ["valid_activation"])
         with pytest.raises(ValueError):
             SemanticSegmentationModelSpec(**model_spec)
