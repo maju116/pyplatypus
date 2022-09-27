@@ -384,7 +384,7 @@ def prepare_data_generators(
         h_splits=model_cfg.h_splits,
         w_splits=model_cfg.w_splits,
         grayscale=model_cfg.grayscale,
-        augmentation_pipeline=None,
+        augmentation_pipeline=validation_augmentation_pipeline,
         batch_size=model_cfg.batch_size,
         shuffle=False,
         subdirs=data.subdirs,
