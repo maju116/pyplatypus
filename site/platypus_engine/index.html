@@ -467,7 +467,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/" class="md-nav__link">
+      <a href="../data_science_bowl_notebook/data_science_bowl_notebook/" class="md-nav__link">
         Examples
       </a>
     </li>
@@ -1122,7 +1122,7 @@ and latter predictions production.</p>
                     <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;categorical_crossentropy&#39;</span><span class="p">,</span>  <span class="c1"># TODO Add the monitor function and check if it is one of the metrics</span>
                     <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span>  <span class="c1"># TODO Is monitor supposed to be the str or our function?</span>
                 <span class="p">),</span> <span class="n">EarlyStopping</span><span class="p">(</span>
-                    <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;val_iou_coefficient&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;max&#39;</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">5</span>
+                    <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;val_iou_coefficient&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;max&#39;</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">25</span>
                 <span class="p">)]</span>
             <span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">update_cache</span><span class="p">(</span>
@@ -1399,7 +1399,7 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
                 <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;categorical_crossentropy&#39;</span><span class="p">,</span>  <span class="c1"># TODO Add the monitor function and check if it is one of the metrics</span>
                 <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;min&#39;</span>  <span class="c1"># TODO Is monitor supposed to be the str or our function?</span>
             <span class="p">),</span> <span class="n">EarlyStopping</span><span class="p">(</span>
-                <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;val_iou_coefficient&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;max&#39;</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">5</span>
+                <span class="n">monitor</span><span class="o">=</span><span class="s1">&#39;val_iou_coefficient&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;max&#39;</span><span class="p">,</span> <span class="n">patience</span><span class="o">=</span><span class="mi">25</span>
             <span class="p">)]</span>
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">update_cache</span><span class="p">(</span>
