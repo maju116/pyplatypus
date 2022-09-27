@@ -288,6 +288,8 @@
 <p>In the "images" folder you will find an image of shape (256, 256, 4) with the values varying from 0 to 1, while the masks are just (256, 256) matrices with the values coming from the discrete set: {0, 1}.</p>
 <h1 id="the-preparation">The preparation</h1>
 <p>After downloading the data, unpack it and move to any preferred destination. For this example we will be interested only in stage1_train and stage1_test subdirectories, thus other files could be put aside. Let's take a look at the exemplary image.</p>
+<pre><code class="language-python">!pip install pyplatypus
+</code></pre>
 <pre><code class="language-python">from pathlib import Path
 import os
 cwd = Path.cwd()
@@ -462,7 +464,7 @@ with open(r&quot;examples/data_science_bowl_config.yaml&quot;) as stream:
 <li>Additional arguments for CNN such as: number of filters, dropout rate etc.</li>
 </ul>
 <p>Hereafter the models' building process is rather straightforward.</p>
-<pre><code class="language-python">from platypus.solvers.platypus_cv_solver import PlatypusSolver
+<pre><code class="language-python">from pyplatypus.solvers.platypus_cv_solver import PlatypusSolver
 
 
 ps = PlatypusSolver(
