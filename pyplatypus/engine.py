@@ -10,6 +10,7 @@ from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
+import numpy as np
 from typing import Optional
 
 
@@ -222,6 +223,8 @@ class platypus_engine:
         mode = g.mode
         if custom_data_path is not None:
             g.path = custom_data_path
+            g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
+            g.steps_per_epoch = int(np.ceil(len(g.config["images_paths"]) / g.batch_size))
         colormap = g.colormap
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode
