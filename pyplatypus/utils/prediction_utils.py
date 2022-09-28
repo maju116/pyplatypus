@@ -11,12 +11,11 @@ def save_masks(image_masks: list, paths: list, model_name: str, mode: str = "nes
             raise NotImplementedError("Types other than PNG to be handled soon.")
         if mode == "nested_dirs":
             img_directory = image_path.parents[1]
-            img_name = img_directory.name
         else:
             img_directory = image_path.parents[0]
-            img_name = img_directory.name
         masks_path = img_directory/"predicted_masks"
-        Path.mkdir(masks_path, exist_ok=True)
+        if not masks_path.exists():
+            Path.mkdir(masks_path, exist_ok=False)
         mask_as_image = Image.fromarray(im.astype(np.uint8)).convert("RGB")
         mask_path = masks_path/f"{img_name}_{model_name}_predicted_mask.png"
         mask_as_image.save(mask_path)
