@@ -6,7 +6,7 @@ import numpy as np
 def save_masks(image_masks: list, paths: list, model_name: str):
     for im, path in zip(image_masks, paths):
         img_directory = Path(path).parents[1]
-        img_name = img_directory.stem
+        img_name = Path(path).name
         masks_path = img_directory/"predicted_masks"
         Path.mkdir(masks_path, exist_ok=True)
         img_name, img_type = Path(path).name.split(".")
