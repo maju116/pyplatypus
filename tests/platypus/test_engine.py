@@ -19,6 +19,7 @@ class mocked_u_shaped_model:
 class mocked_generator:
     steps_per_epoch = 10
     colormap = [(0, 0, 0), (255, 255, 255)]
+    mode = "nested_dirs"
 
 class TestPlatypusEngine:
     config = PlatypusSolverInput(
@@ -50,12 +51,12 @@ class TestPlatypusEngine:
     engine_path = "pyplatypus.engine.platypus_engine"
 
     @staticmethod
-    def mocked_save_masks(image_masks, paths, model_name):
+    def mocked_save_masks(image_masks, paths, model_name, mode):
         assert isinstance(image_masks, list)
         assert isinstance(paths, list)
         assert model_name == "model1"
 
-    def mocked_produce_and_save_predicted_masks_for_model(self, model_name):
+    def mocked_produce_and_save_predicted_masks_for_model(self, model_name, task_type):
         assert isinstance(model_name, str)
 
     def mocked_update_cache(self, model_name, model, model_specification, generator):
@@ -110,7 +111,7 @@ class TestPlatypusEngine:
         assert True
 
     def test_get_model_names(self):
-        model_names = self.initialized_engine.get_model_names(config=dict(self.config), task="semantic_segmentation")
+        model_names = self.initialized_engine.get_model_names(config=dict(self.config), task_type="semantic_segmentation")
         assert model_names == ["model_name"]
 
     @pytest.mark.parametrize("model_name", [("model1"), (None)])
@@ -120,7 +121,7 @@ class TestPlatypusEngine:
         self.initialized_engine.produce_and_save_predicted_masks(model_name)
 
     def test_produce_and_save_predicted_masks_for_model(self, mocker):
-        mocker.patch(self.engine_path + ".predict_based_on_test_generator", return_value=(["predictions"], ["paths"], "colormap"))
+        mocker.patch(self.engine_path + ".predict_based_on_test_generator", return_value=(["predictions"], ["paths"], "colormap", "mode"))
         mocker.patch("pyplatypus.engine.transform_probabilities_into_binaries", return_value="prediction_binary")
         mocker.patch("pyplatypus.engine.concatenate_binary_masks", return_value="prediction_mask")
         mocker.patch("pyplatypus.engine.save_masks", self.mocked_save_masks)
@@ -133,4 +134,4 @@ class TestPlatypusEngine:
         engine.cache = {"semantic_segmentation": {"model_name": {"model": "model", "data_generator": mocked_generator}}}
         assert engine.predict_based_on_test_generator(
             model_name="model_name", custom_data_path=custom_data_path
-            ) == ("predictions", "paths", mocked_generator.colormap)
+            ) == ("predictions", "paths", mocked_generator.colormap, mocked_generator.mode)

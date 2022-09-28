@@ -63,7 +63,8 @@ class platypus_engine:
         self.cache = cache
 
     def update_cache(
-        self, model_name: str, model: u_shaped_model, model_specification: dict, generator: segmentation_generator
+        self, model_name: str, model: u_shaped_model, model_specification: dict,
+        generator: segmentation_generator, task_type: str = "semantic_segmentation"
             ):
         """Stores the trained model in the cache, under its name defined by a user.
 
@@ -78,7 +79,7 @@ class platypus_engine:
         generator: segmentation_generator
             Test generator.
         """
-        self.cache.get("semantic_segmentation").update({
+        self.cache.get(task_type).update({
             model_name: {"model": model, "model_specification": model_specification, "data_generator": generator}
             })
 
@@ -156,7 +157,7 @@ class platypus_engine:
         )
         return model
 
-    def produce_and_save_predicted_masks(self, model_name: Optional[str] = None):
+    def produce_and_save_predicted_masks(self, model_name: Optional[str] = None, task_type: str = "semantic_segmentation"):
         """If the name parameter is set to None, then the outputs are produced for all the trained models.
         Otherwise, the model pointed at is used.
 
@@ -166,13 +167,15 @@ class platypus_engine:
             Name of the model, should be consistent with the input config.
         """
         if model_name is None:
-            model_names = self.get_model_names(config=self.config)
+            model_names = self.get_model_names(config=self.config, task_type=task_type)
             for model_name in model_names:
-                self.produce_and_save_predicted_masks_for_model(model_name)
+                self.produce_and_save_predicted_masks_for_model(model_name, task_type)
         else:
-            self.produce_and_save_predicted_masks_for_model(model_name)
+            self.produce_and_save_predicted_masks_for_model(model_name, task_type)
 
-    def produce_and_save_predicted_masks_for_model(self, model_name: str, custom_data_path: Optional[str] = None):
+    def produce_and_save_predicted_masks_for_model(
+        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+            ):
         """For a certain model, function produces the prediction for a test data, or any data chosen by the user.
         Then these predictions are transformed into the binary masks and saved to the local files.
 
@@ -183,15 +186,19 @@ class platypus_engine:
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         """
-        predictions, paths, colormap = self.predict_based_on_test_generator(model_name, custom_data_path)
+        predictions, paths, colormap, mode = self.predict_based_on_test_generator(
+            model_name, custom_data_path, task_type
+            )
         image_masks = []
         for prediction in predictions:
             prediction_binary = transform_probabilities_into_binaries(prediction)
             prediction_mask = concatenate_binary_masks(binary_mask=prediction_binary, colormap=colormap)
             image_masks.append(prediction_mask)
-        save_masks(image_masks, paths, model_name)
+        save_masks(image_masks, paths, model_name, mode)
 
-    def predict_based_on_test_generator(self, model_name: str, custom_data_path: Optional[str] = None) -> tuple:
+    def predict_based_on_test_generator(
+        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+            ) -> tuple:
         """Produces predictions based on the selected model and the data generator created on the course of building this model.
 
         Parameters
@@ -210,16 +217,17 @@ class platypus_engine:
         colormap: List[Tuple[int, int, int]]
             Class color map.
         """
-        m = self.cache.get("semantic_segmentation").get(model_name).get("model")
-        g = self.cache.get("semantic_segmentation").get(model_name).get("data_generator")
+        m = self.cache.get(task_type).get(model_name).get("model")
+        g = self.cache.get(task_type).get(model_name).get("data_generator")
+        mode = g.mode
         if custom_data_path is not None:
             g.path = custom_data_path
         colormap = g.colormap
         predictions, paths = predict_from_generator(model=m, generator=g)
-        return predictions, paths, colormap
+        return predictions, paths, colormap, mode
 
     @staticmethod
-    def get_model_names(config: dict, task: Optional[str] = "semantic_segmentation") -> list:
+    def get_model_names(config: dict, task_type: Optional[str] = "semantic_segmentation") -> list:
         """Extracts the names of all models related to the selected task.
 
         Parameters
@@ -234,5 +242,5 @@ class platypus_engine:
         model_names: list
             Names of the models associated with the chosen task.
         """
-        model_names = [model_cfg.name for model_cfg in config.get(task).models]
+        model_names = [model_cfg.name for model_cfg in config.get(task_type).models]
         return model_names
