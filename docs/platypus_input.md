@@ -32,7 +32,7 @@ Below there is each field described more thoroughly.
 | subdirs | str | any | ['images', 'masks'] | yes |
 | column_sep | str | any | ';' | yes |
 | loss | str | One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss'] | 'lovasz_loss' | no, by default 'iou_loss' |
-| metrics | List[str] | One of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
+| metrics | List[str] | Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
 | optimizer | str | One of the: ['adam', 'adadelta', 'adagrad', 'adamax', 'ftrl', 'nadam', 'rmsprop', 'sgd'] | ['tversky coefficient', 'iou coefficient'] | no, by default 'adam'|
 
 
