@@ -663,7 +663,7 @@ def sample_and_plot_predictions(data_path: Path, model_name: str, n=3):
     for img_path in validation_images:
         img_name = img_path.split("/")[-1:][0]
         img = glob(f"{img_path}/images/*.png")[0]
-        predictions = glob(f"{img_path}/predicted_masks/{model_name}_predicted_mask.png")[0]
+        predictions = glob(f"{img_path}/predicted_masks/{img_name}_{model_name}_predicted_mask.png")[0]
         masks = glob(f"{img_path}/masks/*.png")
         # Load images
         img_loaded = Image.open(img) 

@@ -28,7 +28,7 @@ def test_save_masks_wrong_type(monkeypatch):
     with pytest.raises(NotImplementedError):
         save_masks(image_masks=["mask1"], paths=["directory/path1.dcm"], model_name="model1")
 
-def test_save_masks_wrong_type(monkeypatch):
+def test_save_masks(monkeypatch):
     monkeypatch.setattr("pyplatypus.utils.prediction_utils.Path.mkdir", mocked_path_mkdir, raising=False)
     monkeypatch.setattr("pyplatypus.utils.prediction_utils.Image.fromarray", mocked_image_fromarray)
     save_masks(image_masks=[np.array([0, 1, 1, 0]).reshape((1, 2, 2))], paths=["directory/path1.png"], model_name="model1")
