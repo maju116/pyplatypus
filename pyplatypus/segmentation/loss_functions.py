@@ -4,7 +4,7 @@ from typing import Optional
 from pyplatypus.utils.lovasz_softmax import LovaszSoftmaxLoss as LSL
 
 
-class segmentation_loss:
+class SegmentationLoss:
     """The class storing all the implemented loss functions and coefficients.
 
     Methods

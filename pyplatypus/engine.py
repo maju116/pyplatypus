@@ -1,6 +1,6 @@
 from pyplatypus.utils.config_processing_functions import check_cv_tasks
 from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
-from pyplatypus.segmentation.generator import prepare_data_generators, segmentation_generator, predict_from_generator
+from pyplatypus.segmentation.generator import prepare_data_generators, SegmentationGenerator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
@@ -10,10 +10,11 @@ from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
+import numpy as np
 from typing import Optional
 
 
-class platypus_engine:
+class PlatypusEngine:
     """
     The architecture serving the purpose of creating the data pipeline, creating and calibrating the models with the use of it
     and latter predictions production.
@@ -64,7 +65,7 @@ class platypus_engine:
 
     def update_cache(
         self, model_name: str, model: u_shaped_model, model_specification: dict,
-        generator: segmentation_generator, task_type: str = "semantic_segmentation"
+        generator: SegmentationGenerator, task_type: str = "semantic_segmentation"
             ):
         """Stores the trained model in the cache, under its name defined by a user.
 
@@ -76,7 +77,7 @@ class platypus_engine:
             Tensorflow model.
         model_specification : dict
             Input model configuration.
-        generator: segmentation_generator
+        generator: SegmentationGenerator
             Test generator.
         """
         self.cache.get(task_type).update({
@@ -222,6 +223,8 @@ class platypus_engine:
         mode = g.mode
         if custom_data_path is not None:
             g.path = custom_data_path
+            g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
+            g.steps_per_epoch = int(np.ceil(len(g.config["images_paths"]) / g.batch_size))
         colormap = g.colormap
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode

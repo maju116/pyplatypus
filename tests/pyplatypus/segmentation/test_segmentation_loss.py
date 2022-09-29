@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from pyplatypus.segmentation.loss_functions import segmentation_loss
+from pyplatypus.segmentation.loss_functions import SegmentationLoss
 import tensorflow as tf
 from keras.backend import mean as kb_mean
 from keras.backend import exp as kb_exp
@@ -65,7 +65,7 @@ from keras.backend import categorical_crossentropy
     ]
 )
 def test_segmentation_loss(n_class, background_index, input_1, input_2, output):
-    sl = segmentation_loss(n_class=n_class, background_index=background_index)
+    sl = SegmentationLoss(n_class=n_class, background_index=background_index)
     assert (sl.remove_background(input_1) == output['input_1_remove_background']).numpy().all()
     assert (sl.remove_background(input_2) == output['input_2_remove_background']).numpy().all()
     assert np.allclose(sl.dice_coefficient(input_1, input_2).numpy(), output['dice_coefficient'])
@@ -77,7 +77,7 @@ def test_segmentation_loss(n_class, background_index, input_1, input_2, output):
 
 
 class TestSegmentationLoss:
-    sl = segmentation_loss(n_class=2, background_index=None)  
+    sl = SegmentationLoss(n_class=2, background_index=None)  
     y_actual = tf.constant(
         np.array([
             0, 0, 0, 1,
@@ -94,7 +94,7 @@ class TestSegmentationLoss:
             0.1, 0.1, 0.2, 0.6
             ]).reshape((2, 2, 2, 2)), tf.float32)
 
-    losses_path = 'pyplatypus.segmentation.loss_functions.segmentation_loss'
+    losses_path = 'pyplatypus.segmentation.loss_functions.SegmentationLoss'
 
     def test_focal_loss(self, mocker):
         gamma = 1

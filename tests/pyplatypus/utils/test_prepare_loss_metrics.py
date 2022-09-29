@@ -3,7 +3,7 @@ from pyplatypus.utils.prepare_loss_metrics import prepare_loss_function, prepare
 
 def test_prepare_loss_function(mocker, monkeypatch):
     mocker.patch("pyplatypus.utils.prepare_loss_metrics.convert_to_snake_case", return_value="loss_function_name")
-    monkeypatch.setattr("pyplatypus.utils.prepare_loss_metrics.segmentation_loss.loss_function_name", "loss_function", raising=False)
+    monkeypatch.setattr("pyplatypus.utils.prepare_loss_metrics.SegmentationLoss.loss_function_name", "loss_function", raising=False)
     assert prepare_loss_function(loss="loss_function_name", n_class=2) == "loss_function"
 
 def test_prepare_metrics(mocker):
