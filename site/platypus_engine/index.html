@@ -1020,7 +1020,8 @@ and latter predictions production.</p>
 <span class="normal">246</span>
 <span class="normal">247</span>
 <span class="normal">248</span>
-<span class="normal">249</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">PlatypusEngine</span><span class="p">:</span>
+<span class="normal">249</span>
+<span class="normal">250</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">PlatypusEngine</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    The architecture serving the purpose of creating the data pipeline, creating and calibrating the models with the use of it</span>
 <span class="sd">    and latter predictions production.</span>
@@ -1157,9 +1158,10 @@ and latter predictions production.</p>
         <span class="n">training_loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">prepare_loss_and_metrics</span><span class="p">(</span>
             <span class="n">loss</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">n_class</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">n_class</span>
             <span class="p">)</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">prepare_optimizer</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="p">)</span>
         <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
             <span class="n">loss</span><span class="o">=</span><span class="n">training_loss</span><span class="p">,</span>
-            <span class="n">optimizer</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+            <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span>
             <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">model</span>
@@ -1482,7 +1484,8 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 <span class="normal">156</span>
 <span class="normal">157</span>
 <span class="normal">158</span>
-<span class="normal">159</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
+<span class="normal">159</span>
+<span class="normal">160</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
 <span class="k">def</span> <span class="nf">compile_u_shaped_model</span><span class="p">(</span><span class="n">model_cfg</span><span class="p">:</span> <span class="n">SemanticSegmentationModelSpec</span><span class="p">,</span> <span class="n">segmentation_spec</span><span class="p">:</span> <span class="n">SemanticSegmentationInput</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Builds and compiles the U-shaped tensorflow model.</span>
 
@@ -1499,9 +1502,10 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
     <span class="n">training_loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">prepare_loss_and_metrics</span><span class="p">(</span>
         <span class="n">loss</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">n_class</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">n_class</span>
         <span class="p">)</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">prepare_optimizer</span><span class="p">(</span><span class="n">optimizer</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="p">)</span>
     <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
         <span class="n">loss</span><span class="o">=</span><span class="n">training_loss</span><span class="p">,</span>
-        <span class="n">optimizer</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+        <span class="n">optimizer</span><span class="o">=</span><span class="n">optimizer</span><span class="p">,</span>
         <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">model</span>
@@ -1545,8 +1549,7 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">232</span>
-<span class="normal">233</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">233</span>
 <span class="normal">234</span>
 <span class="normal">235</span>
 <span class="normal">236</span>
@@ -1562,7 +1565,8 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 <span class="normal">246</span>
 <span class="normal">247</span>
 <span class="normal">248</span>
-<span class="normal">249</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
+<span class="normal">249</span>
+<span class="normal">250</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
 <span class="k">def</span> <span class="nf">get_model_names</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Extracts the names of all models related to the selected task.</span>
 
@@ -1624,8 +1628,7 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">200</span>
-<span class="normal">201</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">201</span>
 <span class="normal">202</span>
 <span class="normal">203</span>
 <span class="normal">204</span>
@@ -1654,7 +1657,8 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 <span class="normal">227</span>
 <span class="normal">228</span>
 <span class="normal">229</span>
-<span class="normal">230</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">predict_based_on_test_generator</span><span class="p">(</span>
+<span class="normal">230</span>
+<span class="normal">231</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">predict_based_on_test_generator</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Produces predictions based on the selected model and the data generator created on the course of building this model.</span>
@@ -1713,8 +1717,7 @@ Otherwise, the model pointed at is used.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">161</span>
-<span class="normal">162</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">162</span>
 <span class="normal">163</span>
 <span class="normal">164</span>
 <span class="normal">165</span>
@@ -1727,7 +1730,8 @@ Otherwise, the model pointed at is used.</p>
 <span class="normal">172</span>
 <span class="normal">173</span>
 <span class="normal">174</span>
-<span class="normal">175</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span><span class="p">):</span>
+<span class="normal">175</span>
+<span class="normal">176</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;If the name parameter is set to None, then the outputs are produced for all the trained models.</span>
 <span class="sd">    Otherwise, the model pointed at is used.</span>
 
@@ -1774,8 +1778,7 @@ Then these predictions are transformed into the binary masks and saved to the lo
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">177</span>
-<span class="normal">178</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">178</span>
 <span class="normal">179</span>
 <span class="normal">180</span>
 <span class="normal">181</span>
@@ -1795,7 +1798,8 @@ Then these predictions are transformed into the binary masks and saved to the lo
 <span class="normal">195</span>
 <span class="normal">196</span>
 <span class="normal">197</span>
-<span class="normal">198</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks_for_model</span><span class="p">(</span>
+<span class="normal">198</span>
+<span class="normal">199</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks_for_model</span><span class="p">(</span>
     <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
         <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;For a certain model, function produces the prediction for a test data, or any data chosen by the user.</span>
