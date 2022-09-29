@@ -16,7 +16,7 @@ from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegme
 import logging as log
 
 
-class segmentation_generator(tf.keras.utils.Sequence):
+class SegmentationGenerator(tf.keras.utils.Sequence):
     """The class can be used as train, validation or test generator. It is also utilized by the engine
     while producing the output plots, based on the trained models.
 
@@ -366,7 +366,7 @@ def prepare_data_generators(
     for path, pipeline in zip(
         [data.train_path, data.validation_path], [train_augmentation_pipeline, validation_augmentation_pipeline]
             ):
-        generator_ = segmentation_generator(
+        generator_ = SegmentationGenerator(
             path=path,
             mode=data.mode,
             colormap=data.colormap,
@@ -383,7 +383,7 @@ def prepare_data_generators(
             column_sep=data.column_sep
         )
         generators.append(generator_)
-    test_generator = segmentation_generator(
+    test_generator = SegmentationGenerator(
         path=path,
         mode=data.mode,
         colormap=data.colormap,
@@ -405,7 +405,7 @@ def prepare_data_generators(
     return generators
 
 
-def predict_from_generator(model: u_shaped_model, generator: segmentation_generator) -> tuple:
+def predict_from_generator(model: u_shaped_model, generator: SegmentationGenerator) -> tuple:
     """Serves the batches of images to the supplied model and returns predictions alongside the paths to the
     images that the batch is comprised of.
 
@@ -414,7 +414,7 @@ def predict_from_generator(model: u_shaped_model, generator: segmentation_genera
     model : u_shaped_model
         For now it is the U-shaped one but in the future it is expected to be one from the models
         associated with the tasks implemented within Platypus.
-    generator : segmentation_generator
+    generator : SegmentationGenerator
         Generator created on the course of preparing the modelling pipeline.
 
     Returns

@@ -1,5 +1,5 @@
 """This module provides us with the tools for preparing the ready-to-use loss functions taken from
-pyplatypus.segmentation.loss_functions.segmentation_loss class. These tools are mainly used in the platypus_engine.
+pyplatypus.segmentation.loss_functions.SegmentationLoss class. These tools are mainly used in the PlatypusEngine.
 
 Functions
 ---------
@@ -15,7 +15,7 @@ prepare_loss_function(loss: str, n_class: int, background_index: Optional[int] =
 
 from typing import Optional, Callable
 from pyplatypus.utils.toolbox import convert_to_snake_case
-from pyplatypus.segmentation.loss_functions import segmentation_loss
+from pyplatypus.segmentation.loss_functions import SegmentationLoss
 
 
 def prepare_loss_and_metrics(
@@ -81,7 +81,7 @@ def prepare_metrics(
 def prepare_loss_function(loss: str, n_class: int, background_index: Optional[int] = None) -> Callable:
     """
     Returns the ready-to-use loss function in the format expected by the Tensorflow. The function is
-    extracted as the attribute of the segmentation_loss function.
+    extracted as the attribute of the SegmentationLoss function.
 
     Parameters
     ----------
@@ -99,6 +99,6 @@ def prepare_loss_function(loss: str, n_class: int, background_index: Optional[in
     """
     loss = convert_to_snake_case(any_case=loss)
     loss_function = getattr(
-        segmentation_loss(n_class, background_index), loss
+        SegmentationLoss(n_class, background_index), loss
         )
     return loss_function

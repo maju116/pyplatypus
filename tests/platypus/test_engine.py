@@ -1,4 +1,4 @@
-from pyplatypus.engine import platypus_engine
+from pyplatypus.engine import PlatypusEngine
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
 from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
@@ -54,8 +54,8 @@ class TestPlatypusEngine:
         ),
         augmentation=AugmentationSpecFull()
     )
-    initialized_engine = platypus_engine(config=config.copy(), cache={})
-    engine_path = "pyplatypus.engine.platypus_engine"
+    initialized_engine = PlatypusEngine(config=config.copy(), cache={})
+    engine_path = "pyplatypus.engine.PlatypusEngine"
 
     @staticmethod
     def mocked_save_masks(image_masks, paths, model_name, mode):
@@ -73,7 +73,7 @@ class TestPlatypusEngine:
         self.model = "trained_model"
 
     def test_init(self):
-        initialized_engine = platypus_engine(config=self.config.copy(), cache={})
+        initialized_engine = PlatypusEngine(config=self.config.copy(), cache={})
         assert initialized_engine.config == dict(self.config)
         assert initialized_engine.cache == {}
 

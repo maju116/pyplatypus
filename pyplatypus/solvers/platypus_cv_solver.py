@@ -1,9 +1,9 @@
-from pyplatypus.engine import platypus_engine
+from pyplatypus.engine import PlatypusEngine
 from pyplatypus.utils.config_processing_functions import YamlConfigLoader
 from pathlib import Path
 
 
-class PlatypusSolver(platypus_engine):
+class PlatypusSolver(PlatypusEngine):
     """The wrapper around the mighty platypus engine which arms it with the tools for training
     multiple models tackling the CV tasks such as: semantic segmentation, object detections and
     image classification.

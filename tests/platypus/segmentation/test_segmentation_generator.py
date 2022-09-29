@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
-from pyplatypus.segmentation.generator import segmentation_generator, split_masks_into_binary, prepare_data_generators, predict_from_generator
+from pyplatypus.segmentation.generator import SegmentationGenerator, split_masks_into_binary, prepare_data_generators, predict_from_generator
 
 
 @pytest.mark.parametrize(
@@ -56,7 +56,7 @@ from pyplatypus.segmentation.generator import segmentation_generator, split_mask
     ]
 )
 def test_create_images_masks_paths(path, mode, only_images, result):
-    assert segmentation_generator.create_images_masks_paths(path, mode, only_images, ("images", "masks"), ";") == result
+    assert SegmentationGenerator.create_images_masks_paths(path, mode, only_images, ("images", "masks"), ";") == result
 
 
 @pytest.mark.parametrize(
@@ -222,16 +222,16 @@ def test_split_masks_into_binary(mask, colormap, result):
     ]
 )
 def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_splits, batch_size, result):
-    test_sg = segmentation_generator(path, colormap, mode, False, net_h, net_w, h_splits, w_splits, False, None,
+    test_sg = SegmentationGenerator(path, colormap, mode, False, net_h, net_w, h_splits, w_splits, False, None,
                                      batch_size, False, ("images", "masks"), ";")
     output = test_sg.__getitem__(0)
     assert np.allclose(output[0], result[0])
     assert (output[1] == result[1]).all()
 
 def test_calculate_steps_per_epoch(mocker):
-    mocker.patch("pyplatypus.segmentation.generator.segmentation_generator.create_images_masks_paths", return_value={"images_paths": ["path1", "path2", "path3", "path4"]})
-    mocker.patch("pyplatypus.segmentation.generator.segmentation_generator.on_epoch_end", return_value=None)
-    test_sg = segmentation_generator(path="", colormap=[])
+    mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator.create_images_masks_paths", return_value={"images_paths": ["path1", "path2", "path3", "path4"]})
+    mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator.on_epoch_end", return_value=None)
+    test_sg = SegmentationGenerator(path="", colormap=[])
     test_sg.batch_size = 2
     assert test_sg.calculate_steps_per_epoch() == 2
 
@@ -255,7 +255,7 @@ def test_prepare_data_generators(mocker):
         "filters": 2,
         "dropout": .1
     })
-    mocker.patch("pyplatypus.segmentation.generator.segmentation_generator", return_value="semantic_generator")
+    mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator", return_value="semantic_generator")
     assert prepare_data_generators(data, model_cfg) == ("semantic_generator", "semantic_generator", "semantic_generator")
 
 
