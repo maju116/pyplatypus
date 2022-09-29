@@ -48,17 +48,11 @@ class TestSemanticSegmentationData:
                 **self.create_input(tmpdir)
             )
 
-    @pytest.mark.parametrize("data_update_expression", [
-        ({"mode": "invalid_mode"}),
-        ({"loss": "invalid_loss"}),
-        ({"metrics": ["invalid_metrics"]}),
-        ({"optimizer": "invalid_optimizer"})
-        ])
-    def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir, data_update_expression):
+    def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir):
         self.mock_config(mocker)
         self.create_paths("synthetic_train_path", "synthetic_validation_path", "synthetic_test_path", tmpdir=tmpdir)
         data = self.create_input(tmpdir)
-        data.update(data_update_expression)
+        data.update({"mode": "invalid_mode"})
         with pytest.raises(ValueError):
             ssd = SemanticSegmentationData(
                 **data
@@ -75,18 +69,30 @@ class TestSemanticSegmentationData:
             )
 
 class TestSemanticSegmentationModelSpec:
+    model_spec = {
+        "name": "model_name",
+        "net_h": 8,
+        "net_w": 8,
+        "blocks": 2,
+        "n_class": 2,
+        "filters": 2,
+        "dropout": 0.1,
+        "activation_layer": "invalid_activation"
+    }
 
-    def test_activation_layer_validator(self, mocker):
-        model_spec = {
-            "name": "model_name",
-            "net_h": 8,
-            "net_w": 8,
-            "blocks": 2,
-            "n_class": 2,
-            "filters": 2,
-            "dropout": 0.1,
-            "activation_layer": "invalid_activation"
-        }
+    @pytest.mark.parametrize("data_update_expression", [
+        ({"loss": "invalid_loss"}),
+        ({"metrics": ["invalid_metrics"]}),
+        ({"optimizer": "invalid_optimizer"})
+        ])
+    def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir, data_update_expression):
+        data = self.model_spec.copy()
+        data.update(data_update_expression)
         mocker.patch("pyplatypus.data_models.semantic_segmentation_datamodel.available_activations", ["valid_activation"])
         with pytest.raises(ValueError):
-            SemanticSegmentationModelSpec(**model_spec)
+            SemanticSegmentationModelSpec(**data)
+
+    def test_activation_layer_validator(self, mocker):
+        mocker.patch("pyplatypus.data_models.semantic_segmentation_datamodel.available_activations", ["valid_activation"])
+        with pytest.raises(ValueError):
+            SemanticSegmentationModelSpec(**self.model_spec)

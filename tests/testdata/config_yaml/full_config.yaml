@@ -23,6 +23,9 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           batch_size: 32
           epochs: 20
+          loss: 'focal loss'
+          metrics: ['tversky coefficient', 'iou coefficient']
+          optimizer: 'adam'
         - name: 'u_net2'
           net_h: 256
           net_w: 256
@@ -37,6 +40,9 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           batch_size: 32
           epochs: 20
+          loss: 'focal loss'
+          metrics: ['tversky coefficient', 'iou coefficient']
+          optimizer: 'adam'
 augmentation:
     Blur:
         blur_limit: 7
