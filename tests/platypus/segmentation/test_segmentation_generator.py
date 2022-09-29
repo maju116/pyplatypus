@@ -228,6 +228,13 @@ def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_
     assert np.allclose(output[0], result[0])
     assert (output[1] == result[1]).all()
 
+def test_calculate_steps_per_epoch(mocker):
+    mocker.patch("pyplatypus.segmentation.generator.segmentation_generator.create_images_masks_paths", return_value={"images_paths": ["path1", "path2", "path3", "path4"]})
+    mocker.patch("pyplatypus.segmentation.generator.segmentation_generator.on_epoch_end", return_value=None)
+    test_sg = segmentation_generator(path="", colormap=[])
+    test_sg.batch_size = 2
+    assert test_sg.calculate_steps_per_epoch() == 2
+
 def test_prepare_data_generators(mocker):
     data = SemanticSegmentationData(**{
         "train_path": "tests/",

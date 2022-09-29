@@ -100,14 +100,23 @@ class segmentation_generator(tf.keras.utils.Sequence):
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         self.test = test
-        # Add checks for generator
-        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
-                                                     self.column_sep)
+        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
         self.indexes = None
-        self.steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
+        self.steps_per_epoch = self.calculate_steps_per_epoch()
         print(len(self.config["images_paths"]), "images detected!")
         print("Set 'steps_per_epoch' to:", self.steps_per_epoch)
         self.on_epoch_end()
+
+    def calculate_steps_per_epoch(self) -> int:
+        """Calculates the number of steps needed to go through all the images given the batch size.
+
+        Returns
+        -------
+        steps_per_epoch: int
+            Steps that the generator is to take in order to complete an epoch.
+        """
+        steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
+        return steps_per_epoch
 
     @staticmethod
     def create_images_masks_paths(

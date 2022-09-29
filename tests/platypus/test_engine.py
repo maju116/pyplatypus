@@ -20,6 +20,13 @@ class mocked_generator:
     steps_per_epoch = 10
     colormap = [(0, 0, 0), (255, 255, 255)]
     mode = "nested_dirs"
+    only_images = False
+    subdirs = ["masks", "images"]
+    column_sep = ";"
+    batch_size = 1
+
+    def create_images_masks_paths(self, *args):
+        return {"images_paths": ["path1", "path2"]}
 
 class TestPlatypusEngine:
     config = PlatypusSolverInput(
