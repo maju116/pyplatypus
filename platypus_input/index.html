@@ -233,6 +233,75 @@
     semantic_segmentation.models
   </a>
   
+    <nav class="md-nav" aria-label="semantic_segmentation.models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modeloptimizer" class="md-nav__link">
+    model.optimizer
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradadelta" class="md-nav__link">
+    models.optimizer.Adadelta
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradagrad" class="md-nav__link">
+    models.optimizer.Adagrad
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradam" class="md-nav__link">
+    models.optimizer.Adam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradamax" class="md-nav__link">
+    models.optimizer.Adamax
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizerftlr" class="md-nav__link">
+    models.optimizer.Ftlr
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizernadam" class="md-nav__link">
+    models.optimizer.Nadam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizerrmsprop" class="md-nav__link">
+    models.optimizer.RMSprop
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizersgd" class="md-nav__link">
+    models.optimizer.SGD
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -393,6 +462,75 @@
   <a href="#semantic_segmentationmodels" class="md-nav__link">
     semantic_segmentation.models
   </a>
+  
+    <nav class="md-nav" aria-label="semantic_segmentation.models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#modeloptimizer" class="md-nav__link">
+    model.optimizer
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradadelta" class="md-nav__link">
+    models.optimizer.Adadelta
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradagrad" class="md-nav__link">
+    models.optimizer.Adagrad
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradam" class="md-nav__link">
+    models.optimizer.Adam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizeradamax" class="md-nav__link">
+    models.optimizer.Adamax
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizerftlr" class="md-nav__link">
+    models.optimizer.Ftlr
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizernadam" class="md-nav__link">
+    models.optimizer.Nadam
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizerrmsprop" class="md-nav__link">
+    models.optimizer.RMSprop
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsoptimizersgd" class="md-nav__link">
+    models.optimizer.SGD
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -747,10 +885,364 @@ augmentation:    # Defines the augmentation pipelines.
 </tr>
 <tr>
 <td>optimizer</td>
-<td>str</td>
-<td>One of the: ['adam', 'adadelta', 'adagrad', 'adamax', 'ftrl', 'nadam', 'rmsprop', 'sgd']</td>
-<td>['tversky coefficient', 'iou coefficient']</td>
-<td>no, by default 'adam'</td>
+<td>dict</td>
+<td>Described in the Optimizers section</td>
+<td>Described in the Optimizers section</td>
+<td>no, by default Adam optimizer with default arguments</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modeloptimizer">model.optimizer</h4>
+<p>PyPlatypus allows us to use the optimizers of choice, any implemented in Tensorflow backendm to learn more about the algorithms and their argumenta, visit
+<a href="https://www.tensorflow.org/api_docs/python/tf/keras/optimizers">tensorflow.org</a>.</p>
+<p>The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]. Below we described each possible optimizer setting.</p>
+<h4 id="modelsoptimizeradadelta">models.optimizer.Adadelta</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>rho</td>
+<td>float</td>
+<td>any</td>
+<td>0.95</td>
+<td>no, by default 0.95</td>
+</tr>
+<tr>
+<td>epsilon</td>
+<td>float</td>
+<td>any</td>
+<td>1e-07</td>
+<td>no, by default 1e-07</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizeradagrad">models.optimizer.Adagrad</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>initial_accumulator_value</td>
+<td>float</td>
+<td>any</td>
+<td>0.1</td>
+<td>no, by default 0.1</td>
+</tr>
+<tr>
+<td>epsilon</td>
+<td>float</td>
+<td>any</td>
+<td>1e-07</td>
+<td>no, by default 1e-07</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizeradam">models.optimizer.Adam</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>beta_1</td>
+<td>float</td>
+<td>any</td>
+<td>0.9</td>
+<td>no, by default 0.9</td>
+</tr>
+<tr>
+<td>beta_2</td>
+<td>float</td>
+<td>any</td>
+<td>0.999</td>
+<td>no, by default 0.999</td>
+</tr>
+<tr>
+<td>epsilon</td>
+<td>float</td>
+<td>any</td>
+<td>1e-07</td>
+<td>no, by default 1e-07</td>
+</tr>
+<tr>
+<td>amsgrad</td>
+<td>boolean</td>
+<td>any</td>
+<td>False</td>
+<td>no, by default False</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizeradamax">models.optimizer.Adamax</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>beta_1</td>
+<td>float</td>
+<td>any</td>
+<td>0.9</td>
+<td>no, by default 0.9</td>
+</tr>
+<tr>
+<td>beta_2</td>
+<td>float</td>
+<td>any</td>
+<td>0.999</td>
+<td>no, by default 0.999</td>
+</tr>
+<tr>
+<td>epsilon</td>
+<td>float</td>
+<td>any</td>
+<td>1e-07</td>
+<td>no, by default 1e-07</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizerftlr">models.optimizer.Ftlr</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>learning_rate_power</td>
+<td>float</td>
+<td>any</td>
+<td>-0.5</td>
+<td>no, by default -0.5</td>
+</tr>
+<tr>
+<td>initial_accumulator_value</td>
+<td>float</td>
+<td>any</td>
+<td>0.1</td>
+<td>no, by default 0.1</td>
+</tr>
+<tr>
+<td>l1_regularization_strength</td>
+<td>float</td>
+<td>any</td>
+<td>0.0</td>
+<td>no, by default 0.0</td>
+</tr>
+<tr>
+<td>l2_regularization_strength</td>
+<td>float</td>
+<td>any</td>
+<td>0.0</td>
+<td>no, by default 0.0</td>
+</tr>
+<tr>
+<td>l2_shrinkage_regularization_strength</td>
+<td>float</td>
+<td>any</td>
+<td>0.0</td>
+<td>no, by default 0.0</td>
+</tr>
+<tr>
+<td>beta</td>
+<td>float</td>
+<td>any</td>
+<td>0.0</td>
+<td>no, by default 0.0</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizernadam">models.optimizer.Nadam</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>beta_1</td>
+<td>float</td>
+<td>any</td>
+<td>0.9</td>
+<td>no, by default 0.9</td>
+</tr>
+<tr>
+<td>beta_2</td>
+<td>float</td>
+<td>any</td>
+<td>0.999</td>
+<td>no, by default 0.999</td>
+</tr>
+<tr>
+<td>epsilon</td>
+<td>float</td>
+<td>any</td>
+<td>1e-07</td>
+<td>no, by default 1e-07</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizerrmsprop">models.optimizer.RMSprop</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.001</td>
+</tr>
+<tr>
+<td>rho</td>
+<td>float</td>
+<td>any</td>
+<td>0.9</td>
+<td>no, by default 0.9</td>
+</tr>
+<tr>
+<td>momentum</td>
+<td>float</td>
+<td>any</td>
+<td>0.0</td>
+<td>no, by default 0.0</td>
+</tr>
+<tr>
+<td>epsilon</td>
+<td>float</td>
+<td>any</td>
+<td>1e-07</td>
+<td>no, by default 1e-07</td>
+</tr>
+<tr>
+<td>centered</td>
+<td>boolean</td>
+<td>any</td>
+<td>False</td>
+<td>no, by default False</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelsoptimizersgd">models.optimizer.SGD</h4>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Allowed values</th>
+<th>Exemplary value</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>learning_rate</td>
+<td>float</td>
+<td>any</td>
+<td>0.5</td>
+<td>no, by default 0.01</td>
+</tr>
+<tr>
+<td>momentum</td>
+<td>float</td>
+<td>any</td>
+<td>0.0</td>
+<td>no, by default 0.0</td>
+</tr>
+<tr>
+<td>nesterov</td>
+<td>boolean</td>
+<td>any</td>
+<td>False</td>
+<td>no, by default False</td>
 </tr>
 </tbody>
 </table>
@@ -988,54 +1480,69 @@ semantic_segmentation:
         shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
-        loss: 'focal loss'
-        metrics: ['tversky coefficient', 'iou coefficient']
-        optimizer: 'adam'
 
     models:
         - name: 'res_u_net'
-        net_h: 300
-        net_w: 300
-        h_splits: 0
-        w_splits: 0
-        grayscale: False
-        blocks: 4
-        n_class: 2
-        filters: 16
-        dropout: 0.2
-        batch_normalization: True
-        kernel_initializer: 'he_normal'
-        resunet: True
-        linknet: False
-        plus_plus: False
-        deep_supervision: False
-        use_separable_conv2d: True
-        use_spatial_droput2d: True
-        use_up_sampling2d: False
-        u_net_conv_block_width: 4
-        activation_layer: "relu"
-        batch_size: 32
-        epochs: 100
+            net_h: 300
+            net_w: 300
+            h_splits: 0
+            w_splits: 0
+            grayscale: False
+            blocks: 4
+            n_class: 2
+            filters: 16
+            dropout: 0.2
+            batch_normalization: True
+            kernel_initializer: 'he_normal'
+            resunet: True
+            linknet: False
+            plus_plus: False
+            deep_supervision: False
+            use_separable_conv2d: True
+            use_spatial_droput2d: True
+            use_up_sampling2d: False
+            u_net_conv_block_width: 4
+            activation_layer: "relu"
+            batch_size: 32
+            epochs: 100
+            loss: 'focal loss'
+            metrics: ['tversky coefficient', 'iou coefficient']
+            optimizer:
+                Adam:
+                    learning_rate: 0.001
+                    beta_1: 0.9
+                    beta_2: 0.999
+                    epsilon: 1e-07
+                    amsgrad: False
         - name: 'u_net_plus_plus'
-        net_h: 300
-        net_w: 300
-        h_splits: 0
-        w_splits: 0
-        grayscale: False
-        blocks: 2
-        n_class: 2
-        filters: 16
-        dropout: 0.2
-        batch_normalization: True
-        kernel_initializer: 'he_normal'
-        linknet: False
-        plus_plus: True
-        deep_supervision: True
-        use_separable_conv2d: True
-        use_spatial_dropout2d: True
-        use_up_sampling2d: True
-        batch_size: 32
-        epochs: 100
+            net_h: 300
+            net_w: 300
+            h_splits: 0
+            w_splits: 0
+            grayscale: False
+            blocks: 2
+            n_class: 2
+            filters: 16
+            dropout: 0.2
+            batch_normalization: True
+            kernel_initializer: 'he_normal'
+            linknet: False
+            plus_plus: True
+            deep_supervision: True
+            use_separable_conv2d: True
+            use_spatial_dropout2d: True
+            use_up_sampling2d: True
+            batch_size: 32
+            epochs: 100
+            loss: 'focal loss'
+            metrics: ['tversky coefficient', 'iou coefficient']
+            optimizer:
+                Adam:
+                    learning_rate: 0.001
+                    beta_1: 0.9
+                    beta_2: 0.999
+                    epsilon: 1e-07
+                    amsgrad: False
 augmentation:
     InvertImg:
         always_apply: True
