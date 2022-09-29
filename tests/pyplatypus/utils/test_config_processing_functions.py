@@ -11,6 +11,10 @@ from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInp
 from pyplatypus.data_models import augmentation_datamodel as AM
 
 
+class mocked_optimizer_spec:
+    name = "optimizer_1"
+    learning_rate = 0.1
+
 class TestCheckCVTasks:
     config_none = dict({"random_tast_name": None, "semantic_segmenatation": None, "object_detection": None})
     config_notnone = dict({"random_tast_name": "task1", "semantic_segmentation": "task2"})
@@ -34,10 +38,7 @@ class TestYAMLConfigLoader:
                 "mode": 'nested_dirs',
                 "shuffle": False,
                 "subdirs": ["images", "masks"],
-                "column_sep": ';',
-                "loss": 'focal loss',
-                "metrics": ['tversky coefficient', 'iou coefficient'],
-                "optimizer": 'adam'
+                "column_sep": ';'
             },
             "models":
                 [{
@@ -63,7 +64,10 @@ class TestYAMLConfigLoader:
                     "u_net_conv_block_width": 4,
                     "activation_layer": "relu",
                     "batch_size": 32,
-                    "epochs": 100
+                    "epochs": 100,
+                    "loss": 'focal loss',
+                    "metrics": ['tversky coefficient', 'iou coefficient'],
+                    "optimizer": {"Adam": {}}
                 }]
             },
     "augmentation": {

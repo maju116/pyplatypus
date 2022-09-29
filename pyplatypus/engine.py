@@ -5,7 +5,7 @@ from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
-from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics
+from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
@@ -151,9 +151,10 @@ class PlatypusEngine:
         training_loss, metrics = prepare_loss_and_metrics(
             loss=model_cfg.loss, metrics=model_cfg.metrics, n_class=model_cfg.n_class
             )
+        optimizer = prepare_optimizer(optimizer=model_cfg.optimizer)
         model.compile(
             loss=training_loss,
-            optimizer=model_cfg.optimizer.lower(),
+            optimizer=optimizer,
             metrics=metrics
         )
         return model

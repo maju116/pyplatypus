@@ -2,14 +2,13 @@
 
 from pydantic import BaseModel, validator
 from pydantic import PositiveInt, conint, conlist, confloat
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, Any
 from pathlib import Path
-
 
 from pyplatypus.utils.toolbox import convert_to_snake_case
 from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
-    implemented_optimizers, available_activations
+    available_optimizers, available_activations
     )
 
 
@@ -82,7 +81,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     activation_layer: Optional[str] = "relu"
     loss: Optional[str] = "Iou loss"
     metrics: Optional[List[str]] = ["IoU Coefficient"]
-    optimizer: Optional[str] = "adam"
+    optimizer: Any
 
     @validator("loss")
     def check_the_loss_name(cls, v: str):
@@ -99,8 +98,8 @@ class SemanticSegmentationModelSpec(BaseModel):
 
     @validator("optimizer")
     def check_the_opimizer(cls, v: str):
-        v_converted = v.lower()
-        if v_converted in implemented_optimizers:
+        optimizer_name = v.name
+        if optimizer_name in available_optimizers:
             return v
         raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
 
