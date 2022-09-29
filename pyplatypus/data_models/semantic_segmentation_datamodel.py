@@ -25,9 +25,6 @@ class SemanticSegmentationData(BaseModel):
     shuffle: bool
     subdirs: conlist(str, min_items=2, max_items=2)
     column_sep: str
-    loss: Optional[str] = "Iou loss"
-    metrics: Optional[List[str]] = ["IoU Coefficient"]
-    optimizer: Optional[str] = "adam"
 
     @validator('train_path')
     def check_if_train_path_exists(cls, v: str):
@@ -59,26 +56,6 @@ class SemanticSegmentationData(BaseModel):
             return v
         raise ValueError(f"Mode is supposed to be one of: {', '.join(implemented_modes)}!")
 
-    @validator("loss")
-    def check_the_loss_name(cls, v: str):
-        if convert_to_snake_case(v) in implemented_losses:
-            return v
-        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
-
-    @validator("metrics")
-    def check_the_metrics(cls, v: list):
-        v_converted = [convert_to_snake_case(case) for case in v]
-        if set(v_converted).issubset(set(implemented_metrics)):
-            return v
-        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
-
-    @validator("optimizer")
-    def check_the_opimizer(cls, v: str):
-        v_converted = v.lower()
-        if v_converted in implemented_optimizers:
-            return v
-        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
-
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str
@@ -103,6 +80,29 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
     activation_layer: Optional[str] = "relu"
+    loss: Optional[str] = "Iou loss"
+    metrics: Optional[List[str]] = ["IoU Coefficient"]
+    optimizer: Optional[str] = "adam"
+
+    @validator("loss")
+    def check_the_loss_name(cls, v: str):
+        if convert_to_snake_case(v) in implemented_losses:
+            return v
+        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
+
+    @validator("metrics")
+    def check_the_metrics(cls, v: list):
+        v_converted = [convert_to_snake_case(case) for case in v]
+        if set(v_converted).issubset(set(implemented_metrics)):
+            return v
+        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
+
+    @validator("optimizer")
+    def check_the_opimizer(cls, v: str):
+        v_converted = v.lower()
+        if v_converted in implemented_optimizers:
+            return v
+        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):

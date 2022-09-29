@@ -555,27 +555,6 @@ augmentation:    # Defines the augmentation pipelines.
 <td>';'</td>
 <td>yes</td>
 </tr>
-<tr>
-<td>loss</td>
-<td>str</td>
-<td>One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss']</td>
-<td>'lovasz_loss'</td>
-<td>no, by default 'iou_loss'</td>
-</tr>
-<tr>
-<td>metrics</td>
-<td>List[str]</td>
-<td>Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient']</td>
-<td>['tversky coefficient', 'iou coefficient']</td>
-<td>no, by default ['iou_coefficient']</td>
-</tr>
-<tr>
-<td>optimizer</td>
-<td>str</td>
-<td>One of the: ['adam', 'adadelta', 'adagrad', 'adamax', 'ftrl', 'nadam', 'rmsprop', 'sgd']</td>
-<td>['tversky coefficient', 'iou coefficient']</td>
-<td>no, by default 'adam'</td>
-</tr>
 </tbody>
 </table>
 <h3 id="semantic_segmentationmodels">semantic_segmentation.models</h3>
@@ -751,6 +730,27 @@ augmentation:    # Defines the augmentation pipelines.
 <td>any</td>
 <td>100</td>
 <td>no, by default 2</td>
+</tr>
+<tr>
+<td>loss</td>
+<td>str</td>
+<td>One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss']</td>
+<td>'lovasz_loss'</td>
+<td>no, by default 'iou_loss'</td>
+</tr>
+<tr>
+<td>metrics</td>
+<td>List[str]</td>
+<td>Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient']</td>
+<td>['tversky coefficient', 'iou coefficient']</td>
+<td>no, by default ['iou_coefficient']</td>
+</tr>
+<tr>
+<td>optimizer</td>
+<td>str</td>
+<td>One of the: ['adam', 'adadelta', 'adagrad', 'adamax', 'ftrl', 'nadam', 'rmsprop', 'sgd']</td>
+<td>['tversky coefficient', 'iou coefficient']</td>
+<td>no, by default 'adam'</td>
 </tr>
 </tbody>
 </table>

@@ -149,11 +149,11 @@ class PlatypusEngine:
             **dict(model_cfg)
         ).model
         training_loss, metrics = prepare_loss_and_metrics(
-            loss=segmentation_spec.data.loss, metrics=segmentation_spec.data.metrics, n_class=model_cfg.n_class
+            loss=model_cfg.loss, metrics=model_cfg.metrics, n_class=model_cfg.n_class
             )
         model.compile(
             loss=training_loss,
-            optimizer=segmentation_spec.data.optimizer.lower(),
+            optimizer=model_cfg.optimizer.lower(),
             metrics=metrics
         )
         return model

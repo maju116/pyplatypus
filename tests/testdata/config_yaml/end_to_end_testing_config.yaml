@@ -9,10 +9,6 @@ semantic_segmentation:
         shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
-        loss: 'focal loss'
-        metrics: ['tversky coefficient', 'iou coefficient']
-        optimizer: 'adam'
-
     models:
         - name: 'res_u_net'
           net_h: 300
@@ -37,6 +33,9 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 4
           epochs: 1
+          loss: 'focal loss'
+          metrics: ['tversky coefficient', 'iou coefficient']
+          optimizer: 'adam'
 augmentation:
     InvertImg:
         always_apply: True
