@@ -1155,11 +1155,11 @@ and latter predictions production.</p>
             <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">model_cfg</span><span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">model</span>
         <span class="n">training_loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">prepare_loss_and_metrics</span><span class="p">(</span>
-            <span class="n">loss</span><span class="o">=</span><span class="n">segmentation_spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">segmentation_spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">n_class</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">n_class</span>
+            <span class="n">loss</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">n_class</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">n_class</span>
             <span class="p">)</span>
         <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
             <span class="n">loss</span><span class="o">=</span><span class="n">training_loss</span><span class="p">,</span>
-            <span class="n">optimizer</span><span class="o">=</span><span class="n">segmentation_spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+            <span class="n">optimizer</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
             <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">model</span>
@@ -1497,11 +1497,11 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
         <span class="o">**</span><span class="nb">dict</span><span class="p">(</span><span class="n">model_cfg</span><span class="p">)</span>
     <span class="p">)</span><span class="o">.</span><span class="n">model</span>
     <span class="n">training_loss</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">prepare_loss_and_metrics</span><span class="p">(</span>
-        <span class="n">loss</span><span class="o">=</span><span class="n">segmentation_spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">segmentation_spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">n_class</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">n_class</span>
+        <span class="n">loss</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">loss</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">metrics</span><span class="p">,</span> <span class="n">n_class</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">n_class</span>
         <span class="p">)</span>
     <span class="n">model</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
         <span class="n">loss</span><span class="o">=</span><span class="n">training_loss</span><span class="p">,</span>
-        <span class="n">optimizer</span><span class="o">=</span><span class="n">segmentation_spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
+        <span class="n">optimizer</span><span class="o">=</span><span class="n">model_cfg</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
         <span class="n">metrics</span><span class="o">=</span><span class="n">metrics</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">model</span>
