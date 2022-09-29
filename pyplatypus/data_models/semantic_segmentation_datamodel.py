@@ -10,6 +10,7 @@ from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
     available_optimizers, available_activations
     )
+from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 
 
 class SemanticSegmentationData(BaseModel):
@@ -81,7 +82,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     activation_layer: Optional[str] = "relu"
     loss: Optional[str] = "Iou loss"
     metrics: Optional[List[str]] = ["IoU Coefficient"]
-    optimizer: Any
+    optimizer: Any = AdamSpec
 
     @validator("loss")
     def check_the_loss_name(cls, v: str):
