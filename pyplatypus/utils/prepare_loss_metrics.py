@@ -13,9 +13,13 @@ prepare_loss_function(loss: str, n_class: int, background_index: Optional[int] =
     Returns the ready-to-use loss function in the format expected by the Tensorflow.
 """
 
-from typing import Optional, Callable
+from typing import Optional, Callable, Union
 from pyplatypus.utils.toolbox import convert_to_snake_case
 from pyplatypus.segmentation.loss_functions import SegmentationLoss
+from pyplatypus.data_models.optimizer_datamodel import (
+    AdadeltaSpec, AdagradSpec, AdamSpec, AdamaxSpec, FtrlSpec, NadamSpec, RMSpropSpec, SGDSpec
+    )
+import tensorflow.keras.optimizers as TOPT
 
 
 def prepare_loss_and_metrics(
@@ -102,3 +106,26 @@ def prepare_loss_function(loss: str, n_class: int, background_index: Optional[in
         SegmentationLoss(n_class, background_index), loss
         )
     return loss_function
+
+
+def prepare_optimizer(
+    optimizer: Union[
+        AdadeltaSpec, AdagradSpec, AdamSpec, AdamaxSpec, FtrlSpec, NadamSpec, RMSpropSpec, SGDSpec
+        ]
+        ) -> TOPT.Optimizer:
+    """Basing on the optimizer name, function takes the desired class from tensorflow backend and
+    provides it with the user-specified or default parameters.
+
+    Parameters
+    ----------
+    optimizer : Union[ AdadeltaSpec, AdagradSpec, AdamSpec, AdamaxSpec, FtrlSpec, NadamSpec, RMSpropSpec, SGDSpec ]
+        Optimizer specification, parsed via pydantic.
+
+    Returns
+    -------
+    initialized_optimizer: TOPT.Optimizer
+        Inheriting from the Optimizer base class.
+    """
+    template_optimizer = getattr(TOPT, optimizer.name)
+    initialized_optimizer = template_optimizer(**optimizer.dict())
+    return initialized_optimizer

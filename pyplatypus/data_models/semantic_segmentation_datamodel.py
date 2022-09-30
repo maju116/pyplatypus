@@ -2,15 +2,15 @@
 
 from pydantic import BaseModel, validator
 from pydantic import PositiveInt, conint, conlist, confloat
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Union, Tuple, Any
 from pathlib import Path
-
 
 from pyplatypus.utils.toolbox import convert_to_snake_case
 from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
-    implemented_optimizers, available_activations
+    available_optimizers, available_activations
     )
+from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 
 
 class SemanticSegmentationData(BaseModel):
@@ -82,27 +82,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     activation_layer: Optional[str] = "relu"
     loss: Optional[str] = "Iou loss"
     metrics: Optional[List[str]] = ["IoU Coefficient"]
-    optimizer: Optional[str] = "adam"
-
-    @validator("loss")
-    def check_the_loss_name(cls, v: str):
-        if convert_to_snake_case(v) in implemented_losses:
-            return v
-        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
-
-    @validator("metrics")
-    def check_the_metrics(cls, v: list):
-        v_converted = [convert_to_snake_case(case) for case in v]
-        if set(v_converted).issubset(set(implemented_metrics)):
-            return v
-        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
-
-    @validator("optimizer")
-    def check_the_opimizer(cls, v: str):
-        v_converted = v.lower()
-        if v_converted in implemented_optimizers:
-            return v
-        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+    optimizer: Any = AdamSpec()
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):
@@ -112,6 +92,26 @@ class SemanticSegmentationModelSpec(BaseModel):
             The selected activation function: {v} is not available in keras! As a note, the activation
             functions' names should be lowercase, maybe that solves the problem?
             """)
+
+    @validator("loss")
+    def check_the_loss_name(cls, v: str):
+        if convert_to_snake_case(v) in implemented_losses:
+            return v
+        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
+
+    @validator("optimizer")
+    def check_optimizer(cls, v: Any):
+        optimizer_name = v.name
+        if optimizer_name in available_optimizers:
+            return v
+        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+
+    @validator("metrics")
+    def check_the_metrics(cls, v: list):
+        v_converted = [convert_to_snake_case(case) for case in v]
+        if set(v_converted).issubset(set(implemented_metrics)):
+            return v
+        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
 
 
 class SemanticSegmentationInput(BaseModel):

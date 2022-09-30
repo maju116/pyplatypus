@@ -3,6 +3,10 @@ from pathlib import Path
 import pytest
 
 
+class mocked_optimizer_spec:
+    def __init__(self, name):
+        self.name = name
+
 class TestSemanticSegmentationData:
 
     data_models_path = "pyplatypus.data_models.semantic_segmentation_datamodel"
@@ -17,19 +21,13 @@ class TestSemanticSegmentationData:
             "mode": "mode1",
             "shuffle": True,
             "subdirs": ["images", "masks"],
-            "column_sep": ",",
-            "loss": "loss1",
-            "metrics": ["metric1"],
-            "optimizer": "optimizer1"
+            "column_sep": ","
             }
         return ssd_data
 
     def mock_config(self, mocker):
         mocker.patch(self.data_models_path+".implemented_modes", ["mode1"])
-        mocker.patch(self.data_models_path+".implemented_losses", ["loss1"])
-        mocker.patch(self.data_models_path+".implemented_metrics", ["metric1"])
-        mocker.patch(self.data_models_path+".implemented_optimizers", ["optimizer1"])
-    
+
     @staticmethod
     def create_paths(*args, tmpdir):
         for path in args:
@@ -48,7 +46,7 @@ class TestSemanticSegmentationData:
                 **self.create_input(tmpdir)
             )
 
-    def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir):
+    def test_check_mode(self, mocker, tmpdir):
         self.mock_config(mocker)
         self.create_paths("synthetic_train_path", "synthetic_validation_path", "synthetic_test_path", tmpdir=tmpdir)
         data = self.create_input(tmpdir)
@@ -77,13 +75,22 @@ class TestSemanticSegmentationModelSpec:
         "n_class": 2,
         "filters": 2,
         "dropout": 0.1,
-        "activation_layer": "invalid_activation"
+        "activation_layer": "invalid_activation",
+        "loss": "loss1",
+        "metrics": ["metric1"],
+        "optimizer": mocked_optimizer_spec(name="optimizer1")
     }
+
+    def mock_config(self, mocker):
+        mocker.patch(self.data_models_path+".implemented_modes", ["mode1"])
+        mocker.patch(self.data_models_path+".implemented_losses", ["loss1"])
+        mocker.patch(self.data_models_path+".implemented_metrics", ["metric1"])
+        mocker.patch(self.data_models_path+".available_optimizers", ["optimizer1"])
 
     @pytest.mark.parametrize("data_update_expression", [
         ({"loss": "invalid_loss"}),
         ({"metrics": ["invalid_metrics"]}),
-        ({"optimizer": "invalid_optimizer"})
+        ({"optimizer": mocked_optimizer_spec(name="invalid_name")})
         ])
     def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir, data_update_expression):
         data = self.model_spec.copy()

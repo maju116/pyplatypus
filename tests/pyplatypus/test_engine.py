@@ -3,6 +3,7 @@ from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
 from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
 from pyplatypus.data_models.augmentation_datamodel import AugmentationSpecFull
+from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 import pytest
 
 
@@ -49,7 +50,8 @@ class TestPlatypusEngine:
                 "blocks": 4,
                 "n_class": 2,
                 "filters": 2,
-                "dropout": .1
+                "dropout": .1,
+                "optimizer": AdamSpec()
             })]
         ),
         augmentation=AugmentationSpecFull()
@@ -114,6 +116,7 @@ class TestPlatypusEngine:
         model_cfg = self.config.semantic_segmentation.models[0]
         mocker.patch("pyplatypus.engine.u_shaped_model", return_value=mocked_u_shaped_model)
         mocker.patch("pyplatypus.engine.prepare_loss_and_metrics", return_value=(None, None))
+        mocker.patch("pyplatypus.engine.prepare_optimizer", return_value=None)
         self.initialized_engine.compile_u_shaped_model(model_cfg=model_cfg, segmentation_spec=self.config.semantic_segmentation)
         assert True
 

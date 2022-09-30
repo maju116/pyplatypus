@@ -63,7 +63,89 @@ It is defined as a list, with each element following the below structure:
 | epochs | positive int | any | 100 |  no, by default 2  |
 | loss | str | One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss'] | 'lovasz_loss' | no, by default 'iou_loss' |
 | metrics | List[str] | Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
-| optimizer | str | One of the: ['adam', 'adadelta', 'adagrad', 'adamax', 'ftrl', 'nadam', 'rmsprop', 'sgd'] | ['tversky coefficient', 'iou coefficient'] | no, by default 'adam'|
+| optimizer | dict | Described in the Optimizers section | Described in the Optimizers section | no, by default Adam optimizer with default arguments |
+
+
+#### model.optimizer
+
+PyPlatypus allows us to use the optimizers of choice, any implemented in Tensorflow backendm to learn more about the algorithms and their argumenta, visit
+[tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers).
+
+The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]. Below we described each possible optimizer setting.
+
+#### models.optimizer.Adadelta
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| rho | float | any | 0.95 |  no, by default 0.95  |
+| epsilon | float | any | 1e-07 |  no, by default 1e-07  |
+
+#### models.optimizer.Adagrad
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| initial_accumulator_value | float | any | 0.1 |  no, by default 0.1  |
+| epsilon | float | any | 1e-07 |  no, by default 1e-07  |
+
+#### models.optimizer.Adam
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| beta_1 | float | any | 0.9 |  no, by default 0.9  |
+| beta_2 | float | any | 0.999 |  no, by default 0.999  |
+| epsilon | float | any | 1e-07 |  no, by default 1e-07  |
+| amsgrad | boolean | any | False |  no, by default False  |
+
+#### models.optimizer.Adamax
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| beta_1 | float | any | 0.9 |  no, by default 0.9  |
+| beta_2 | float | any | 0.999 |  no, by default 0.999  |
+| epsilon | float | any | 1e-07 |  no, by default 1e-07  |
+
+#### models.optimizer.Ftlr
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| learning_rate_power | float | any | -0.5 |  no, by default -0.5  |
+| initial_accumulator_value | float | any | 0.1 |  no, by default 0.1  |
+| l1_regularization_strength | float | any | 0.0 |  no, by default 0.0  |
+| l2_regularization_strength | float | any | 0.0 |  no, by default 0.0  |
+| l2_shrinkage_regularization_strength | float | any | 0.0 |  no, by default 0.0  |
+| beta | float | any | 0.0 |  no, by default 0.0  |
+
+#### models.optimizer.Nadam
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| beta_1 | float | any | 0.9 |  no, by default 0.9  |
+| beta_2 | float | any | 0.999 |  no, by default 0.999  |
+| epsilon | float | any | 1e-07 |  no, by default 1e-07  |
+
+#### models.optimizer.RMSprop
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.001  |
+| rho | float | any | 0.9 |  no, by default 0.9  |
+| momentum | float | any | 0.0 |  no, by default 0.0  |
+| epsilon | float | any | 1e-07 |  no, by default 1e-07  |
+| centered | boolean | any | False |  no, by default False |
+
+#### models.optimizer.SGD
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| learning_rate | float | any | 0.5 |  no, by default 0.01  |
+| momentum | float | any | 0.0 |  no, by default 0.0  |
+| nesterov | boolean | any | False |  no, by default False |
 
 
 ### augmentation
@@ -157,54 +239,69 @@ Having dived in the specifics we shall close this section with an example YAML c
             shuffle: False
             subdirs: ["images", "masks"]
             column_sep: ';'
-            loss: 'focal loss'
-            metrics: ['tversky coefficient', 'iou coefficient']
-            optimizer: 'adam'
 
         models:
             - name: 'res_u_net'
-            net_h: 300
-            net_w: 300
-            h_splits: 0
-            w_splits: 0
-            grayscale: False
-            blocks: 4
-            n_class: 2
-            filters: 16
-            dropout: 0.2
-            batch_normalization: True
-            kernel_initializer: 'he_normal'
-            resunet: True
-            linknet: False
-            plus_plus: False
-            deep_supervision: False
-            use_separable_conv2d: True
-            use_spatial_droput2d: True
-            use_up_sampling2d: False
-            u_net_conv_block_width: 4
-            activation_layer: "relu"
-            batch_size: 32
-            epochs: 100
+                net_h: 300
+                net_w: 300
+                h_splits: 0
+                w_splits: 0
+                grayscale: False
+                blocks: 4
+                n_class: 2
+                filters: 16
+                dropout: 0.2
+                batch_normalization: True
+                kernel_initializer: 'he_normal'
+                resunet: True
+                linknet: False
+                plus_plus: False
+                deep_supervision: False
+                use_separable_conv2d: True
+                use_spatial_droput2d: True
+                use_up_sampling2d: False
+                u_net_conv_block_width: 4
+                activation_layer: "relu"
+                batch_size: 32
+                epochs: 100
+                loss: 'focal loss'
+                metrics: ['tversky coefficient', 'iou coefficient']
+                optimizer:
+                    Adam:
+                        learning_rate: 0.001
+                        beta_1: 0.9
+                        beta_2: 0.999
+                        epsilon: 1e-07
+                        amsgrad: False
             - name: 'u_net_plus_plus'
-            net_h: 300
-            net_w: 300
-            h_splits: 0
-            w_splits: 0
-            grayscale: False
-            blocks: 2
-            n_class: 2
-            filters: 16
-            dropout: 0.2
-            batch_normalization: True
-            kernel_initializer: 'he_normal'
-            linknet: False
-            plus_plus: True
-            deep_supervision: True
-            use_separable_conv2d: True
-            use_spatial_dropout2d: True
-            use_up_sampling2d: True
-            batch_size: 32
-            epochs: 100
+                net_h: 300
+                net_w: 300
+                h_splits: 0
+                w_splits: 0
+                grayscale: False
+                blocks: 2
+                n_class: 2
+                filters: 16
+                dropout: 0.2
+                batch_normalization: True
+                kernel_initializer: 'he_normal'
+                linknet: False
+                plus_plus: True
+                deep_supervision: True
+                use_separable_conv2d: True
+                use_spatial_dropout2d: True
+                use_up_sampling2d: True
+                batch_size: 32
+                epochs: 100
+                loss: 'focal loss'
+                metrics: ['tversky coefficient', 'iou coefficient']
+                optimizer:
+                    Adam:
+                        learning_rate: 0.001
+                        beta_1: 0.9
+                        beta_2: 0.999
+                        epsilon: 1e-07
+                        amsgrad: False
     augmentation:
         InvertImg:
             always_apply: True

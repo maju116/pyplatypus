@@ -6,7 +6,5 @@ implemented_losses = [
     "tversky_loss", "focal_tversky_loss", "combo_loss", "lovasz_loss"
     ]
 implemented_metrics = ["iou_coefficient", "tversky_coefficient", "dice_coefficient"]
-implemented_optimizers = [
-    "adam", "adadelta", "adagrad", "adamax", "ftrl", "nadam", "rmsprop", "sgd"
-    ]
 available_activations = ["relu", "sigmoid", "softmax", "softplus", "softsign", "tanh", "selu", "elu", "exponential"]
+available_optimizers = ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]

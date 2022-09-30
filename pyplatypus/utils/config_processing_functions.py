@@ -20,6 +20,7 @@ from pyplatypus.data_models.semantic_segmentation_datamodel import (
     )
 from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
 from pyplatypus.data_models import augmentation_datamodel as AM
+from pyplatypus.data_models import optimizer_datamodel as OM
 
 
 class YamlConfigLoader(object):
@@ -101,9 +102,18 @@ class YamlConfigLoader(object):
         semantic_segmentation_: SemanticSegmentationInput
             Stores the fields controlling the training workflow e.g. the list of models that are to be trained."""
         data_ = SemanticSegmentationData(**config.get("semantic_segmentation").get("data"))
-        models_ = [
-            SemanticSegmentationModelSpec(**m) for m in config.get("semantic_segmentation").get("models")
-            ]
+        models_ = []
+        for m in config.get("semantic_segmentation").get("models"):
+            optimizer_ = m.get("optimizer")
+            if optimizer_ is not None:
+                optimizer_name = list(optimizer_.keys())[0]
+                optimizer_params = optimizer_.get(optimizer_name)
+                optimizer_spec = getattr(OM, f"{optimizer_name}Spec")(**optimizer_params)
+                m.update(optimizer=optimizer_spec)
+            if optimizer_ is None and "optimizer" in m.keys():
+                m.pop("optimizer")
+            models_.append(SemanticSegmentationModelSpec(**m))
+
         semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)
         return semantic_segmentation_
 
@@ -171,8 +181,8 @@ class YamlConfigLoader(object):
 
 
 def check_cv_tasks(
-        config: dict
-) -> list:
+    config: dict
+        ) -> list:
     """
     Checks which Computer Vision tasks are to be performed.
 
