@@ -82,27 +82,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     activation_layer: Optional[str] = "relu"
     loss: Optional[str] = "Iou loss"
     metrics: Optional[List[str]] = ["IoU Coefficient"]
-    optimizer: Any = AdamSpec
-
-    @validator("loss")
-    def check_the_loss_name(cls, v: str):
-        if convert_to_snake_case(v) in implemented_losses:
-            return v
-        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
-
-    @validator("metrics")
-    def check_the_metrics(cls, v: list):
-        v_converted = [convert_to_snake_case(case) for case in v]
-        if set(v_converted).issubset(set(implemented_metrics)):
-            return v
-        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
-
-    @validator("optimizer")
-    def check_the_opimizer(cls, v: str):
-        optimizer_name = v.name
-        if optimizer_name in available_optimizers:
-            return v
-        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+    optimizer: Any = AdamSpec()
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):
@@ -112,6 +92,26 @@ class SemanticSegmentationModelSpec(BaseModel):
             The selected activation function: {v} is not available in keras! As a note, the activation
             functions' names should be lowercase, maybe that solves the problem?
             """)
+
+    @validator("loss")
+    def check_the_loss_name(cls, v: str):
+        if convert_to_snake_case(v) in implemented_losses:
+            return v
+        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
+
+    @validator("optimizer")
+    def check_optimizer(cls, v: Any):
+        optimizer_name = v.name
+        if optimizer_name in available_optimizers:
+            return v
+        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+
+    @validator("metrics")
+    def check_the_metrics(cls, v: list):
+        v_converted = [convert_to_snake_case(case) for case in v]
+        if set(v_converted).issubset(set(implemented_metrics)):
+            return v
+        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
 
 
 class SemanticSegmentationInput(BaseModel):
