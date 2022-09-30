@@ -2,6 +2,12 @@
 
 See documentation at: [GitHub Pages](https://maju116.github.io/pyplatypus/).
 
+To build and deploy your updated docs, use:
+`mkodcs build`
+Which will create site/ directory in the project folder. Then type in:
+`mkdocs gh-deploy`
+to automatically push the docs to GitHub Pages.
+
 To build the package locally just move to its main directory run:
 `pip install --use-feature=in-tree-build .`
 
