@@ -8,3 +8,7 @@ implemented_losses = [
 implemented_metrics = ["iou_coefficient", "tversky_coefficient", "dice_coefficient"]
 available_activations = ["relu", "sigmoid", "softmax", "softplus", "softsign", "tanh", "selu", "elu", "exponential"]
 available_optimizers = ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]
+available_callbacks = [
+    "EarlyStopping", "ModelCheckpoint", "ReduceLROnPlateau", "TensorBoard", "BackupAndRestore", "TerminateOnNaN",
+    "CSVLogger", "ProgbarLogger"
+    ]

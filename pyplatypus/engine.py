@@ -121,14 +121,7 @@ class PlatypusEngine:
                 steps_per_epoch=train_data_generator.steps_per_epoch,
                 validation_data=validation_data_generator,
                 validation_steps=validation_data_generator.steps_per_epoch,
-                callbacks=[ModelCheckpoint(
-                    filepath=model_cfg.name + '.hdf5',
-                    save_best_only=True,
-                    monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
-                    mode='min'  # TODO Is monitor supposed to be the str or our function?
-                ), EarlyStopping(
-                    monitor='val_iou_coefficient', mode='max', patience=25
-                )]
+                callbacks=[]
             )
             self.update_cache(
                 model_name=model_cfg.name, model=model, model_specification=dict(model_cfg), generator=test_data_generator
