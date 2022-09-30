@@ -105,10 +105,13 @@ class YamlConfigLoader(object):
         models_ = []
         for m in config.get("semantic_segmentation").get("models"):
             optimizer_ = m.get("optimizer")
-            optimizer_name = list(optimizer_.keys())[0]
-            optimizer_params = optimizer_.get(optimizer_name)
-            optimizer_spec = getattr(OM, f"{optimizer_name}Spec")(**optimizer_params)
-            m.update(optimizer=optimizer_spec)
+            if optimizer_ is not None:
+                optimizer_name = list(optimizer_.keys())[0]
+                optimizer_params = optimizer_.get(optimizer_name)
+                optimizer_spec = getattr(OM, f"{optimizer_name}Spec")(**optimizer_params)
+                m.update(optimizer=optimizer_spec)
+            if optimizer_ is None and "optimizer" in m.keys():
+                m.pop("optimizer")
             models_.append(SemanticSegmentationModelSpec(**m))
 
         semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)

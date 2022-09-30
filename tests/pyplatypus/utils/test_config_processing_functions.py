@@ -9,6 +9,7 @@ from pyplatypus.data_models.semantic_segmentation_datamodel import (
     )
 from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
 from pyplatypus.data_models import augmentation_datamodel as AM
+from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 
 
 class mocked_optimizer_spec:
@@ -105,6 +106,18 @@ class TestYAMLConfigLoader:
         assert parsed_config.data == SemanticSegmentationData(**config.get("semantic_segmentation").get("data"))
         assert parsed_config.models[0] == SemanticSegmentationModelSpec(**config.get("semantic_segmentation").get("models")[0])
         assert isinstance(parsed_config, SemanticSegmentationInput)
+
+    def test_create_semantic_segmentation_config_no_optimizer(self):
+        config = self.mocked_config.copy()
+        config.get("semantic_segmentation").get("models")[0].pop("optimizer")
+        parsed_config = YamlConfigLoader.create_semantic_segmentation_config(config)
+        assert parsed_config.models[0].optimizer == AdamSpec()
+
+    def test_create_semantic_segmentation_config_empty_optimizer(self):
+        config = self.mocked_config.copy()
+        config.get("semantic_segmentation").get("models")[0].update({"optimizer": None})
+        parsed_config = YamlConfigLoader.create_semantic_segmentation_config(config)
+        assert parsed_config.models[0].optimizer == AdamSpec()
 
     def test_create_object_detection_config(self):
         config = self.mocked_config
