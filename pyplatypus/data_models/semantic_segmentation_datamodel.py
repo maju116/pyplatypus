@@ -1,5 +1,6 @@
 """This script provides pydantic models for both the u-shaped architectures and the data that is to be fed to a model."""
 
+import pydantic
 from pydantic import BaseModel, validator
 from pydantic import PositiveInt, conint, conlist, confloat
 from typing import List, Optional, Union, Tuple, Any
@@ -117,3 +118,12 @@ class SemanticSegmentationModelSpec(BaseModel):
 class SemanticSegmentationInput(BaseModel):
     data: SemanticSegmentationData
     models: List[SemanticSegmentationModelSpec]
+
+    @pydantic.validator("models")
+    def check_models_names(cls, v):
+        if v:
+            model_names = [model.name for model in v]
+            unique_names = set(model_names)
+            if len(unique_names) == len(model_names):
+                return v
+            raise ValueError("Models' names have to be unique!")
