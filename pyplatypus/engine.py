@@ -1,3 +1,5 @@
+import pandas as pd
+
 from pyplatypus.utils.config_processing_functions import check_cv_tasks
 from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generators, SegmentationGenerator, predict_from_generator
@@ -64,7 +66,7 @@ class PlatypusEngine:
         self.cache = cache
 
     def update_cache(
-        self, model_name: str, model: u_shaped_model, model_specification: dict,
+        self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
         generator: SegmentationGenerator, task_type: str = "semantic_segmentation"
             ):
         """Stores the trained model in the cache, under its name defined by a user.
@@ -75,13 +77,18 @@ class PlatypusEngine:
             Comes straight from the input config.
         model : u_shaped_model
             Tensorflow model.
+        training_history: pd.DataFrame
+            Training history.
         model_specification : dict
             Input model configuration.
         generator: SegmentationGenerator
             Test generator.
+        task_type: str
+            Computer Vision task performed by the model.
         """
         self.cache.get(task_type).update({
-            model_name: {"model": model, "model_specification": model_specification, "data_generator": generator}
+            model_name: {"model": model, "training_history": training_history,
+                         "model_specification": model_specification, "data_generator": generator}
             })
 
     def train(self) -> None:
@@ -115,7 +122,7 @@ class PlatypusEngine:
                 validation_augmentation_pipeline=validation_augmentation_pipeline
                 )
             model = self.compile_u_shaped_model(model_cfg, segmentation_spec=spec)
-            model.fit(
+            training_history = model.fit(
                 train_data_generator,
                 epochs=model_cfg.epochs,
                 steps_per_epoch=train_data_generator.steps_per_epoch,
@@ -131,7 +138,8 @@ class PlatypusEngine:
                 )]
             )
             self.update_cache(
-                model_name=model_cfg.name, model=model, model_specification=dict(model_cfg), generator=test_data_generator
+                model_name=model_cfg.name, model=model, training_history=training_history.history,
+                model_specification=dict(model_cfg), generator=test_data_generator
                 )
 
     @staticmethod
