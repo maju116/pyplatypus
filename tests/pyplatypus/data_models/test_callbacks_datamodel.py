@@ -72,6 +72,17 @@ class TestBackupAndRestoreSpec:
     """The class is initialized with default parameters but each time one of them is
     replaced by improper value"""
    
+    @pytest.mark.parametrize("class_update", [
+    ({"update_freq": "invalid_freq"})
+    ])
+    def test_validators(self, class_update, tmpdir):
+        filepath = f"{tmpdir}/path"
+        Path.mkdir(Path(f"{tmpdir}/path"))
+        class_update.update({"log_dir": filepath})
+        with pytest.raises(ValidationError):
+            BackupAndRestoreSpec(**class_update)
+
+
     def test_filepath_validator(self):
         with pytest.raises(FileNotFoundError):
             BackupAndRestoreSpec(backup_dir="non-existent-dir")

@@ -46,6 +46,7 @@ semantic_segmentation:
                 patience: 10
             ProgbarLogger:
                 count_mode: "samples"
+            TerminateOnNaN:
 augmentation:
     InvertImg:
         always_apply: True

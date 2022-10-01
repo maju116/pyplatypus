@@ -138,6 +138,8 @@ class YamlConfigLoader(object):
                 callbacks = list(set(callbacks_field).intersection(set(available_callbacks_without_specification)))
                 callbacks = [getattr(CM, f"{callback_name}Spec")() for callback_name in callbacks]
             elif isinstance(callbacks_field, dict):
+                if "TerminateOnNaN" in callbacks_field.keys():
+                    callbacks_field.update(TerminateOnNaN={})
                 callbacks = [
                     getattr(
                         CM, f"{callback_name}Spec"

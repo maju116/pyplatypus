@@ -37,6 +37,12 @@ class mocked_callback2_spec:
     name = "callback_2"
 
 
+class mocked_terminate_on_nan:
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "TerminateOnNaN" 
+
 class TestCheckCVTasks:
     config_none = dict({"random_tast_name": None, "semantic_segmenatation": None, "object_detection": None})
     config_notnone = dict({"random_tast_name": "task1", "semantic_segmentation": "task2"})
@@ -187,11 +193,11 @@ class TestYAMLConfigLoader:
     def test_process_callbacks_field_dict(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.available_callbacks_without_specification", ["Callback1", "Callback2"], raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.TerminateOnNaNSpec", mocked_terminate_on_nan, raising=False)
         config = self.mocked_config
-        config.update(callbacks={"Callback1": {}, "Callback2": {}})
+        config.update(callbacks={"Callback1": {}, "Callback2": {}, "TerminateOnNaN": None})
         processed_config = YamlConfigLoader.process_callbacks_field(config)
-        assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2"])
+        assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2", "TerminateOnNaN"])
 
     def test_process_callbacks_field_wrong_structure(self):
         config = self.mocked_config

@@ -46,7 +46,7 @@ class ModelCheckpointSpec(BaseModel):
     def check_filepath(cls, v):
         if Path(v).parent.exists():
             return v
-        raise FileNotFoundError(f"The chosen directory: {v} doeas not exist.")
+        raise FileNotFoundError(f"The chosen directory: {v} does not exist.")
 
     @pydantic.validator("verbose", allow_reuse=True)
     def check_verbose(cls, v):
@@ -60,7 +60,7 @@ class ModelCheckpointSpec(BaseModel):
             return v
         raise ValueError(f"The chosen mode: {v} is not one of [auto, min, max].")
 
-    @pydantic.validator("save_freq")
+    @pydantic.validator("save_freq", allow_reuse=True)
     def check_save_freq(cls, v):
         if not isinstance(v, int):
             if v in ["epoch"]:
@@ -129,6 +129,13 @@ class BackupAndRestoreSpec(BaseModel):
         if Path(v).exists():
             return v
         raise FileNotFoundError(f"The chosen directory: {v} doeas not exist.")
+
+    @pydantic.validator("save_freq")
+    def check_save_freq(cls, v):
+        if not isinstance(v, int):
+            if v in ["epoch"]:
+                return v
+            raise ValueError("The save_freq may be integer or 'epoch'.")
 
 
 class TerminateOnNaNSpec(BaseModel):
