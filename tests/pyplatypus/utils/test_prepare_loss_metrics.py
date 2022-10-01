@@ -1,4 +1,7 @@
-from pyplatypus.utils.prepare_loss_metrics import prepare_loss_function, prepare_metrics, prepare_loss_and_metrics, prepare_optimizer
+from pyplatypus.utils.prepare_loss_metrics import(
+    prepare_loss_function, prepare_metrics, prepare_loss_and_metrics, prepare_optimizer, prepare_callback, prepare_callbacks_list
+    )
+
 
 class mocked_optimizer_spec:
 
@@ -11,6 +14,22 @@ class mocked_topt_optimizer:
     
     def __init__(self, name: str):
         self.name = name
+
+
+
+class mocked_callback_spec:
+
+    name = "CallbackName"
+
+    def dict():
+        return {"name": "callback_name"}
+
+
+class mocked_tcb_callback:
+    
+    def __init__(self, input_dict: dict):
+        self.name = input_dict.get("name")
+    
 
 def test_prepare_loss_function(mocker, monkeypatch):
     mocker.patch("pyplatypus.utils.prepare_loss_metrics.convert_to_snake_case", return_value="loss_function_name")
@@ -33,5 +52,18 @@ def test_prepare_loss_and_metrics(mocker):
 def test_prepare_optimizer(monkeypatch):
     monkeypatch.setattr("pyplatypus.utils.prepare_loss_metrics.TOPT.optimizer_name", mocked_topt_optimizer, raising=False)
     input_spec = mocked_optimizer_spec
-    optimizer = prepare_optimizer(optimizer=mocked_optimizer_spec)
+    optimizer = prepare_optimizer(optimizer=input_spec)
     assert optimizer.name == "optimizer_name"
+
+
+def test_prepare_callback(monkeypatch):
+    monkeypatch.setattr("pyplatypus.utils.prepare_loss_metrics.TCB.CallbackNameExtension", mocked_tcb_callback, raising=False)
+    input_spec = mocked_callback_spec
+    callback = prepare_callback(callback=input_spec)
+    assert callback.name == "callback_name"
+
+
+def test_prepare_callbacks_list(mocker):
+    mocker.patch("pyplatypus.utils.prepare_loss_metrics.prepare_callback", return_value="callback")
+    assert prepare_callbacks_list(["callback_spec", "callback_spec"]) == ["callback", "callback"]
+
