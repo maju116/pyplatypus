@@ -12,3 +12,4 @@ available_callbacks = [
     "EarlyStopping", "ModelCheckpoint", "ReduceLROnPlateau", "TensorBoard", "BackupAndRestore", "TerminateOnNaN",
     "CSVLogger", "ProgbarLogger"
     ]
+available_callbacks_without_specification = ["EarlyStopping", "ReduceLROnPlateau", "TerminateOnNaN", "ProgbarLogger"]
