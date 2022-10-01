@@ -138,7 +138,7 @@ class PlatypusEngine:
                 )]
             )
             self.update_cache(
-                model_name=model_cfg.name, model=model, training_history=training_history.history,
+                model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
                 model_specification=dict(model_cfg), generator=test_data_generator
                 )
 
