@@ -18,14 +18,14 @@ class EarlyStoppingSpec(BaseModel):
     restore_best_weights: bool = False
     name: str = "EarlyStopping"
 
-    @pydantic.validator("verbose")
-    def check_verbose(cls, v: PositiveInt):
+    @pydantic.validator("verbose", allow_reuse=True)
+    def check_verbose(cls, v):
         if v in [0, 1]:
             return v
         raise ValueError(f"The chosen verbosity mode: {v} is not one of: [0, 1].")
 
-    @pydantic.validator("mode")
-    def check_mode(cls, v: PositiveInt):
+    @pydantic.validator("mode", allow_reuse=True)
+    def check_mode(cls, v):
         if v in ["auto", "min", "max"]:
             return v
         raise ValueError(f"The chosen mode: {v} is not one of [auto, min, max].")
@@ -39,23 +39,23 @@ class ModelCheckpointSpec(BaseModel):
     save_weights_only: bool = False
     mode: str = "auto"
     save_freq: Union[str, PositiveInt] = "epoch"
-    initial_value_threshold = None
+    initial_value_threshold: float = None
     name: str = "ModelCheckpoint"
 
     @pydantic.validator("filepath")
-    def check_filepath(cls, v: PositiveInt):
-        if not Path(v).parent.exists():
+    def check_filepath(cls, v):
+        if Path(v).parent.exists():
             return v
         raise FileNotFoundError(f"The chosen directory: {v} doeas not exist.")
 
-    @pydantic.validator("verbose")
-    def check_verbose(cls, v: PositiveInt):
+    @pydantic.validator("verbose", allow_reuse=True)
+    def check_verbose(cls, v):
         if v in [0, 1]:
             return v
         raise ValueError(f"The chosen verbosity mode: {v} is not one of: [0, 1].")
 
-    @pydantic.validator("mode")
-    def check_mode(cls, v: PositiveInt):
+    @pydantic.validator("mode", allow_reuse=True)
+    def check_mode(cls, v):
         if v in ["auto", "min", "max"]:
             return v
         raise ValueError(f"The chosen mode: {v} is not one of [auto, min, max].")
@@ -79,14 +79,14 @@ class ReduceLROnPlateauSpec(BaseModel):
     min_lr: PositiveFloat = 0
     name: str = "ReduceLROnPlateau"
 
-    @pydantic.validator("verbose")
-    def check_verbose(cls, v: PositiveInt):
+    @pydantic.validator("verbose", allow_reuse=True)
+    def check_verbose(cls, v):
         if v in [0, 1]:
             return v
         raise ValueError(f"The chosen verbosity mode: {v} is not one of: [0, 1].")
 
-    @pydantic.validator("mode")
-    def check_mode(cls, v: PositiveInt):
+    @pydantic.validator("mode", allow_reuse=True)
+    def check_mode(cls, v):
         if v in ["auto", "min", "max"]:
             return v
         raise ValueError(f"The chosen mode: {v} is not one of [auto, min, max].")
@@ -105,8 +105,8 @@ class TensorBoardSpec(BaseModel):
     name: str = "TensorBoard"
 
     @pydantic.validator("log_dir")
-    def check_logdir(cls, v: PositiveInt):
-        if not Path(v).exists():
+    def check_logdir(cls, v):
+        if Path(v).exists():
             return v
         raise FileNotFoundError(f"The chosen directory: {v} doeas not exist.")
 
@@ -125,8 +125,8 @@ class BackupAndRestoreSpec(BaseModel):
     name: str = "BackupAndRestore"
 
     @pydantic.validator("backup_dir")
-    def check_backupdir(cls, v: PositiveInt):
-        if not Path(v).exists():
+    def check_backupdir(cls, v):
+        if Path(v).exists():
             return v
         raise FileNotFoundError(f"The chosen directory: {v} doeas not exist.")
 
@@ -142,8 +142,8 @@ class CSVLoggerSpec(BaseModel):
     name: str = "CSVLogger"
 
     @pydantic.validator("filename")
-    def check_filename(cls, v: PositiveInt):
-        if not Path(v).parent.exists():
+    def check_filename(cls, v):
+        if Path(v).parent.exists():
             return v
         raise FileNotFoundError(f"The chosen directory: {v} does not exist.")
 
