@@ -251,41 +251,102 @@ class PlatypusEngine:
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode
 
-    def evaluate_models(self, model_name=None, custom_data_path=None, task_type="semantic_segmentation"):
+    def evaluate_models(
+        self, model_name: str = None, custom_data_path: str = None, task_type: str = "semantic_segmentation"
+            ) -> list:
+        """Evaluates all the models associated with a certain task or the one specified by the model_name.
+
+        Parameters
+        ----------
+        model_name : str, optional
+            Name of the model to be evaluated, by default None
+        custom_data_path : str, optional
+            Makes evaluating on a data different from the one used for validation possible, by default None
+        task_type : str, optional
+            Task of interest, by default "semantic_segmentation"
+
+        Returns
+        -------
+        evaluations: list
+            List of DataFrames.
+        """
         evaluations = []
-        task_cfg = self.cache.get(task_type)
         if model_name is None:
             model_names = self.get_model_names(config=self.config, task_type=task_type)
             for model_name in model_names:
-                model_cfg = task_cfg.get(model_name).get("model_specification")
-                evaluation_table = self.prepare_evaluation_table(model_cfg)
-                evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
-                prepared_evaluation_metrics = self.prepare_evaluation_results(
-                    evaluation_metrics, model_cfg, evaluation_columns=evaluation_table.columns
-                    )
+                prepared_evaluation_metrics = self.evaluate_model(model_name, task_type)
                 evaluations.append(prepared_evaluation_metrics)
         else:
-            model_cfg = task_cfg.get(model_name).get("model_specification")
-            evaluation_table = self.prepare_evaluation_table(model_cfg)
-            evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
-            prepared_evaluation_metrics = self.prepare_evaluation_results(
-                evaluation_metrics, model_cfg, evaluation_columns=evaluation_table.columns
-                )
+            prepared_evaluation_metrics = self.evaluate_model(model_name, task_type)
             evaluations.append(prepared_evaluation_metrics)
         print("EVALUATION RESULTS:\n")
         print(evaluations)
         return evaluations
 
+    def evaluate_model(self, model_name: str, task_type: str) -> pd.DataFrame:
+        """Prepares the crucial objects and evaluates model invoking the method calling the .evaluate() method
+        with the use of validation generator.
+
+        Parameters
+        ----------
+        model_name : str
+            The model that is to be evaluated.
+        task_type : str
+            Task with which the model is associated.
+
+        Returns
+        -------
+        prepared_evaluation_metrics: pd.DataFrame
+            The filled-in evaluation table.
+        """
+        task_cfg = self.cache.get(task_type)
+        model_cfg = task_cfg.get(model_name).get("model_specification")
+        evaluation_table = self.prepare_evaluation_table(model_cfg)
+        evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
+        prepared_evaluation_metrics = self.prepare_evaluation_results(
+            evaluation_metrics, model_name, evaluation_columns=evaluation_table.columns
+            )
+        return prepared_evaluation_metrics
+
     @staticmethod
-    def prepare_evaluation_table(model_cfg: dict) -> list:
+    def prepare_evaluation_table(model_cfg: dict) -> pd.DataFrame:
+        """Creates empty table with the proper columns, to be filled during the evaluation, also from it the columns' names are taken
+        to be used by other methods.
+
+        Parameters
+        ----------
+        model_cfg : dict
+            Dictionary that was used to define the model.
+
+        Returns
+        -------
+        evaluation_table: pd.DataFrame
+            Template table.
+        """
         loss_name, metrics_names = model_cfg.get("loss"), model_cfg.get("metrics")
         evaluation_columns = ["model_name", loss_name, "categorical_crossentropy"] + metrics_names
         evaluation_table = pd.DataFrame(columns=evaluation_columns)
         return evaluation_table
 
     @staticmethod
-    def prepare_evaluation_results(evaluation_metrics: list, model_cfg: dict, evaluation_columns: list):
-        evaluation_results = [[model_cfg.get("name")] + evaluation_metrics]
+    def prepare_evaluation_results(evaluation_metrics: list, model_name: str, evaluation_columns: list) -> pd.DataFrame:
+        """Composes the data frame containing the model's and metrics' names alongside their values.
+
+        Parameters
+        ----------
+        evaluation_metrics : list
+            Metrics values, expected to be returned by a model's 'evaluate' method.
+        model_name : str
+            Name of the model.
+        evaluation_columns : list
+            Names of the loss function and metrics, extracted from the configuration file.
+
+        Returns
+        -------
+        prepared_evaluation_metrics: pd.DataFrame
+            Dataframe summarizing the run.
+        """
+        evaluation_results = [[model_name] + evaluation_metrics]
         prepared_evaluation_metrics = pd.DataFrame(evaluation_results, columns=evaluation_columns)
         return prepared_evaluation_metrics
 

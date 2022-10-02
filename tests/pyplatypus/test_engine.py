@@ -20,7 +20,7 @@ class mocked_u_shaped_model:
     def fit(self, *args, **kwargs):
         return pd.DataFrame({"history": [0, 1, 2]})
     
-    def evaluate(self, *args, **kwargs):
+    def evaluate(x):
         return [.1, .2, .3]
 
 
@@ -174,3 +174,47 @@ class TestPlatypusEngine:
         assert engine.predict_based_on_test_generator(
             model_name="model_name", custom_data_path=custom_data_path
         ) == ("predictions", "paths", mocked_generator.colormap, mocked_generator.mode)
+
+    def test_prepare_evaluation_results(self):
+        evaluation_metrics = [.1, .2, .3]
+        evaluation_columns = ["model_name", "loss", "metric_1", "metric_2"]
+        prepared_evaluation_metrics = PlatypusEngine.prepare_evaluation_results(evaluation_metrics, "model_name", evaluation_columns)
+        pd.testing.assert_frame_equal(prepared_evaluation_metrics, pd.DataFrame({
+            "model_name": "model_name", "loss": .1, "metric_1": .2, "metric_2": .3
+        }, index=[0]))
+
+
+    @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
+    def test_evaluate_based_on_validation_generator(self, mocker, custom_data_path):
+        mocker.patch("pyplatypus.engine.predict_from_generator", return_value=("predictions", "paths"))
+        engine = self.initialized_engine
+        engine.cache = {"semantic_segmentation": {"model_name": {"model": mocked_u_shaped_model, "validation_generator": mocked_generator}}}
+        assert engine.evaluate_based_on_validation_generator(
+            model_name="model_name", custom_data_path=custom_data_path
+        ) == [.1, .2, .3]
+
+    def test_prepare_evaluation_table(self):
+        model_cfg = {"loss": "loss_name", "metrics": ["metric_name1"]}
+        assert all(PlatypusEngine.prepare_evaluation_table(model_cfg).columns == ["model_name", "loss_name", "categorical_crossentropy", "metric_name1"])
+
+    
+    def test_evaluate_model(self, mocker):
+        task_type = "semantic_segmentation"
+        model_name = "model_name"
+        cache = {
+            task_type: 
+                {model_name: {"model_specification": {}}}
+            }
+        engine = self.initialized_engine
+        engine.cache = cache
+        mocker.patch(self.engine_path + ".prepare_evaluation_table", return_value=pd.DataFrame(columns=["col1", "col2"]))
+        mocker.patch(self.engine_path + ".evaluate_based_on_validation_generator", return_value=None)
+        mocker.patch(self.engine_path + ".prepare_evaluation_results", return_value=[.1, .2, .3])
+        assert engine.evaluate_model(model_name, task_type) == [.1, .2, .3]
+
+
+    @pytest.mark.parametrize("model_name, result", [("model1", ["evaluation_results"]), (None, ["evaluation_results"]*2)])
+    def test_evaluate_models(self, mocker, model_name, result):
+        mocker.patch(self.engine_path + ".get_model_names", return_value=["model_name1", "model_name2"])
+        mocker.patch(self.engine_path + ".evaluate_model", return_value = "evaluation_results")
+        assert self.initialized_engine.evaluate_models(model_name) == result
