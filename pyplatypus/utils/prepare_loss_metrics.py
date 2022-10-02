@@ -13,9 +13,10 @@ prepare_loss_function(loss: str, n_class: int, background_index: Optional[int] =
     Returns the ready-to-use loss function in the format expected by the Tensorflow.
 """
 
+import pydantic
 from typing import Optional, Callable, Union
-from pyplatypus.utils.toolbox import convert_to_snake_case
-from pyplatypus.segmentation.loss_functions import SegmentationLoss
+from pyplatypus.utils.toolbox import convert_to_camel_case
+import pyplatypus.segmentation.extended_loss_functions as ELF
 from pyplatypus.data_models.optimizer_datamodel import (
     AdadeltaSpec, AdagradSpec, AdamSpec, AdamaxSpec, FtrlSpec, NadamSpec, RMSpropSpec, SGDSpec
     )
@@ -30,7 +31,7 @@ from tensorflow.keras.callbacks import Callback
 
 
 def prepare_loss_and_metrics(
-    loss: str, metrics: list, n_class: int, background_index: Optional[int] = None
+    loss: pydantic.BaseModel, metrics: list, n_class: int, background_index: Optional[int] = None
         ) -> tuple:
     """Returns the losses and metrics as the functions.
 
@@ -89,7 +90,7 @@ def prepare_metrics(
     return metrics_to_apply
 
 
-def prepare_loss_function(loss: str, n_class: int, background_index: Optional[int] = None) -> Callable:
+def prepare_loss_function(loss: pydantic.BaseModel, n_class: int, background_index: Optional[int] = None) -> Callable:
     """
     Returns the ready-to-use loss function in the format expected by the Tensorflow. The function is
     extracted as the attribute of the SegmentationLoss function.
@@ -108,10 +109,10 @@ def prepare_loss_function(loss: str, n_class: int, background_index: Optional[in
     loss_function: function
         Ready-to-use function calculating the loss given the classes' probabilities and the ground truth.
     """
-    loss = convert_to_snake_case(any_case=loss)
-    loss_function = getattr(
-        SegmentationLoss(n_class, background_index), loss
-        )
+    cc_loss_name = convert_to_camel_case(loss.name)
+    loss_name = loss.name
+    getter = getattr(ELF, f"{cc_loss_name}Getter")(n_class, background_index, input_dict=loss.dict())
+    loss_function = getattr(getter, loss_name)
     return loss_function
 
 

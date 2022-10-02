@@ -76,8 +76,8 @@ class TestSemanticSegmentationModelSpec:
         "filters": 2,
         "dropout": 0.1,
         "activation_layer": "invalid_activation",
-        "loss": "loss1",
-        "metrics": ["metric1"],
+        "loss": mocked_optimizer_spec(name="loss1"),
+        "metrics": [mocked_optimizer_spec(name="metric1")],
         "optimizer": mocked_optimizer_spec(name="optimizer1")
     }
 
@@ -88,8 +88,8 @@ class TestSemanticSegmentationModelSpec:
         mocker.patch(self.data_models_path+".available_optimizers", ["optimizer1"])
 
     @pytest.mark.parametrize("data_update_expression", [
-        ({"loss": "invalid_loss"}),
-        ({"metrics": ["invalid_metrics"]}),
+        ({"loss": mocked_optimizer_spec(name="invalid_loss")}),
+        ({"metrics": mocked_optimizer_spec(name="invalid_metrics")}),
         ({"optimizer": mocked_optimizer_spec(name="invalid_name")})
         ])
     def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir, data_update_expression):
@@ -114,8 +114,8 @@ class TestSemanticSegmentationInput:
         "n_class": 2,
         "filters": 2,
         "dropout": 0.1,
-        "loss": "loss1",
-        "metrics": ["metric1"],
+        "loss": mocked_optimizer_spec(name="loss1"),
+        "metrics": [mocked_optimizer_spec(name="metric1")],
         "optimizer": mocked_optimizer_spec(name="optimizer1")
     },
     {
@@ -126,8 +126,8 @@ class TestSemanticSegmentationInput:
         "n_class": 2,
         "filters": 2,
         "dropout": 0.1,
-        "loss": "loss1",
-        "metrics": ["metric1"],
+        "loss": mocked_optimizer_spec(name="loss1"),
+        "metrics": [mocked_optimizer_spec(name="metric1")],
         "optimizer": mocked_optimizer_spec(name="optimizer1")
     },
     ]
