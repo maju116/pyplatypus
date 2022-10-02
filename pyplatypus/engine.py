@@ -274,16 +274,18 @@ class PlatypusEngine:
         if model_name is None:
             model_names = self.get_model_names(config=self.config, task_type=task_type)
             for model_name in model_names:
-                prepared_evaluation_metrics = self.evaluate_model(model_name, task_type)
+                prepared_evaluation_metrics = self.evaluate_model(model_name, task_type, custom_data_path)
                 evaluations.append(prepared_evaluation_metrics)
         else:
-            prepared_evaluation_metrics = self.evaluate_model(model_name, task_type)
+            prepared_evaluation_metrics = self.evaluate_model(model_name, task_type, custom_data_path)
             evaluations.append(prepared_evaluation_metrics)
         print("EVALUATION RESULTS:\n")
         print(evaluations)
         return evaluations
 
-    def evaluate_model(self, model_name: str, task_type: str) -> pd.DataFrame:
+    def evaluate_model(
+        self, model_name: str, task_type: str = "semantic_segmentation", custom_data_path: str = None
+            ) -> pd.DataFrame:
         """Prepares the crucial objects and evaluates model invoking the method calling the .evaluate() method
         with the use of validation generator.
 
@@ -302,7 +304,7 @@ class PlatypusEngine:
         task_cfg = self.cache.get(task_type)
         model_cfg = task_cfg.get(model_name).get("model_specification")
         evaluation_table = self.prepare_evaluation_table(model_cfg)
-        evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
+        evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type, custom_data_path)
         prepared_evaluation_metrics = self.prepare_evaluation_results(
             evaluation_metrics, model_name, evaluation_columns=evaluation_table.columns
             )
