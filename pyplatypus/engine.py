@@ -7,15 +7,13 @@ from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
-from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer
+from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
 import numpy as np
 from typing import Optional
-from logging import Logger
-log = Logger(__name__)
 
 
 class PlatypusEngine:
@@ -69,8 +67,7 @@ class PlatypusEngine:
 
     def update_cache(
         self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
-        train_generator: SegmentationGenerator, validation_generator: SegmentationGenerator,
-        test_generator: SegmentationGenerator, task_type: str = "semantic_segmentation"
+        generator: SegmentationGenerator, task_type: str = "semantic_segmentation"
             ):
         """Stores the trained model in the cache, under its name defined by a user.
 
@@ -88,19 +85,10 @@ class PlatypusEngine:
             Test generator.
         task_type: str
             Computer Vision task performed by the model.
-        
-        Raises
-        ------
-        KeyError: If the task that was not performed on the course of running the engine is selected.
         """
-        if self.cache.get(task_type) is None:
-            raise KeyError("The selected task was not performed during the training!")
         self.cache.get(task_type).update({
-            model_name: {
-                "model": model, "training_history": training_history, "model_specification": model_specification,
-                "train_generator": train_generator, "validation_generator": validation_generator,
-                "test_generator": test_generator
-                }
+            model_name: {"model": model, "training_history": training_history,
+                         "model_specification": model_specification, "data_generator": generator}
             })
 
     def train(self) -> None:
@@ -134,25 +122,18 @@ class PlatypusEngine:
                 validation_augmentation_pipeline=validation_augmentation_pipeline
                 )
             model = self.compile_u_shaped_model(model_cfg, segmentation_spec=spec)
+            callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             training_history = model.fit(
                 train_data_generator,
                 epochs=model_cfg.epochs,
                 steps_per_epoch=train_data_generator.steps_per_epoch,
                 validation_data=validation_data_generator,
                 validation_steps=validation_data_generator.steps_per_epoch,
-                callbacks=[ModelCheckpoint(
-                    filepath=model_cfg.name + '.hdf5',
-                    save_best_only=True,
-                    monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
-                    mode='min'  # TODO Is monitor supposed to be the str or our function?
-                ), EarlyStopping(
-                    monitor='val_iou_coefficient', mode='max', patience=25
-                )]
+                callbacks=callbacks
             )
             self.update_cache(
                 model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
-                model_specification=dict(model_cfg), train_generator=train_data_generator,
-                validation_generator=validation_data_generator, test_generator=test_data_generator
+                model_specification=dict(model_cfg), generator=test_data_generator
                 )
 
     @staticmethod
@@ -241,7 +222,7 @@ class PlatypusEngine:
             Class color map.
         """
         m = self.cache.get(task_type).get(model_name).get("model")
-        g = self.cache.get(task_type).get(model_name).get("test_generator")
+        g = self.cache.get(task_type).get(model_name).get("data_generator")
         mode = g.mode
         if custom_data_path is not None:
             g.path = custom_data_path
@@ -250,132 +231,6 @@ class PlatypusEngine:
         colormap = g.colormap
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode
-
-    def evaluate_models(
-        self, model_name: str = None, custom_data_path: str = None, task_type: str = "semantic_segmentation"
-            ) -> list:
-        """Evaluates all the models associated with a certain task or the one specified by the model_name.
-
-        Parameters
-        ----------
-        model_name : str, optional
-            Name of the model to be evaluated, by default None
-        custom_data_path : str, optional
-            Makes evaluating on a data different from the one used for validation possible, by default None
-        task_type : str, optional
-            Task of interest, by default "semantic_segmentation"
-
-        Returns
-        -------
-        evaluations: list
-            List of DataFrames.
-        """
-        evaluations = []
-        if model_name is None:
-            model_names = self.get_model_names(config=self.config, task_type=task_type)
-            for model_name in model_names:
-                prepared_evaluation_metrics = self.evaluate_model(model_name, task_type)
-                evaluations.append(prepared_evaluation_metrics)
-        else:
-            prepared_evaluation_metrics = self.evaluate_model(model_name, task_type)
-            evaluations.append(prepared_evaluation_metrics)
-        print("EVALUATION RESULTS:\n")
-        print(evaluations)
-        return evaluations
-
-    def evaluate_model(self, model_name: str, task_type: str) -> pd.DataFrame:
-        """Prepares the crucial objects and evaluates model invoking the method calling the .evaluate() method
-        with the use of validation generator.
-
-        Parameters
-        ----------
-        model_name : str
-            The model that is to be evaluated.
-        task_type : str
-            Task with which the model is associated.
-
-        Returns
-        -------
-        prepared_evaluation_metrics: pd.DataFrame
-            The filled-in evaluation table.
-        """
-        task_cfg = self.cache.get(task_type)
-        model_cfg = task_cfg.get(model_name).get("model_specification")
-        evaluation_table = self.prepare_evaluation_table(model_cfg)
-        evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
-        prepared_evaluation_metrics = self.prepare_evaluation_results(
-            evaluation_metrics, model_name, evaluation_columns=evaluation_table.columns
-            )
-        return prepared_evaluation_metrics
-
-    @staticmethod
-    def prepare_evaluation_table(model_cfg: dict) -> pd.DataFrame:
-        """Creates empty table with the proper columns, to be filled during the evaluation, also from it the columns' names are taken
-        to be used by other methods.
-
-        Parameters
-        ----------
-        model_cfg : dict
-            Dictionary that was used to define the model.
-
-        Returns
-        -------
-        evaluation_table: pd.DataFrame
-            Template table.
-        """
-        loss_name, metrics_names = model_cfg.get("loss"), model_cfg.get("metrics")
-        evaluation_columns = ["model_name", loss_name, "categorical_crossentropy"] + metrics_names
-        evaluation_table = pd.DataFrame(columns=evaluation_columns)
-        return evaluation_table
-
-    @staticmethod
-    def prepare_evaluation_results(evaluation_metrics: list, model_name: str, evaluation_columns: list) -> pd.DataFrame:
-        """Composes the data frame containing the model's and metrics' names alongside their values.
-
-        Parameters
-        ----------
-        evaluation_metrics : list
-            Metrics values, expected to be returned by a model's 'evaluate' method.
-        model_name : str
-            Name of the model.
-        evaluation_columns : list
-            Names of the loss function and metrics, extracted from the configuration file.
-
-        Returns
-        -------
-        prepared_evaluation_metrics: pd.DataFrame
-            Dataframe summarizing the run.
-        """
-        evaluation_results = [[model_name] + evaluation_metrics]
-        prepared_evaluation_metrics = pd.DataFrame(evaluation_results, columns=evaluation_columns)
-        return prepared_evaluation_metrics
-
-    def evaluate_based_on_validation_generator(
-        self, model_name: str, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
-            ) -> tuple:
-        """Produces metrics and loss value based on the selected model and the data generator created on the course
-        of building this model.
-
-        Parameters
-        ----------
-        model_name : str
-            Name of the model to use, should be consistent with the input config.
-        custom_data_path : Optional[str], optional
-            If provided, the data is loaded from a custom source.
-
-        Returns
-        -------
-        metrics: np.array
-            Consists of the predictions for all the data yielded by the generator.
-        """
-        m = self.cache.get(task_type).get(model_name).get("model")
-        g = self.cache.get(task_type).get(model_name).get("validation_generator")
-        if custom_data_path is not None:
-            g.path = custom_data_path
-            g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
-            g.steps_per_epoch = int(np.ceil(len(g.config["images_paths"]) / g.batch_size))
-        metrics = m.evaluate(x=g)
-        return metrics
 
     @staticmethod
     def get_model_names(config: dict, task_type: Optional[str] = "semantic_segmentation") -> list:

@@ -108,7 +108,6 @@ def prepare_loss_function(loss: str, n_class: int, background_index: Optional[in
     loss_function: function
         Ready-to-use function calculating the loss given the classes' probabilities and the ground truth.
     """
-    loss = convert_to_snake_case(any_case=loss)
     loss_function = getattr(
         SegmentationLoss(n_class, background_index), loss
         )
