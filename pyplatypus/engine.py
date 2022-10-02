@@ -244,7 +244,7 @@ class PlatypusEngine:
         ----------
         config : dict
             It is expected to be of the same form as the input config.
-        task : Optional[str], optional
+        task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
 
         Returns
