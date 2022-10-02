@@ -7,7 +7,7 @@ from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
-from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
+from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
@@ -122,14 +122,20 @@ class PlatypusEngine:
                 validation_augmentation_pipeline=validation_augmentation_pipeline
                 )
             model = self.compile_u_shaped_model(model_cfg, segmentation_spec=spec)
-            callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             training_history = model.fit(
                 train_data_generator,
                 epochs=model_cfg.epochs,
                 steps_per_epoch=train_data_generator.steps_per_epoch,
                 validation_data=validation_data_generator,
                 validation_steps=validation_data_generator.steps_per_epoch,
-                callbacks=callbacks
+                callbacks=[ModelCheckpoint(
+                    filepath=model_cfg.name + '.hdf5',
+                    save_best_only=True,
+                    monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
+                    mode='min'  # TODO Is monitor supposed to be the str or our function?
+                ), EarlyStopping(
+                    monitor='val_iou_coefficient', mode='max', patience=25
+                )]
             )
             self.update_cache(
                 model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
@@ -231,6 +237,42 @@ class PlatypusEngine:
         colormap = g.colormap
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode
+
+    def evaluate_models(self, model_name=None, custom_data_path=None, task_type="semantic_segmentation"):
+        metrics = []
+        if model_name is None:
+            model_names = self.get_model_names(config=self.config, task_type=task_type)
+            for model_name in model_names:
+                metrics.append(self.evaluate_based_on_test_generator(model_name, task_type))
+        else:
+            metrics.append(self.evaluate_based_on_test_generator(model_name, task_type))
+
+    def evaluate_based_on_test_generator(
+        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+            ) -> tuple:
+        """Produces metrics and loss value based on the selected model and the data generator created on the course
+        of building this model.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of the model to use, should be consistent with the input config.
+        custom_data_path : Optional[str], optional
+            If provided, the data is loaded from a custom source.
+
+        Returns
+        -------
+        metrics: np.array
+            Consists of the predictions for all the data yielded by the generator.
+        """
+        m = self.cache.get(task_type).get(model_name).get("model")
+        g = self.cache.get(task_type).get(model_name).get("data_generator")
+        if custom_data_path is not None:
+            g.path = custom_data_path
+            g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
+            g.steps_per_epoch = int(np.ceil(len(g.config["images_paths"]) / g.batch_size))
+        metrics = m.evaluate(x=g)
+        return metrics
 
     @staticmethod
     def get_model_names(config: dict, task_type: Optional[str] = "semantic_segmentation") -> list:
