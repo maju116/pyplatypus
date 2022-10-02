@@ -46,6 +46,36 @@ def convert_to_snake_case(any_case: str) -> str:
     return snake_case
 
 
+def convert_to_camel_case(any_case: str) -> str:
+    """
+    Converts any given string to the snake case.
+
+    Parameters
+    ----------
+    any_case: str
+        String to convert.
+
+    Returns
+    -------
+    camel_case: str
+        Camel case string.
+
+    Examples
+    --------
+    >>> convert_to_snake_case("Dice loss")
+    'DiceLoss'
+    """
+    if "_" in any_case:
+        splitted = any_case.split("_")
+    elif " " in any_case:
+        splitted = any_case.split(" ")
+    else:
+        raise ValueError(f"Unable to convert: {any_case} to CamelCase! No underscore or space detected!")
+    splitted = [s.title() for s in splitted]
+    camel_case = "".join(splitted)
+    return camel_case
+
+
 def split_masks_into_binary(
         mask: np.ndarray,
         colormap: List[Tuple[int, int, int]]

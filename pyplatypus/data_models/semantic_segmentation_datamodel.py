@@ -12,6 +12,7 @@ from pyplatypus.config.input_config import (
     available_optimizers, available_activations, available_callbacks
     )
 from pyplatypus.data_models.optimizer_datamodel import AdamSpec
+from pyplatypus.data_models.semantic_segmentation_loss_datamodel import CceLossSpec, IouCoefficientSpec
 
 
 class SemanticSegmentationData(BaseModel):
@@ -81,8 +82,8 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
     activation_layer: Optional[str] = "relu"
-    loss: Optional[str] = "Iou loss"
-    metrics: Optional[List[str]] = ["IoU Coefficient"]
+    loss: Any = CceLossSpec()
+    metrics: Optional[List[Any]] = [IouCoefficientSpec()]
     optimizer: Any = AdamSpec()
     callbacks: List[Any] = []
 
@@ -97,7 +98,8 @@ class SemanticSegmentationModelSpec(BaseModel):
 
     @validator("loss")
     def check_the_loss_name(cls, v: str):
-        if convert_to_snake_case(v) in implemented_losses:
+        v_converted = convert_to_snake_case(v.name)
+        if v_converted in implemented_losses:
             return v
         raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
 
@@ -118,7 +120,7 @@ class SemanticSegmentationModelSpec(BaseModel):
 
     @validator("metrics")
     def check_the_metrics(cls, v: list):
-        v_converted = [convert_to_snake_case(case) for case in v]
+        v_converted = [convert_to_snake_case(model.name) for model in v]
         if set(v_converted).issubset(set(implemented_metrics)):
             return v
         raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")

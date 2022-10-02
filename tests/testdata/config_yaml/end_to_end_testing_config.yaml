@@ -33,7 +33,13 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 4
           epochs: 1
-          loss: 'focal loss'
+          loss: 
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
           optimizer:
             Adam:
                 learning_rate: 0.001
