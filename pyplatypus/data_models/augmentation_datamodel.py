@@ -506,8 +506,6 @@ class ToFloatSpec(BaseModel):
 
 
 class AugmentationSpecFull(BaseModel):
-    ToFloat: Optional[ToFloatSpec] = None
-    RandomRotate90: Optional[RandomRotate90Spec] = None
     Blur: Optional[BlurSpec] = None
     GaussianBlur: Optional[GaussianBlurSpec] = None
     MedianBlur: Optional[MedianBlurSpec] = None
