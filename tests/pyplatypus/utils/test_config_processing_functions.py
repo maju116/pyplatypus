@@ -13,8 +13,35 @@ from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 
 
 class mocked_optimizer_spec:
+
+    def __init__(*args, **kwargs):
+        return None
+
     name = "optimizer_1"
     learning_rate = 0.1
+
+
+class mocked_callback1_spec:
+
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "callback_1"
+
+
+class mocked_callback2_spec:
+
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "callback_2"
+
+
+class mocked_terminate_on_nan:
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "TerminateOnNaN" 
 
 class TestCheckCVTasks:
     config_none = dict({"random_tast_name": None, "semantic_segmenatation": None, "object_detection": None})
@@ -102,7 +129,7 @@ class TestYAMLConfigLoader:
 
     def test_create_semantic_segmentation_config(self):
         config = self.mocked_config
-        parsed_config = YamlConfigLoader.create_semantic_segmentation_config(config)
+        parsed_config = YamlConfigLoader("").create_semantic_segmentation_config(config)
         assert parsed_config.data == SemanticSegmentationData(**config.get("semantic_segmentation").get("data"))
         assert parsed_config.models[0] == SemanticSegmentationModelSpec(**config.get("semantic_segmentation").get("models")[0])
         assert isinstance(parsed_config, SemanticSegmentationInput)
@@ -110,13 +137,13 @@ class TestYAMLConfigLoader:
     def test_create_semantic_segmentation_config_no_optimizer(self):
         config = self.mocked_config.copy()
         config.get("semantic_segmentation").get("models")[0].pop("optimizer")
-        parsed_config = YamlConfigLoader.create_semantic_segmentation_config(config)
+        parsed_config = YamlConfigLoader("").create_semantic_segmentation_config(config)
         assert parsed_config.models[0].optimizer == AdamSpec()
 
     def test_create_semantic_segmentation_config_empty_optimizer(self):
         config = self.mocked_config.copy()
         config.get("semantic_segmentation").get("models")[0].update({"optimizer": None})
-        parsed_config = YamlConfigLoader.create_semantic_segmentation_config(config)
+        parsed_config = YamlConfigLoader("").create_semantic_segmentation_config(config)
         assert parsed_config.models[0].optimizer == AdamSpec()
 
     def test_create_object_detection_config(self):
@@ -139,6 +166,50 @@ class TestYAMLConfigLoader:
                 assert parsed_config_as_dict.get(key) is None
         assert isinstance(parsed_config, AM.AugmentationSpecFull)
         assert isinstance(parsed_config.InvertImg, AM.InvertImgSpec)
+
+    def test_process_optimizer_field(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.OM.OptimizerNameSpec", mocked_optimizer_spec, raising=False)
+        config = self.mocked_config
+        config.update(optimizer={"OptimizerName": {}})
+        processed_config = YamlConfigLoader.process_optimizer_field(config)
+        assert processed_config.get("optimizer").name == "optimizer_1"
+        assert processed_config.get("optimizer").learning_rate == 0.1
+
+    def test_process_optimizer_field_empty_field(self):
+        config = self.mocked_config
+        config.update(optimizer=None)
+        processed_config = YamlConfigLoader.process_optimizer_field(config)
+        assert "optimizer" not in processed_config.keys()
+
+    def test_process_callbacks_field_list(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.available_callbacks_without_specification", ["Callback1", "Callback2"], raising=False)
+        config = self.mocked_config
+        config.update(callbacks=["Callback1", "Callback2"])
+        processed_config = YamlConfigLoader.process_callbacks_field(config)
+        assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2"])
+
+    def test_process_callbacks_field_dict(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.TerminateOnNaNSpec", mocked_terminate_on_nan, raising=False)
+        config = self.mocked_config
+        config.update(callbacks={"Callback1": {}, "Callback2": {}, "TerminateOnNaN": None})
+        processed_config = YamlConfigLoader.process_callbacks_field(config)
+        assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2", "TerminateOnNaN"])
+
+    def test_process_callbacks_field_wrong_structure(self):
+        config = self.mocked_config
+        config.update(callbacks="callbacks")
+        with pytest.raises(ValueError):
+            processed_config = YamlConfigLoader.process_callbacks_field(config)
+
+    def test_process_callbacks_field_dict(self, monkeypatch):
+        config = self.mocked_config
+        config.update(callbacks=None)
+        processed_config = YamlConfigLoader.process_callbacks_field(config)
+        assert "callbacks" not in processed_config.keys()
 
     def test_load(self, mocker):
         ycl_path = "pyplatypus.utils.config_processing_functions.YamlConfigLoader."

@@ -9,7 +9,7 @@ from pathlib import Path
 from pyplatypus.utils.toolbox import convert_to_snake_case
 from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
-    available_optimizers, available_activations
+    available_optimizers, available_activations, available_callbacks
     )
 from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 
@@ -84,6 +84,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     loss: Optional[str] = "Iou loss"
     metrics: Optional[List[str]] = ["IoU Coefficient"]
     optimizer: Any = AdamSpec()
+    callbacks: List[Any] = []
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):
@@ -106,6 +107,14 @@ class SemanticSegmentationModelSpec(BaseModel):
         if optimizer_name in available_optimizers:
             return v
         raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+
+    @validator("callbacks")
+    def check_callbacks(cls, v: Any):
+        if v:
+            callbacks_names = [callback.name for callback in v]
+            if set(callbacks_names).issubset(set(available_callbacks)):
+                return v
+            raise ValueError(f"The chosen callbacks: {', '.join(callbacks_names)} are not the subset of the implemented ones!")
 
     @validator("metrics")
     def check_the_metrics(cls, v: list):

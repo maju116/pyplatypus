@@ -7,7 +7,7 @@ from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
-from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer
+from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
@@ -122,20 +122,14 @@ class PlatypusEngine:
                 validation_augmentation_pipeline=validation_augmentation_pipeline
                 )
             model = self.compile_u_shaped_model(model_cfg, segmentation_spec=spec)
+            callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             training_history = model.fit(
                 train_data_generator,
                 epochs=model_cfg.epochs,
                 steps_per_epoch=train_data_generator.steps_per_epoch,
                 validation_data=validation_data_generator,
                 validation_steps=validation_data_generator.steps_per_epoch,
-                callbacks=[ModelCheckpoint(
-                    filepath=model_cfg.name + '.hdf5',
-                    save_best_only=True,
-                    monitor='categorical_crossentropy',  # TODO Add the monitor function and check if it is one of the metrics
-                    mode='min'  # TODO Is monitor supposed to be the str or our function?
-                ), EarlyStopping(
-                    monitor='val_iou_coefficient', mode='max', patience=25
-                )]
+                callbacks=callbacks
             )
             self.update_cache(
                 model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
