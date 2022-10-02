@@ -126,4 +126,4 @@ class SemanticSegmentationInput(BaseModel):
             unique_names = set(model_names)
             if len(unique_names) == len(model_names):
                 return v
-            raise ValueError("Models' names have to be unique!")
+            raise ValueError("Model names have to be unique!")
