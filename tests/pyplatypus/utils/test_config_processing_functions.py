@@ -80,55 +80,58 @@ class TestCheckCVTasks:
 
 
 class TestYAMLConfigLoader:
-    mocked_config = {
-        "semantic_segmentation": {
-            "data": {
-                "train_path": 'tests/testdata/nested_dirs/',
-                "validation_path": 'tests/testdata/nested_dirs/',
-                "test_path": 'tests/testdata/nested_dirs/',
-                "colormap": [[0, 0, 0], [255, 255, 255]],
-                "mode": 'nested_dirs',
-                "shuffle": False,
-                "subdirs": ["images", "masks"],
-                "column_sep": ';'
-            },
-            "models":
-                [{
-                    "name": 'res_u_net',
-                    "net_h": 300,
-                    "net_w": 300,
-                    "h_splits": 0,
-                    "w_splits": 0,
-                    "grayscale": False,
-                    "blocks": 4,
-                    "n_class": 2,
-                    "filters": 16,
-                    "dropout": 0.2,
-                    "batch_normalization": True,
-                    "kernel_initializer": 'he_normal',
-                    "resunet": True,
-                    "linknet": False,
-                    "plus_plus": False,
-                    "deep_supervision": False,
-                    "use_separable_conv2d": True,
-                    "use_spatial_droput2d": True,
-                    "use_up_sampling2d": False,
-                    "u_net_conv_block_width": 4,
-                    "activation_layer": "relu",
-                    "batch_size": 32,
-                    "epochs": 100,
-                    "loss": 'focal loss',
-                    "metrics": ['tversky coefficient', 'iou coefficient'],
-                    "optimizer": {"Adam": {}}
-                }]
-            },
-    "augmentation": {
-        "InvertImg": {
-            "always_apply": True,
-            "p": 1
+    @staticmethod
+    def mock_config():
+        mocked_config = {
+            "semantic_segmentation": {
+                "data": {
+                    "train_path": 'tests/testdata/nested_dirs/',
+                    "validation_path": 'tests/testdata/nested_dirs/',
+                    "test_path": 'tests/testdata/nested_dirs/',
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                    "mode": 'nested_dirs',
+                    "shuffle": False,
+                    "subdirs": ["images", "masks"],
+                    "column_sep": ';'
+                },
+                "models":
+                    [{
+                        "name": 'res_u_net',
+                        "net_h": 300,
+                        "net_w": 300,
+                        "h_splits": 0,
+                        "w_splits": 0,
+                        "grayscale": False,
+                        "blocks": 4,
+                        "n_class": 2,
+                        "filters": 16,
+                        "dropout": 0.2,
+                        "batch_normalization": True,
+                        "kernel_initializer": 'he_normal',
+                        "resunet": True,
+                        "linknet": False,
+                        "plus_plus": False,
+                        "deep_supervision": False,
+                        "use_separable_conv2d": True,
+                        "use_spatial_droput2d": True,
+                        "use_up_sampling2d": False,
+                        "u_net_conv_block_width": 4,
+                        "activation_layer": "relu",
+                        "batch_size": 32,
+                        "epochs": 100,
+                        "loss": 'focal loss',
+                        "metrics": ['tversky coefficient', 'iou coefficient'],
+                        "optimizer": {"Adam": {}}
+                    }]
+                },
+        "augmentation": {
+            "InvertImg": {
+                "always_apply": True,
+                "p": 1
+            }
         }
-    }
-    }
+        }
+        return mocked_config
 
     def mocked_solver_datamodel(*args, **kwargs):
         return {}
@@ -147,31 +150,31 @@ class TestYAMLConfigLoader:
     def test_load_config_from_yaml(self, tmpdir):
         mocked_file_path = Path(tmpdir)/"config_file.yaml"
         with open(mocked_file_path, "w") as mocked_file:
-            yaml.dump(self.mocked_config, mocked_file)
+            yaml.dump(self.mock_config(), mocked_file)
 
-        assert self.mocked_config == YamlConfigLoader.load_config_from_yaml(mocked_file_path)
+        assert self.mock_config() == YamlConfigLoader.load_config_from_yaml(mocked_file_path)
 
     def test_create_semantic_segmentation_config(self):
-        config = self.mocked_config
+        config = self.mock_config()
         parsed_config = YamlConfigLoader("").create_semantic_segmentation_config(config)
         assert parsed_config.data == SemanticSegmentationData(**config.get("semantic_segmentation").get("data"))
         assert parsed_config.models[0] == SemanticSegmentationModelSpec(**config.get("semantic_segmentation").get("models")[0])
         assert isinstance(parsed_config, SemanticSegmentationInput)
 
     def test_create_semantic_segmentation_config_no_optimizer(self):
-        config = self.mocked_config.copy()
+        config = self.mock_config()
         config.get("semantic_segmentation").get("models")[0].pop("optimizer")
         parsed_config = YamlConfigLoader("").create_semantic_segmentation_config(config)
         assert parsed_config.models[0].optimizer == AdamSpec()
 
     def test_create_semantic_segmentation_config_empty_optimizer(self):
-        config = self.mocked_config.copy()
+        config = self.mock_config()
         config.get("semantic_segmentation").get("models")[0].update({"optimizer": None})
         parsed_config = YamlConfigLoader("").create_semantic_segmentation_config(config)
         assert parsed_config.models[0].optimizer == AdamSpec()
 
     def test_create_object_detection_config(self):
-        config = self.mocked_config
+        config = self.mock_config()
         assert YamlConfigLoader.create_object_detection_config(config) == ObjectDetectionInput()
 
     def test_create_augmentation_config(self):
@@ -193,14 +196,14 @@ class TestYAMLConfigLoader:
 
     def test_process_optimizer_field(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.OM.OptimizerNameSpec", mocked_optimizer_spec, raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(optimizer={"OptimizerName": {}})
         processed_config = YamlConfigLoader.process_optimizer_field(config)
         assert processed_config.get("optimizer").name == "optimizer_1"
         assert processed_config.get("optimizer").learning_rate == 0.1
 
     def test_process_optimizer_field_empty_field(self):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(optimizer=None)
         processed_config = YamlConfigLoader.process_optimizer_field(config)
         assert "optimizer" not in processed_config.keys()
@@ -209,7 +212,7 @@ class TestYAMLConfigLoader:
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.available_callbacks_without_specification", ["Callback1", "Callback2"], raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(callbacks=["Callback1", "Callback2"])
         processed_config = YamlConfigLoader.process_callbacks_field(config)
         assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2"])
@@ -218,19 +221,19 @@ class TestYAMLConfigLoader:
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.TerminateOnNaNSpec", mocked_terminate_on_nan, raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(callbacks={"Callback1": {}, "Callback2": {}, "TerminateOnNaN": None})
         processed_config = YamlConfigLoader.process_callbacks_field(config)
         assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2", "TerminateOnNaN"])
 
     def test_process_callbacks_field_wrong_structure(self):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(callbacks="callbacks")
         with pytest.raises(ValueError):
             processed_config = YamlConfigLoader.process_callbacks_field(config)
 
     def test_process_callbacks_field_dict(self, monkeypatch):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(callbacks=None)
         processed_config = YamlConfigLoader.process_callbacks_field(config)
         assert "callbacks" not in processed_config.keys()
@@ -247,7 +250,7 @@ class TestYAMLConfigLoader:
 
     def test_process_loss_field_dict(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(loss={"loss_name": {}})
         processed_config = YamlConfigLoader.process_loss_field(config)
         assert processed_config.get("loss").name == "loss_1"
@@ -255,28 +258,28 @@ class TestYAMLConfigLoader:
 
     def test_process_loss_field_str(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(loss="loss_name")
         processed_config = YamlConfigLoader.process_loss_field(config)
         assert processed_config.get("loss").name == "loss_1"
         assert processed_config.get("loss").alpha == 0.5
 
     def test_process_loss_field_wrong_type(self, monkeypatch):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(loss=["loss_name"])
         with pytest.raises(ValueError):
             processed_config = YamlConfigLoader.process_loss_field(config)
 
     def test_process_loss_field_empty_field(self):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(loss=None)
         processed_config = YamlConfigLoader.process_loss_field(config)
         assert "loss" not in processed_config.keys()
 
-    def test_process_callbacks_field_list(self, monkeypatch):
+    def test_process_loss_field_list(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(metrics=["metric_1", "metric_2"])
         processed_config = YamlConfigLoader.process_metrics_field(config)
         assert processed_config.get("metrics")[0].name == "metric_1"
@@ -285,20 +288,20 @@ class TestYAMLConfigLoader:
     def test_process_metrics_field_dict(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(metrics={"metric_1": {}, "metric_2": {}})
         processed_config = YamlConfigLoader.process_metrics_field(config)
         assert processed_config.get("metrics")[0].name == "metric_1"
         assert processed_config.get("metrics")[1].name == "metric_2"
 
     def test_process_metrics_field_wrong_structure(self):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(metrics="callbacks")
         with pytest.raises(ValueError):
             processed_config = YamlConfigLoader.process_metrics_field(config)
 
     def test_process_callbacks_field_dict(self, monkeypatch):
-        config = self.mocked_config
+        config = self.mock_config()
         config.update(metrics=None)
         processed_config = YamlConfigLoader.process_metrics_field(config)
         assert "metrics" not in processed_config.keys()
