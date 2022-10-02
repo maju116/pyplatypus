@@ -238,6 +238,42 @@ class PlatypusEngine:
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode
 
+    def evaluate_models(self, model_name=None, custom_data_path=None, task_type="semantic_segmentation"):
+        metrics = []
+        if model_name is None:
+            model_names = self.get_model_names(config=self.config, task_type=task_type)
+            for model_name in model_names:
+                metrics.append(self.evaluate_based_on_test_generator(model_name, task_type))
+        else:
+            metrics.append(self.evaluate_based_on_test_generator(model_name, task_type))
+
+    def evaluate_based_on_test_generator(
+        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+            ) -> tuple:
+        """Produces metrics and loss value based on the selected model and the data generator created on the course
+        of building this model.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of the model to use, should be consistent with the input config.
+        custom_data_path : Optional[str], optional
+            If provided, the data is loaded from a custom source.
+
+        Returns
+        -------
+        metrics: np.array
+            Consists of the predictions for all the data yielded by the generator.
+        """
+        m = self.cache.get(task_type).get(model_name).get("model")
+        g = self.cache.get(task_type).get(model_name).get("data_generator")
+        if custom_data_path is not None:
+            g.path = custom_data_path
+            g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
+            g.steps_per_epoch = int(np.ceil(len(g.config["images_paths"]) / g.batch_size))
+        metrics = m.evaluate(x=g)
+        return metrics
+
     @staticmethod
     def get_model_names(config: dict, task_type: Optional[str] = "semantic_segmentation") -> list:
         """Extracts the names of all models related to the selected task.
