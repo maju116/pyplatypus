@@ -20,6 +20,30 @@ class mocked_optimizer_spec:
     name = "optimizer_1"
     learning_rate = 0.1
 
+class mocked_loss_spec:
+
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "loss_1"
+    alpha = 0.5
+
+
+class mocked_metric1_spec:
+
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "metric_1"
+    alpha = 1
+
+class mocked_metric2_spec:
+
+    def __init__(*args, **kwargs):
+        return None
+
+    name = "metric_2"
+    alpha = 2
 
 class mocked_callback1_spec:
 
@@ -219,3 +243,62 @@ class TestYAMLConfigLoader:
         mocker.patch(ycl_path + "create_augmentation_config", return_value=None)
         mocker.patch("pyplatypus.utils.config_processing_functions.PlatypusSolverInput", self.mocked_solver_datamodel)
         assert YamlConfigLoader(Path("")).load() == {}
+
+
+    def test_process_loss_field_dict(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
+        config = self.mocked_config
+        config.update(loss={"loss_name": {}})
+        processed_config = YamlConfigLoader.process_loss_field(config)
+        assert processed_config.get("loss").name == "loss_1"
+        assert processed_config.get("loss").alpha == 0.5
+
+    def test_process_loss_field_str(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
+        config = self.mocked_config
+        config.update(loss="loss_name")
+        processed_config = YamlConfigLoader.process_loss_field(config)
+        assert processed_config.get("loss").name == "loss_1"
+        assert processed_config.get("loss").alpha == 0.5
+
+    def test_process_loss_field_wrong_type(self, monkeypatch):
+        config = self.mocked_config
+        config.update(loss=["loss_name"])
+        with pytest.raises(ValueError):
+            processed_config = YamlConfigLoader.process_loss_field(config)
+
+    def test_process_loss_field_empty_field(self):
+        config = self.mocked_config
+        config.update(loss=None)
+        processed_config = YamlConfigLoader.process_loss_field(config)
+        assert "loss" not in processed_config.keys()
+
+    def test_process_callbacks_field_list(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
+        config = self.mocked_config
+        config.update(metrics=["metric_1", "metric_2"])
+        processed_config = YamlConfigLoader.process_metrics_field(config)
+        assert processed_config.get("metrics")[0].name == "metric_1"
+        assert processed_config.get("metrics")[1].name == "metric_2"
+
+    def test_process_metrics_field_dict(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
+        config = self.mocked_config
+        config.update(metrics={"metric_1": {}, "metric_2": {}})
+        processed_config = YamlConfigLoader.process_metrics_field(config)
+        assert processed_config.get("metrics")[0].name == "metric_1"
+        assert processed_config.get("metrics")[1].name == "metric_2"
+
+    def test_process_metrics_field_wrong_structure(self):
+        config = self.mocked_config
+        config.update(metrics="callbacks")
+        with pytest.raises(ValueError):
+            processed_config = YamlConfigLoader.process_metrics_field(config)
+
+    def test_process_callbacks_field_dict(self, monkeypatch):
+        config = self.mocked_config
+        config.update(metrics=None)
+        processed_config = YamlConfigLoader.process_metrics_field(config)
+        assert "metrics" not in processed_config.keys()
