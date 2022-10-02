@@ -282,8 +282,8 @@ class TestYAMLConfigLoader:
         config = self.mock_config()
         config.update(metrics=["metric_1", "metric_2"])
         processed_config = YamlConfigLoader.process_metrics_field(config)
-        assert processed_config.get("metrics")[0].name == "metric_1"
-        assert processed_config.get("metrics")[1].name == "metric_2"
+        assert processed_config.get("metrics")[0].name in ["metric_1", "metric_2"]
+        assert processed_config.get("metrics")[1].name in ["metric_1", "metric_2"]
 
     def test_process_metrics_field_dict(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
