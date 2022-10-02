@@ -14,6 +14,8 @@ from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
 import numpy as np
 from typing import Optional
+from logging import Logger
+log = Logger(__name__)
 
 
 class PlatypusEngine:
@@ -67,7 +69,8 @@ class PlatypusEngine:
 
     def update_cache(
         self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
-        generator: SegmentationGenerator, task_type: str = "semantic_segmentation"
+        train_generator: SegmentationGenerator, validation_generator: SegmentationGenerator,
+        test_generator: SegmentationGenerator, task_type: str = "semantic_segmentation"
             ):
         """Stores the trained model in the cache, under its name defined by a user.
 
@@ -85,10 +88,19 @@ class PlatypusEngine:
             Test generator.
         task_type: str
             Computer Vision task performed by the model.
+        
+        Raises
+        ------
+        KeyError: If the task that was not performed on the course of running the engine is selected.
         """
+        if self.cache.get(task_type) is None:
+            raise KeyError("The selected task was not performed during the training!")
         self.cache.get(task_type).update({
-            model_name: {"model": model, "training_history": training_history,
-                         "model_specification": model_specification, "data_generator": generator}
+            model_name: {
+                "model": model, "training_history": training_history, "model_specification": model_specification,
+                "train_generator": train_generator, "validation_generator": validation_generator,
+                "test_generator": test_generator
+                }
             })
 
     def train(self) -> None:
@@ -139,7 +151,8 @@ class PlatypusEngine:
             )
             self.update_cache(
                 model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
-                model_specification=dict(model_cfg), generator=test_data_generator
+                model_specification=dict(model_cfg), train_generator=train_data_generator,
+                validation_generator=validation_data_generator, test_generator=test_data_generator
                 )
 
     @staticmethod
@@ -228,7 +241,7 @@ class PlatypusEngine:
             Class color map.
         """
         m = self.cache.get(task_type).get(model_name).get("model")
-        g = self.cache.get(task_type).get(model_name).get("data_generator")
+        g = self.cache.get(task_type).get(model_name).get("test_generator")
         mode = g.mode
         if custom_data_path is not None:
             g.path = custom_data_path
@@ -239,16 +252,45 @@ class PlatypusEngine:
         return predictions, paths, colormap, mode
 
     def evaluate_models(self, model_name=None, custom_data_path=None, task_type="semantic_segmentation"):
-        metrics = []
+        evaluations = []
+        task_cfg = self.cache.get(task_type)
         if model_name is None:
             model_names = self.get_model_names(config=self.config, task_type=task_type)
             for model_name in model_names:
-                metrics.append(self.evaluate_based_on_test_generator(model_name, task_type))
+                model_cfg = task_cfg.get(model_name).get("model_specification")
+                evaluation_table = self.prepare_evaluation_table(model_cfg)
+                evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
+                prepared_evaluation_metrics = self.prepare_evaluation_results(
+                    evaluation_metrics, model_cfg, evaluation_columns=evaluation_table.columns
+                    )
+                evaluations.append(prepared_evaluation_metrics)
         else:
-            metrics.append(self.evaluate_based_on_test_generator(model_name, task_type))
+            model_cfg = task_cfg.get(model_name).get("model_specification")
+            evaluation_table = self.prepare_evaluation_table(model_cfg)
+            evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type)
+            prepared_evaluation_metrics = self.prepare_evaluation_results(
+                evaluation_metrics, model_cfg, evaluation_columns=evaluation_table.columns
+                )
+            evaluations.append(prepared_evaluation_metrics)
+        print("EVALUATION RESULTS:\n")
+        print(evaluations)
+        return evaluations
 
-    def evaluate_based_on_test_generator(
-        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+    @staticmethod
+    def prepare_evaluation_table(model_cfg: dict) -> list:
+        loss_name, metrics_names = model_cfg.get("loss"), model_cfg.get("metrics")
+        evaluation_columns = ["model_name", loss_name, "categorical_crossentropy"] + metrics_names
+        evaluation_table = pd.DataFrame(columns=evaluation_columns)
+        return evaluation_table
+
+    @staticmethod
+    def prepare_evaluation_results(evaluation_metrics: list, model_cfg: dict, evaluation_columns: list):
+        evaluation_results = [[model_cfg.get("name")] + evaluation_metrics]
+        prepared_evaluation_metrics = pd.DataFrame(evaluation_results, columns=evaluation_columns)
+        return prepared_evaluation_metrics
+
+    def evaluate_based_on_validation_generator(
+        self, model_name: str, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
             ) -> tuple:
         """Produces metrics and loss value based on the selected model and the data generator created on the course
         of building this model.
@@ -266,7 +308,7 @@ class PlatypusEngine:
             Consists of the predictions for all the data yielded by the generator.
         """
         m = self.cache.get(task_type).get(model_name).get("model")
-        g = self.cache.get(task_type).get(model_name).get("data_generator")
+        g = self.cache.get(task_type).get(model_name).get("validation_generator")
         if custom_data_path is not None:
             g.path = custom_data_path
             g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
