@@ -64,14 +64,17 @@ It is defined as a list, with each element following the below structure:
 | loss | str | One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss'] | 'lovasz_loss' | no, by default 'iou_loss' |
 | metrics | List[str] | Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
 | optimizer | dict | Described in the Optimizers section | Described in the Optimizers section | no, by default Adam optimizer with default arguments |
+| callbacks | list or dict | Described in the Callbacks section | Described in the Callbacks section | no, by default no callbacks are used |
 
 
-#### model.optimizer
+### Optimizers
 
-PyPlatypus allows us to use the optimizers of choice, any implemented in Tensorflow backendm to learn more about the algorithms and their argumenta, visit
+PyPlatypus allows us to use the optimizers of choice, any implemented in Tensorflow backend, to learn more about the algorithms and their arguments, visit
 [tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers).
 
 The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]. Below we described each possible optimizer setting.
+
+#### model.optimizer
 
 #### models.optimizer.Adadelta
 
@@ -146,6 +149,106 @@ The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", 
 | learning_rate | float | any | 0.5 |  no, by default 0.01  |
 | momentum | float | any | 0.0 |  no, by default 0.0  |
 | nesterov | boolean | any | False |  no, by default False |
+
+
+
+
+### Callbacks
+
+PyPlatypus allows us to use the callbacks of choice, majority of the ones implemented in Tensorflow, to learn more about the methods and their arguments, visit
+[tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/callbacks).
+
+available_callbacks = 
+available_callbacks_without_specification = ["EarlyStopping", "ReduceLROnPlateau", "TerminateOnNaN", "ProgbarLogger"]
+
+The available optimizers are: ["EarlyStopping", "ModelCheckpoint", "ReduceLROnPlateau", "TensorBoard", "BackupAndRestore", "TerminateOnNaN", "CSVLogger", "ProgbarLogger"].
+
+Beware that if you specify the callback input field as a list, only the following callbacks are valid: ["EarlyStopping", "ReduceLROnPlateau", "TerminateOnNaN", "ProgbarLogger"].
+It is due to the fact that the other callbacks require specifying a storage path, assigning default value to which we perceive as improper.
+
+Below we described each possible callback setting.
+
+#### model.callbacks
+
+#### models.callbacks.EarlyStopping
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| monitor | str | any | "val_loss" |  no, by default "val_loss" |
+| min_delta | float | any | 0 |  no, by default 0 |
+| patience | PositiveInt | any | 0 |  no, by default 0  |
+| verbose | PositiveInt | one of {0, 1} | 0 |  no, by default 0  |
+| mode | str | one of {"auto", "min", "max"} | "auto" |  no, by default "auto" |
+| baseline | float or None | any | 0.1 |  no, by default None |
+| restore_best_weights | bool | any | True |  no, by default False |
+
+#### models.callbacks.ModelCheckpoint
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| filepath | str | path to the to-be-created file in an existing directory | "existing_dir/{epoch:02d}_{val_loss:.2f}.hdf5" |  yes |
+| monitor | str | any | "val_loss" |  no, by default "val_loss" |
+| verbose | PositiveInt | one of {0, 1} | 0 |  no, by default 0  |
+| save_best_only | bool | any | True |  no, by default False |
+| save_weights_only | bool | any | True |  no, by default False |
+| mode | str | one of {"auto", "min", "max"} | "auto" |  no, by default "auto" |
+| save_freq | str or PositiveInt | positive integer or "epoch" | "epoch" |  no, by default "epoch" |
+| initial_value_threshold | float or None | any | 0 |  no, by default None |
+
+#### models.callbacks.ReduceLROnPlateauSpec
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| monitor | str | any | "val_loss" |  no, by default "val_loss" |
+| factor | float | any | 0 |  no, by default 0 |
+| patience | PositiveInt | any | 0 |  no, by default 10  |
+| verbose | PositiveInt | one of {0, 1} | 0 |  no, by default 0  |
+| mode | str | one of {"auto", "min", "max"} | "auto" |  no, by default "auto" |
+| min_delta | float | any | 0 |  no, by default 0.0001 |
+| cooldown | PositiveInt | any | 0 |  no, by default 0  |
+| min_lr | PositiveFloat | any | 0 |  no, by default 0  |
+
+
+#### models.callbacks.TensorBoard
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| log_dir | str | existing directory | "existing_dir" |  yes |
+| histogram_freq | PositiveInt | any | 1 |  no, by default 0 |
+| write_graph | bool | any | True |  no, by default True |
+| write_images | bool | any | True |  no, by default False |
+| write_steps_per_epoch | bool | any | True |  no, by default False |
+| update_freq | str or PositiveInt | positive integer or one of {"epoch", "batch"} | "epoch" |  no, by default "epoch" |
+| profile_batch | PositiveInt | any | 0 |  no, by default 0  |
+| embeddings_freq | PositiveInt or tuple of PositiveInt | any | 0 |  no, by default 0  |
+| embeddings_metadata | dict | any | refer to [tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/TensorBoard) |  no, by default None  |
+
+#### models.callbacks.BackupAndRestoreSpec
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| backup_dir | str | existing directory | "existing_dir" |  yes |
+| save_freq | str or PositiveInt | positive integer or "epoch" | "epoch" |  no, by default "epoch" |
+| delete_checkpoint | bool | any | True |  no, by default True |
+
+#### models.callbacks.TerminateOnNaN
+
+It takes no parameters, should be placed as a sole name when using list of callbacks or as empty mapping in the Yaml, see the example config at the end of this page.
+
+#### models.callbacks.CSVLogger
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| filename | str | path to the to-be-created file in an existing directory | "existing_dir/{epoch:02d}_{val_loss:.2f}.hdf5" |  yes |
+| separator | str | any | "," |  no, by default "," |
+| append | bool | any | False |  no, by default False  |
+
+#### models.callbacks.ProgbarLogger
+
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| count_mode | str | one of {"steps", "samples"} | "samples" |  no, by default "samples" |
+| stateful_metrics | tuple or list of str | any | ("val_loss") |  no, by default None |
 
 
 ### augmentation
@@ -273,6 +376,12 @@ Having dived in the specifics we shall close this section with an example YAML c
                         beta_2: 0.999
                         epsilon: 1e-07
                         amsgrad: False
+                callbacks:
+                    EarlyStopping:
+                        patience: 10
+                    ProgbarLogger:
+                        count_mode: "samples"
+                    TerminateOnNaN:
             - name: 'u_net_plus_plus'
                 net_h: 300
                 net_w: 300

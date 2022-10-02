@@ -19,7 +19,14 @@ from pyplatypus.segmentation.loss_functions import SegmentationLoss
 from pyplatypus.data_models.optimizer_datamodel import (
     AdadeltaSpec, AdagradSpec, AdamSpec, AdamaxSpec, FtrlSpec, NadamSpec, RMSpropSpec, SGDSpec
     )
+from pyplatypus.data_models.callbacks_datamodel import (
+    EarlyStoppingSpec, ModelCheckpointSpec, ReduceLROnPlateauSpec, TensorBoardSpec, BackupAndRestoreSpec,
+    TerminateOnNaNSpec, CSVLoggerSpec, ProgbarLoggerSpec
+)
+
 import tensorflow.keras.optimizers as TOPT
+import pyplatypus.utils.extended_tensorflow_callbacks as TCB
+from tensorflow.keras.callbacks import Callback
 
 
 def prepare_loss_and_metrics(
@@ -129,3 +136,49 @@ def prepare_optimizer(
     template_optimizer = getattr(TOPT, optimizer.name)
     initialized_optimizer = template_optimizer(**optimizer.dict())
     return initialized_optimizer
+
+
+def prepare_callbacks_list(callbacks_specs: list) -> list:
+    """Fills in the list of callbacks, optionally returning empty list, which is Tensorflow-compliant.
+
+    Parameters
+    ----------
+    callbacks_specs : list
+        List containing the Pydatnic-powered specificaions for each of the callbacks contained in the input config.
+
+    Returns
+    -------
+    callbacks: list
+        List containing the Tensorflow's backend native objects, defining the callbacks to be used in the training.
+    """
+    callbacks = []
+    for callback in callbacks_specs:
+        callbacks.append(prepare_callback(callback=callback))
+    return callbacks
+
+
+def prepare_callback(
+    callback: Union[
+        EarlyStoppingSpec, ModelCheckpointSpec, ReduceLROnPlateauSpec, TensorBoardSpec, BackupAndRestoreSpec,
+        TerminateOnNaNSpec, CSVLoggerSpec, ProgbarLoggerSpec
+        ]
+        ) -> Callback:
+    """Basing on the callback name, function takes the desired class from tensorflow backend and
+    provides it with the user-specified or default parameters.
+
+    Parameters
+    ----------
+    callback : Union[
+        EarlyStoppingSpec, ModelCheckpointSpec, ReduceLROnPlateauSpec, TensorBoardSpec, BackupAndRestoreSpec,
+        TerminateOnNaNSpec, CSVLoggerSpec, ProgbarLoggerSpec
+        ]
+        Callback specification, parsed via pydantic.
+
+    Returns
+    -------
+    initialized_optimizer: Callback
+        Inheriting from the Callback base class.
+    """
+    template_callback = getattr(TCB, f"{callback.name}Extension")
+    initialized_callback = template_callback(callback.dict())
+    return initialized_callback

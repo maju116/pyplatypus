@@ -34,7 +34,6 @@ semantic_segmentation:
           batch_size: 4
           epochs: 1
           loss: 'focal loss'
-          metrics: ['tversky coefficient', 'iou coefficient']
           optimizer:
             Adam:
                 learning_rate: 0.001
@@ -42,6 +41,12 @@ semantic_segmentation:
                 beta_2: 0.999
                 epsilon: 1e-07
                 amsgrad: False
+          callbacks:
+            EarlyStopping:
+                patience: 10
+            ProgbarLogger:
+                count_mode: "samples"
+            TerminateOnNaN:
 augmentation:
     InvertImg:
         always_apply: True

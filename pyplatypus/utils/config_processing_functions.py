@@ -21,6 +21,8 @@ from pyplatypus.data_models.semantic_segmentation_datamodel import (
 from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
 from pyplatypus.data_models import augmentation_datamodel as AM
 from pyplatypus.data_models import optimizer_datamodel as OM
+from pyplatypus.data_models import callbacks_datamodel as CM
+from pyplatypus.config.input_config import available_callbacks_without_specification
 
 
 class YamlConfigLoader(object):
@@ -88,7 +90,69 @@ class YamlConfigLoader(object):
         return config
 
     @staticmethod
-    def create_semantic_segmentation_config(config: dict) -> SemanticSegmentationInput:
+    def process_optimizer_field(model_config: dict) -> dict:
+        """Extracts the information regarding optimizer.
+
+        Parameters
+        ----------
+        model_config : dict
+            The element of the list of models from the input config.
+
+        Returns
+        -------
+        model_config: dict
+            Reshaped config.
+        """
+        optimizer_field = model_config.get("optimizer")
+        if optimizer_field is not None:
+            optimizer_name = list(optimizer_field.keys())[0]
+            optimizer_params = optimizer_field.get(optimizer_name)
+            optimizer_spec = getattr(OM, f"{optimizer_name}Spec")(**optimizer_params)
+            model_config.update(optimizer=optimizer_spec)
+        if optimizer_field is None and "optimizer" in model_config.keys():
+            model_config.pop("optimizer")
+        return model_config
+
+    @staticmethod
+    def process_callbacks_field(model_config: dict) -> dict:
+        """Extracts the information regarding callbacks and validates them prior to the latter pydantic-powered parsing.
+
+        Parameters
+        ----------
+        model_config : dict
+            The element of the list of models from the input config.
+
+        Returns
+        -------
+        model_config: dict
+            Reshaped config.
+
+        Raises
+        ------
+        ValueError
+            If the callbacks field is not recognized i.e. when it is not list nor dictionary.
+        """
+        callbacks_field = model_config.get("callbacks")
+        if callbacks_field is not None:
+            if isinstance(callbacks_field, list):
+                callbacks = list(set(callbacks_field).intersection(set(available_callbacks_without_specification)))
+                callbacks = [getattr(CM, f"{callback_name}Spec")() for callback_name in callbacks]
+            elif isinstance(callbacks_field, dict):
+                if "TerminateOnNaN" in callbacks_field.keys():
+                    callbacks_field.update(TerminateOnNaN={})
+                callbacks = [
+                    getattr(
+                        CM, f"{callback_name}Spec"
+                        )(**callbacks_field.get(callback_name)) for callback_name in callbacks_field.keys()
+                    ]
+            else:
+                raise ValueError("The structure of input not recognized for callback field!")
+            model_config.update(callbacks=callbacks)
+        if callbacks_field is None and "callbacks" in model_config.keys():
+            model_config.pop("callbacks")
+        return model_config
+
+    def create_semantic_segmentation_config(self, config: dict) -> SemanticSegmentationInput:
         """Extracts the data regarding the semantic segmentation CV task to be performed.
         Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
 
@@ -104,14 +168,8 @@ class YamlConfigLoader(object):
         data_ = SemanticSegmentationData(**config.get("semantic_segmentation").get("data"))
         models_ = []
         for m in config.get("semantic_segmentation").get("models"):
-            optimizer_ = m.get("optimizer")
-            if optimizer_ is not None:
-                optimizer_name = list(optimizer_.keys())[0]
-                optimizer_params = optimizer_.get(optimizer_name)
-                optimizer_spec = getattr(OM, f"{optimizer_name}Spec")(**optimizer_params)
-                m.update(optimizer=optimizer_spec)
-            if optimizer_ is None and "optimizer" in m.keys():
-                m.pop("optimizer")
+            m = self.process_optimizer_field(model_config=m)
+            m = self.process_callbacks_field(model_config=m)
             models_.append(SemanticSegmentationModelSpec(**m))
 
         semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)
