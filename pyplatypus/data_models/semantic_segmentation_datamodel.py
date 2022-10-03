@@ -61,6 +61,7 @@ class SemanticSegmentationData(BaseModel):
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str
+    fine_tuning_path: Optional[str]
     net_h: PositiveInt
     net_w: PositiveInt
     blocks: PositiveInt
@@ -86,6 +87,13 @@ class SemanticSegmentationModelSpec(BaseModel):
     metrics: Optional[List[Any]] = [IouCoefficientSpec()]
     optimizer: Any = AdamSpec()
     callbacks: List[Any] = []
+
+    @validator('fine_tuning_path')
+    def check_if_fine_tuning_path_exists(cls, v: str):
+        if v is not None:
+            if Path(v).exists():
+                return v
+            raise NotADirectoryError("Specified weights path does not exist!")
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):

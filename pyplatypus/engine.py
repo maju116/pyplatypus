@@ -150,6 +150,10 @@ class PlatypusEngine:
         model = u_shaped_model(
             **dict(model_cfg)
         ).model
+        ftp = model_cfg.fine_tuning_path
+        if ftp is not None:
+            model.load_weights(ftp)
+            print("Weights loaded from " + ftp)
         training_loss, metrics = prepare_loss_and_metrics(
             loss=model_cfg.loss, metrics=model_cfg.metrics, n_class=model_cfg.n_class
             )
@@ -240,7 +244,7 @@ class PlatypusEngine:
         ----------
         config : dict
             It is expected to be of the same form as the input config.
-        task : Optional[str], optional
+        task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
 
         Returns

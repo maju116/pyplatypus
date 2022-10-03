@@ -11,6 +11,7 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: 'res_u_net'
+          fine_tuning_path: 'tests/testdata/weights/test_res_u_net.h5'
           net_h: 300
           net_w: 300
           h_splits: 0
@@ -33,7 +34,7 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 4
           epochs: 1
-          loss: 
+          loss:
             focal loss:
                 gamma: 1
           metrics:
