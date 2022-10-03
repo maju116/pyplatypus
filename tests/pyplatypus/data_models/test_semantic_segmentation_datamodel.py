@@ -33,8 +33,8 @@ class TestSemanticSegmentationData:
             Path.mkdir(Path(tmpdir)/path, exist_ok=True)
 
     @pytest.mark.parametrize("paths_to_create", [
-        ("synthetic_validation_path", "synthetic_train_path"),
-        ("synthetic_train_path", "synthetic_validation_path")
+        ("synthetic_validation_path"),
+        ("synthetic_train_path")
         ])
     def test_check_if_path_exists(self, mocker, tmpdir, paths_to_create):
         self.mock_config(mocker)

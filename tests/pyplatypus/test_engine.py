@@ -72,7 +72,7 @@ class TestPlatypusEngine:
         assert isinstance(paths, list)
         assert model_name == "model1"
 
-    def mocked_produce_and_save_predicted_masks_for_model(self, model_name, task_type):
+    def mocked_produce_and_save_predicted_masks_for_model(self, model_name, custom_data_path, task_type):
         assert isinstance(model_name, str)
 
     def mocked_update_cache(self, model_name, model, training_history, model_specification):
