@@ -5,7 +5,8 @@ from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, SemanticSegmentationInput
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, \
+    SemanticSegmentationInput
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
@@ -49,6 +50,7 @@ class PlatypusEngine:
     get_model_names(config: dict, task: Optional[str] = "semantic_segmentation"):
         Extracts the names of all models related to the selected task.
     """
+
     def __init__(self, config: PlatypusSolverInput):
         """
         Performs Computer Vision tasks based on the certain data model, defined via the Pydantic parser.
@@ -63,9 +65,9 @@ class PlatypusEngine:
         self.cache = {}
 
     def update_cache(
-        self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
-        task_type: str = "semantic_segmentation"
-            ):
+            self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
+            task_type: str = "semantic_segmentation"
+    ):
         """Stores the trained model in the cache, under its name defined by a user.
 
         Parameters
@@ -84,7 +86,7 @@ class PlatypusEngine:
         self.cache.get(task_type).update({
             model_name: {"model": model, "training_history": training_history,
                          "model_specification": model_specification}
-            })
+        })
 
     def train(self) -> None:
         """
@@ -93,14 +95,15 @@ class PlatypusEngine:
         using the train and validation data generators created prior to the fitting.
         """
         cv_tasks_to_perform = check_cv_tasks(self.config)
-        train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(
+            config=self.config)
         if 'semantic_segmentation' in cv_tasks_to_perform:
             self.cache.update(semantic_segmentation={})
             self.build_and_train_segmentation_models(train_augmentation_pipeline, validation_augmentation_pipeline)
 
     def build_and_train_segmentation_models(
-        self, train_augmentation_pipeline: Optional[Compose], validation_augmentation_pipeline: Optional[Compose]
-            ):
+            self, train_augmentation_pipeline: Optional[Compose], validation_augmentation_pipeline: Optional[Compose]
+    ):
         """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.
 
         Parameters
@@ -115,11 +118,11 @@ class PlatypusEngine:
             train_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=train_augmentation_pipeline,
                 path=spec.data.train_path, only_images=False, return_paths=False
-                )
+            )
             validation_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=validation_augmentation_pipeline,
                 path=spec.data.validation_path, only_images=False, return_paths=False
-                )
+            )
             model = self.compile_u_shaped_model(model_cfg)
             callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             training_history = model.fit(
@@ -133,7 +136,7 @@ class PlatypusEngine:
             self.update_cache(
                 model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
                 model_specification=dict(model_cfg)
-                )
+            )
 
     @staticmethod
     def compile_u_shaped_model(model_cfg: SemanticSegmentationModelSpec):
@@ -153,7 +156,7 @@ class PlatypusEngine:
             print("Weights loaded from " + ftp)
         training_loss, metrics = prepare_loss_and_metrics(
             loss=model_cfg.loss, metrics=model_cfg.metrics, n_class=model_cfg.n_class
-            )
+        )
         optimizer = prepare_optimizer(optimizer=model_cfg.optimizer)
         model.compile(
             loss=training_loss,
@@ -182,8 +185,8 @@ class PlatypusEngine:
             self.produce_and_save_predicted_masks_for_model(model_name, task_type)
 
     def produce_and_save_predicted_masks_for_model(
-        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
-            ):
+            self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+    ):
         """For a certain model, function produces the prediction for a test data, or any data chosen by the user.
         Then these predictions are transformed into the binary masks and saved to the local files.
 
@@ -198,7 +201,7 @@ class PlatypusEngine:
         """
         predictions, paths, colormap, mode = self.predict_based_on_test_generator(
             model_name, custom_data_path, task_type
-            )
+        )
         image_masks = []
         for prediction in predictions:
             prediction_binary = transform_probabilities_into_binaries(prediction)
@@ -207,8 +210,8 @@ class PlatypusEngine:
         save_masks(image_masks, paths, model_name, mode)
 
     def predict_based_on_test_generator(
-        self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
-            ) -> tuple:
+            self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
+    ) -> tuple:
         """Produces predictions based on the selected model and the data generator created on the course of building this model.
 
         Parameters
@@ -236,10 +239,12 @@ class PlatypusEngine:
             path = spec.data.validation_path
         else:
             path = custom_data_path
+        idx = [cfg.name for cfg in self.config['semantic_segmentation'].models].index(model_name)
         g = prepare_data_generator(
-                data=spec.data, model_cfg=m, augmentation_pipeline=validation_augmentation_pipeline,
-                path=path, only_images=True, return_paths=False
-                )
+            data=spec.data, model_cfg=self.config['semantic_segmentation'].models[idx],
+            augmentation_pipeline=validation_augmentation_pipeline,
+            path=path, only_images=True, return_paths=False
+        )
         mode = g.mode
         colormap = g.colormap
         predictions, paths = predict_from_generator(model=m, generator=g)
