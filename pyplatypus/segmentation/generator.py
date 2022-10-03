@@ -344,7 +344,7 @@ def prepare_data_generator(
     data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
     augmentation_pipeline: Optional[A.Compose] = None, path: Optional[str] = None,
     only_images: bool = False, return_paths: bool = False
-        ) -> tuple:
+        ) -> SegmentationGenerator:
     """Prepares the train, validation and test generators, for each model separately.
 
     Parameters
