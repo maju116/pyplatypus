@@ -90,8 +90,9 @@ class SemanticSegmentationModelSpec(BaseModel):
 
     @validator('fine_tuning_path')
     def check_if_fine_tuning_path_exists(cls, v: str):
-        if v is None or Path(v).exists():
-            return v
+        if v is not None:
+            if Path(v).exists():
+                return v
         raise NotADirectoryError("Specified weights path does not exist!")
 
     @validator("activation_layer")
