@@ -152,7 +152,7 @@ class TestPlatypusEngine:
         self.initialized_engine.produce_and_save_predicted_masks(model_name)
 
     def test_produce_and_save_predicted_masks_for_model(self, mocker):
-        mocker.patch(self.engine_path + ".predict_based_on_test_generator",
+        mocker.patch(self.engine_path + ".predict_based_on_generator",
                      return_value=(["predictions"], ["paths"], "colormap", "mode"))
         mocker.patch("pyplatypus.engine.transform_probabilities_into_binaries", return_value="prediction_binary")
         mocker.patch("pyplatypus.engine.concatenate_binary_masks", return_value="prediction_mask")
@@ -160,12 +160,12 @@ class TestPlatypusEngine:
         self.initialized_engine.produce_and_save_predicted_masks(model_name="model1")
 
     @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
-    def test_predict_based_on_test_generator(self, mocker, custom_data_path):
+    def test_predict_based_on_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.predict_from_generator", return_value=("predictions", "paths"))
         mocker.patch("pyplatypus.engine.prepare_data_generator", return_value=mocked_generator)
         engine = self.initialized_engine
         engine.cache = {"semantic_segmentation": {"model_name": {"model": "model", "data_generator": mocked_generator}}}
-        assert engine.predict_based_on_test_generator(
+        assert engine.predict_based_on_generator(
             model_name="model_name", custom_data_path=custom_data_path
         ) == ("predictions", "paths", mocked_generator.colormap, mocked_generator.mode)
 

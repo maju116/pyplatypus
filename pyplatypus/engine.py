@@ -201,7 +201,7 @@ class PlatypusEngine:
         task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
         """
-        predictions, paths, colormap, mode = self.predict_based_on_test_generator(
+        predictions, paths, colormap, mode = self.predict_based_on_generator(
             model_name, custom_data_path, task_type
         )
         image_masks = []
@@ -211,7 +211,7 @@ class PlatypusEngine:
             image_masks.append(prediction_mask)
         save_masks(image_masks, paths, model_name, mode)
 
-    def predict_based_on_test_generator(
+    def predict_based_on_generator(
             self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
     ) -> tuple:
         """Produces predictions based on the selected model and the data generator created on the course of building this model.
@@ -236,14 +236,15 @@ class PlatypusEngine:
         """
         spec = self.config[task_type]
         m = self.cache.get(task_type).get(model_name).get("model")
+        model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
+
         _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
         if custom_data_path is None:
             path = spec.data.validation_path
         else:
             path = custom_data_path
-        idx = [cfg.name for cfg in self.config['semantic_segmentation'].models].index(model_name)
         g = prepare_data_generator(
-            data=spec.data, model_cfg=self.config['semantic_segmentation'].models[idx],
+            data=spec.data, model_cfg=model_cfg,
             augmentation_pipeline=validation_augmentation_pipeline,
             path=path, only_images=True, return_paths=True
         )
