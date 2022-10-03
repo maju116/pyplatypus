@@ -29,8 +29,7 @@ class PlatypusSolver(PlatypusEngine):
         else:
             ycl = YamlConfigLoader(config_yaml_path)
             self.config = ycl.load()
-            self.global_cache = dict()
-            super().__init__(self.config, self.global_cache)
+            super().__init__(self.config)
 
     def run(self):
         """For the time being the sole function of this method is to invoke the training mechanism but it is meant to be the tool

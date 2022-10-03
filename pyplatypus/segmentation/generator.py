@@ -45,7 +45,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         shuffle: bool = True,
         subdirs: Tuple[str, str] = ("images", "masks"),
         column_sep: str = ";",
-        test: bool = False
+        return_paths: bool = False
             ) -> None:
         """
         Generates batches of data (images and masks). The data will be looped over (in batches).
@@ -80,8 +80,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             Vector of two characters containing names of subdirectories with images and masks.
         column_sep: str
             Character. Configuration file separator.
-        test: bool
-            Indicates whether the generator is supposed to be of latter use as the test/prediction generator.
+        return_paths: bool
+            Indicates whether the generator is supposed return images paths.
         """
         self.path = path
         self.colormap = colormap
@@ -99,7 +99,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.column_sep = column_sep
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
-        self.test = test
+        self.return_paths = return_paths
         self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
         self.indexes = None
         self.steps_per_epoch = self.calculate_steps_per_epoch()
@@ -330,8 +330,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
                 images = np.stack([tr['image'] for tr in transformed], axis=0)
             else:
                 images = np.stack(images, axis=0)
-            batch = (images)
-        if self.test:
+            batch = images
+        if self.return_paths:
             batch = (images, paths)
         return batch
 
@@ -340,10 +340,11 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         return int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
 
 
-def prepare_data_generators(
+def prepare_data_generator(
     data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
-    train_augmentation_pipeline: Optional[A.Compose] = None, validation_augmentation_pipeline: Optional[A.Compose] = None
-        ) -> tuple:
+    augmentation_pipeline: Optional[A.Compose] = None, path: Optional[str] = None,
+    only_images: bool = False, return_paths: bool = False
+        ) -> SegmentationGenerator:
     """Prepares the train, validation and test generators, for each model separately.
 
     Parameters
@@ -352,57 +353,38 @@ def prepare_data_generators(
         Stores the data crucial for designing the data flow within the generators.
     model_cfg : SemanticSegmentationModelSpec
         From this data model information regarding the model is taken.
-    train_augmentation_pipeline : Optional[Compose]
+    augmentation_pipeline : Optional[Compose]
         Albumentations package native augmentation pipeline, None is allowed.
-    validation_augmentation_pipeline : Optional[Compose]
-        Albumentations package native augmentation pipeline, None is allowed.
+    path : str
+        Path for the generator.
+    only_images: bool
+        Should generator read only images (e.g. on train set for predictions).
+    return_paths: bool
+        Indicates whether the generator should output images paths.
 
     Returns
     -------
     generators: tuple
         Tuple composed of the generators.
     """
-    generators = []
-    for path, pipeline in zip(
-        [data.train_path, data.validation_path], [train_augmentation_pipeline, validation_augmentation_pipeline]
-            ):
-        generator_ = SegmentationGenerator(
-            path=path,
-            mode=data.mode,
-            colormap=data.colormap,
-            only_images=False,
-            net_h=model_cfg.net_h,
-            net_w=model_cfg.net_w,
-            h_splits=model_cfg.h_splits,
-            w_splits=model_cfg.w_splits,
-            grayscale=model_cfg.grayscale,
-            augmentation_pipeline=pipeline,
-            batch_size=model_cfg.batch_size,
-            shuffle=data.shuffle,
-            subdirs=data.subdirs,
-            column_sep=data.column_sep
-        )
-        generators.append(generator_)
-    test_generator = SegmentationGenerator(
+    generator = SegmentationGenerator(
         path=path,
         mode=data.mode,
         colormap=data.colormap,
-        only_images=True,  # TODO To be changed later, maybe different generator for test than for prediction?
+        only_images=only_images,
         net_h=model_cfg.net_h,
         net_w=model_cfg.net_w,
         h_splits=model_cfg.h_splits,
         w_splits=model_cfg.w_splits,
         grayscale=model_cfg.grayscale,
-        augmentation_pipeline=validation_augmentation_pipeline,
+        augmentation_pipeline=augmentation_pipeline,
         batch_size=model_cfg.batch_size,
         shuffle=False,
         subdirs=data.subdirs,
         column_sep=data.column_sep,
-        test=True
+        return_paths=return_paths
         )
-    generators.append(test_generator)
-    generators = tuple(generators)
-    return generators
+    return generator
 
 
 def predict_from_generator(model: u_shaped_model, generator: SegmentationGenerator) -> tuple:

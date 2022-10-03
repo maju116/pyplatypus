@@ -2,7 +2,6 @@ semantic_segmentation:
     data:
         train_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_train'
         validation_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_validation'
-        test_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_test'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
@@ -23,8 +22,13 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           batch_size: 32
           epochs: 20
-          loss: 'focal loss'
-          metrics: ['tversky coefficient', 'iou coefficient']
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
           optimizer:
             Adam:
                 learning_rate: 0.001
@@ -46,8 +50,13 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           batch_size: 32
           epochs: 20
-          loss: 'focal loss'
-          metrics: ['tversky coefficient', 'iou coefficient']
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
           optimizer:
             Adam:
                 learning_rate: 0.001

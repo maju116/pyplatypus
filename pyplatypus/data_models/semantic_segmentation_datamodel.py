@@ -12,12 +12,12 @@ from pyplatypus.config.input_config import (
     available_optimizers, available_activations, available_callbacks
     )
 from pyplatypus.data_models.optimizer_datamodel import AdamSpec
+from pyplatypus.data_models.semantic_segmentation_loss_datamodel import CceLossSpec, IouCoefficientSpec
 
 
 class SemanticSegmentationData(BaseModel):
     train_path: str
     validation_path: str
-    test_path: str
     colormap: Union[
         List[List[conint(ge=0, le=255)]],
         List[Tuple[conint(ge=0, le=255)]]
@@ -39,12 +39,6 @@ class SemanticSegmentationData(BaseModel):
             return v
         raise NotADirectoryError("Specified validation path does not exist!")
 
-    @validator('test_path')
-    def check_if_test_path_exists(cls, v: str):
-        if Path(v).exists():
-            return v
-        raise NotADirectoryError("Specified test path does not exist!")
-
     @validator("colormap")
     def check_colormap_length(cls, v: list):
         if all([len(c) == 3 for c in v]):
@@ -60,6 +54,7 @@ class SemanticSegmentationData(BaseModel):
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str
+    fine_tuning_path: Optional[str]
     net_h: PositiveInt
     net_w: PositiveInt
     blocks: PositiveInt
@@ -81,10 +76,17 @@ class SemanticSegmentationModelSpec(BaseModel):
     use_up_sampling2d: Optional[bool] = False
     u_net_conv_block_width: Optional[int] = 2
     activation_layer: Optional[str] = "relu"
-    loss: Optional[str] = "Iou loss"
-    metrics: Optional[List[str]] = ["IoU Coefficient"]
+    loss: Any = CceLossSpec()
+    metrics: Optional[List[Any]] = [IouCoefficientSpec()]
     optimizer: Any = AdamSpec()
     callbacks: List[Any] = []
+
+    @validator('fine_tuning_path')
+    def check_if_fine_tuning_path_exists(cls, v: str):
+        if v is not None:
+            if Path(v).exists():
+                return v
+            raise NotADirectoryError("Specified weights path does not exist!")
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):
@@ -97,7 +99,8 @@ class SemanticSegmentationModelSpec(BaseModel):
 
     @validator("loss")
     def check_the_loss_name(cls, v: str):
-        if convert_to_snake_case(v) in implemented_losses:
+        v_converted = convert_to_snake_case(v.name)
+        if v_converted in implemented_losses:
             return v
         raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
 
@@ -118,7 +121,7 @@ class SemanticSegmentationModelSpec(BaseModel):
 
     @validator("metrics")
     def check_the_metrics(cls, v: list):
-        v_converted = [convert_to_snake_case(case) for case in v]
+        v_converted = [convert_to_snake_case(model.name) for model in v]
         if set(v_converted).issubset(set(implemented_metrics)):
             return v
         raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
