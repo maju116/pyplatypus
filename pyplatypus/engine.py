@@ -232,9 +232,13 @@ class PlatypusEngine:
         spec = self.config[task_type]
         m = self.cache.get(task_type).get(model_name).get("model")
         _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        if custom_data_path is None:
+            path = spec.data.validation_path
+        else:
+            path = custom_data_path
         g = prepare_data_generator(
                 data=spec.data, model_cfg=m, augmentation_pipeline=validation_augmentation_pipeline,
-                path=custom_data_path, only_images=True, return_paths=False
+                path=path, only_images=True, return_paths=False
                 )
         mode = g.mode
         colormap = g.colormap
