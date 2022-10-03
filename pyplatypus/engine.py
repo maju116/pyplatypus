@@ -120,7 +120,7 @@ class PlatypusEngine:
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=validation_augmentation_pipeline,
                 path=spec.data.validation_path, only_images=False, return_paths=False
                 )
-            model = self.compile_u_shaped_model(model_cfg, segmentation_spec=spec)
+            model = self.compile_u_shaped_model(model_cfg)
             callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             training_history = model.fit(
                 train_data_generator,
