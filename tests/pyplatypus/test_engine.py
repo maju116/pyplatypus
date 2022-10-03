@@ -44,7 +44,6 @@ class TestPlatypusEngine:
             data=SemanticSegmentationData(**{
                 "train_path": "tests/",
                 "validation_path": "tests/",
-                "test_path": "tests/",
                 "colormap": [[0, 0, 0]],
                 "mode": "nested_dirs",
                 "shuffle": True,
@@ -154,6 +153,7 @@ class TestPlatypusEngine:
     @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
     def test_predict_based_on_test_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.predict_from_generator", return_value=("predictions", "paths"))
+        mocker.patch("pyplatypus.engine.prepare_data_generator", return_value=mocked_generator)
         engine = self.initialized_engine
         engine.cache = {"semantic_segmentation": {"model_name": {"model": "model", "data_generator": mocked_generator}}}
         assert engine.predict_based_on_test_generator(
