@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
-from pyplatypus.segmentation.generator import SegmentationGenerator, split_masks_into_binary, prepare_data_generators, predict_from_generator
+from pyplatypus.segmentation.generator import SegmentationGenerator, split_masks_into_binary, prepare_data_generator, predict_from_generator
 
 
 @pytest.mark.parametrize(
@@ -235,11 +235,10 @@ def test_calculate_steps_per_epoch(mocker):
     test_sg.batch_size = 2
     assert test_sg.calculate_steps_per_epoch() == 2
 
-def test_prepare_data_generators(mocker):
+def test_prepare_data_generator(mocker):
     data = SemanticSegmentationData(**{
         "train_path": "tests/",
         "validation_path": "tests/",
-        "test_path": "tests/",
         "colormap": [[0,0,0]],
         "mode": "nested_dirs",
         "shuffle": True,
@@ -256,7 +255,7 @@ def test_prepare_data_generators(mocker):
         "dropout": .1
     })
     mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator", return_value="semantic_generator")
-    assert prepare_data_generators(data, model_cfg) == ("semantic_generator", "semantic_generator", "semantic_generator")
+    assert prepare_data_generator(data, model_cfg) == "semantic_generator"
 
 
 class mocked_model:

@@ -16,7 +16,6 @@ class TestSemanticSegmentationData:
         ssd_data = {
             "train_path": f"{tmpdir}/synthetic_train_path",
             "validation_path": f"{tmpdir}/synthetic_validation_path",
-            "test_path": f"{tmpdir}/synthetic_test_path",
             "colormap": [[0,0,0]],
             "mode": "mode1",
             "shuffle": True,
@@ -34,8 +33,7 @@ class TestSemanticSegmentationData:
             Path.mkdir(Path(tmpdir)/path, exist_ok=True)
 
     @pytest.mark.parametrize("paths_to_create", [
-        ("synthetic_validation_path", "synthetic_test_path"),
-        ("synthetic_train_path", "synthetic_test_path"),
+        ("synthetic_validation_path", "synthetic_train_path"),
         ("synthetic_train_path", "synthetic_validation_path")
         ])
     def test_check_if_path_exists(self, mocker, tmpdir, paths_to_create):
@@ -48,7 +46,7 @@ class TestSemanticSegmentationData:
 
     def test_check_mode(self, mocker, tmpdir):
         self.mock_config(mocker)
-        self.create_paths("synthetic_train_path", "synthetic_validation_path", "synthetic_test_path", tmpdir=tmpdir)
+        self.create_paths("synthetic_train_path", "synthetic_validation_path", tmpdir=tmpdir)
         data = self.create_input(tmpdir)
         data.update({"mode": "invalid_mode"})
         with pytest.raises(ValueError):
@@ -58,7 +56,7 @@ class TestSemanticSegmentationData:
 
     def test_colormap_validator(self, mocker, tmpdir):
         self.mock_config(mocker)
-        self.create_paths("synthetic_train_path", "synthetic_validation_path", "synthetic_test_path", tmpdir=tmpdir)
+        self.create_paths("synthetic_train_path", "synthetic_validation_path", tmpdir=tmpdir)
         data = self.create_input(tmpdir)
         data.update(colormap=[(0), (1)])
         with pytest.raises(ValueError):

@@ -76,8 +76,8 @@ class TestPlatypusEngine:
     def mocked_produce_and_save_predicted_masks_for_model(self, model_name, task_type):
         assert isinstance(model_name, str)
 
-    def mocked_update_cache(self, model_name, model, training_history, model_specification, generator):
-        self.results = (model_name, model, mocked_training_history, model_specification, generator)
+    def mocked_update_cache(self, model_name, model, training_history, model_specification):
+        self.results = (model_name, model, mocked_training_history, model_specification)
 
     def mock_build_and_train_segmentation_models(self, train_augmentation_pipeline, validation_augmentation_pipeline):
         self.model = "trained_model"
@@ -92,14 +92,13 @@ class TestPlatypusEngine:
         engine.cache.update(semantic_segmentation={})
         engine.update_cache(
             model_name="model_name", model="model", training_history="training_history",
-            model_specification={"model_type": "u_shaped"}, generator="generator"
+            model_specification={"model_type": "u_shaped"}
         )
         assert engine.cache == {"semantic_segmentation":
             {"model_name": {
                 "model": "model",
                 "training_history": "training_history",
-                "model_specification": {"model_type": "u_shaped"},
-                "data_generator": "generator"
+                "model_specification": {"model_type": "u_shaped"}
             }}
         }
 
@@ -113,15 +112,15 @@ class TestPlatypusEngine:
 
     def test_build_and_train_segmentation_model(self, mocker):
         engine = self.initialized_engine
-        mocker.patch("pyplatypus.engine.prepare_data_generators", return_value=(
-            mocked_generator, mocked_generator, mocked_generator
+        mocker.patch("pyplatypus.engine.prepare_data_generator", return_value=(
+            mocked_generator
         ))
         mocker.patch(self.engine_path + ".compile_u_shaped_model", return_value=mocked_u_shaped_model)
         mocker.patch(self.engine_path + ".update_cache", self.mocked_update_cache)
         engine.build_and_train_segmentation_models(None, None)
         assert self.results == (
             "model_name", mocked_u_shaped_model, mocked_training_history,
-            self.config.semantic_segmentation.models[0].dict(), mocked_generator
+            self.config.semantic_segmentation.models[0].dict()
         )
 
     def test_compile_u_shaped_model(self, mocker):
@@ -129,8 +128,7 @@ class TestPlatypusEngine:
         mocker.patch("pyplatypus.engine.u_shaped_model", return_value=mocked_u_shaped_model)
         mocker.patch("pyplatypus.engine.prepare_loss_and_metrics", return_value=(None, None))
         mocker.patch("pyplatypus.engine.prepare_optimizer", return_value=None)
-        self.initialized_engine.compile_u_shaped_model(model_cfg=model_cfg,
-                                                       segmentation_spec=self.config.semantic_segmentation)
+        self.initialized_engine.compile_u_shaped_model(model_cfg=model_cfg)
         assert True
 
     def test_get_model_names(self):
