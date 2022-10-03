@@ -64,7 +64,7 @@ class TestPlatypusEngine:
         ),
         augmentation=AugmentationSpecFull()
     )
-    initialized_engine = PlatypusEngine(config=config.copy(), cache={})
+    initialized_engine = PlatypusEngine(config=config.copy())
     engine_path = "pyplatypus.engine.PlatypusEngine"
 
     @staticmethod
@@ -83,7 +83,7 @@ class TestPlatypusEngine:
         self.model = "trained_model"
 
     def test_init(self):
-        initialized_engine = PlatypusEngine(config=self.config.copy(), cache={})
+        initialized_engine = PlatypusEngine(config=self.config.copy())
         assert initialized_engine.config == dict(self.config)
         assert initialized_engine.cache == {}
 

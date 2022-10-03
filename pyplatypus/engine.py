@@ -50,7 +50,7 @@ class PlatypusEngine:
     get_model_names(config: dict, task: Optional[str] = "semantic_segmentation"):
         Extracts the names of all models related to the selected task.
     """
-    def __init__(self, config: PlatypusSolverInput, cache: dict):
+    def __init__(self, config: PlatypusSolverInput):
         """
         Performs Computer Vision tasks based on the certain data model, defined via the Pydantic parser.
 
@@ -59,11 +59,9 @@ class PlatypusEngine:
         config: PlatypusSolverInput
             Stores the specific task-related configs nested as its attributes e.g. to the models that are to
             be trained can be accessed as config.semantic_segmentation.models.
-        cache: dict
-            Dictionary that could be used as the handy storage for both outputs and intermediate results.
         """
         self.config = dict(config)
-        self.cache = cache
+        self.cache = {}
 
     def update_cache(
         self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
