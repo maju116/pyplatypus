@@ -165,7 +165,7 @@ class PlatypusEngine:
         )
         return model
 
-    def produce_and_save_predicted_masks(self, model_name: Optional[str] = None,
+    def produce_and_save_predicted_masks(self, model_name: Optional[str] = None, custom_data_path: Optional[str] = None,
                                          task_type: str = "semantic_segmentation"):
         """If the name parameter is set to None, then the outputs are produced for all the trained models.
         Otherwise, the model pointed at is used.
@@ -174,15 +174,17 @@ class PlatypusEngine:
         ----------
         model_name : str
             Name of the model, should be consistent with the input config.
+        custom_data_path : Optional[str], optional
+            If provided, the data is loaded from a custom source.
         task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
         """
         if model_name is None:
             model_names = self.get_model_names(config=self.config, task_type=task_type)
             for model_name in model_names:
-                self.produce_and_save_predicted_masks_for_model(model_name, task_type)
+                self.produce_and_save_predicted_masks_for_model(model_name, custom_data_path, task_type)
         else:
-            self.produce_and_save_predicted_masks_for_model(model_name, task_type)
+            self.produce_and_save_predicted_masks_for_model(model_name, custom_data_path, task_type)
 
     def produce_and_save_predicted_masks_for_model(
             self, model_name: str, custom_data_path: Optional[str] = None, task_type: str = "semantic_segmentation"
