@@ -14,6 +14,7 @@ check_cv_tasks(config: dict)
 
 from yaml import load, FullLoader
 from pathlib import Path
+from pyplatypus.utils.toolbox import convert_to_camel_case
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import (
     SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
@@ -22,6 +23,8 @@ from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInp
 from pyplatypus.data_models import augmentation_datamodel as AM
 from pyplatypus.data_models import optimizer_datamodel as OM
 from pyplatypus.data_models import callbacks_datamodel as CM
+from pyplatypus.data_models import semantic_segmentation_loss_datamodel as SSLM
+
 from pyplatypus.config.input_config import available_callbacks_without_specification
 
 
@@ -152,6 +155,82 @@ class YamlConfigLoader(object):
             model_config.pop("callbacks")
         return model_config
 
+    @staticmethod
+    def process_loss_field(model_config: dict) -> dict:
+        """Transforms the loss field into pydantic data model, used later while defining the loss and metrics.
+
+        Parameters
+        ----------
+        model_config : dict
+            Configuration upon which the model is built.
+
+        Returns
+        -------
+        model_config: dict
+            Processed config.
+
+        Raises
+        ------
+        ValueError
+            If the field has unexpected format e.g. list.
+        """
+        loss_field = model_config.get("loss")
+        if loss_field is not None:
+            if isinstance(loss_field, str):
+                cc_loss_name = convert_to_camel_case(loss_field)
+                loss_spec = getattr(SSLM, f"{cc_loss_name}Spec")()
+                model_config.update(loss=loss_spec)
+            elif isinstance(loss_field, dict):
+                loss_name = list(loss_field.keys())[0]
+                loss_params = loss_field.get(loss_name) if loss_field.get(loss_name) else {}
+                cc_loss_name = convert_to_camel_case(loss_name)
+                loss_spec = getattr(SSLM, f"{cc_loss_name}Spec")(**loss_params)
+                model_config.update(loss=loss_spec)
+            else:
+                raise ValueError("The structure of input not recognized for loss field!")
+        if loss_field is None and "loss" in model_config.keys():
+            model_config.pop("loss")
+        return model_config
+
+    @staticmethod
+    def process_metrics_field(model_config: dict) -> dict:
+        """Extracts the information regarding metrics and validates them prior to the latter pydantic-powered parsing.
+
+        Parameters
+        ----------
+        model_config : dict
+            The element of the list of models from the input config.
+
+        Returns
+        -------
+        model_config: dict
+            Reshaped config.
+
+        Raises
+        ------
+        ValueError
+            If the metrics field is not recognized i.e. when it is not list nor dictionary.
+        """
+        metrics_field = model_config.get("metrics")
+        if metrics_field is not None:
+            if isinstance(metrics_field, list):
+                metrics_names = list(set(metrics_field))
+                cc_metrics_names = [convert_to_camel_case(metric_name) for metric_name in metrics_names]
+                metrics = [getattr(SSLM, f"{cc_metric_name}Spec")() for cc_metric_name in cc_metrics_names]
+            elif isinstance(metrics_field, dict):
+                cc_metrics_names = [convert_to_camel_case(metric_name) for metric_name in metrics_field.keys()]
+                metrics = [
+                    getattr(SSLM, f"{cc_metric_name}Spec")(**metrics_field.get(metric_name)) if metrics_field.get(
+                        metric_name
+                        ) else getattr(SSLM, f"{cc_metric_name}Spec")() for cc_metric_name, metric_name in zip(cc_metrics_names, metrics_field.keys())
+                    ]
+            else:
+                raise ValueError("The structure of input not recognized for callback field!")
+            model_config.update(metrics=metrics)
+        if metrics_field is None and "metrics" in model_config.keys():
+            model_config.pop("metrics")
+        return model_config
+
     def create_semantic_segmentation_config(self, config: dict) -> SemanticSegmentationInput:
         """Extracts the data regarding the semantic segmentation CV task to be performed.
         Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
@@ -170,8 +249,9 @@ class YamlConfigLoader(object):
         for m in config.get("semantic_segmentation").get("models"):
             m = self.process_optimizer_field(model_config=m)
             m = self.process_callbacks_field(model_config=m)
+            m = self.process_loss_field(model_config=m)
+            m = self.process_metrics_field(model_config=m)
             models_.append(SemanticSegmentationModelSpec(**m))
-
         semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)
         return semantic_segmentation_
 

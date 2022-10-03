@@ -3,6 +3,18 @@ from pyplatypus.utils.prepare_loss_metrics import(
     )
 
 
+class mocked_loss_spec:
+    name = "loss_name"
+
+    def __init__(*args, **kwargs):
+        pass
+
+    def loss_name(self, x, y):
+        return "loss_value"
+
+    def dict():
+        return {"name": "loss_name"}
+
 class mocked_optimizer_spec:
 
     name = "optimizer_name"
@@ -32,9 +44,10 @@ class mocked_tcb_callback:
     
 
 def test_prepare_loss_function(mocker, monkeypatch):
-    mocker.patch("pyplatypus.utils.prepare_loss_metrics.convert_to_snake_case", return_value="loss_function_name")
-    monkeypatch.setattr("pyplatypus.utils.prepare_loss_metrics.SegmentationLoss.loss_function_name", "loss_function", raising=False)
-    assert prepare_loss_function(loss="loss_function_name", n_class=2) == "loss_function"
+    mocker.patch("pyplatypus.utils.prepare_loss_metrics.convert_to_camel_case", return_value="LossFunction")
+    monkeypatch.setattr("pyplatypus.utils.prepare_loss_metrics.ELF.LossFunctionGetter", mocked_loss_spec, raising=False)
+    loss_function = prepare_loss_function(loss=mocked_loss_spec, n_class=2)
+    assert loss_function(x=1, y=2) == "loss_value"
 
 def test_prepare_metrics(mocker):
     mocker.patch("pyplatypus.utils.prepare_loss_metrics.prepare_loss_function", return_value="duplicated_metric1")
