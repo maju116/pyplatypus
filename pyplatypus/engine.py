@@ -243,7 +243,7 @@ class PlatypusEngine:
         g = prepare_data_generator(
             data=spec.data, model_cfg=self.config['semantic_segmentation'].models[idx],
             augmentation_pipeline=validation_augmentation_pipeline,
-            path=path, only_images=True, return_paths=False
+            path=path, only_images=True, return_paths=True
         )
         mode = g.mode
         colormap = g.colormap
