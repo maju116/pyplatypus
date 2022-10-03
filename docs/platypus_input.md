@@ -25,7 +25,6 @@ Below there is each field described more thoroughly.
 |---|---|---|---|---|
 | train_path | str | any | 'tests/testdata/nested_dirs/' |  yes  |
 | validation_path | str | any | 'tests/testdata/nested_dirs/' |  yes  |
-| test_path | str | any | 'tests/testdata/nested_dirs/' |  yes  |
 | colormap | List[List]  | any | [[0, 0, 0], [255, 255, 255]] | yes |
 | mode | str | 'nested_dirs' or 'config_file' | 'nested_dirs' | yes |
 | shuffle | boolean | any | False | yes |

@@ -18,7 +18,6 @@ from pyplatypus.data_models.semantic_segmentation_loss_datamodel import CceLossS
 class SemanticSegmentationData(BaseModel):
     train_path: str
     validation_path: str
-    test_path: str
     colormap: Union[
         List[List[conint(ge=0, le=255)]],
         List[Tuple[conint(ge=0, le=255)]]
@@ -39,12 +38,6 @@ class SemanticSegmentationData(BaseModel):
         if Path(v).exists():
             return v
         raise NotADirectoryError("Specified validation path does not exist!")
-
-    @validator('test_path')
-    def check_if_test_path_exists(cls, v: str):
-        if Path(v).exists():
-            return v
-        raise NotADirectoryError("Specified test path does not exist!")
 
     @validator("colormap")
     def check_colormap_length(cls, v: list):

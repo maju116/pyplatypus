@@ -9,7 +9,7 @@ create_augmentation_pipeline(augmentation_dict: dict, train: bool)
     Creates augmentation pipeline based on dictionary.
 """
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Any
 import albumentations as A
 from pyplatypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
@@ -67,7 +67,7 @@ def create_augmentation_pipeline(augmentation_dict: dict, train: bool) -> A.core
     return pipeline
 
 
-def prepare_augmentation_pipelines(config: dict) -> Tuple[A.Compose]:
+def prepare_augmentation_pipelines(config: dict) -> tuple[Optional[Any], Optional[Any]]:
     """
     Prepares the pipelines consisting of the transforms taken from the albumentations module.
 
