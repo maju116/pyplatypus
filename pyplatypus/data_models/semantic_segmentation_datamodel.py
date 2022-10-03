@@ -93,7 +93,7 @@ class SemanticSegmentationModelSpec(BaseModel):
         if v is not None:
             if Path(v).exists():
                 return v
-        raise NotADirectoryError("Specified weights path does not exist!")
+            raise NotADirectoryError("Specified weights path does not exist!")
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):
