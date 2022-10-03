@@ -65,9 +65,9 @@ class PlatypusEngine:
         self.cache = {}
 
     def update_cache(
-            self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame, model_specification: dict,
-            task_type: str = "semantic_segmentation"
-    ):
+            self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame,
+            model_specification: SemanticSegmentationModelSpec, task_type: str = "semantic_segmentation"
+            ):
         """Stores the trained model in the cache, under its name defined by a user.
 
         Parameters
@@ -135,7 +135,7 @@ class PlatypusEngine:
             )
             self.update_cache(
                 model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
-                model_specification=dict(model_cfg)
+                model_specification=model_cfg
             )
 
     @staticmethod
@@ -305,7 +305,7 @@ class PlatypusEngine:
         task_cfg = self.cache.get(task_type)
         model_cfg = task_cfg.get(model_name).get("model_specification")
         evaluation_table = self.prepare_evaluation_table(model_cfg)
-        evaluation_metrics = self.evaluate_based_on_validation_generator(model_name, task_type, custom_data_path)
+        evaluation_metrics = self.evaluate_based_on_generator(model_name, model_cfg, task_type, custom_data_path)
         prepared_evaluation_metrics = self.prepare_evaluation_results(
             evaluation_metrics, model_name, evaluation_columns=evaluation_table.columns
             )
@@ -326,7 +326,7 @@ class PlatypusEngine:
         evaluation_table: pd.DataFrame
             Template table.
         """
-        loss_name, metrics_names = model_cfg.get("loss"), model_cfg.get("metrics")
+        loss_name, metrics_names = model_cfg.loss.name, [metric.name for metric in model_cfg.metrics]
         evaluation_columns = ["model_name", loss_name, "categorical_crossentropy"] + metrics_names
         evaluation_table = pd.DataFrame(columns=evaluation_columns)
         return evaluation_table
@@ -353,8 +353,8 @@ class PlatypusEngine:
         prepared_evaluation_metrics = pd.DataFrame(evaluation_results, columns=evaluation_columns)
         return prepared_evaluation_metrics
 
-    def evaluate_based_on_validation_generator(
-        self, model_name: str, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
+    def evaluate_based_on_generator(
+        self, model_name: str, model_cfg: dict, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
             ) -> tuple:
         """Produces metrics and loss value based on the selected model and the data generator created on the course
         of building this model.
@@ -371,12 +371,18 @@ class PlatypusEngine:
         metrics: np.array
             Consists of the predictions for all the data yielded by the generator.
         """
+        task_cfg = self.config.get(task_type)
         m = self.cache.get(task_type).get(model_name).get("model")
-        g = self.cache.get(task_type).get(model_name).get("validation_generator")
-        if custom_data_path is not None:
-            g.path = custom_data_path
-            g.config = g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
-            g.steps_per_epoch = int(np.ceil(len(g.config["images_paths"]) / g.batch_size))
+        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        if custom_data_path is None:
+            path = task_cfg.data.validation_path
+        else:
+            path = custom_data_path
+        g = prepare_data_generator(
+            data=task_cfg.data, model_cfg=model_cfg,
+            augmentation_pipeline=validation_augmentation_pipeline,
+            path=path, only_images=False, return_paths=False
+            )
         metrics = m.evaluate(x=g)
         return metrics
 
