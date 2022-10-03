@@ -10,7 +10,6 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: 'u_net1'
-          fine_tuning_path: null
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -39,7 +38,6 @@ semantic_segmentation:
                 epsilon: 1e-07
                 amsgrad: False
         - name: 'u_net2'
-          fine_tuning_path: null
           net_h: 256
           net_w: 256
           h_splits: 0
