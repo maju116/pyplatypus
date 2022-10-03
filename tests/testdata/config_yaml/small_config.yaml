@@ -11,6 +11,7 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: 'res_u_net'
+          fine_tuning_path: null
           net_h: 300
           net_w: 300
           h_splits: 0
@@ -33,8 +34,13 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 32
           epochs: 100
-          loss: 'focal loss'
-          metrics: ['tversky coefficient', 'iou coefficient']
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
           optimizer:
             Adam:
                 learning_rate: 0.001
@@ -43,6 +49,7 @@ semantic_segmentation:
                 epsilon: 1e-07
                 amsgrad: False
         - name: 'u_net_plus_plus'
+          fine_tuning_path: null
           net_h: 300
           net_w: 300
           h_splits: 0
@@ -62,8 +69,13 @@ semantic_segmentation:
           use_up_sampling2d: True
           batch_size: 32
           epochs: 100
-          loss: 'focal loss'
-          metrics: ['tversky coefficient', 'iou coefficient']
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
           optimizer:
             Adam:
                 learning_rate: 0.001
