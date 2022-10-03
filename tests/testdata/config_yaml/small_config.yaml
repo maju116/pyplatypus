@@ -3,7 +3,6 @@ semantic_segmentation:
     data:
         train_path: 'tests/testdata/nested_dirs/'
         validation_path: 'tests/testdata/nested_dirs/'
-        test_path: 'tests/testdata/nested_dirs/'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
