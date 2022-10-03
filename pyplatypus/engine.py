@@ -354,7 +354,7 @@ class PlatypusEngine:
         return prepared_evaluation_metrics
 
     def evaluate_based_on_generator(
-        self, model_name: str, model_cfg: dict, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
+        self, model_name: str, model_cfg: SemanticSegmentationModelSpec, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
             ) -> tuple:
         """Produces metrics and loss value based on the selected model and the data generator created on the course
         of building this model.
