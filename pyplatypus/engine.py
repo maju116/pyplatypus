@@ -276,17 +276,17 @@ class PlatypusEngine:
         if model_name is None:
             model_names = self.get_model_names(config=self.config, task_type=task_type)
             for model_name in model_names:
-                prepared_evaluation_metrics = self.evaluate_model(model_name, task_type, custom_data_path)
+                prepared_evaluation_metrics = self.evaluate_model(model_name, custom_data_path, task_type)
                 evaluations.append(prepared_evaluation_metrics)
         else:
-            prepared_evaluation_metrics = self.evaluate_model(model_name, task_type, custom_data_path)
+            prepared_evaluation_metrics = self.evaluate_model(model_name, custom_data_path, task_type)
             evaluations.append(prepared_evaluation_metrics)
         print("EVALUATION RESULTS:\n")
         print(evaluations)
         return evaluations
 
     def evaluate_model(
-        self, model_name: str, task_type: str = "semantic_segmentation", custom_data_path: str = None
+        self, model_name: str, custom_data_path: str = None, task_type: str = "semantic_segmentation"
             ) -> pd.DataFrame:
         """Prepares the crucial objects and evaluates model invoking the method calling the .evaluate() method
         with the use of validation generator.
@@ -295,6 +295,8 @@ class PlatypusEngine:
         ----------
         model_name : str
             The model that is to be evaluated.
+        custom_data_path : str, optional
+            Makes evaluating on a data different from the one used for validation possible, by default None
         task_type : str
             Task with which the model is associated.
 
