@@ -165,25 +165,20 @@ class PlatypusEngine:
         )
         return model
 
-    def produce_and_save_predicted_masks(self, model_name: Optional[str] = None, custom_data_path: Optional[str] = None,
+    def produce_and_save_predicted_masks(self, custom_data_path: Optional[str] = None,
                                          task_type: str = "semantic_segmentation"):
         """If the name parameter is set to None, then the outputs are produced for all the trained models.
         Otherwise, the model pointed at is used.
 
         Parameters
         ----------
-        model_name : str
-            Name of the model, should be consistent with the input config.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
         """
-        if model_name is None:
-            model_names = self.get_model_names(config=self.config, task_type=task_type)
-            for model_name in model_names:
-                self.produce_and_save_predicted_masks_for_model(model_name, custom_data_path, task_type)
-        else:
+        model_names = self.get_model_names(config=self.config, task_type=task_type)
+        for model_name in model_names:
             self.produce_and_save_predicted_masks_for_model(model_name, custom_data_path, task_type)
 
     def produce_and_save_predicted_masks_for_model(
@@ -254,14 +249,11 @@ class PlatypusEngine:
         return predictions, paths, colormap, mode
 
     def evaluate_models(
-        self, model_name: str = None, custom_data_path: str = None, task_type: str = "semantic_segmentation"
+        self, custom_data_path: str = None, task_type: str = "semantic_segmentation"
             ) -> list:
         """Evaluates all the models associated with a certain task or the one specified by the model_name.
 
         Parameters
-        ----------
-        model_name : str, optional
-            Name of the model to be evaluated, by default None
         custom_data_path : str, optional
             Makes evaluating on a data different from the one used for validation possible, by default None
         task_type : str, optional
@@ -273,12 +265,8 @@ class PlatypusEngine:
             List of DataFrames.
         """
         evaluations = []
-        if model_name is None:
-            model_names = self.get_model_names(config=self.config, task_type=task_type)
-            for model_name in model_names:
-                prepared_evaluation_metrics = self.evaluate_model(model_name, custom_data_path, task_type)
-                evaluations.append(prepared_evaluation_metrics)
-        else:
+        model_names = self.get_model_names(config=self.config, task_type=task_type)
+        for model_name in model_names:
             prepared_evaluation_metrics = self.evaluate_model(model_name, custom_data_path, task_type)
             evaluations.append(prepared_evaluation_metrics)
         print("EVALUATION RESULTS:\n")
