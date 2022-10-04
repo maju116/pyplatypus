@@ -2,41 +2,44 @@ from tensorflow.keras.layers import (
     SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,
     Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D,
     UpSampling2D
-    )
+)
 from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
-from typing import Tuple, Any, Optional, Union
+from typing import Tuple, Any, Optional, Union, List
 
 
 class u_shaped_model:
 
     def __init__(
-        self,
-        net_h: int,
-        net_w: int,
-        grayscale: bool,
-        blocks: Optional[int] = 4,
-        n_class: Optional[int] = 2,
-        filters: Optional[int] = 16,
-        dropout: Optional[float] = 0.1,
-        batch_normalization: Optional[bool] = True,
-        kernel_initializer: Optional[str] = "he_normal",
-        resunet: Optional[bool] = False,
-        linknet: Optional[bool] = False,
-        plus_plus: Optional[bool] = False,
-        deep_supervision: Optional[bool] = False,
-        use_separable_conv2d: Optional[bool] = True,
-        use_spatial_dropout2d: Optional[bool] = True,
-        use_up_sampling2d: Optional[bool] = False,
-        activation_layer: Optional[str] = "relu",
-        **kwargs
-            ) -> None:
-        """Creates U-Net model architecture.
+            self,
+            name: str,
+            net_h: int,
+            net_w: int,
+            grayscale: bool,
+            blocks: Optional[int] = 4,
+            n_class: Optional[int] = 2,
+            filters: Optional[int] = 16,
+            dropout: Optional[float] = 0.1,
+            batch_normalization: Optional[bool] = True,
+            kernel_initializer: Optional[str] = "he_normal",
+            resunet: Optional[bool] = False,
+            linknet: Optional[bool] = False,
+            plus_plus: Optional[bool] = False,
+            deep_supervision: Optional[bool] = False,
+            use_separable_conv2d: Optional[bool] = True,
+            use_spatial_dropout2d: Optional[bool] = True,
+            use_up_sampling2d: Optional[bool] = False,
+            activation_layer: Optional[str] = "relu",
+            **kwargs
+    ) -> None:
+        """Creates semantic segmentation model architecture.
 
         Parameters
         ----------
+        name : str
+            Model name.
         net_h : int
             Input layer height.
         net_w : int
@@ -72,6 +75,7 @@ class u_shaped_model:
         activation_layer : Optional[str], optional
             Allows the user to choose any activation layer available in the tensorflow.keras.activations, by default "relu"
         """
+        self.name = name
         self.net_h = net_h
         self.net_w = net_w
         self.grayscale = grayscale
@@ -106,8 +110,8 @@ class u_shaped_model:
         return dropout_layer
 
     def convolutional_layer(
-        self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
-            ) -> Union[SeparableConv2D, Conv2D]:
+            self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
+    ) -> Union[SeparableConv2D, Conv2D]:
         """
         Returns the convolutional layer of the demanded type.
 
@@ -141,7 +145,7 @@ class u_shaped_model:
             filters: int,
             kernel_size: Tuple[int, int],
             u_net_conv_block_width: int = 2
-            ) -> tf.Tensor:
+    ) -> tf.Tensor:
         """
         Creates a multiple convolutional U-Net block.
 
@@ -170,12 +174,12 @@ class u_shaped_model:
         return input
 
     def res_u_net_multiple_conv2d(
-        self,
-        input: tf.Tensor,
-        filters: int,
-        kernel_size: Tuple[int, int],
-        res_u_net_conv_block_width: int = 2
-            ) -> tf.Tensor:
+            self,
+            input: tf.Tensor,
+            filters: int,
+            kernel_size: Tuple[int, int],
+            res_u_net_conv_block_width: int = 2
+    ) -> tf.Tensor:
         """
         Creates a multiple convolutional Res-U-Net block, with the raw input added before the final activation.
 
@@ -198,8 +202,8 @@ class u_shaped_model:
         raw_input = Conv2D(
             filters=filters, kernel_size=kernel_size, padding="same",
             kernel_initializer=self.kernel_initializer)(
-                input
-            )
+            input
+        )
         for i in range(res_u_net_conv_block_width):
             input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
@@ -212,12 +216,12 @@ class u_shaped_model:
         return input
 
     def multiple_conv2d_block(
-        self,
-        input: tf.Tensor,
-        filters: int,
-        kernel_size: Tuple[int, int],
-        conv_block_width: int = 2
-            ) -> tf.Tensor:
+            self,
+            input: tf.Tensor,
+            filters: int,
+            kernel_size: Tuple[int, int],
+            conv_block_width: int = 2
+    ) -> tf.Tensor:
         """
         Creates a multiple convolutional block, suiting the chosen architecture.
 
@@ -340,7 +344,8 @@ class u_shaped_model:
         output = Resizing(height=self.net_h, width=self.net_w)(output)
         if self.plus_plus and self.deep_supervision:
             outputs = subconv_layers[0].copy()
-            outputs = [self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(o) for o in outputs]
+            outputs = [self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(o) for o in
+                       outputs]
             outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
             outputs.append(output)
             output = Average()(outputs)
@@ -365,7 +370,7 @@ class u_shaped_model:
         Returns
         -------
         model:
-            U-Net/U-Net++ model.
+            Semantic segmentation model.
         """
         input_img = self.generate_input()
         conv_layers, pool_layers, subconv_layers = self.init_empty_layers_placeholders()
@@ -373,7 +378,7 @@ class u_shaped_model:
             current_input = input_img if block == 0 else pool_layers[block - 1]
             current_input = self.multiple_conv2d_block(
                 input=current_input, filters=self.filters * 2 ** block, kernel_size=(3, 3)
-                )
+            )
             conv_layers.append(current_input)
             current_input = MaxPool2D(pool_size=2)(current_input)
             current_input = self.dropout_layer()(current_input)
@@ -388,11 +393,12 @@ class u_shaped_model:
                         down_layer = Conv2DTranspose(
                             self.filters * 2 ** (self.blocks - block - 1),
                             kernel_size=(3, 3), strides=2, padding="same"
-                            )(down_layer)
+                        )(down_layer)
                     else:
                         down_layer = UpSampling2D((2, 2))(down_layer)
                         down_layer = Conv2D(
-                            self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2), padding="same"
+                            self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2),
+                            padding="same"
                         )(down_layer)
                     left_layers = subconv_layers[subblock].copy()
                     left_layers.append(down_layer)
@@ -403,11 +409,11 @@ class u_shaped_model:
                     subblock_layer = Concatenate()(left_layers)
                     subblock_layer = self.multiple_conv2d_block(
                         input=subblock_layer, filters=self.filters * 2 ** block, kernel_size=(3, 3)
-                        )
+                    )
                     subconv_layers[subblock].append(subblock_layer)
         current_input = self.multiple_conv2d_block(
             input=current_input, filters=self.filters * 2 ** self.blocks, kernel_size=(3, 3)
-            )
+        )
         conv_layers.append(current_input)
         for block in range(self.blocks):
             if not self.use_up_sampling2d:
@@ -426,12 +432,49 @@ class u_shaped_model:
             else:
                 current_input = self.horizontal_connection()()([
                     current_input, Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
-                    ])
+                ])
             current_input = self.dropout_layer()(current_input)
             current_input = self.multiple_conv2d_block(
                 input=current_input, filters=self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3)
-                )
+            )
             conv_layers.append(current_input)
         output = self.generate_output(conv_layers[2 * self.blocks], subconv_layers)
-        model = Model(inputs=input_img, outputs=output, name="u_net")
+        model = Model(inputs=input_img, outputs=output, name=self.name)
+        return model
+
+
+class semantic_segmentation_ensembler:
+
+    def __init__(
+            self,
+            models: List[tf.keras.Model]
+    ) -> None:
+        """Creates semantic segmentation stacked ensemble model architecture.
+
+        Parameters
+        ----------
+        models : List[tf.keras.Model]
+            List with semantic segmentation models.
+        """
+        self.models = models
+        self.model = self.build_model()
+
+    def build_model(self) -> tf.keras.Model:
+        """
+        Creates a semantic segmentation stacked ensemble architecture.
+
+        Returns
+        -------
+        model:
+            Semantic segmentation stacked ensemble model.
+        """
+        for i in range(len(self.models)):
+            model = self.models[i]
+            for layer in model.layers:
+                layer.trainable = False
+                layer._name = 'ensemble_' + str(i + 1) + '_' + layer.name
+        ensemble_visible = [model.input for model in self.models]
+        ensemble_outputs = [model.output for model in self.models]
+        merge = Concatenate(ensemble_outputs)
+        model = Model(inputs=ensemble_visible, outputs=merge)
         return model
