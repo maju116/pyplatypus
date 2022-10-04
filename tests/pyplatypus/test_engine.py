@@ -144,21 +144,6 @@ class TestPlatypusEngine:
                                                               task_type="semantic_segmentation")
         assert model_names == ["model_name"]
 
-    @pytest.mark.parametrize("model_name", [("model1"), (None)])
-    def test_produce_and_save_predicted_masks(self, mocker, model_name):
-        mocker.patch(self.engine_path + ".get_model_names", return_value=["model_name1", "model_name2"])
-        mocker.patch(self.engine_path + ".produce_and_save_predicted_masks_for_model",
-                     self.mocked_produce_and_save_predicted_masks_for_model)
-        self.initialized_engine.produce_and_save_predicted_masks(model_name)
-
-    def test_produce_and_save_predicted_masks_for_model(self, mocker):
-        mocker.patch(self.engine_path + ".predict_based_on_generator",
-                     return_value=(["predictions"], ["paths"], "colormap", "mode"))
-        mocker.patch("pyplatypus.engine.transform_probabilities_into_binaries", return_value="prediction_binary")
-        mocker.patch("pyplatypus.engine.concatenate_binary_masks", return_value="prediction_mask")
-        mocker.patch("pyplatypus.engine.save_masks", self.mocked_save_masks)
-        self.initialized_engine.produce_and_save_predicted_masks(model_name="model1")
-
     @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
     def test_predict_based_on_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.predict_from_generator", return_value=("predictions", "paths"))
@@ -169,52 +154,49 @@ class TestPlatypusEngine:
             model_name="model_name", custom_data_path=custom_data_path
         ) == ("predictions", "paths", mocked_generator.colormap, mocked_generator.mode)
 
-
     def test_prepare_evaluation_results(self):
         evaluation_metrics = [.1, .2, .3]
         evaluation_columns = ["model_name", "loss", "metric_1", "metric_2"]
-        prepared_evaluation_metrics = PlatypusEngine.prepare_evaluation_results(evaluation_metrics, "model_name", evaluation_columns)
+        prepared_evaluation_metrics = PlatypusEngine.prepare_evaluation_results(evaluation_metrics, "model_name",
+                                                                                evaluation_columns)
         pd.testing.assert_frame_equal(prepared_evaluation_metrics, pd.DataFrame({
             "model_name": "model_name", "loss": .1, "metric_1": .2, "metric_2": .3
         }, index=[0]))
-
 
     @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
     def test_evaluate_based_on_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.prepare_data_generator", return_value="generator")
         engine = self.initialized_engine
-        engine.cache = {"semantic_segmentation": {"model_name": {"model": mocked_u_shaped_model, "validation_generator": mocked_generator}}}
+        engine.cache = {"semantic_segmentation": {
+            "model_name": {"model": mocked_u_shaped_model, "validation_generator": mocked_generator}}}
         assert engine.evaluate_based_on_generator(
             model_name="model_name", model_cfg="model_cfg", custom_data_path=custom_data_path
         ) == [.1, .2, .3]
 
     def test_prepare_evaluation_table(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation_datamodel.implemented_losses", ["loss_name"], raising=False)
-        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation_datamodel.implemented_metrics", ["metric_name"], raising=False)
+        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation_datamodel.implemented_losses", ["loss_name"],
+                            raising=False)
+        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation_datamodel.implemented_metrics",
+                            ["metric_name"], raising=False)
         model_cfg = SemanticSegmentationModelSpec(
             name="model_name", net_h=300, net_w=300, blocks=2, n_class=2, filters=5, dropout=.1,
             loss=mocked_loss_spec, metrics=[mocked_metric_spec]
-            )
-        assert all(PlatypusEngine.prepare_evaluation_table(model_cfg).columns == ["model_name", "loss_name", "categorical_crossentropy", "metric_name"])
+        )
+        assert all(PlatypusEngine.prepare_evaluation_table(model_cfg).columns == ["model_name", "loss_name",
+                                                                                  "categorical_crossentropy",
+                                                                                  "metric_name"])
 
-    
     def test_evaluate_model(self, mocker):
         task_type = "semantic_segmentation"
         model_name = "model_name"
         cache = {
-            task_type: 
+            task_type:
                 {model_name: {"model_specification": {}}}
-            }
+        }
         engine = self.initialized_engine
         engine.cache = cache
-        mocker.patch(self.engine_path + ".prepare_evaluation_table", return_value=pd.DataFrame(columns=["col1", "col2"]))
+        mocker.patch(self.engine_path + ".prepare_evaluation_table",
+                     return_value=pd.DataFrame(columns=["col1", "col2"]))
         mocker.patch(self.engine_path + ".evaluate_based_on_generator", return_value=None)
         mocker.patch(self.engine_path + ".prepare_evaluation_results", return_value=[.1, .2, .3])
         assert engine.evaluate_model(model_name, task_type) == [.1, .2, .3]
-
-
-    @pytest.mark.parametrize("model_name, result", [("model1", ["evaluation_results"]), (None, ["evaluation_results"]*2)])
-    def test_evaluate_models(self, mocker, model_name, result):
-        mocker.patch(self.engine_path + ".get_model_names", return_value=["model_name1", "model_name2"])
-        mocker.patch(self.engine_path + ".evaluate_model", return_value = "evaluation_results")
-        assert self.initialized_engine.evaluate_models(model_name) == result
