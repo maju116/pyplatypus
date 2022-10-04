@@ -144,14 +144,6 @@ class TestPlatypusEngine:
                                                               task_type="semantic_segmentation")
         assert model_names == ["model_name"]
 
-    def test_produce_and_save_predicted_masks_for_model(self, mocker):
-        mocker.patch(self.engine_path + ".predict_based_on_generator",
-                     return_value=(["predictions"], ["paths"], "colormap", "mode"))
-        mocker.patch("pyplatypus.engine.transform_probabilities_into_binaries", return_value="prediction_binary")
-        mocker.patch("pyplatypus.engine.concatenate_binary_masks", return_value="prediction_mask")
-        mocker.patch("pyplatypus.engine.save_masks", self.mocked_save_masks)
-        self.initialized_engine.produce_and_save_predicted_masks()
-
     @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
     def test_predict_based_on_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.predict_from_generator", return_value=("predictions", "paths"))
@@ -208,10 +200,3 @@ class TestPlatypusEngine:
         mocker.patch(self.engine_path + ".evaluate_based_on_generator", return_value=None)
         mocker.patch(self.engine_path + ".prepare_evaluation_results", return_value=[.1, .2, .3])
         assert engine.evaluate_model(model_name, task_type) == [.1, .2, .3]
-
-    @pytest.mark.parametrize("result",
-                             [("evaluation_results"), (["evaluation_results", "evaluation_results"])])
-    def test_evaluate_models(self, mocker, result):
-        mocker.patch(self.engine_path + ".get_model_names", return_value=["model_name1", "model_name2"])
-        mocker.patch(self.engine_path + ".evaluate_model", return_value="evaluation_results")
-        assert self.initialized_engine.evaluate_models() == result
