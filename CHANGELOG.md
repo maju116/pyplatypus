@@ -1,30 +1,13 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [0.1.1]
-
-*2020-09-19*
-
-### Removed
-
-- Custom fit/predict generator functions
-
 ## [0.1.0]
 
-*2020-09-04*
+*2022-10-07*
 
 ### Added
 
-- YOLOv3 model.
-
-- U-Net model.
-
-- IoU metric and YOLOv3 loss function.
-
-- Dice loss and metric.
-
-- YOLOv3 data genarator.
-
-- Segmentation generator.
-
-- Plotting functions.
+ - Platypus engine - allows to train and evaluate multiple CV models with YAML config
+ - Generalized multiclass semantic segmentation models: U-Net, U-Net++, Res-U-Net, LinkNet
+ - Semantic segmentation loss functions and metrics: Focal loss, CCE, Dice loss/coefficient, Tversky loss/coefficient, IOU loss/coefficient, Focal-Tversky loss, Combo loss, Lovasz loss
+ - Semantic segmentation augmentations
