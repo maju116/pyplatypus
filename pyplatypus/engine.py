@@ -1,4 +1,5 @@
 import pandas as pd
+from random import randrange
 
 from pyplatypus.utils.config_processing_functions import check_cv_tasks
 from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
@@ -67,7 +68,7 @@ class PlatypusEngine:
     def update_cache(
             self, model_name: str, model: u_shaped_model, training_history: pd.DataFrame,
             model_specification: SemanticSegmentationModelSpec, task_type: str = "semantic_segmentation"
-            ):
+    ):
         """Stores the trained model in the cache, under its name defined by a user.
 
         Parameters
@@ -248,9 +249,71 @@ class PlatypusEngine:
         predictions, paths = predict_from_generator(model=m, generator=g)
         return predictions, paths, colormap, mode
 
+    def sample_generators(self, custom_data_path: Optional[str] = None, training_augmentation: bool = True,
+                          task_type: str = "semantic_segmentation"):
+        """If the name parameter is set to None, then the outputs are produced for all the trained models.
+        Otherwise, the model pointed at is used.
+
+        Parameters
+        ----------
+        custom_data_path : Optional[str], optional
+            If provided, the data is loaded from a custom source.
+        training_augmentation: bool
+            Should training or validation augmentation pipeline be used.
+        task_type : Optional[str], optional
+            Task of interest, by default "semantic_segmentation"
+        """
+        batches = []
+        model_names = self.get_model_names(config=self.config, task_type=task_type)
+        for model_name in model_names:
+            batch = self.sample_generator(model_name, custom_data_path, training_augmentation, task_type)
+            batches.append(batch)
+        return batches
+
+    def sample_generator(
+            self, model_name: str, custom_data_path: Optional[str] = None, training_augmentation: bool = True,
+            task_type: str = "semantic_segmentation"
+    ) -> tuple:
+        """Produces predictions based on the selected model and the data generator created on the course of building this model.
+
+        Parameters
+        ----------
+        model_name : str
+            Name of the model to use, should be consistent with the input config.
+        custom_data_path : Optional[str], optional
+            If provided, the data is loaded from a custom source.
+        training_augmentation: bool
+            Should training or validation augmentation pipeline be used.
+        task_type : Optional[str], optional
+            Task of interest, by default "semantic_segmentation"
+
+        Returns
+        -------
+        batch: np.array
+            Batch of augmentetd images.
+        """
+        spec = self.config[task_type]
+        model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
+
+        if training_augmentation:
+            augmentation_pipeline, _ = prepare_augmentation_pipelines(config=self.config)
+        else:
+            _, augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        if custom_data_path is None:
+            path = spec.data.validation_path
+        else:
+            path = custom_data_path
+        g = prepare_data_generator(
+            data=spec.data, model_cfg=model_cfg,
+            augmentation_pipeline=augmentation_pipeline,
+            path=path, only_images=True, return_paths=False
+        )
+        batch = g.__getitem__(randrange(g.steps_per_epoch))
+        return batch
+
     def evaluate_models(
-        self, custom_data_path: str = None, task_type: str = "semantic_segmentation"
-            ) -> list:
+            self, custom_data_path: str = None, task_type: str = "semantic_segmentation"
+    ) -> list:
         """Evaluates all the models associated with a certain task or the one specified by the model_name.
 
         Parameters
@@ -274,8 +337,8 @@ class PlatypusEngine:
         return evaluations
 
     def evaluate_model(
-        self, model_name: str, custom_data_path: str = None, task_type: str = "semantic_segmentation"
-            ) -> pd.DataFrame:
+            self, model_name: str, custom_data_path: str = None, task_type: str = "semantic_segmentation"
+    ) -> pd.DataFrame:
         """Prepares the crucial objects and evaluates model invoking the method calling the .evaluate() method
         with the use of validation generator.
 
@@ -299,7 +362,7 @@ class PlatypusEngine:
         evaluation_metrics = self.evaluate_based_on_generator(model_name, model_cfg, task_type, custom_data_path)
         prepared_evaluation_metrics = self.prepare_evaluation_results(
             evaluation_metrics, model_name, evaluation_columns=evaluation_table.columns
-            )
+        )
         return prepared_evaluation_metrics
 
     @staticmethod
@@ -345,8 +408,9 @@ class PlatypusEngine:
         return prepared_evaluation_metrics
 
     def evaluate_based_on_generator(
-        self, model_name: str, model_cfg: SemanticSegmentationModelSpec, task_type: str = "semantic_segmentation", custom_data_path: Optional[str] = None
-            ) -> tuple:
+            self, model_name: str, model_cfg: SemanticSegmentationModelSpec, task_type: str = "semantic_segmentation",
+            custom_data_path: Optional[str] = None
+    ) -> tuple:
         """Produces metrics and loss value based on the selected model and the data generator created on the course
         of building this model.
 
@@ -356,6 +420,10 @@ class PlatypusEngine:
             Name of the model to use, should be consistent with the input config.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
+        model_cfg: SemanticSegmentationModelSpec
+            Model configuration.
+        task_type : str
+            Task with which the model is associated.
 
         Returns
         -------
@@ -373,7 +441,7 @@ class PlatypusEngine:
             data=task_cfg.data, model_cfg=model_cfg,
             augmentation_pipeline=validation_augmentation_pipeline,
             path=path, only_images=False, return_paths=False
-            )
+        )
         metrics = m.evaluate(x=g)
         return metrics
 
