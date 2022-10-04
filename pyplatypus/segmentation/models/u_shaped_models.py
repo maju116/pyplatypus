@@ -447,7 +447,8 @@ class semantic_segmentation_ensembler:
 
     def __init__(
             self,
-            models: List[tf.keras.Model]
+            models: List[tf.keras.Model],
+            **kwargs
     ) -> None:
         """Creates semantic segmentation stacked ensemble model architecture.
 
