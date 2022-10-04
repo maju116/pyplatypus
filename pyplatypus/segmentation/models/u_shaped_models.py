@@ -476,7 +476,7 @@ class semantic_segmentation_ensembler:
         ensemble_visible = [model.input for model in self.models]
         ensemble_outputs = [model.output for model in self.models]
         # ToDo: reshape outputs to the same HxW
-        merge = Concatenate(ensemble_outputs)
+        merge = Concatenate()(ensemble_outputs)
         # ToDo: Add Conv2d and Pool2d
         model = Model(inputs=ensemble_visible, outputs=merge)
         return model
