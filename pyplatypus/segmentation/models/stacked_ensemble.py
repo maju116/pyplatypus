@@ -101,7 +101,7 @@ class stacked_ensembler:
         return dropout_layer
 
     def convolutional_layer(
-            self, activation: Optional[str] = "relu"
+            self, activation: Optional[str] = "linear"
     ) -> Union[SeparableConv2D, Conv2D]:
         """
         Returns the convolutional layer of the demanded type.
