@@ -117,13 +117,13 @@ class u_shaped_model:
 
         Parameters
         ----------
-        input: tf.Tensor
-            Model or layer object.
         filters: int
             Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
         kernel_size: Tuple[int, int])
             An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             If single integer is supplied the same value is used for all spatial dimensions.
+        activation: Optional[str]
+            Activation function name.
 
         Returns
         -------

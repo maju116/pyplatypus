@@ -16,8 +16,18 @@ class stacked_ensembler:
     def __init__(
             self,
             submodels: List[tf.keras.Model],
+            n_class: int,
             net_h: int,
             net_w: int,
+            filters: int,
+            kernel_size: Tuple[int, int],
+            u_net_conv_block_width: int,
+            use_spatial_droput2d: bool,
+            dropout: float,
+            use_separable_conv2d: bool,
+            kernel_initializer: str,
+            batch_normalization: bool,
+            activation_layer: str,
             copy_submodels_weights: bool = True,
             freeze_submodels_weights: bool = True,
             **kwargs
@@ -32,6 +42,13 @@ class stacked_ensembler:
             Input layer height.
         net_w : int
             Input layer width.
+        filters: int
+            Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+        kernel_size: Tuple[int, int]
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
+            It is allowed to be a single integer to specify the same value for all spatial dimensions.
+        u_net_conv_block_width: int
+            Controls the amount of convolutional layers in the block, by default 2
         grayscale : bool
         copy_submodels_weights : bool
             Should the stacked ensembler be initialized with submodels weights.
@@ -39,8 +56,18 @@ class stacked_ensembler:
             Should the submodels weights be freezed (only if copy_submodels_weights == `True`).
         """
         self.submodels = submodels
+        self.n_class = n_class
         self.net_h = net_h
         self.net_w = net_w
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.u_net_conv_block_width = u_net_conv_block_width
+        self.use_separable_conv2d = use_separable_conv2d
+        self.use_spatial_droput2d = use_spatial_droput2d
+        self.dropout = dropout
+        self.kernel_initializer = kernel_initializer
+        self.batch_normalization = batch_normalization
+        self.activation_layer = activation_layer
         self.copy_submodels_weights = copy_submodels_weights
         self.freeze_submodels_weights = freeze_submodels_weights
         self.submodels = self.copy_submodels()
@@ -58,6 +85,85 @@ class stacked_ensembler:
             for mc, m in zip(submodels_copy, self.submodels):
                 mc.set_weights(m.get_weights())
         return submodels_copy
+
+    def dropout_layer(self):
+        """Creates the dropout layer of the preferred kind.
+
+        Returns
+        -------
+        dropout_layer: KerasTensor
+            Dropout created by the chosen method.
+        """
+        if self.use_spatial_droput2d:
+            dropout_layer = SpatialDropout2D(rate=self.dropout)
+        else:
+            dropout_layer = Dropout(rate=self.dropout)
+        return dropout_layer
+
+    def convolutional_layer(
+            self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
+    ) -> Union[SeparableConv2D, Conv2D]:
+        """
+        Returns the convolutional layer of the demanded type.
+
+        Parameters
+        ----------
+        filters: int
+            Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
+        kernel_size: Tuple[int, int])
+            An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
+            If single integer is supplied the same value is used for all spatial dimensions.
+        activation: Optional[str]
+            Activation function name.
+
+        Returns
+        -------
+        convolutional layer.
+        """
+        if self.use_separable_conv2d:
+            convolutional_layer = SeparableConv2D(
+                filters=self.filters, kernel_size=self.kernel_size, padding="same",
+                kernel_initializer=self.kernel_initializer, activation=activation)
+        else:
+            convolutional_layer = Conv2D(
+                filters=self.filters, kernel_size=self.kernel_size, padding="same",
+                kernel_initializer=self.kernel_initializer, activation=activation)
+        return convolutional_layer
+
+    def activation(self):
+        """Creates the layer applying the specified activation function.
+
+        Returns
+        -------
+        activation_layer: function
+            Layer later used to apply the chosen activation function.
+        """
+        activation_layer = getattr(KRACT, self.activation_layer)
+        return activation_layer
+
+    def multiple_conv2d(
+            self,
+            input: tf.Tensor
+    ) -> tf.Tensor:
+        """
+        Creates a multiple convolutional U-Net block.
+
+        Parameters
+        ----------
+        input: tf.Tensor
+            Model or layer object.
+
+        Returns
+        -------
+        input:
+            Multiple convolutional block of the model.
+        """
+        for i in range(self.u_net_conv_block_width):
+            input = self.convolutional_layer(self.filters, self.kernel_size)(input)
+            if self.batch_normalization:
+                input = BatchNormalization()(input)
+            input = self.activation()(input)
+        return input
 
     def build_model(self) -> tf.keras.Model:
         """
@@ -78,7 +184,8 @@ class stacked_ensembler:
         outputs = [submodel.output for submodel in self.submodels]
         outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
         merge = Concatenate()(outputs)
-        # ToDo: Add Conv2d and Pool2d
+        output = self.multiple_conv2d(merge)
+        output = self.convolutional_layer(filters=self.n_class, kernel_size=(1, 1), activation="softmax")(output)
         ensemble_name = "_".join([m.name for m in self.submodels])
-        model = Model(inputs=inputs, outputs=merge, name=ensemble_name)
+        model = Model(inputs=inputs, outputs=output, name=ensemble_name)
         return model
