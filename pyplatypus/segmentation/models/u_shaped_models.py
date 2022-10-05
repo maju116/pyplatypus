@@ -110,7 +110,7 @@ class u_shaped_model:
         return dropout_layer
 
     def convolutional_layer(
-            self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
+            self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "linear"
     ) -> Union[SeparableConv2D, Conv2D]:
         """
         Returns the convolutional layer of the demanded type.
