@@ -11,7 +11,7 @@ import tensorflow as tf
 from typing import Tuple, Any, Optional, Union, List
 
 
-class semantic_segmentation_ensembler:
+class stacked_ensembler:
 
     def __init__(
             self,
@@ -60,12 +60,13 @@ class semantic_segmentation_ensembler:
             Semantic segmentation stacked ensemble model.
         """
         for i in range(len(self.submodels)):
-            model = self.submodels[i]
-            for layer in model.layers:
-                layer.trainable = False
-                layer._name = 'ensemble_' + str(i + 1) + '_' + layer.name
-        ensemble_visible = [model.input for model in self.submodels]
-        ensemble_outputs = [model.output for model in self.submodels]
+            submodel = self.submodels[i]
+            if self.copy_submodels_weights and self.freeze_submodels_weights:
+                for layer in submodel.layers:
+                    layer.trainable = False
+                    layer._name = 'ensemble_' + str(i + 1) + '_' + layer.name
+        ensemble_visible = [submodel.input for submodel in self.submodels]
+        ensemble_outputs = [submodel.output for submodel in self.submodels]
         # ToDo: reshape outputs to the same HxW
         merge = Concatenate()(ensemble_outputs)
         # ToDo: Add Conv2d and Pool2d
