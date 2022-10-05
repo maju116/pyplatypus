@@ -101,7 +101,7 @@ class stacked_ensembler:
         return dropout_layer
 
     def convolutional_layer(
-            self, activation: Optional[str] = "linear"
+            self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "linear"
     ) -> Union[SeparableConv2D, Conv2D]:
         """
         Returns the convolutional layer of the demanded type.
@@ -122,11 +122,11 @@ class stacked_ensembler:
         """
         if self.use_separable_conv2d:
             convolutional_layer = SeparableConv2D(
-                filters=self.filters, kernel_size=self.kernel_size, padding="same",
+                filters=filters, kernel_size=kernel_size, padding="same",
                 kernel_initializer=self.kernel_initializer, activation=activation)
         else:
             convolutional_layer = Conv2D(
-                filters=self.filters, kernel_size=self.kernel_size, padding="same",
+                filters=filters, kernel_size=kernel_size, padding="same",
                 kernel_initializer=self.kernel_initializer, activation=activation)
         return convolutional_layer
 
