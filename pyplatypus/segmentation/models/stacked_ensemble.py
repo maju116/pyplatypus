@@ -16,6 +16,8 @@ class stacked_ensembler:
     def __init__(
             self,
             submodels: List[tf.keras.Model],
+            net_h: int,
+            net_w: int,
             copy_submodels_weights: bool = True,
             freeze_submodels_weights: bool = True,
             **kwargs
@@ -26,12 +28,19 @@ class stacked_ensembler:
         ----------
         submodels : List[tf.keras.Model]
             List with semantic segmentation models.
+        net_h : int
+            Input layer height.
+        net_w : int
+            Input layer width.
+        grayscale : bool
         copy_submodels_weights : bool
             Should the stacked ensembler be initialized with submodels weights.
         freeze_submodels : bool
             Should the submodels weights be freezed (only if copy_submodels_weights == `True`).
         """
         self.submodels = submodels
+        self.net_h = net_h
+        self.net_w = net_w
         self.copy_submodels_weights = copy_submodels_weights
         self.freeze_submodels_weights = freeze_submodels_weights
         self.submodels = self.copy_submodels()
@@ -70,5 +79,6 @@ class stacked_ensembler:
         # ToDo: reshape outputs to the same HxW
         merge = Concatenate()(ensemble_outputs)
         # ToDo: Add Conv2d and Pool2d
-        model = Model(inputs=ensemble_visible, outputs=merge)
+        ensemble_name = "_".join([m.name for m in self.submodels])
+        model = Model(inputs=ensemble_visible, outputs=merge, name=ensemble_name)
         return model
