@@ -74,11 +74,11 @@ class stacked_ensembler:
                 for layer in submodel.layers:
                     layer.trainable = False
                     layer._name = 'ensemble_' + str(i + 1) + '_' + layer.name
-        ensemble_visible = [submodel.input for submodel in self.submodels]
-        ensemble_outputs = [submodel.output for submodel in self.submodels]
-        # ToDo: reshape outputs to the same HxW
-        merge = Concatenate()(ensemble_outputs)
+        inputs = [submodel.input for submodel in self.submodels]
+        outputs = [submodel.output for submodel in self.submodels]
+        outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
+        merge = Concatenate()(outputs)
         # ToDo: Add Conv2d and Pool2d
         ensemble_name = "_".join([m.name for m in self.submodels])
-        model = Model(inputs=ensemble_visible, outputs=merge, name=ensemble_name)
+        model = Model(inputs=inputs, outputs=merge, name=ensemble_name)
         return model
