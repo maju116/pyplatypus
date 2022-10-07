@@ -13,7 +13,7 @@ class CceLossSpec(BaseModel):
     name: str = "cce_loss"
 
 
-class CeeDiceLossSpec(BaseModel):
+class CceDiceLossSpec(BaseModel):
     name: str = "cce_dice_loss"
 
 
