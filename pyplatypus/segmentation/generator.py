@@ -202,7 +202,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         pixel_array: ndarray
             Image as numpy array.
         """
-        if path.lower().endswith('.tif'):
+        if path.lower().endswith(('.tif', 'tiff')):
             pixel_array = tifffile.imread(path)
         elif path.lower().endswith('.dcm'):
             pixel_array = pydicom.dcmread(path).pixel_array
