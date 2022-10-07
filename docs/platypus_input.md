@@ -479,8 +479,13 @@ Having dived in the specifics we shall close this section with an example YAML c
                 use_up_sampling2d: True
                 batch_size: 32
                 epochs: 100
-                loss: 'focal loss'
-                metrics: ['tversky coefficient', 'iou coefficient']
+                loss:
+                    focal loss:
+                        gamma: 1
+                metrics:
+                    IOU Coefficient:
+                    Tversky coefficient:
+                        alpha: 1
                 optimizer:
                     Adam:
                         learning_rate: 0.001
