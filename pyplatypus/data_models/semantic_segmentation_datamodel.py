@@ -63,7 +63,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     dropout: confloat(ge=0, le=1)
     h_splits: Optional[conint(ge=0)] = 0
     w_splits: Optional[conint(ge=0)] = 0
-    grayscale: Optional[bool] = False
+    channels: Optional[int] = conint(ge=1)
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: Optional[PositiveInt] = 32
     epochs: Optional[PositiveInt] = 2

@@ -39,7 +39,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         net_w: int = 256,
         h_splits: int = 1,
         w_splits: int = 1,
-        grayscale: bool = False,
+        channels: int = 3,
         augmentation_pipeline: Optional[A.core.composition.Compose] = None,
         batch_size: int = 32,
         shuffle: bool = True,
@@ -68,8 +68,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             Number of vertical splits of the image.
         w_splits: int
             Number of horizontal splits of the image.
-        grayscale: bool
-            Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        channels: int
+            Defines input layer color channels.
         augmentation_pipeline: Optional[A.core.composition.Compose]
             Augmentation pipeline.
         batch_size: int
@@ -91,7 +91,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.net_w = net_w
         self.h_splits = h_splits
         self.w_splits = w_splits
-        self.grayscale = grayscale
+        self.channels = channels
         self.augmentation_pipeline = augmentation_pipeline
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -183,7 +183,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             return path_dict
 
     @staticmethod
-    def __read_image__(path: str, grayscale: bool, target_size: Union[int, Tuple[int, int]]) -> ndarray:
+    def __read_image__(path: str, channels: int, target_size: Union[int, Tuple[int, int]]) -> ndarray:
         """
         Loads image as numpy array.
 
@@ -191,8 +191,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         ----------
         path: str
             Image path.
-        grayscale: bool
-            Should image be loaded as grayscale.
+        channels: int
+            Number of color channels.
         target_size: Union[int, Tuple[int, int]]
             Target size for the image to be loaded.
 
@@ -203,13 +203,24 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         """
         if path.lower().endswith('.dcm'):
             pixel_array = pydicom.dcmread(path).pixel_array
-            if pixel_array.shape[2] == 3 and grayscale:
+            if pixel_array.shape[2] == 3 and channels == 1:
                 pixel_array = rgb2gray(pixel_array)
-            if pixel_array.shape[2] == 1 and not grayscale:
+            elif pixel_array.shape[2] == 1 and channels == 3:
                 pixel_array = gray2rgb(pixel_array)
+            else:
+                # ToDo: Check if any other type of DICOM should be implemented https://dicom.innolitics.com/ciods/rt-dose/image-pixel/00280004
+                raise ValueError('For DICOM images number of channels can be set to 1 or 3!')
             pixel_array = resize(pixel_array, target_size)
         else:
-            pixel_array = img_to_array(load_img(path, grayscale=grayscale, target_size=target_size))
+            if channels == 1:
+                color_mode = "grayscale"
+            elif channels == 3:
+                color_mode = "rgb"
+            elif channels == 4:
+                color_mode = "rgba"
+            else:
+                raise ValueError('For classical (PNG, JPG, ...) images number of channels can be set to 1, 3 or 4!')
+            pixel_array = img_to_array(load_img(path, color_mode=color_mode, target_size=target_size))
         return pixel_array
 
     @staticmethod
@@ -266,24 +277,24 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
                 self.config["masks_paths"]
         if self.h_splits > 1 or self.w_splits > 1:
             selected_images = [
-                self.__read_image__(img_path[0], grayscale=self.grayscale,
+                self.__read_image__(img_path[0], channels=self.channels,
                                     target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
                 for img_path in selected_images_paths]
             selected_images = self.__split_images__(selected_images, self.h_splits, self.w_splits)
             if not self.only_images:
                 selected_masks = [
-                    sum([self.__read_image__(si, grayscale=False,
+                    sum([self.__read_image__(si, channels=1,
                                              target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
                 selected_masks = self.__split_images__(selected_masks, self.h_splits, self.w_splits)
         else:
             selected_images = [
-                self.__read_image__(img_path[0], grayscale=self.grayscale, target_size=self.target_size)
+                self.__read_image__(img_path[0], channels=self.channels, target_size=self.target_size)
                 for img_path in selected_images_paths]
             if not self.only_images:
                 selected_masks = [
-                    sum([self.__read_image__(si, grayscale=False, target_size=self.target_size)
+                    sum([self.__read_image__(si, channels=1, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         if not self.only_images:
@@ -376,7 +387,7 @@ def prepare_data_generator(
         net_w=model_cfg.net_w,
         h_splits=model_cfg.h_splits,
         w_splits=model_cfg.w_splits,
-        grayscale=model_cfg.grayscale,
+        channels=model_cfg.channels,
         augmentation_pipeline=augmentation_pipeline,
         batch_size=model_cfg.batch_size,
         shuffle=False,

@@ -14,7 +14,7 @@ semantic_segmentation:
           net_w: 300
           h_splits: 0
           w_splits: 0
-          grayscale: False
+          channels: 3
           blocks: 4
           n_class: 2
           filters: 16
@@ -51,7 +51,7 @@ semantic_segmentation:
           net_w: 300
           h_splits: 0
           w_splits: 0
-          grayscale: False
+          channels: 3
           blocks: 2
           n_class: 2
           filters: 16
