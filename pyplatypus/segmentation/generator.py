@@ -7,6 +7,7 @@ from numpy import ndarray
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import albumentations as A
 import pydicom
+import tifffile
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
 from pyplatypus.utils.toolbox import split_masks_into_binary
@@ -201,7 +202,9 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         pixel_array: ndarray
             Image as numpy array.
         """
-        if path.lower().endswith('.dcm'):
+        if path.lower().endswith('.tif'):
+            pixel_array = tifffile.imread(path)
+        elif path.lower().endswith('.dcm'):
             pixel_array = pydicom.dcmread(path).pixel_array
             if pixel_array.shape[2] == 3 and channels == 1:
                 pixel_array = rgb2gray(pixel_array)
