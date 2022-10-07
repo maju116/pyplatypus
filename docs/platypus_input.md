@@ -67,14 +67,91 @@ It is defined as a list, with each element following the below structure:
 | callbacks | list or dict   | Described in the Callbacks section | Described in the Callbacks section         | no, by default no callbacks are used |
 
 
-### Optimizers
+
+### loss
+
+In the input there is the loss field allowing a user to specify loss to be used in the model calibration. The loss may be specified using just its name, then the default additional parameters are used but also each parameter might be set separately to obtain the loss tailored to the user's needs. All the implemented losses are stored in the pyplatypus.segmentation.loss_functions.SegmentationLoss object.
+
+The currently implemented losses are: ["iou_loss", "focal_loss", "dice_loss", "cce_loss", "cce_dice_loss", "tversky_loss", "focal_tversky_loss", "combo_loss", "lovasz_loss"]
+
+Don't you worry about mispelling them, they get converted to CamelCase during building the pydantic datamodels. Exemplary if you type in "IOU loss" it ends up as "IouLoss".
+
+Why CamelCase? For it is agreed upon that this format should be used for naming the class instances, the snake_case name is stored within each pydantic datamodel and it is not to be played around with.
+
+They may be put in the config as just names, empty fields or fields with additional parameters, the Engine takes care of channeling all these types into the single pydantic-powered flow. Also if an additional, unused parameter gets passed to the engine it is ignored.
+
+#### loss.DiceLoss
+It takes no additional parameters.
+
+#### loss.CceLoss
+It takes no additional parameters.
+
+#### loss.CceDiceLoss
+It takes no additional parameters.
+
+#### loss.IouLoss
+It takes no additional parameters.
+
+#### loss.LovaszLoss
+It takes no additional parameters.
+
+#### loss.FocalLoss
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| gamma | float | any | 0.5 |  no, by default 2  |
+| alpha | float | any | 0.95 |  no, by default 0.8  |
+
+#### loss.TverskyLoss
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| alpha | float | any | 0.5 |  no, by default 0.5  |
+| beta | float | any | 0.95 |  no, by default 0.5  |
+
+#### loss.FocalTverskyLoss
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| gamma | float | any | 0.5 |  no, by default 2  |
+| alpha | float | any | 0.5 |  no, by default 0.5  |
+| beta | float | any | 0.95 |  no, by default 0.5  |
+
+#### loss.ComboLoss
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| alpha | float | any | 0.5 |  no, by default 0.5  |
+| ce_ratio | float | any | 0.1 |  no, by default 0.5  |
+
+
+### metrics
+
+Beside the categorical crossentropy which is the always applied metric in PlatypusEngine, you might find yourself in the need of utilizing some additional ones. Here the metrics input field comes out to be of much use, allowing a user to specify a list of metrics to be used in the model training. The list may be specified using just coefficients names, then the default additional parameters are used, similarly to what happens with the loss functions implemented in the package. But also analogically, each parameter might be set separately. All the implemented metrics are stored in the pyplatypus.segmentation.loss_functions.SegmentationLoss object.
+
+The currently implemented metrics are: ["iou_coefficient", "tversky_coefficient", "dice_coefficient"] and obviously "categorical_crossentropy.
+
+Once again each metric's name get converted to CamelCase during building the pydantic datamodels. Exemplary if you type in "tversky Coefficient" it ends up as "TverskyCoefficient".
+
+They may be put in the config as just names, empty fields or fields with additional parameters, the Engine takes care of channeling all these types into the single pydantic-powered flow. Also if an additional, unused parameter gets passed to the engine it is ignored.
+
+#### loss.DiceCoefficient
+
+It takes no additional parameters.
+
+#### loss.IouCoefficient
+It takes no additional parameters.
+#### loss.TverskyCoefficient
+| Name | Type | Allowed values | Exemplary value | Required |
+|---|---|---|---|---|
+| alpha | float | any | 0.5 |  no, by default 0.5  |
+| beta | float | any | 0.95 |  no, by default 0.5  |
+
+
+### optimizers
 
 PyPlatypus allows us to use the optimizers of choice, any implemented in Tensorflow backend, to learn more about the algorithms and their arguments, visit
 [tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers).
 
 The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]. Below we described each possible optimizer setting.
 
-#### model.optimizer
+### model.optimizer
 
 #### models.optimizer.Adadelta
 
@@ -153,7 +230,7 @@ The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", 
 
 
 
-### Callbacks
+### callbacks
 
 PyPlatypus allows us to use the callbacks of choice, majority of the ones implemented in Tensorflow, to learn more about the methods and their arguments, visit
 [tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/callbacks).
