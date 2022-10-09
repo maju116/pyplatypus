@@ -1666,15 +1666,13 @@ and latter predictions production.</p>
 <span class="sd">        using the train and validation data generators created prior to the fitting.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">cv_tasks_to_perform</span> <span class="o">=</span> <span class="n">check_cv_tasks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-        <span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span>
-            <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
         <span class="k">if</span> <span class="s1">&#39;semantic_segmentation&#39;</span> <span class="ow">in</span> <span class="n">cv_tasks_to_perform</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">semantic_segmentation</span><span class="o">=</span><span class="p">{})</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">build_and_train_segmentation_models</span><span class="p">(</span><span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">build_and_train_segmentation_models</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">build_and_train_segmentation_models</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">train_augmentation_pipeline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Compose</span><span class="p">],</span> <span class="n">validation_augmentation_pipeline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Compose</span><span class="p">]</span>
-    <span class="p">):</span>
+        <span class="bp">self</span>
+            <span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.</span>
 
 <span class="sd">        Parameters</span>
@@ -1686,6 +1684,7 @@ and latter predictions production.</p>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">spec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;semantic_segmentation&#39;</span><span class="p">]</span>
         <span class="k">for</span> <span class="n">model_cfg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;semantic_segmentation&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+            <span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
             <span class="n">train_data_generator</span> <span class="o">=</span> <span class="n">prepare_data_generator</span><span class="p">(</span>
                 <span class="n">data</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">model_cfg</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">,</span> <span class="n">augmentation_pipeline</span><span class="o">=</span><span class="n">train_augmentation_pipeline</span><span class="p">,</span>
                 <span class="n">path</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">train_path</span><span class="p">,</span> <span class="n">only_images</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_paths</span><span class="o">=</span><span class="kc">False</span>
@@ -1804,7 +1803,7 @@ and latter predictions production.</p>
         <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
         <span class="n">model_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_specification&quot;</span><span class="p">)</span>
 
-        <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">custom_data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">validation_path</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1866,9 +1865,9 @@ and latter predictions production.</p>
         <span class="n">model_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_specification&quot;</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">training_augmentation</span><span class="p">:</span>
-            <span class="n">augmentation_pipeline</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="n">augmentation_pipeline</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">_</span><span class="p">,</span> <span class="n">augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">custom_data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">validation_path</span>
         <span class="k">else</span><span class="p">:</span>
@@ -2002,7 +2001,8 @@ and latter predictions production.</p>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">task_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span>
         <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">model_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_specification&quot;</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">custom_data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">path</span> <span class="o">=</span> <span class="n">task_cfg</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">validation_path</span>
         <span class="k">else</span><span class="p">:</span>
@@ -2104,7 +2104,7 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 
 
 <h3 id="pyplatypus.engine.PlatypusEngine.build_and_train_segmentation_models" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">build_and_train_segmentation_models</span><span class="p">(</span><span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span><span class="p">)</span></code>
+<code class="highlight language-python"><span class="n">build_and_train_segmentation_models</span><span class="p">()</span></code>
 
 </h3>
 
@@ -2124,7 +2124,9 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">105</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
 <span class="normal">106</span>
 <span class="normal">107</span>
 <span class="normal">108</span>
@@ -2158,10 +2160,9 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 <span class="normal">136</span>
 <span class="normal">137</span>
 <span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">build_and_train_segmentation_models</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">train_augmentation_pipeline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Compose</span><span class="p">],</span> <span class="n">validation_augmentation_pipeline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Compose</span><span class="p">]</span>
-<span class="p">):</span>
+<span class="normal">139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">build_and_train_segmentation_models</span><span class="p">(</span>
+    <span class="bp">self</span>
+        <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.</span>
 
 <span class="sd">    Parameters</span>
@@ -2173,6 +2174,7 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">spec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;semantic_segmentation&#39;</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">model_cfg</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;semantic_segmentation&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+        <span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
         <span class="n">train_data_generator</span> <span class="o">=</span> <span class="n">prepare_data_generator</span><span class="p">(</span>
             <span class="n">data</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">model_cfg</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">,</span> <span class="n">augmentation_pipeline</span><span class="o">=</span><span class="n">train_augmentation_pipeline</span><span class="p">,</span>
             <span class="n">path</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">train_path</span><span class="p">,</span> <span class="n">only_images</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">return_paths</span><span class="o">=</span><span class="kc">False</span>
@@ -2226,7 +2228,8 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">141</span>
+<span class="normal">142</span>
 <span class="normal">143</span>
 <span class="normal">144</span>
 <span class="normal">145</span>
@@ -2250,8 +2253,7 @@ be trained can be accessed as config.semantic_segmentation.models.</p>
 <span class="normal">163</span>
 <span class="normal">164</span>
 <span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
+<span class="normal">166</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
 <span class="k">def</span> <span class="nf">compile_u_shaped_model</span><span class="p">(</span><span class="n">model_cfg</span><span class="p">:</span> <span class="n">SemanticSegmentationModelSpec</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Builds and compiles the U-shaped tensorflow model.</span>
 
@@ -2322,7 +2324,8 @@ of building this model.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">410</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">409</span>
+<span class="normal">410</span>
 <span class="normal">411</span>
 <span class="normal">412</span>
 <span class="normal">413</span>
@@ -2383,7 +2386,8 @@ of building this model.</p>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">task_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span>
     <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
-    <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">model_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_specification&quot;</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">custom_data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">task_cfg</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">validation_path</span>
     <span class="k">else</span><span class="p">:</span>
@@ -2436,7 +2440,8 @@ with the use of validation generator.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">339</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">338</span>
+<span class="normal">339</span>
 <span class="normal">340</span>
 <span class="normal">341</span>
 <span class="normal">342</span>
@@ -2462,8 +2467,7 @@ with the use of validation generator.</p>
 <span class="normal">362</span>
 <span class="normal">363</span>
 <span class="normal">364</span>
-<span class="normal">365</span>
-<span class="normal">366</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
+<span class="normal">365</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Prepares the crucial objects and evaluates model invoking the method calling the .evaluate() method</span>
@@ -2527,7 +2531,8 @@ with the use of validation generator.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">314</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">313</span>
+<span class="normal">314</span>
 <span class="normal">315</span>
 <span class="normal">316</span>
 <span class="normal">317</span>
@@ -2549,8 +2554,7 @@ with the use of validation generator.</p>
 <span class="normal">333</span>
 <span class="normal">334</span>
 <span class="normal">335</span>
-<span class="normal">336</span>
-<span class="normal">337</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate_models</span><span class="p">(</span>
+<span class="normal">336</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">evaluate_models</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Evaluates all the models associated with a certain task or the one specified by the model_name.</span>
@@ -2697,7 +2701,8 @@ with the use of validation generator.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">210</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">209</span>
+<span class="normal">210</span>
 <span class="normal">211</span>
 <span class="normal">212</span>
 <span class="normal">213</span>
@@ -2736,8 +2741,7 @@ with the use of validation generator.</p>
 <span class="normal">246</span>
 <span class="normal">247</span>
 <span class="normal">248</span>
-<span class="normal">249</span>
-<span class="normal">250</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">predict_based_on_generator</span><span class="p">(</span>
+<span class="normal">249</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">predict_based_on_generator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Produces predictions based on the selected model and the data generator created on the course of building this model.</span>
@@ -2764,7 +2768,7 @@ with the use of validation generator.</p>
     <span class="n">m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model&quot;</span><span class="p">)</span>
     <span class="n">model_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_specification&quot;</span><span class="p">)</span>
 
-    <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">custom_data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">validation_path</span>
     <span class="k">else</span><span class="p">:</span>
@@ -2822,7 +2826,8 @@ with the use of validation generator.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">388</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">387</span>
+<span class="normal">388</span>
 <span class="normal">389</span>
 <span class="normal">390</span>
 <span class="normal">391</span>
@@ -2841,8 +2846,7 @@ with the use of validation generator.</p>
 <span class="normal">404</span>
 <span class="normal">405</span>
 <span class="normal">406</span>
-<span class="normal">407</span>
-<span class="normal">408</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
+<span class="normal">407</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
 <span class="k">def</span> <span class="nf">prepare_evaluation_results</span><span class="p">(</span><span class="n">evaluation_metrics</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">evaluation_columns</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Composes the data frame containing the model&#39;s and metrics&#39; names alongside their values.</span>
 
@@ -2900,7 +2904,8 @@ to be used by other methods.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">368</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">367</span>
+<span class="normal">368</span>
 <span class="normal">369</span>
 <span class="normal">370</span>
 <span class="normal">371</span>
@@ -2917,8 +2922,7 @@ to be used by other methods.</p>
 <span class="normal">382</span>
 <span class="normal">383</span>
 <span class="normal">384</span>
-<span class="normal">385</span>
-<span class="normal">386</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
+<span class="normal">385</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@staticmethod</span>
 <span class="k">def</span> <span class="nf">prepare_evaluation_table</span><span class="p">(</span><span class="n">model_cfg</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Creates empty table with the proper columns, to be filled during the evaluation, also from it the columns&#39; names are taken</span>
 <span class="sd">    to be used by other methods.</span>
@@ -2969,7 +2973,8 @@ Otherwise, the model pointed at is used.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">169</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">168</span>
+<span class="normal">169</span>
 <span class="normal">170</span>
 <span class="normal">171</span>
 <span class="normal">172</span>
@@ -2982,8 +2987,7 @@ Otherwise, the model pointed at is used.</p>
 <span class="normal">179</span>
 <span class="normal">180</span>
 <span class="normal">181</span>
-<span class="normal">182</span>
-<span class="normal">183</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="normal">182</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                                      <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;If the name parameter is set to None, then the outputs are produced for all the trained models.</span>
 <span class="sd">    Otherwise, the model pointed at is used.</span>
@@ -3034,7 +3038,8 @@ Then these predictions are transformed into the binary masks and saved to the lo
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">185</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">184</span>
+<span class="normal">185</span>
 <span class="normal">186</span>
 <span class="normal">187</span>
 <span class="normal">188</span>
@@ -3056,8 +3061,7 @@ Then these predictions are transformed into the binary masks and saved to the lo
 <span class="normal">204</span>
 <span class="normal">205</span>
 <span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks_for_model</span><span class="p">(</span>
+<span class="normal">207</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">produce_and_save_predicted_masks_for_model</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
 <span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;For a certain model, function produces the prediction for a test data, or any data chosen by the user.</span>
@@ -3125,7 +3129,8 @@ Then these predictions are transformed into the binary masks and saved to the lo
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">273</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">272</span>
+<span class="normal">273</span>
 <span class="normal">274</span>
 <span class="normal">275</span>
 <span class="normal">276</span>
@@ -3163,8 +3168,7 @@ Then these predictions are transformed into the binary masks and saved to the lo
 <span class="normal">308</span>
 <span class="normal">309</span>
 <span class="normal">310</span>
-<span class="normal">311</span>
-<span class="normal">312</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">sample_generator</span><span class="p">(</span>
+<span class="normal">311</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">sample_generator</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">training_augmentation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
@@ -3190,9 +3194,9 @@ Then these predictions are transformed into the binary masks and saved to the lo
     <span class="n">model_cfg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">task_type</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">model_name</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;model_specification&quot;</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">training_augmentation</span><span class="p">:</span>
-        <span class="n">augmentation_pipeline</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">augmentation_pipeline</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_</span><span class="p">,</span> <span class="n">augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">model_cfg</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">custom_data_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">path</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">validation_path</span>
     <span class="k">else</span><span class="p">:</span>
@@ -3240,7 +3244,8 @@ Otherwise, the model pointed at is used.</p>
 </details>
       <details class="quote">
         <summary>Source code in <code>pyplatypus/engine.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">252</span>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">251</span>
+<span class="normal">252</span>
 <span class="normal">253</span>
 <span class="normal">254</span>
 <span class="normal">255</span>
@@ -3258,8 +3263,7 @@ Otherwise, the model pointed at is used.</p>
 <span class="normal">267</span>
 <span class="normal">268</span>
 <span class="normal">269</span>
-<span class="normal">270</span>
-<span class="normal">271</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">sample_generators</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">training_augmentation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<span class="normal">270</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">sample_generators</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">custom_data_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">training_augmentation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
                       <span class="n">task_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;semantic_segmentation&quot;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;If the name parameter is set to None, then the outputs are produced for all the trained models.</span>
 <span class="sd">    Otherwise, the model pointed at is used.</span>
@@ -3312,20 +3316,16 @@ using the train and validation data generators created prior to the fitting.</p>
 <span class="normal"> 98</span>
 <span class="normal"> 99</span>
 <span class="normal">100</span>
-<span class="normal">101</span>
-<span class="normal">102</span>
-<span class="normal">103</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">101</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Creates the augmentation pipeline based on the input config. Then the function performs</span>
 <span class="sd">    the selected tasks e.g. semantic segmentation, which consists of compiling and fitting the model</span>
 <span class="sd">    using the train and validation data generators created prior to the fitting.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">cv_tasks_to_perform</span> <span class="o">=</span> <span class="n">check_cv_tasks</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-    <span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span> <span class="o">=</span> <span class="n">prepare_augmentation_pipelines</span><span class="p">(</span>
-        <span class="n">config</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
     <span class="k">if</span> <span class="s1">&#39;semantic_segmentation&#39;</span> <span class="ow">in</span> <span class="n">cv_tasks_to_perform</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cache</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">semantic_segmentation</span><span class="o">=</span><span class="p">{})</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">build_and_train_segmentation_models</span><span class="p">(</span><span class="n">train_augmentation_pipeline</span><span class="p">,</span> <span class="n">validation_augmentation_pipeline</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">build_and_train_segmentation_models</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
       </details>
   </div>

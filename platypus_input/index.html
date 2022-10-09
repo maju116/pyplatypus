@@ -502,11 +502,11 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentation" class="md-nav__link">
-    augmentation
+  <a href="#modelsaugmentation" class="md-nav__link">
+    models.augmentation
   </a>
   
-    <nav class="md-nav" aria-label="augmentation">
+    <nav class="md-nav" aria-label="models.augmentation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -925,11 +925,11 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentation" class="md-nav__link">
-    augmentation
+  <a href="#modelsaugmentation" class="md-nav__link">
+    models.augmentation
   </a>
   
-    <nav class="md-nav" aria-label="augmentation">
+    <nav class="md-nav" aria-label="models.augmentation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2206,7 +2206,7 @@ It is due to the fact that the other callbacks require specifying a storage path
 </tr>
 </tbody>
 </table>
-<h3 id="augmentation">augmentation</h3>
+<h3 id="modelsaugmentation">models.augmentation</h3>
 <p>Here just a few exemplary fields are presented, but you may put any of the Albumentations-powered transforms.
 Find out more at the <a href="https://albumentations.ai/docs/api_reference/augmentations/">albumentations.ai</a>.</p>
 <p>Some key points to keep in mind while building your own augmentation pipeline:</p>
@@ -2514,24 +2514,24 @@ semantic_segmentation:
                     beta_2: 0.999
                     epsilon: 1e-07
                     amsgrad: False
-augmentation:
-    InvertImg:
-        always_apply: True
-        p: 1
-    Blur:
-        blur_limit: 7
-        always_apply: False
-        p: 0.5
-    Flip:
-        always_apply: False
-        p: 0.5
-    RandomRotate90:
-        always_apply: False
-        p: 0.5
-    ToFloat:
-        max_value: 255
-        always_apply: True
-        p: 1.0
+            augmentation:
+                InvertImg:
+                    always_apply: True
+                    p: 1
+                Blur:
+                    blur_limit: 7
+                    always_apply: False
+                    p: 0.5
+                Flip:
+                    always_apply: False
+                    p: 0.5
+                RandomRotate90:
+                    always_apply: False
+                    p: 0.5
+                ToFloat:
+                    max_value: 255
+                    always_apply: True
+                    p: 1.0
 </code></pre>
 
 
