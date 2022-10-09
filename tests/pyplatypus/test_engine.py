@@ -44,6 +44,16 @@ class mocked_generator:
     def create_images_masks_paths(self, *args):
         return {"images_paths": ["path1", "path2"]}
 
+    def __getitem__(steps_per_epoch):
+        return ["batch"]
+
+
+class mocked_data:
+    validation_path = "path"
+
+class mocked_spec:
+    data = mocked_data
+
 
 class TestPlatypusEngine:
     mocked_training_history = pd.DataFrame({"history": [0, 1, 2]})
@@ -202,3 +212,20 @@ class TestPlatypusEngine:
         mocker.patch(self.engine_path + ".evaluate_based_on_generator", return_value=None)
         mocker.patch(self.engine_path + ".prepare_evaluation_results", return_value=[.1, .2, .3])
         assert engine.evaluate_model(model_name, task_type) == [.1, .2, .3]
+
+    def test_sample_generators(self, mocker):
+        mocker.patch("pyplatypus.engine.PlatypusEngine.sample_generator", return_value="batch")
+        mocker.patch("pyplatypus.engine.PlatypusEngine.get_model_names", return_value=["model_name"])
+        assert self.initialized_engine.sample_generators() == ["batch"]
+
+    @pytest.mark.parametrize("training_augmentation, custom_data_path", [(True, None), (False, "custom_path")])
+    def test_sample_generator(self, training_augmentation, custom_data_path, mocker):
+        mocker.patch("pyplatypus.engine.prepare_augmentation_pipelines", return_value=(None, None))
+        mocker.patch("pyplatypus.engine.prepare_data_generator", return_value=mocked_generator)
+        engine = self.initialized_engine
+        engine.cache = {"semantic_segmentation": {"model_name": {"model_specifications": {}}}}
+        engine.config = {"semantic_segmentation": mocked_spec}
+        batch = engine.sample_generator(
+            model_name="model_name", training_augmentation=training_augmentation, custom_data_path=custom_data_path
+            )
+        assert batch == ["batch"]
