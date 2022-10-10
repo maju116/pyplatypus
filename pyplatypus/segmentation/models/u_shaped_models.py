@@ -16,7 +16,7 @@ class u_shaped_model:
         self,
         net_h: int,
         net_w: int,
-        grayscale: bool,
+        channels: int,
         blocks: Optional[int] = 4,
         n_class: Optional[int] = 2,
         filters: Optional[int] = 16,
@@ -41,8 +41,8 @@ class u_shaped_model:
             Input layer height.
         net_w : int
             Input layer width.
-        grayscale : bool
-            Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        channels : int
+            Defines input layer color channels.
         blocks : Optional[int], optional
             Number of blocks in the model, by default 4
         n_class : Optional[int], optional
@@ -74,7 +74,7 @@ class u_shaped_model:
         """
         self.net_h = net_h
         self.net_w = net_w
-        self.grayscale = grayscale
+        self.channels = channels
         self.blocks = blocks
         self.n_class = n_class
         self.filters = filters
@@ -315,8 +315,7 @@ class u_shaped_model:
         input_layer:
             Input for U-Net/U-Net++ model.
         """
-        channels = 1 if self.grayscale else 3
-        input_shape = (self.net_h, self.net_w, channels)
+        input_shape = (self.net_h, self.net_w, self.channels)
         input_layer = Input(shape=input_shape, name='input_img')
         return input_layer
 
