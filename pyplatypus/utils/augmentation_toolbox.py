@@ -9,12 +9,12 @@ create_augmentation_pipeline(augmentation_dict: dict, train: bool)
     Creates augmentation pipeline based on dictionary.
 """
 
-from typing import List, Tuple, Optional, Any
+from typing import List, Optional, Any
 import albumentations as A
 from pyplatypus.config.augmentation_config import train_available_methods, validation_test_available_methods
 
 
-def filter_out_incorrect_methods(augmentation_dict: dict, train: bool) -> List[str]:
+def filter_out_incorrect_methods(augmentation: list, train: bool) -> List[str]:
     """
     Filters the names of augmentations methods that are yet to be implemented out of the input list.
 
@@ -35,13 +35,13 @@ def filter_out_incorrect_methods(augmentation_dict: dict, train: bool) -> List[s
         available_methods = train_available_methods
     else:
         available_methods = validation_test_available_methods
-    methods = augmentation_dict.keys()
-    chosen_transformations = [m for m in augmentation_dict.keys() if augmentation_dict.get(m) is not None]
-    valid_methods = [m for m in methods if (m in available_methods) and (m in chosen_transformations)]
-    return valid_methods
+    augmentations_valid = [
+        augmentation_spec for augmentation_spec in augmentation if augmentation_spec.name in available_methods
+        ]
+    return augmentations_valid
 
 
-def create_augmentation_pipeline(augmentation_dict: dict, train: bool) -> A.core.composition.Compose:
+def create_augmentation_pipeline(augmentation: list, train: bool) -> A.core.composition.Compose:
     """
     Creates augmentation pipeline based on dictionary. It is done by importing the certain classes from the Albumentations
     module. This is why it is crucial to use the proper names here hence the additional validation. The incorrect keys are
@@ -60,9 +60,14 @@ def create_augmentation_pipeline(augmentation_dict: dict, train: bool) -> A.core
     pipeline: Albumetations.core.composition.Compose class
         The iterator-like object compliant with the data generators present in the PyPlatypus.
     """
-    correct_methods = filter_out_incorrect_methods(augmentation_dict, train)
-    augmentation_dict = {your_key: augmentation_dict[your_key] for your_key in correct_methods}
-    pipes = [getattr(A, method)(**dict(augmentation_dict[method])) for method in correct_methods]
+    augmentation_list = filter_out_incorrect_methods(augmentation, train)
+    pipes = []
+    for method in augmentation_list:
+        uinitialized_transform = getattr(A, method.name)
+        transform_params = method.copy().dict()
+        transform_params.pop("name")
+        initialized_transform = uinitialized_transform(**transform_params)
+        pipes.append(initialized_transform)
     pipeline = A.Compose(pipes, p=1.0)
     return pipeline
 
@@ -81,13 +86,14 @@ def prepare_augmentation_pipelines(config: dict) -> tuple[Optional[Any], Optiona
     augmentation_pipelines: Tuple[albumentations.Compose]
         Composed of the augmentation pipelines.
     """
-    if config.get("augmentation") is not None:
+    if config.augmentation is not None:
         train_augmentation_pipeline = create_augmentation_pipeline(
-            augmentation_dict=dict(config.get("augmentation")),
+            augmentation=config.augmentation,
             train=True
             )
         validation_augmentation_pipeline = create_augmentation_pipeline(
-            dict(config.get("augmentation")), False
+            augmentation=config.augmentation,
+            train=False
             )
     else:
         train_augmentation_pipeline = None

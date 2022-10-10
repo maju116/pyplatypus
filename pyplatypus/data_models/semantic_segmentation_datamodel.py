@@ -11,6 +11,7 @@ from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
     available_optimizers, available_activations, available_callbacks
     )
+from pyplatypus.data_models.augmentation_datamodel import AugmentationSpecFull
 from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 from pyplatypus.data_models.semantic_segmentation_loss_datamodel import CceLossSpec, IouCoefficientSpec
 
@@ -80,6 +81,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     metrics: Optional[List[Any]] = [IouCoefficientSpec()]
     optimizer: Any = AdamSpec()
     callbacks: List[Any] = []
+    augmentation: Optional[List[Any]] = None
 
     @validator('fine_tuning_path')
     def check_if_fine_tuning_path_exists(cls, v: str):

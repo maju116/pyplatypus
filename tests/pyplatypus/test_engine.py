@@ -3,7 +3,7 @@ from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationInput, \
     SemanticSegmentationModelSpec
 from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from pyplatypus.data_models.augmentation_datamodel import AugmentationSpecFull
+from pyplatypus.data_models.augmentation_datamodel import ToFloatSpec
 from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 import pytest
 import pandas as pd
@@ -44,6 +44,16 @@ class mocked_generator:
     def create_images_masks_paths(self, *args):
         return {"images_paths": ["path1", "path2"]}
 
+    def __getitem__(steps_per_epoch):
+        return ["batch"]
+
+
+class mocked_data:
+    validation_path = "path"
+
+class mocked_spec:
+    data = mocked_data
+
 
 class TestPlatypusEngine:
     mocked_training_history = pd.DataFrame({"history": [0, 1, 2]})
@@ -67,10 +77,10 @@ class TestPlatypusEngine:
                 "n_class": 2,
                 "filters": 2,
                 "dropout": .1,
-                "optimizer": AdamSpec()
+                "optimizer": AdamSpec(),
+                "augmentation": [ToFloatSpec()]
             })]
-        ),
-        augmentation=AugmentationSpecFull()
+        )
     )
     initialized_engine = PlatypusEngine(config=config.copy())
     engine_path = "pyplatypus.engine.PlatypusEngine"
@@ -87,7 +97,7 @@ class TestPlatypusEngine:
     def mocked_update_cache(self, model_name, model, training_history, model_specification):
         self.results = (model_name, model, self.mocked_training_history, model_specification)
 
-    def mock_build_and_train_segmentation_models(self, train_augmentation_pipeline, validation_augmentation_pipeline):
+    def mock_build_and_train_segmentation_models(self):
         self.model = "trained_model"
 
     def test_init(self):
@@ -125,7 +135,7 @@ class TestPlatypusEngine:
         ))
         mocker.patch(self.engine_path + ".compile_u_shaped_model", return_value=mocked_u_shaped_model)
         mocker.patch(self.engine_path + ".update_cache", self.mocked_update_cache)
-        engine.build_and_train_segmentation_models(None, None)
+        engine.build_and_train_segmentation_models()
         assert self.results == (
             "model_name", mocked_u_shaped_model, self.mocked_training_history,
             self.config.semantic_segmentation.models[0].dict()
@@ -148,6 +158,7 @@ class TestPlatypusEngine:
     def test_predict_based_on_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.predict_from_generator", return_value=("predictions", "paths"))
         mocker.patch("pyplatypus.engine.prepare_data_generator", return_value=mocked_generator)
+        mocker.patch("pyplatypus.engine.prepare_augmentation_pipelines", return_value=(None, None))
         engine = self.initialized_engine
         engine.cache = {"semantic_segmentation": {"model_name": {"model": "model", "data_generator": mocked_generator}}}
         assert engine.predict_based_on_generator(
@@ -166,6 +177,7 @@ class TestPlatypusEngine:
     @pytest.mark.parametrize("custom_data_path", [(None), ("some_path")])
     def test_evaluate_based_on_generator(self, mocker, custom_data_path):
         mocker.patch("pyplatypus.engine.prepare_data_generator", return_value="generator")
+        mocker.patch("pyplatypus.engine.prepare_augmentation_pipelines", return_value=(None, None))
         engine = self.initialized_engine
         engine.cache = {"semantic_segmentation": {
             "model_name": {"model": mocked_u_shaped_model, "validation_generator": mocked_generator}}}
@@ -200,3 +212,20 @@ class TestPlatypusEngine:
         mocker.patch(self.engine_path + ".evaluate_based_on_generator", return_value=None)
         mocker.patch(self.engine_path + ".prepare_evaluation_results", return_value=[.1, .2, .3])
         assert engine.evaluate_model(model_name, task_type) == [.1, .2, .3]
+
+    def test_sample_generators(self, mocker):
+        mocker.patch("pyplatypus.engine.PlatypusEngine.sample_generator", return_value="batch")
+        mocker.patch("pyplatypus.engine.PlatypusEngine.get_model_names", return_value=["model_name"])
+        assert self.initialized_engine.sample_generators() == ["batch"]
+
+    @pytest.mark.parametrize("training_augmentation, custom_data_path", [(True, None), (False, "custom_path")])
+    def test_sample_generator(self, training_augmentation, custom_data_path, mocker):
+        mocker.patch("pyplatypus.engine.prepare_augmentation_pipelines", return_value=(None, None))
+        mocker.patch("pyplatypus.engine.prepare_data_generator", return_value=mocked_generator)
+        engine = self.initialized_engine
+        engine.cache = {"semantic_segmentation": {"model_name": {"model_specifications": {}}}}
+        engine.config = {"semantic_segmentation": mocked_spec}
+        batch = engine.sample_generator(
+            model_name="model_name", training_augmentation=training_augmentation, custom_data_path=custom_data_path
+            )
+        assert batch == ["batch"]

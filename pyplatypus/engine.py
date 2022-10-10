@@ -95,15 +95,13 @@ class PlatypusEngine:
         using the train and validation data generators created prior to the fitting.
         """
         cv_tasks_to_perform = check_cv_tasks(self.config)
-        train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(
-            config=self.config)
         if 'semantic_segmentation' in cv_tasks_to_perform:
             self.cache.update(semantic_segmentation={})
-            self.build_and_train_segmentation_models(train_augmentation_pipeline, validation_augmentation_pipeline)
+            self.build_and_train_segmentation_models()
 
     def build_and_train_segmentation_models(
-            self, train_augmentation_pipeline: Optional[Compose], validation_augmentation_pipeline: Optional[Compose]
-    ):
+        self
+            ):
         """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.
 
         Parameters
@@ -115,6 +113,7 @@ class PlatypusEngine:
         """
         spec = self.config['semantic_segmentation']
         for model_cfg in self.config['semantic_segmentation'].models:
+            train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
             train_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=train_augmentation_pipeline,
                 path=spec.data.train_path, only_images=False, return_paths=False
@@ -233,7 +232,7 @@ class PlatypusEngine:
         m = self.cache.get(task_type).get(model_name).get("model")
         model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
 
-        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
         if custom_data_path is None:
             path = spec.data.validation_path
         else:
@@ -295,9 +294,9 @@ class PlatypusEngine:
         model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
 
         if training_augmentation:
-            augmentation_pipeline, _ = prepare_augmentation_pipelines(config=self.config)
+            augmentation_pipeline, _ = prepare_augmentation_pipelines(config=model_cfg)
         else:
-            _, augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+            _, augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
         if custom_data_path is None:
             path = spec.data.validation_path
         else:
@@ -431,7 +430,8 @@ class PlatypusEngine:
         """
         task_cfg = self.config.get(task_type)
         m = self.cache.get(task_type).get(model_name).get("model")
-        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
+        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
         if custom_data_path is None:
             path = task_cfg.data.validation_path
         else:

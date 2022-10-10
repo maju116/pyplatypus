@@ -121,16 +121,17 @@ class TestYAMLConfigLoader:
                         "epochs": 100,
                         "loss": 'focal loss',
                         "metrics": ['tversky coefficient', 'iou coefficient'],
-                        "optimizer": {"Adam": {}}
+                        "optimizer": {"Adam": {}},
+                        "augmentation": {
+                            "InvertImg": {
+                                "always_apply": True,
+                                "p": 1
+                            }
+                        }
+        
                     }]
-                },
-        "augmentation": {
-            "InvertImg": {
-                "always_apply": True,
-                "p": 1
+                }
             }
-        }
-        }
         return mocked_config
 
     def mocked_solver_datamodel(*args, **kwargs):
@@ -176,23 +177,6 @@ class TestYAMLConfigLoader:
     def test_create_object_detection_config(self):
         config = self.mock_config()
         assert YamlConfigLoader.create_object_detection_config(config) == ObjectDetectionInput()
-
-    def test_create_augmentation_config(self):
-        input_dict = {
-            "augmentation": {
-                "InvertImg": {
-                    "always_apply": True,
-                    "p": 1
-                }
-                }
-            }
-        parsed_config = YamlConfigLoader.create_augmentation_config(config=input_dict)
-        parsed_config_as_dict = parsed_config.dict()
-        for key in parsed_config_as_dict.keys():
-            if key != "InvertImg":
-                assert parsed_config_as_dict.get(key) is None
-        assert isinstance(parsed_config, AM.AugmentationSpecFull)
-        assert isinstance(parsed_config.InvertImg, AM.InvertImgSpec)
 
     def test_process_optimizer_field(self, monkeypatch):
         monkeypatch.setattr("pyplatypus.utils.config_processing_functions.OM.OptimizerNameSpec", mocked_optimizer_spec, raising=False)
@@ -243,7 +227,6 @@ class TestYAMLConfigLoader:
         mocker.patch(ycl_path + "load_config_from_yaml", return_value=None)
         mocker.patch(ycl_path + "create_semantic_segmentation_config", return_value=None)
         mocker.patch(ycl_path + "create_object_detection_config", return_value=None)
-        mocker.patch(ycl_path + "create_augmentation_config", return_value=None)
         mocker.patch("pyplatypus.utils.config_processing_functions.PlatypusSolverInput", self.mocked_solver_datamodel)
         assert YamlConfigLoader(Path("")).load() == {}
 
@@ -300,8 +283,23 @@ class TestYAMLConfigLoader:
         with pytest.raises(ValueError):
             processed_config = YamlConfigLoader.process_metrics_field(config)
 
-    def test_process_callbacks_field_dict(self, monkeypatch):
+    def test_process_augmentation_field_dict(self, monkeypatch):
         config = self.mock_config()
-        config.update(metrics=None)
-        processed_config = YamlConfigLoader.process_metrics_field(config)
-        assert "metrics" not in processed_config.keys()
+        config.update(augmentation=None)
+        processed_config = YamlConfigLoader.process_augmentation_field(config)
+        assert "augmentation" not in processed_config.keys()
+
+    def test_process_augmentation_field_dict(self, monkeypatch):
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.AM.Metric1Spec", mocked_metric1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.AM.Metric2Spec", mocked_metric2_spec, raising=False)
+        config = self.mock_config()
+        config.update(augmentation={"Metric1": {}, "Metric2": {}})
+        processed_config = YamlConfigLoader.process_augmentation_field(config)
+        assert processed_config.get("augmentation")[0].name == "metric_1"
+        assert processed_config.get("augmentation")[1].name == "metric_2"
+
+    def test_process_augmentation_field_wrong_structure(self):
+        config = self.mock_config()
+        config.update(augmentation="augmentation")
+        with pytest.raises(ValueError):
+            processed_config = YamlConfigLoader.process_augmentation_field(config)

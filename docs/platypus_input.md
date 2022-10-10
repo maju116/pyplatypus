@@ -328,7 +328,7 @@ It takes no parameters, should be placed as a sole name when using list of callb
 | stateful_metrics | tuple or list of str | any | ("val_loss") |  no, by default None |
 
 
-### augmentation
+### models.augmentation
 
 Here just a few exemplary fields are presented, but you may put any of the Albumentations-powered transforms.
 Find out more at the [albumentations.ai](https://albumentations.ai/docs/api_reference/augmentations/).
@@ -493,24 +493,24 @@ Having dived in the specifics we shall close this section with an example YAML c
                         beta_2: 0.999
                         epsilon: 1e-07
                         amsgrad: False
-    augmentation:
-        InvertImg:
-            always_apply: True
-            p: 1
-        Blur:
-            blur_limit: 7
-            always_apply: False
-            p: 0.5
-        Flip:
-            always_apply: False
-            p: 0.5
-        RandomRotate90:
-            always_apply: False
-            p: 0.5
-        ToFloat:
-            max_value: 255
-            always_apply: True
-            p: 1.0
+                augmentation:
+                    InvertImg:
+                        always_apply: True
+                        p: 1
+                    Blur:
+                        blur_limit: 7
+                        always_apply: False
+                        p: 0.5
+                    Flip:
+                        always_apply: False
+                        p: 0.5
+                    RandomRotate90:
+                        always_apply: False
+                        p: 0.5
+                    ToFloat:
+                        max_value: 255
+                        always_apply: True
+                        p: 1.0
 
 
 
