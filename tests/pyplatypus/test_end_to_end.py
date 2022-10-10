@@ -1,4 +1,5 @@
 from pyplatypus.solvers.platypus_cv_solver import PlatypusSolver
+from pathlib import Path
 from pandas import DataFrame
 
 
@@ -7,6 +8,7 @@ def test_complete_run():
     pe.run()
     pe.produce_and_save_predicted_masks_for_model(model_name="res_u_net", custom_data_path=None)
     metrics = pe.evaluate_models()
+    Path("tests/testdata/chkpt.hdf5").unlink()
     assert pe.cache.get("semantic_segmentation")
     assert metrics
     assert isinstance(metrics[0], DataFrame)

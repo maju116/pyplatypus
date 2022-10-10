@@ -48,6 +48,8 @@ semantic_segmentation:
                 epsilon: 1e-07
                 amsgrad: False
           callbacks:
+            ModelCheckpoint:
+                filepath: "tests/testdata/chkpt.hdf5"
             EarlyStopping:
                 patience: 10
             ProgbarLogger:
