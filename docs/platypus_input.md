@@ -65,8 +65,7 @@ It is defined as a list, with each element following the below structure:
 | metrics | List[str]   | Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
 | optimizer | dict      | Described in the Optimizers section | Described in the Optimizers section    | no, by default Adam optimizer with default arguments |
 | callbacks | list or dict  | Described in the Callbacks section | Described in the Callbacks section     | no, by default no callbacks are used |
-
-
+| augmentation | list or dict | Described in the Augmentation section | Described in the Augmentation section | no, by default no augmentation is used |
 
 ### models.loss
 
@@ -325,7 +324,7 @@ It takes no parameters, should be placed as a sole name when using list of callb
 | stateful_metrics | tuple or list of str | any | ("val_loss") |  no, by default None |
 
 
-### augmentation
+### models.augmentation
 
 Here just a few exemplary fields are presented, but you may put any of the Albumentations-powered transforms.
 Find out more at the [albumentations.ai](https://albumentations.ai/docs/api_reference/augmentations/).
@@ -362,7 +361,7 @@ Some key points to keep in mind while building your own augmentation pipeline:
 | RandomRotate90 | RandomRotate90Spec | no, initialized with the default attributes |
 | ToFloat | ToFloatSpec |  no, initialized with the default attributes |
 
-#### augmentation.InvertImg
+#### models.augmentation.InvertImg
 
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
@@ -370,7 +369,7 @@ Some key points to keep in mind while building your own augmentation pipeline:
 | p | positive float | any between 0 and 1 | 1 |  no, by default 1 |
 
 
-#### augmentation.Blur
+#### models.augmentation.Blur
 
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
@@ -379,21 +378,21 @@ Some key points to keep in mind while building your own augmentation pipeline:
 | p | positive float | any between 0 and 1 | 1 |  no, by default 0.5 |
 
 
-#### augmentation.Flip
+#### models.augmentation.Flip
 
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | always_apply | boolean | any | False |  no, by default False |
 | p | positive float | any between 0 and 1 | 0.5 |  no, by default 0.5 |
 
-#### augmentation.RandomRotate90
+#### models.augmentation.RandomRotate90
 
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | always_apply | boolean | any | False |  no, by default False |
 | p | positive float | any between 0 and 1 | 0.5 |  no, by default 0.5 |
 
-#### augmentation.ToFloat
+#### models.augmentation.ToFloat
 
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
@@ -490,24 +489,24 @@ Having dived in the specifics we shall close this section with an example YAML c
                         beta_2: 0.999
                         epsilon: 1e-07
                         amsgrad: False
-    augmentation:
-        InvertImg:
-            always_apply: True
-            p: 1
-        Blur:
-            blur_limit: 7
-            always_apply: False
-            p: 0.5
-        Flip:
-            always_apply: False
-            p: 0.5
-        RandomRotate90:
-            always_apply: False
-            p: 0.5
-        ToFloat:
-            max_value: 255
-            always_apply: True
-            p: 1.0
+                augmentation:
+                    InvertImg:
+                        always_apply: True
+                        p: 1
+                    Blur:
+                        blur_limit: 7
+                        always_apply: False
+                        p: 0.5
+                    Flip:
+                        always_apply: False
+                        p: 0.5
+                    RandomRotate90:
+                        always_apply: False
+                        p: 0.5
+                    ToFloat:
+                        max_value: 255
+                        always_apply: True
+                        p: 1.0
 
 
 
