@@ -35,40 +35,40 @@ Below there is each field described more thoroughly.
 
 It is defined as a list, with each element following the below structure:
 
-| Name | Type           | Allowed values | Exemplary value                            | Required |
+| Name | Type      | Allowed values | Exemplary value              | Required |
 |---|----------------|---|--------------------------------------------|---|
-| name | str            | any | 'res_u_net'                                |  yes  |
-| fine_tuning_path | Optional[str]  | any | 'models/res_u_net.h5'                      |  yes  |
-| net_h | positive int   | any | 300                                        |  yes  |
-| net_w | positive int   | any | 300                                        |  yes  |
-| h_splits | positive int   | any | 0                                          |  no, by default 0  |
-| w_splits | positive int   | any | 0                                          |  no, by default 0  |
-| grayscale | boolean        | any | False                                      |  no, by default False  |
-| blocks | positive int   | any | 4                                          |  yes  |
-| n_class | positive int   | any | 2                                          |  yes  |
-| filters | positive int   | any | 16                                         |  yes  |
-| dropout | positive float | any between 0 and 1 | 0.2                                        |  yes  |
-| batch_normalization | boolean        | any | True                                       |  yes  |
-| kernel_initializer | str            | any implemented in Tensorflow | 'he_normal'                                |  no, by default 'he_normal' |
-| resunet | boolean        | any | True                                       |  no, by default False |
-| linknet | boolean        | any | False                                      |  no, by default False |
-| plus_plus | boolean        | any | False                                      |  no, by default False |
-| deep_supervision | boolean        | any | False                                      |  yes  |
-| use_separable_conv2d | boolean        | any | True                                       |  no, by default True |
-| use_spatial_droput2d | boolean        | any | False                                      |  no, by default True |
-| use_up_sampling2d | boolean        | any | False                                      |  no, by default False |
-| u_net_conv_block_width | positive int   | any | 4                                          |  no, by default 2 |
-| activation_layer | str            | any implemented in Tensorflow | 16                                         |  no, by default 'relu' |
-| batch_size | positive int   | any | 32                                         |  no, by default 32  |
-| epochs | positive int   | any | 100                                        |  no, by default 2  |
-| loss | str            | One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss'] | 'lovasz_loss'                              | no, by default 'iou_loss' |
-| metrics | List[str]      | Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
-| optimizer | dict           | Described in the Optimizers section | Described in the Optimizers section        | no, by default Adam optimizer with default arguments |
-| callbacks | list or dict   | Described in the Callbacks section | Described in the Callbacks section         | no, by default no callbacks are used |
+| name | str      | any | 'res_u_net'| yes |
+| fine_tuning_path | Optional[str] | any | 'models/res_u_net.h5'| yes |
+| net_h | positive int  | any | 300| yes |
+| net_w | positive int  | any | 300| yes |
+| h_splits | positive int  | any | 0| no, by default 0 |
+| w_splits | positive int  | any | 0| no, by default 0 |
+| grayscale | boolean    | any | False| no, by default False |
+| blocks | positive int  | any | 4 | yes |
+| n_class | positive int  | any | 2 | yes |
+| filters | positive int  | any | 16 | yes |
+| dropout | positive float | any between 0 and 1 | 0.2 | yes |
+| batch_normalization | boolean    | any | True | yes |
+| kernel_initializer | str      | any implemented in Tensorflow | 'he_normal'| no, by default 'he_normal' |
+| resunet | boolean    | any | True | no, by default False |
+| linknet | boolean    | any | False | no, by default False |
+| plus_plus | boolean    | any | False | no, by default False |
+| deep_supervision | boolean    | any | False | yes |
+| use_separable_conv2d | boolean    | any | True | no, by default True |
+| use_spatial_droput2d | boolean    | any | False | no, by default True |
+| use_up_sampling2d | boolean    | any | False | no, by default False |
+| u_net_conv_block_width | positive int  | any | 4 | no, by default 2 |
+| activation_layer | str      | any implemented in Tensorflow | 16 | no, by default 'relu' |
+| batch_size | positive int  | any | 32 | no, by default 32 |
+| epochs | positive int  | any | 100 | no, by default 2 |
+| loss | str      | One of the: ['iou_loss', 'focal_loss', 'dice_loss', 'cce_loss', 'cce_dice_loss', 'tversky_loss', 'focal_tversky_loss', 'combo_loss', 'lovasz_loss'] | 'lovasz_loss'               | no, by default 'iou_loss' |
+| metrics | List[str]   | Subset of the: ['iou_coefficient', 'tversky_coefficient', 'dice_coefficient'] | ['tversky coefficient', 'iou coefficient'] | no, by default ['iou_coefficient'] |
+| optimizer | dict      | Described in the Optimizers section | Described in the Optimizers section    | no, by default Adam optimizer with default arguments |
+| callbacks | list or dict  | Described in the Callbacks section | Described in the Callbacks section     | no, by default no callbacks are used |
 
 
 
-### loss
+### models.loss
 
 In the input there is the loss field allowing a user to specify loss to be used in the model calibration. The loss may be specified using just its name, then the default additional parameters are used but also each parameter might be set separately to obtain the loss tailored to the user's needs. All the implemented losses are stored in the pyplatypus.segmentation.loss_functions.SegmentationLoss object.
 
@@ -80,48 +80,48 @@ Why CamelCase? For it is agreed upon that this format should be used for naming 
 
 They may be put in the config as just names, empty fields or fields with additional parameters, the Engine takes care of channeling all these types into the single pydantic-powered flow. Also if an additional, unused parameter gets passed to the engine it is ignored.
 
-#### loss.DiceLoss
+#### models.loss.DiceLoss
 It takes no additional parameters.
 
-#### loss.CceLoss
+#### models.loss.CceLoss
 It takes no additional parameters.
 
-#### loss.CceDiceLoss
+#### models.loss.CceDiceLoss
 It takes no additional parameters.
 
-#### loss.IouLoss
+#### models.loss.IouLoss
 It takes no additional parameters.
 
-#### loss.LovaszLoss
+#### models.loss.LovaszLoss
 It takes no additional parameters.
 
-#### loss.FocalLoss
+#### models.loss.FocalLoss
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | gamma | float | any | 0.5 |  no, by default 2  |
 | alpha | float | any | 0.95 |  no, by default 0.8  |
 
-#### loss.TverskyLoss
+#### models.loss.TverskyLoss
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | alpha | float | any | 0.5 |  no, by default 0.5  |
 | beta | float | any | 0.95 |  no, by default 0.5  |
 
-#### loss.FocalTverskyLoss
+#### models.loss.FocalTverskyLoss
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | gamma | float | any | 0.5 |  no, by default 2  |
 | alpha | float | any | 0.5 |  no, by default 0.5  |
 | beta | float | any | 0.95 |  no, by default 0.5  |
 
-#### loss.ComboLoss
+#### models.loss.ComboLoss
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | alpha | float | any | 0.5 |  no, by default 0.5  |
 | ce_ratio | float | any | 0.1 |  no, by default 0.5  |
 
 
-### metrics
+### models.metrics
 
 Beside the categorical crossentropy which is the always applied metric in PlatypusEngine, you might find yourself in the need of utilizing some additional ones. Here the metrics input field comes out to be of much use, allowing a user to specify a list of metrics to be used in the model training. The list may be specified using just coefficients names, then the default additional parameters are used, similarly to what happens with the loss functions implemented in the package. But also analogically, each parameter might be set separately. All the implemented metrics are stored in the pyplatypus.segmentation.loss_functions.SegmentationLoss object.
 
@@ -131,27 +131,26 @@ Once again each metric's name get converted to CamelCase during building the pyd
 
 They may be put in the config as just names, empty fields or fields with additional parameters, the Engine takes care of channeling all these types into the single pydantic-powered flow. Also if an additional, unused parameter gets passed to the engine it is ignored.
 
-#### loss.DiceCoefficient
+#### models.metrics.DiceCoefficient
 
 It takes no additional parameters.
 
-#### loss.IouCoefficient
+#### models.metrics.IouCoefficient
 It takes no additional parameters.
-#### loss.TverskyCoefficient
+#### models.metric.TverskyCoefficient
 | Name | Type | Allowed values | Exemplary value | Required |
 |---|---|---|---|---|
 | alpha | float | any | 0.5 |  no, by default 0.5  |
 | beta | float | any | 0.95 |  no, by default 0.5  |
 
 
-### optimizers
+### models.optimizer
+
 
 PyPlatypus allows us to use the optimizers of choice, any implemented in Tensorflow backend, to learn more about the algorithms and their arguments, visit
 [tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers).
 
 The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", "Nadam", "RMSprop", "SGD"]. Below we described each possible optimizer setting.
-
-### model.optimizer
 
 #### models.optimizer.Adadelta
 
@@ -230,22 +229,20 @@ The available optimizers are: ["Adadelta", "Adagrad", "Adam", "Adamax", "Ftrl", 
 
 
 
-### callbacks
+### models.callbacks
 
 PyPlatypus allows us to use the callbacks of choice, majority of the ones implemented in Tensorflow, to learn more about the methods and their arguments, visit
 [tensorflow.org](https://www.tensorflow.org/api_docs/python/tf/keras/callbacks).
-
-available_callbacks = 
-available_callbacks_without_specification = ["EarlyStopping", "ReduceLROnPlateau", "TerminateOnNaN", "ProgbarLogger"]
 
 The available optimizers are: ["EarlyStopping", "ModelCheckpoint", "ReduceLROnPlateau", "TensorBoard", "BackupAndRestore", "TerminateOnNaN", "CSVLogger", "ProgbarLogger"].
 
 Beware that if you specify the callback input field as a list, only the following callbacks are valid: ["EarlyStopping", "ReduceLROnPlateau", "TerminateOnNaN", "ProgbarLogger"].
 It is due to the fact that the other callbacks require specifying a storage path, assigning default value to which we perceive as improper.
 
+One more important thing to remind of is that if you use EarlyStopping alongside ModelCheckpoint, the model stored for you in the cache will be the one loaded from checkpoint, just to prevent you from using the hypothetically lower quality model.
+
 Below we described each possible callback setting.
 
-#### model.callbacks
 
 #### models.callbacks.EarlyStopping
 
