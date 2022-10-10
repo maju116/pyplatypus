@@ -488,44 +488,44 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentation" class="md-nav__link">
-    augmentation
+  <a href="#modelsaugmentation" class="md-nav__link">
+    models.augmentation
   </a>
   
-    <nav class="md-nav" aria-label="augmentation">
+    <nav class="md-nav" aria-label="models.augmentation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#augmentationinvertimg" class="md-nav__link">
-    augmentation.InvertImg
+  <a href="#modelsaugmentationinvertimg" class="md-nav__link">
+    models.augmentation.InvertImg
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationblur" class="md-nav__link">
-    augmentation.Blur
+  <a href="#modelsaugmentationblur" class="md-nav__link">
+    models.augmentation.Blur
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationflip" class="md-nav__link">
-    augmentation.Flip
+  <a href="#modelsaugmentationflip" class="md-nav__link">
+    models.augmentation.Flip
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationrandomrotate90" class="md-nav__link">
-    augmentation.RandomRotate90
+  <a href="#modelsaugmentationrandomrotate90" class="md-nav__link">
+    models.augmentation.RandomRotate90
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationtofloat" class="md-nav__link">
-    augmentation.ToFloat
+  <a href="#modelsaugmentationtofloat" class="md-nav__link">
+    models.augmentation.ToFloat
   </a>
   
 </li>
@@ -897,44 +897,44 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentation" class="md-nav__link">
-    augmentation
+  <a href="#modelsaugmentation" class="md-nav__link">
+    models.augmentation
   </a>
   
-    <nav class="md-nav" aria-label="augmentation">
+    <nav class="md-nav" aria-label="models.augmentation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#augmentationinvertimg" class="md-nav__link">
-    augmentation.InvertImg
+  <a href="#modelsaugmentationinvertimg" class="md-nav__link">
+    models.augmentation.InvertImg
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationblur" class="md-nav__link">
-    augmentation.Blur
+  <a href="#modelsaugmentationblur" class="md-nav__link">
+    models.augmentation.Blur
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationflip" class="md-nav__link">
-    augmentation.Flip
+  <a href="#modelsaugmentationflip" class="md-nav__link">
+    models.augmentation.Flip
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationrandomrotate90" class="md-nav__link">
-    augmentation.RandomRotate90
+  <a href="#modelsaugmentationrandomrotate90" class="md-nav__link">
+    models.augmentation.RandomRotate90
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#augmentationtofloat" class="md-nav__link">
-    augmentation.ToFloat
+  <a href="#modelsaugmentationtofloat" class="md-nav__link">
+    models.augmentation.ToFloat
   </a>
   
 </li>
@@ -1258,6 +1258,13 @@ augmentation:    # Defines the augmentation pipelines.
 <td>Described in the Callbacks section</td>
 <td>Described in the Callbacks section</td>
 <td>no, by default no callbacks are used</td>
+</tr>
+<tr>
+<td>augmentation</td>
+<td>list or dict</td>
+<td>Described in the Augmentation section</td>
+<td>Described in the Augmentation section</td>
+<td>no, by default no augmentation is used</td>
 </tr>
 </tbody>
 </table>
@@ -2175,7 +2182,7 @@ It is due to the fact that the other callbacks require specifying a storage path
 </tr>
 </tbody>
 </table>
-<h3 id="augmentation">augmentation</h3>
+<h3 id="modelsaugmentation">models.augmentation</h3>
 <p>Here just a few exemplary fields are presented, but you may put any of the Albumentations-powered transforms.
 Find out more at the <a href="https://albumentations.ai/docs/api_reference/augmentations/">albumentations.ai</a>.</p>
 <p>Some key points to keep in mind while building your own augmentation pipeline:</p>
@@ -2242,7 +2249,7 @@ Find out more at the <a href="https://albumentations.ai/docs/api_reference/augme
 </tr>
 </tbody>
 </table>
-<h4 id="augmentationinvertimg">augmentation.InvertImg</h4>
+<h4 id="modelsaugmentationinvertimg">models.augmentation.InvertImg</h4>
 <table>
 <thead>
 <tr>
@@ -2270,7 +2277,7 @@ Find out more at the <a href="https://albumentations.ai/docs/api_reference/augme
 </tr>
 </tbody>
 </table>
-<h4 id="augmentationblur">augmentation.Blur</h4>
+<h4 id="modelsaugmentationblur">models.augmentation.Blur</h4>
 <table>
 <thead>
 <tr>
@@ -2305,7 +2312,7 @@ Find out more at the <a href="https://albumentations.ai/docs/api_reference/augme
 </tr>
 </tbody>
 </table>
-<h4 id="augmentationflip">augmentation.Flip</h4>
+<h4 id="modelsaugmentationflip">models.augmentation.Flip</h4>
 <table>
 <thead>
 <tr>
@@ -2333,7 +2340,7 @@ Find out more at the <a href="https://albumentations.ai/docs/api_reference/augme
 </tr>
 </tbody>
 </table>
-<h4 id="augmentationrandomrotate90">augmentation.RandomRotate90</h4>
+<h4 id="modelsaugmentationrandomrotate90">models.augmentation.RandomRotate90</h4>
 <table>
 <thead>
 <tr>
@@ -2361,7 +2368,7 @@ Find out more at the <a href="https://albumentations.ai/docs/api_reference/augme
 </tr>
 </tbody>
 </table>
-<h4 id="augmentationtofloat">augmentation.ToFloat</h4>
+<h4 id="modelsaugmentationtofloat">models.augmentation.ToFloat</h4>
 <table>
 <thead>
 <tr>
@@ -2483,24 +2490,24 @@ semantic_segmentation:
                     beta_2: 0.999
                     epsilon: 1e-07
                     amsgrad: False
-augmentation:
-    InvertImg:
-        always_apply: True
-        p: 1
-    Blur:
-        blur_limit: 7
-        always_apply: False
-        p: 0.5
-    Flip:
-        always_apply: False
-        p: 0.5
-    RandomRotate90:
-        always_apply: False
-        p: 0.5
-    ToFloat:
-        max_value: 255
-        always_apply: True
-        p: 1.0
+            augmentation:
+                InvertImg:
+                    always_apply: True
+                    p: 1
+                Blur:
+                    blur_limit: 7
+                    always_apply: False
+                    p: 0.5
+                Flip:
+                    always_apply: False
+                    p: 0.5
+                RandomRotate90:
+                    always_apply: False
+                    p: 0.5
+                ToFloat:
+                    max_value: 255
+                    always_apply: True
+                    p: 1.0
 </code></pre>
 
 
