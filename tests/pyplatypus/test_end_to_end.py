@@ -8,7 +8,9 @@ def test_complete_run():
     pe.run()
     pe.produce_and_save_predicted_masks_for_model(model_name="res_u_net", custom_data_path=None)
     metrics = pe.evaluate_models()
-    Path("tests/testdata/chkpt.hdf5").unlink()
+    checkpoint = Path("tests/testdata/chkpt.hdf5")
+    if checkpoint.exists():
+        checkpoint.unlink()
     assert pe.cache.get("semantic_segmentation")
     assert metrics
     assert isinstance(metrics[0], DataFrame)

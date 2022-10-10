@@ -124,17 +124,22 @@ class PlatypusEngine:
             )
             model = self.compile_u_shaped_model(model_cfg)
             callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
-            training_history = model.fit(
-                train_data_generator,
-                epochs=model_cfg.epochs,
-                steps_per_epoch=train_data_generator.steps_per_epoch,
-                validation_data=validation_data_generator,
-                validation_steps=validation_data_generator.steps_per_epoch,
-                callbacks=callbacks
-            )
-            best_model = self.serve_best_model(model, callbacks)
+            if model_cfg.fit:
+                training_history = model.fit(
+                    train_data_generator,
+                    epochs=model_cfg.epochs,
+                    steps_per_epoch=train_data_generator.steps_per_epoch,
+                    validation_data=validation_data_generator,
+                    validation_steps=validation_data_generator.steps_per_epoch,
+                    callbacks=callbacks
+                )
+                training_history = pd.DataFrame(training_history.history)
+                best_model = self.serve_best_model(model, callbacks)
+            else:
+                training_history = pd.DataFrame()
+                best_model = model
             self.update_cache(
-                model_name=model_cfg.name, model=best_model, training_history=pd.DataFrame(training_history.history),
+                model_name=model_cfg.name, model=best_model, training_history=training_history,
                 model_specification=model_cfg
             )
 
