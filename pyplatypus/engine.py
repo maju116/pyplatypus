@@ -134,8 +134,9 @@ class PlatypusEngine:
                 validation_steps=validation_data_generator.steps_per_epoch,
                 callbacks=callbacks
             )
+            best_model = self.serve_best_model(model, callbacks)
             self.update_cache(
-                model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
+                model_name=model_cfg.name, model=best_model, training_history=pd.DataFrame(training_history.history),
                 model_specification=model_cfg
             )
 
@@ -463,3 +464,27 @@ class PlatypusEngine:
         """
         model_names = [model_cfg.name for model_cfg in config.get(task_type).models]
         return model_names
+
+    @staticmethod
+    def serve_best_model(model, callbacks: list):
+        """Takes care of the case of using both EarlyStopping and ModelCheckopint when the last weights setting
+        is not necessarily going to be the optimal one because of training interuption.
+        It returns an input model or the one with the weights loaded from a checkpoint.
+
+        Parameters
+        ----------
+        model : keras.engine.functional.Functional
+            Compiled model.
+        callbacks : list
+            List of callbacks data models.
+
+        Returns
+        -------
+        best_model: keras.engine.functional.Functional
+            Model brought back using the checkpoint.
+        """
+        callback_names = [callback.name for callback in callbacks]
+        if {"EarlyStopping", "ModelCheckpoint"}.issubset(set(callback_names)):
+            model_checkpoint_callback = [callback for callback in callbacks if callback.name == "ModelCheckpoint"][0]
+            model.load_weights(model_checkpoint_callback.filepath)
+        return model

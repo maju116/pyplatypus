@@ -22,6 +22,9 @@ class mocked_u_shaped_model:
 
     def fit(self, *args, **kwargs):
         return pd.DataFrame({"history": [0, 1, 2]})
+    
+    def load_weights(self, filepath: str):
+        self.status = "loaded_weights"
 
 
 class mocked_loss_spec:
@@ -200,3 +203,13 @@ class TestPlatypusEngine:
         mocker.patch(self.engine_path + ".evaluate_based_on_generator", return_value=None)
         mocker.patch(self.engine_path + ".prepare_evaluation_results", return_value=[.1, .2, .3])
         assert engine.evaluate_model(model_name, task_type) == [.1, .2, .3]
+
+    def test_serve_best_model(self):
+        callback1 = mocked_metric_spec()
+        callback1.name = "EarlyStopping"
+        callback2 = mocked_metric_spec()
+        callback2.name = "ModelCheckpoint"
+        callback2.filepath = "path/to/weights"      
+        callbacks = [callback1, callback2]
+        best_model = PlatypusEngine.serve_best_model(model=mocked_u_shaped_model(), callbacks=callbacks)
+        assert best_model.status == "loaded_weights"
