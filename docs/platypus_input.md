@@ -38,7 +38,8 @@ It is defined as a list, with each element following the below structure:
 | Name | Type      | Allowed values | Exemplary value              | Required |
 |---|----------------|---|--------------------------------------------|---|
 | name | str      | any | 'res_u_net'| yes |
-| fine_tuning_path | Optional[str] | any | 'models/res_u_net.h5'| yes |
+| fine_tuning_path | Optional[str] | any | 'models/res_u_net.h5'| no, by default None |
+| fit | bool | any | True | no, by default True |
 | net_h | positive int  | any | 300| yes |
 | net_w | positive int  | any | 300| yes |
 | h_splits | positive int  | any | 0| no, by default 0 |
