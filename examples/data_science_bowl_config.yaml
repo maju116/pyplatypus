@@ -9,12 +9,8 @@ semantic_segmentation:
         shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
-        loss: 'focal loss'
-        metrics: ['tversky coefficient', 'iou coefficient']
-        optimizer: 'adam'
-
     models:
-        - name: 'res_u_net'
+        - name: 'ds_bowl_res_u_net'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -37,7 +33,37 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 32
           epochs: 100
-        - name: 'u_net_plus_plus'
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            Dice Coefficient:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+              Adam:
+                  learning_rate: 0.001
+                  beta_1: 0.9
+                  beta_2: 0.999
+                  epsilon: 1e-07
+                  amsgrad: False
+          callbacks:
+              ModelCheckpoint:
+                  filepath: "ds_bowl_res_u_net.h5"
+          augmentation:
+            Blur:
+              blur_limit: 7
+              always_apply: False
+              p: 0.5
+            Flip:
+              always_apply: False
+              p: 0.5
+            ToFloat:
+              max_value: 255
+              always_apply: True
+              p: 1.0
+        - name: 'ds_bowl_u_net_plus_plus'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -57,18 +83,33 @@ semantic_segmentation:
           use_up_sampling2d: True
           batch_size: 8
           epochs: 100
-augmentation:
-    Blur:
-        blur_limit: 7
-        always_apply: False
-        p: 0.5
-    Flip:
-        always_apply: False
-        p: 0.5
-    RandomRotate90:
-        always_apply: False
-        p: 0.5
-    ToFloat:
-        max_value: 255
-        always_apply: True
-        p: 1.0
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            Dice Coefficient:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+              Adam:
+                  learning_rate: 0.001
+                  beta_1: 0.9
+                  beta_2: 0.999
+                  epsilon: 1e-07
+                  amsgrad: False
+          callbacks:
+              ModelCheckpoint:
+                  filepath: "ds_bowl_u_net_plus_plus.h5"
+          augmentation:
+            Blur:
+              blur_limit: 7
+              always_apply: False
+              p: 0.5
+            Flip:
+              always_apply: False
+              p: 0.5
+            ToFloat:
+              max_value: 255
+              always_apply: True
+              p: 1.0
