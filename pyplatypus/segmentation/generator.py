@@ -207,8 +207,14 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         """
         if path.lower().endswith(('.tif', 'tiff')):
             pixel_array = tifffile.imread(path)
-            if len(pixel_array.shape) == 2:
-                pixel_array = np.expand_dims(pixel_array, axis=-1)
+            if channels == 1:
+                if len(pixel_array.shape) == 3 and pixel_array.shape[0] == 3:
+                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
+                elif len(pixel_array.shape) == 2:
+                    pixel_array = np.expand_dims(pixel_array, axis=-1)
+            elif channels == 3:
+                if len(pixel_array.shape) == 2:
+                    pixel_array = gray2rgb(pixel_array)
             elif len(pixel_array.shape) == 3:
                 pixel_array = np.moveaxis(pixel_array, 0, -1)
             pixel_array = resize(pixel_array, target_size)
