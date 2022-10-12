@@ -459,6 +459,11 @@ Having dived in the specifics we shall close this section with an example YAML c
                     ProgbarLogger:
                         count_mode: "samples"
                     TerminateOnNaN:
+                augmentation:
+                    ToFloat:
+                        max_value: 255
+                        always_apply: True
+                        p: 1.0
             - name: 'u_net_plus_plus'
                 net_h: 300
                 net_w: 300
