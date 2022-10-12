@@ -14,8 +14,8 @@ See the main required fields below. Hereafter to these blocks, that each config 
             ...
         models:  # Steers the model-building process. It is expected to be a list. 
             ...
-    augmentation:    # Defines the augmentation pipelines.
-        ...
+        augmentation:    # Defines the augmentation pipelines, separately for each model.
+            ...
 
 Below there is each field described more thoroughly.
 
@@ -410,13 +410,11 @@ Having dived in the specifics we shall close this section with an example YAML c
         data:
             train_path: 'tests/testdata/nested_dirs/'
             validation_path: 'tests/testdata/nested_dirs/'
-            test_path: 'tests/testdata/nested_dirs/'
             colormap: [[0, 0, 0], [255, 255, 255]]
             mode: 'nested_dirs'
             shuffle: False
             subdirs: ["images", "masks"]
             column_sep: ';'
-
         models:
             - name: 'res_u_net'
                 net_h: 300
@@ -441,8 +439,13 @@ Having dived in the specifics we shall close this section with an example YAML c
                 activation_layer: "relu"
                 batch_size: 32
                 epochs: 100
-                loss: 'focal loss'
-                metrics: ['tversky coefficient', 'iou coefficient']
+                loss:
+                    focal loss:
+                        gamma: 1
+                metrics:
+                    IOU Coefficient:
+                    Tversky coefficient:
+                        alpha: 1
                 optimizer:
                     Adam:
                         learning_rate: 0.001
@@ -456,6 +459,11 @@ Having dived in the specifics we shall close this section with an example YAML c
                     ProgbarLogger:
                         count_mode: "samples"
                     TerminateOnNaN:
+                augmentation:
+                    ToFloat:
+                        max_value: 255
+                        always_apply: True
+                        p: 1.0
             - name: 'u_net_plus_plus'
                 net_h: 300
                 net_w: 300
@@ -476,13 +484,8 @@ Having dived in the specifics we shall close this section with an example YAML c
                 use_up_sampling2d: True
                 batch_size: 32
                 epochs: 100
-                loss:
-                    focal loss:
-                        gamma: 1
-                metrics:
-                    IOU Coefficient:
-                    Tversky coefficient:
-                        alpha: 1
+                loss: 'focal loss'
+                metrics: ['tversky coefficient', 'iou coefficient']
                 optimizer:
                     Adam:
                         learning_rate: 0.001
