@@ -310,7 +310,7 @@ class PlatypusEngine:
         g = prepare_data_generator(
             data=spec.data, model_cfg=model_cfg,
             augmentation_pipeline=augmentation_pipeline,
-            path=path, only_images=True, return_paths=False
+            path=path, only_images=False, return_paths=False
         )
         batch = g.__getitem__(randrange(g.steps_per_epoch))
         return batch
