@@ -217,7 +217,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
                     pixel_array = gray2rgb(pixel_array)
             elif len(pixel_array.shape) == 3:
                 pixel_array = np.moveaxis(pixel_array, 0, -1)
-            pixel_array = resize(pixel_array, target_size)
+            pixel_array = resize(pixel_array, target_size, preserve_range=True)
             # ToDo: Check if special cases should be added - rgb2gray, ...
         elif path.lower().endswith('.dcm'):
             pixel_array = pydicom.dcmread(path).pixel_array
@@ -232,7 +232,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             else:
                 # ToDo: Check if any other type of DICOM should be implemented https://dicom.innolitics.com/ciods/rt-dose/image-pixel/00280004
                 raise ValueError('For DICOM images number of channels can be set to 1 or 3!')
-            pixel_array = resize(pixel_array, target_size)
+            pixel_array = resize(pixel_array, target_size, preserve_range=True)
         else:
             if channels == 1:
                 color_mode = "grayscale"
