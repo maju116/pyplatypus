@@ -209,6 +209,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             pixel_array = tifffile.imread(path)
             if len(pixel_array.shape) == 2:
                 pixel_array = np.expand_dims(pixel_array, axis=-1)
+            elif len(pixel_array.shape) == 3:
+                pixel_array = np.moveaxis(pixel_array, 0, -1)
             pixel_array = resize(pixel_array, target_size)
             # ToDo: Check if special cases should be added - rgb2gray, ...
         elif path.lower().endswith('.dcm'):
