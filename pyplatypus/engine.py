@@ -1,6 +1,8 @@
 import pandas as pd
 from random import randrange
 
+from pandas import DataFrame, Series
+
 from pyplatypus.utils.config_processing_functions import check_cv_tasks
 from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
@@ -13,7 +15,7 @@ from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, conc
 from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
 import numpy as np
-from typing import Optional
+from typing import Optional, Union
 
 
 class PlatypusEngine:
@@ -317,7 +319,7 @@ class PlatypusEngine:
 
     def evaluate_models(
             self, custom_data_path: str = None, task_type: str = "semantic_segmentation"
-    ) -> list:
+    ) -> Union[DataFrame, Series]:
         """Evaluates all the models associated with a certain task or the one specified by the model_name.
 
         Parameters
