@@ -12,5 +12,4 @@ def test_complete_run():
     if checkpoint.exists():
         checkpoint.unlink()
     assert pe.cache.get("semantic_segmentation")
-    assert metrics
-    assert isinstance(metrics[0], DataFrame)
+    assert isinstance(metrics, DataFrame)
