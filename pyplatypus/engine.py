@@ -336,6 +336,7 @@ class PlatypusEngine:
         for model_name in model_names:
             prepared_evaluation_metrics = self.evaluate_model(model_name, custom_data_path, task_type)
             evaluations.append(prepared_evaluation_metrics)
+        evaluations = pd.concat(evaluations)
         print("EVALUATION RESULTS:\n")
         print(evaluations)
         return evaluations
