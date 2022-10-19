@@ -11,9 +11,6 @@ theme:
 plugins:
 - mkdocstrings
 
-extra_css:
-- stylesheets/extra.css
-
 nav:
   - Welcome!: index.md
   - The Creators: authors.md
