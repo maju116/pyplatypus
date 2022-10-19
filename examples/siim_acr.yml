@@ -1,0 +1,83 @@
+augmentation:
+  Blur:
+    always_apply: false
+    blur_limit: 7
+    p: 0.5
+  Flip:
+    always_apply: false
+    p: 0.5
+  RandomRotate90:
+    always_apply: false
+    p: 0.5
+  ToFloat:
+    always_apply: true
+    max_value: 255
+    p: 1.0
+object_detection: null
+semantic_segmentation:
+  data:
+    colormap:
+    - - 0
+      - 0
+      - 0
+    - - 255
+      - 255
+      - 255
+    column_sep: ;
+    loss: focal loss
+    metrics:
+    - tversky coefficient
+    - iou coefficient
+    mode: nested_dirs
+    optimizer: adam
+    shuffle: false
+    subdirs:
+    - images
+    - masks
+    test_path: /home/johnny/Documents/pyplatypus/data/training_data
+    train_path: /home/johnny/Documents/pyplatypus/data/training_data
+    validation_path: /home/johnny/Documents/pyplatypus/data/training_data
+  models:
+  - activation_layer: relu
+    batch_normalization: true
+    batch_size: 32
+    blocks: 4
+    deep_supervision: false
+    dropout: 0.2
+    epochs: 200
+    filters: 16
+    grayscale: false
+    h_splits: 0
+    kernel_initializer: he_normal
+    linknet: false
+    n_class: 2
+    name: res_u_net
+    net_h: 256
+    net_w: 256
+    plus_plus: false
+    resunet: true
+    u_net_conv_block_width: 4
+    use_separable_conv2d: true
+    use_spatial_droput2d: true
+    use_up_sampling2d: false
+    w_splits: 0
+  - batch_normalization: true
+    batch_size: 8
+    blocks: 2
+    deep_supervision: false
+    dropout: 0.2
+    epochs: 200
+    filters: 16
+    grayscale: false
+    h_splits: 0
+    kernel_initializer: he_normal
+    linknet: false
+    n_class: 2
+    name: u_net_plus_plus
+    net_h: 256
+    net_w: 256
+    plus_plus: true
+    use_separable_conv2d: true
+    use_spatial_dropout2d: true
+    use_up_sampling2d: true
+    w_splits: 0
