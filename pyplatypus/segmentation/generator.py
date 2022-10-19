@@ -206,10 +206,10 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             pixel_array = tifffile.imread(path)
         elif path.lower().endswith('.dcm'):
             pixel_array = pydicom.dcmread(path).pixel_array
-            #if pixel_array.shape[2] == 3 and channels == 1:
-            #    pixel_array = rgb2gray(pixel_array)
             if (len(pixel_array.shape) == 2 or pixel_array.shape[2] == 1) and channels == 3:
                 pixel_array = gray2rgb(pixel_array)
+            elif len(pixel_array.shape) == 3 and pixel_array.shape[2] == 3 and channels == 1:
+                pixel_array = rgb2gray(pixel_array)
             else:
                 # ToDo: Check if any other type of DICOM should be implemented https://dicom.innolitics.com/ciods/rt-dose/image-pixel/00280004
                 raise ValueError('For DICOM images number of channels can be set to 1 or 3!')
