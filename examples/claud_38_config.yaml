@@ -10,7 +10,6 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: '38c_u_net'
-          fine_tuning_path: '38c_u_net.h5'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -32,8 +31,7 @@ semantic_segmentation:
           u_net_conv_block_width: 2
           activation_layer: "relu"
           batch_size: 32
-          epochs: 1
-          fit: False
+          epochs: 100
           loss:
             focal loss:
                 gamma: 1
@@ -72,7 +70,6 @@ semantic_segmentation:
               always_apply: True
               p: 1.0
         - name: '38c_u_net_plus_plus'
-          fine_tuning_path: '38c_u_net_plus_plus.h5'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -93,8 +90,7 @@ semantic_segmentation:
           u_net_conv_block_width: 2
           activation_layer: "relu"
           batch_size: 8
-          epochs: 1
-          fit: False
+          epochs: 100
           loss:
             focal loss:
                 gamma: 1
