@@ -65,7 +65,7 @@ class SemanticSegmentationModelSpec(BaseModel):
     dropout: confloat(ge=0, le=1) = 0
     h_splits: conint(ge=0) = 0
     w_splits: conint(ge=0) = 0
-    channels: conint(ge=1) = 3
+    channels: Union[int, List[int]] = 3
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: PositiveInt = 32
     epochs: PositiveInt = 2
@@ -90,6 +90,17 @@ class SemanticSegmentationModelSpec(BaseModel):
             if Path(v).exists():
                 return v
             raise NotADirectoryError("Specified weights path does not exist!")
+
+    @validator("channels")
+    def check_channels_format(cls, v: Union[int, List[int]]):
+        if isinstance(v, list):
+            if all(i > 0 for i in v):
+                return v
+            raise ValueError(f"All channels must be integers grater than 0!")
+        elif isinstance(v, int):
+            return v
+        else:
+            raise ValueError(f"All channels must be integers grater than 0!")
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):

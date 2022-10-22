@@ -7,7 +7,7 @@ from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
 import tensorflow as tf
-from typing import Tuple, Any, Optional, Union
+from typing import Tuple, Any, Optional, Union, List
 
 
 class u_shaped_model:
@@ -16,7 +16,7 @@ class u_shaped_model:
         self,
         net_h: int,
         net_w: int,
-        channels: int,
+        channels: Union[int, List[int]],
         blocks: Optional[int] = 4,
         n_class: Optional[int] = 2,
         filters: Optional[int] = 16,
@@ -74,7 +74,7 @@ class u_shaped_model:
         """
         self.net_h = net_h
         self.net_w = net_w
-        self.channels = channels
+        self.channels = sum(channels) if isinstance(channels, list) else channels
         self.blocks = blocks
         self.n_class = n_class
         self.filters = filters

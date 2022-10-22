@@ -1,0 +1,130 @@
+object_detection:
+semantic_segmentation:
+    data:
+        train_path: 'examples/30_clouds_train.csv'
+        validation_path: 'examples/30_clouds_validation.csv'
+        colormap: [[0, 0, 0], [255, 255, 255]]
+        mode: 'config_file'
+        shuffle: False
+        subdirs: ["images", "masks"]
+        column_sep: ';'
+    models:
+        - name: '38c_u_net'
+          net_h: 256
+          net_w: 256
+          h_splits: 0
+          w_splits: 0
+          channels: [1, 1, 1, 1]
+          blocks: 4
+          n_class: 2
+          filters: 16
+          dropout: 0.2
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          resunet: False
+          linknet: False
+          plus_plus: False
+          deep_supervision: False
+          use_separable_conv2d: True
+          use_spatial_droput2d: True
+          use_up_sampling2d: False
+          u_net_conv_block_width: 2
+          activation_layer: "relu"
+          batch_size: 32
+          epochs: 100
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            Dice Coefficient:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+              Adam:
+                  learning_rate: 0.001
+                  beta_1: 0.9
+                  beta_2: 0.999
+                  epsilon: 1e-07
+                  amsgrad: False
+          callbacks:
+              ModelCheckpoint:
+                  filepath: "38c_u_net.h5"
+                  monitor: "val_dice_coefficient"
+                  save_best_only: True
+                  mode: "max"
+              EarlyStopping:
+                  monitor: "val_dice_coefficient"
+                  mode: "max"
+                  patience: 15
+          augmentation:
+            Blur:
+              blur_limit: 7
+              always_apply: False
+              p: 0.5
+            Flip:
+              always_apply: False
+              p: 0.5
+            ToFloat:
+              max_value: 65536
+              always_apply: True
+              p: 1.0
+        - name: '38c_u_net_plus_plus'
+          net_h: 256
+          net_w: 256
+          h_splits: 0
+          w_splits: 0
+          channels: [1, 1, 1, 1]
+          blocks: 2
+          n_class: 2
+          filters: 16
+          dropout: 0.2
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          linknet: False
+          plus_plus: True
+          deep_supervision: False
+          use_separable_conv2d: True
+          use_spatial_dropout2d: True
+          use_up_sampling2d: True
+          u_net_conv_block_width: 2
+          activation_layer: "relu"
+          batch_size: 8
+          epochs: 100
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            Dice Coefficient:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+              Adam:
+                  learning_rate: 0.001
+                  beta_1: 0.9
+                  beta_2: 0.999
+                  epsilon: 1e-07
+                  amsgrad: False
+          callbacks:
+              ModelCheckpoint:
+                  filepath: "38c_u_net_plus_plus.h5"
+                  monitor: "val_dice_coefficient"
+                  save_best_only: True
+                  mode: "max"
+              EarlyStopping:
+                  monitor: "val_dice_coefficient"
+                  mode: "max"
+                  patience: 15
+          augmentation:
+            Blur:
+              blur_limit: 7
+              always_apply: False
+              p: 0.5
+            Flip:
+              always_apply: False
+              p: 0.5
+            ToFloat:
+              max_value: 65536
+              always_apply: True
+              p: 1.0
