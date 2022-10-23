@@ -1,6 +1,16 @@
 # PyPlatypus
 
+## Instalation
+
+To install `pyplatypus` use command:
+
+```commandline
+pip install pyplatypus
+```
+
 See documentation at: [GitHub Pages](https://maju116.github.io/pyplatypus/).
+
+## Development
 
 To build and deploy your updated docs, use:
 `mkodcs build`
