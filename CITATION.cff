@@ -1,0 +1,19 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 0.1.0rc1
+title: PyPlatypus
+abstract: Computer Vision Interface, running tf.keras models with TensorFlow 2.x under the hood.
+version: 0.1.0rc1
+date-released: 2022-10-20  # TODO To update
+message: "When using PyPlatypus in your research, please cite it using this metadata."
+type: software
+repository-code: "https://github.com/maju116/pyplatypus"
+documentation: "https://maju116.github.io/pyplatypus/"
+authors:
+  - given-names: Michał
+    family-names: Maj
+    email: michalmaj116@gmail.com
+  - given-names: Jakub
+    family-names: Borkowski
+    email: jakub.borkowski@chionis.co

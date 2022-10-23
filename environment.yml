@@ -1,0 +1,22 @@
+name: pyplatypus
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - pip
+  - python==3.9
+  - tensorflow==2.9.1
+  - pip:
+    - albumentations==1.1.0
+    - Keras-Preprocessing==1.1.2
+    - opencv-python-headless==4.5.5.62
+    - scikit-image==0.19.1
+    - scikit-learn==1.0.2
+    - scipy==1.8.1
+    - tensorboard-plugin-wit==1.8.1
+    - tensorflow-estimator==2.5.0
+    - pandas==1.3.1
+    - numpy==1.22.4
+    - tensorboard==2.9.0
+    - PyYAML==6.0
+    - pydicom==2.2.0

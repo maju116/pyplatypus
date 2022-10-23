@@ -1,2 +1,2 @@
-__version__ = '0.1.0'
-__author__ = 'Michał Maj'
+__version__ = '0.1.0rc1'
+__author__ = 'Michał Maj, Jakub Borkowski'

@@ -2,9 +2,9 @@ name: pyplatypus
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, development ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, development ]
 
 jobs:
   build:
@@ -20,9 +20,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy tensorflow pillow albumentations
-        pip install flake8 pytest
-#        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install pandas numpy tensorflow pillow albumentations pydicom scikit-image
+        pip install -r requirements-dev.txt
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -32,3 +31,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+    - name: Generate coverage report
+      run: |
+        coverage

@@ -1,46 +1,100 @@
 object_detection:
 semantic_segmentation:
     data:
-        train_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_train'
-        validation_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_validation'
-        test_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_test'
+        train_path: 'tests/testdata/nested_dirs/'
+        validation_path: 'tests/testdata/nested_dirs/'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
     models:
-        - name: 'u_net1'
-          type: 'u_net'
-          net_h: 256
-          net_w: 256
-          grayscale: False
+        - name: 'res_u_net'
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
+          channels: 3
           blocks: 4
           n_class: 2
           filters: 16
-          dropout: 0.1
+          dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          resunet: True
+          linknet: False
+          plus_plus: False
+          deep_supervision: False
+          use_separable_conv2d: True
+          use_spatial_droput2d: True
+          use_up_sampling2d: False
+          u_net_conv_block_width: 4
+          activation_layer: "relu"
           batch_size: 32
-          epochs: 2
-        - name: 'u_net2'
-          type: 'u_net'
-          net_h: 256
-          net_w: 256
-          grayscale: False
-          blocks: 3
+          epochs: 100
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
+        - name: 'u_net_plus_plus'
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
+          channels: 3
+          blocks: 2
           n_class: 2
           filters: 16
-          dropout: 0.1
+          dropout: 0.2
           batch_normalization: True
           kernel_initializer: 'he_normal'
+          linknet: False
+          plus_plus: True
+          deep_supervision: True
+          use_separable_conv2d: True
+          use_spatial_dropout2d: True
+          use_up_sampling2d: True
           batch_size: 32
-          epochs: 2
+          epochs: 100
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
 augmentation:
-    ToFloat:
-        max_value: 255
+    InvertImg:
+        always_apply: True
+        p: 1
+    Blur:
+        blur_limit: 7
         always_apply: False
-        p: 1.0
+        p: 0.5
+    Flip:
+        always_apply: False
+        p: 0.5
     RandomRotate90:
         always_apply: False
+        p: 0.5
+    ToFloat:
+        max_value: 255
+        always_apply: True
         p: 1.0

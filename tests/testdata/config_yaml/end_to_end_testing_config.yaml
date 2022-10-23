@@ -1,0 +1,87 @@
+object_detection:
+semantic_segmentation:
+    data:
+        train_path: 'tests/testdata/nested_dirs/'
+        validation_path: 'tests/testdata/nested_dirs/'
+        colormap: [[0, 0, 0], [255, 255, 255]]
+        mode: 'nested_dirs'
+        shuffle: False
+        subdirs: ["images", "masks"]
+        column_sep: ';'
+    models:
+        - name: 'res_u_net'
+          fine_tuning_path: 'tests/testdata/weights/test_res_u_net.h5'
+          fit: True
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
+          channels: 3
+          blocks: 4
+          n_class: 2
+          filters: 16
+          dropout: 0.2
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          resunet: True
+          linknet: False
+          plus_plus: False
+          deep_supervision: False
+          use_separable_conv2d: True
+          use_spatial_droput2d: True
+          use_up_sampling2d: False
+          u_net_conv_block_width: 4
+          activation_layer: "relu"
+          batch_size: 4
+          epochs: 1
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
+          callbacks:
+            ModelCheckpoint:
+                filepath: "tests/testdata/chkpt.hdf5"
+            EarlyStopping:
+                patience: 10
+            ProgbarLogger:
+                count_mode: "samples"
+            TerminateOnNaN:
+          augmentation:
+            InvertImg:
+                always_apply: True
+                p: 1
+        - name: 'u_net'
+          fit: False
+          net_h: 300
+          net_w: 300
+          h_splits: 0
+          w_splits: 0
+          channels: 3
+          blocks: 4
+          n_class: 2
+          filters: 16
+          dropout: 0.2
+          batch_normalization: True
+          kernel_initializer: 'he_normal'
+          resunet: False
+          linknet: False
+          plus_plus: False
+          deep_supervision: False
+          use_separable_conv2d: True
+          use_spatial_droput2d: True
+          use_up_sampling2d: False
+          u_net_conv_block_width: 4
+          activation_layer: "relu"
+          batch_size: 4
+          epochs: 1
+          

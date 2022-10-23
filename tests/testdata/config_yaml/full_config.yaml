@@ -2,7 +2,6 @@ semantic_segmentation:
     data:
         train_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_train'
         validation_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_validation'
-        test_path: '/home/maju116/Desktop/PROJECTS/Moje Projekty/platypus/examples/data/data-science-bowl-2018/stage1_test'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
@@ -10,10 +9,11 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: 'u_net1'
-          type: 'u_net'
           net_h: 256
           net_w: 256
-          grayscale: False
+          h_splits: 0
+          w_splits: 0
+          channels: 3
           blocks: 4
           n_class: 2
           filters: 16
@@ -22,11 +22,26 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           batch_size: 32
           epochs: 20
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
         - name: 'u_net2'
-          type: 'u_net'
           net_h: 256
           net_w: 256
-          grayscale: False
+          h_splits: 0
+          w_splits: 0
+          channels: 3
           blocks: 3
           n_class: 2
           filters: 16
@@ -35,6 +50,20 @@ semantic_segmentation:
           kernel_initializer: 'he_normal'
           batch_size: 32
           epochs: 20
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
 augmentation:
     Blur:
         blur_limit: 7
@@ -277,6 +306,7 @@ augmentation:
         same_dxdy: False
         p: 0.5
     Flip:
+        always_apply: False
         p: 0.5
     GridDistortion:
         num_steps: 5
