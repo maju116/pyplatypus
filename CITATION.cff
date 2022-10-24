@@ -1,10 +1,10 @@
 # This CITATION.cff file was generated with cffinit.
 # Visit https://bit.ly/cffinit to generate yours today!
 
-cff-version: 0.1.0
+cff-version: 0.1.0rc2
 title: PyPlatypus
 abstract: Computer Vision Interface, running tf.keras models with TensorFlow 2.x under the hood.
-version: 0.1.0
+version: 0.1.0rc2
 date-released: 2022-10-20  # TODO To update
 message: "When using PyPlatypus in your research, please cite it using this metadata."
 type: software

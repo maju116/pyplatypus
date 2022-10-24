@@ -24,11 +24,6 @@ def mocked_image_fromarray(image):
     return MockedPILImage(image)
 
 
-def test_save_masks_wrong_type(monkeypatch):
-    monkeypatch.setattr("pyplatypus.utils.prediction_utils.Path.mkdir", mocked_path_mkdir, raising=False)
-    with pytest.raises(NotImplementedError):
-        save_masks(image_masks=["mask1"], paths=["directory/path1.dcm"], model_name="model1")
-
 @pytest.mark.parametrize("custom_data_path", [(None, "custom_path")])
 def test_save_masks_nested(tmpdir, monkeypatch, custom_data_path):
     tmp_dir = Path(tmpdir/"custom_path/")
