@@ -37,11 +37,13 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             colormap: Optional[List[Tuple[int, int, int]]],
             mode: str = "nested_dirs",
             only_images: bool = False,
-            net_h: int = 256,
-            net_w: int = 256,
+            net_h: Union[int, List[int]] = 256,
+            net_w: Union[int, List[int]] = 256,
+            ensemble_net_h: Optional[int] = None,
+            ensemble_net_w: Optional[int] = None,
             h_splits: int = 1,
             w_splits: int = 1,
-            channels: Union[int, List[int]] = 3,
+            channels: Union[int, List[int], List[Union[int, List[int]]]] = 3,
             augmentation_pipeline: Optional[A.core.composition.Compose] = None,
             batch_size: int = 32,
             shuffle: bool = True,
@@ -62,10 +64,14 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             Character. One of "nested_dirs", "config_file"
         only_images: bool
             Should generator read only images (e.g. on train set for predictions).
-        net_h: int
-            Input layer height. Must be equal to `2^x, x - natural`.
-        net_w: int
-            Input layer width. Must be equal to `2^x, x - natural`.
+        net_h: Union[int, List[int]]
+            Input layer height or list of heights for multiple inputs.
+        net_w: Union[int, List[int]]
+            Input layer width or list of widths for multiple inputs.
+        ensemble_net_h: Optional[int]
+            Output layer height for the ensemble model.
+        ensemble_net_w: Optional[int]
+            Output layer width for the ensemble model.
         h_splits: int
             Number of vertical splits of the image.
         w_splits: int
@@ -91,6 +97,9 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.only_images = only_images
         self.net_h = net_h
         self.net_w = net_w
+        self.ensemble_net_h = ensemble_net_h
+        self.ensemble_net_w = ensemble_net_w
+        self.is_ensemble = self.check_model_is_ensemble()
         self.h_splits = h_splits
         self.w_splits = w_splits
         self.channels = channels if isinstance(channels, list) else [channels]
@@ -109,6 +118,25 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         print(len(self.config["images_paths"]), "images detected!")
         print("Set 'steps_per_epoch' to:", self.steps_per_epoch)
         self.on_epoch_end()
+
+    def check_model_is_ensemble(self) -> bool:
+        """Checks if generator is used for ensemble model."""
+        single_input_h = isinstance(self.net_h, int)
+        single_input_w = isinstance(self.net_w, int)
+        single_input_channels = isinstance(self.channels, int) or all([isinstance(subitem, int) for subitem in self.channels])
+        if single_input_h != single_input_w:
+            raise ValueError("Width and height are set for different number of models!")
+        elif (single_input_h and single_input_w) and not single_input_channels:
+            raise ValueError("Height and width is set for single model, but channels for multiple models!")
+        elif (not single_input_h and not single_input_w) and single_input_channels:
+            raise ValueError("Height and width is set for multiple models, but channels for single model!")
+        elif single_input_h and single_input_w and single_input_channels:
+            return False
+        else:
+            if len(self.net_h) == len(self.net_w) and len(self.net_w) == len(self.channels):
+                return True
+            else:
+                raise ValueError("Heights, widths and channels set to different number of inputs!")
 
     def calculate_steps_per_epoch(self) -> int:
         """Calculates the number of steps needed to go through all the images given the batch size.
