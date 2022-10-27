@@ -359,6 +359,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
                 images = np.stack(images, axis=0)
                 masks = np.stack(masks, axis=0)
             batch = (images, masks)
+            if self.return_paths:
+                batch = (images, masks, paths)
         else:
             images, paths = self.read_images_and_masks_from_directory(indexes)
             if self.augmentation_pipeline is not None:
@@ -367,8 +369,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             else:
                 images = np.stack(images, axis=0)
             batch = images
-        if self.return_paths:
-            batch = (images, paths)
+            if self.return_paths:
+                batch = (images, paths)
         return batch
 
     def __len__(self) -> int:
@@ -450,52 +452,3 @@ def predict_from_generator(model: u_shaped_model, generator: SegmentationGenerat
         paths += [pt[0] for pt in paths_batch]
     predictions = np.concatenate(predictions, axis=0)
     return predictions, paths
-
-
-class StackedEnsemblerSegmentationGenerator(tf.keras.utils.Sequence):
-    """The class can be used as train, validation or test generator. It is also utilized by the engine
-    while producing the output plots, based on the trained models.
-
-    Methods
-    -------
-    """
-
-    def __init__(
-            self,
-            subgenerators: List[SegmentationGenerator],
-            batch_size: int,
-            epochs: int
-    ) -> None:
-        self.subgenerators = subgenerators
-        self.batch_size = batch_size
-        self.epochs = epochs
-        self.set_subgenerators()
-        self.config = self.subgenerators[0].config
-        self.only_images = self.subgenerators[0].only_images
-        self.return_paths = self.subgenerators[0].return_paths
-        self.steps_per_epoch = self.subgenerators[0].steps_per_epoch
-        self.indexes = None
-        self.on_epoch_end()
-
-    def set_subgenerators(self) -> None:
-        for g in self.subgenerators:
-            g.batch_size = self.batch_size
-            g.epochs = self.epochs
-            g.shuffle = False
-            g.calculate_steps_per_epoch()
-            g.create_images_masks_paths(g.path, g.mode, g.only_images, g.subdirs, g.column_sep)
-
-    def on_epoch_end(self) -> None:
-        """Updates indexes on epoch end, optionally shuffles them for the sake of randomization."""
-        self.indexes = list(range(len(self.config["images_paths"])))
-        if self.shuffle:
-            np.random.shuffle(self.indexes)
-
-    def __getitem__(self, index: int):
-        subbatches = [g.__getitem__(index) for g in self.subgenerators]
-
-        return subbatches
-
-    def __len__(self) -> int:
-        """Returns the number of batches that one epoch is comprised of."""
-        return int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
