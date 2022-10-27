@@ -222,7 +222,7 @@ def test_split_masks_into_binary(mask, colormap, result):
     ]
 )
 def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_splits, batch_size, result):
-    test_sg = SegmentationGenerator(path, colormap, mode, False, net_h, net_w, h_splits, w_splits, 3, None,
+    test_sg = SegmentationGenerator(path, colormap, mode, False, net_h, net_w, None, None, h_splits, w_splits, 3, None,
                                      batch_size, False, ("images", "masks"), ";")
     output = test_sg.__getitem__(0)
     assert np.allclose(output[0], result[0])
