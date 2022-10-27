@@ -19,13 +19,13 @@ class DiceLossGetter(LossGetter):
         return self.loss_method(x, y, **self.loss_parameters)
 
 
-class CeeLossGetter(LossGetter):
-    def cee_loss(self, x: Tensor, y: Tensor):
+class CceLossGetter(LossGetter):
+    def cce_loss(self, x: Tensor, y: Tensor):
         return self.loss_method(x, y, **self.loss_parameters)
 
 
-class CeeDiceLossGetter(LossGetter):
-    def cee_dice_loss(self, x: Tensor, y: Tensor):
+class CceDiceLossGetter(LossGetter):
+    def cce_dice_loss(self, x: Tensor, y: Tensor):
         return self.loss_method(x, y, **self.loss_parameters)
 
 

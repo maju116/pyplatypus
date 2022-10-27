@@ -18,7 +18,7 @@ class TestUShapedModel:
         "name": "model_name",
         "net_h": 8,
         "net_w": 8,
-        "grayscale": True,
+        "channels": 1,
         "blocks": 4,
         "n_class": 2,
         "filters": 2,
@@ -165,14 +165,14 @@ class TestUShapedModel:
         assert subconv_layers == results[2]
 
     @pytest.mark.parametrize(
-        "grayscale, result",
-        [(True, Input(shape=(2, 2, 1), name='input_img')), (False, Input(shape=(2, 2, 3), name='input_img'))]
+        "channels, result",
+        [(1, Input(shape=(2, 2, 1), name='input_img')), (3, Input(shape=(2, 2, 3), name='input_img'))]
         )
-    def test_generate_input(self, grayscale, result, mocker):
+    def test_generate_input(self, channels, result, mocker):
         model = self.initialize_model(mocker)
         model.net_h = 2
         model.net_w = 2
-        model.grayscale = grayscale
+        model.channels = channels
         model.generate_input()
         assert model.generate_input().shape[1:] == result.shape[1:]
 

@@ -7,8 +7,6 @@ def save_masks(image_masks: list, paths: list, model_name: str, mode: str = "nes
     for im, path in zip(image_masks, paths):
         image_path = Path(path)
         img_name, img_type = image_path.name.split(".")
-        if img_type != "png":
-            raise NotImplementedError("Types other than PNG to be handled soon.")
         if mode == "nested_dirs":
             img_directory = image_path.parents[1]
         else:

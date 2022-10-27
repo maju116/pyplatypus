@@ -7,11 +7,13 @@ from numpy import ndarray
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import albumentations as A
 import pydicom
+import tifffile
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
 from pyplatypus.utils.toolbox import split_masks_into_binary
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, \
+    SemanticSegmentationModelSpec
 
 import logging as log
 
@@ -30,23 +32,23 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
     """
 
     def __init__(
-        self,
-        path: str,
-        colormap: Optional[List[Tuple[int, int, int]]],
-        mode: str = "nested_dirs",
-        only_images: bool = False,
-        net_h: int = 256,
-        net_w: int = 256,
-        h_splits: int = 1,
-        w_splits: int = 1,
-        grayscale: bool = False,
-        augmentation_pipeline: Optional[A.core.composition.Compose] = None,
-        batch_size: int = 32,
-        shuffle: bool = True,
-        subdirs: Tuple[str, str] = ("images", "masks"),
-        column_sep: str = ";",
-        return_paths: bool = False
-            ) -> None:
+            self,
+            path: str,
+            colormap: Optional[List[Tuple[int, int, int]]],
+            mode: str = "nested_dirs",
+            only_images: bool = False,
+            net_h: int = 256,
+            net_w: int = 256,
+            h_splits: int = 1,
+            w_splits: int = 1,
+            channels: Union[int, List[int]] = 3,
+            augmentation_pipeline: Optional[A.core.composition.Compose] = None,
+            batch_size: int = 32,
+            shuffle: bool = True,
+            subdirs: Tuple[str, str] = ("images", "masks"),
+            column_sep: str = ";",
+            return_paths: bool = False
+    ) -> None:
         """
         Generates batches of data (images and masks). The data will be looped over (in batches).
 
@@ -68,8 +70,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             Number of vertical splits of the image.
         w_splits: int
             Number of horizontal splits of the image.
-        grayscale: bool
-            Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        channels: Union[int, List[int]]
+            Defines inputs layer color channels.
         augmentation_pipeline: Optional[A.core.composition.Compose]
             Augmentation pipeline.
         batch_size: int
@@ -91,7 +93,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.net_w = net_w
         self.h_splits = h_splits
         self.w_splits = w_splits
-        self.grayscale = grayscale
+        self.channels = channels if isinstance(channels, list) else [channels]
         self.augmentation_pipeline = augmentation_pipeline
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -100,7 +102,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         self.return_paths = return_paths
-        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
+        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
+                                                     self.column_sep)
         self.indexes = None
         self.steps_per_epoch = self.calculate_steps_per_epoch()
         print(len(self.config["images_paths"]), "images detected!")
@@ -120,8 +123,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
     @staticmethod
     def create_images_masks_paths(
-        path: str, mode: str, only_images: bool, subdirs: Tuple[str, str], column_sep: str
-            ) -> dict:
+            path: str, mode: str, only_images: bool, subdirs: Tuple[str, str], column_sep: str
+    ) -> dict:
         """
         Generates the dictionary storing the paths to the images and optionally coresponding masks.
         It is the latter foundation upon which the batches are generated.
@@ -153,16 +156,17 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             for nd in nested_dirs:
                 try:
                     images_paths_batch = [
-                        os.path.join(path, nd, subdirs[0], s) for s in os.listdir(os.path.join(path, nd, subdirs[0]))
-                        ]
+                        os.path.join(path, nd, subdirs[0], s) for s in sorted(
+                            os.listdir(os.path.join(path, nd, subdirs[0]))
+                        )
+                    ]
                     images_paths.append(images_paths_batch)
-
                     if not only_images:
                         masks_paths_batch = [
                             os.path.join(path, nd, subdirs[1], s) for s in sorted(
                                 os.listdir(os.path.join(path, nd, subdirs[1]))
-                                )
-                            ]
+                            )
+                        ]
                         masks_paths.append(masks_paths_batch)
                 except FileNotFoundError:
                     log.warning(f"The current image {nd} is incomplete for it contains only masks or images!")
@@ -170,7 +174,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
         elif mode in ["config_file", 2]:
             config = pd.read_csv(path)
-            images_paths = [[s] for s in config.images.to_list()]
+            images_paths = [s.split(column_sep) for s in config.images.to_list()]
             if not only_images:
                 masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
         else:
@@ -183,7 +187,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             return path_dict
 
     @staticmethod
-    def __read_image__(path: str, grayscale: bool, target_size: Union[int, Tuple[int, int]]) -> ndarray:
+    def __read_image__(path: str, channels: int, target_size: Union[int, Tuple[int, int]]) -> ndarray:
         """
         Loads image as numpy array.
 
@@ -191,8 +195,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         ----------
         path: str
             Image path.
-        grayscale: bool
-            Should image be loaded as grayscale.
+        channels: int
+            Number of color channels.
         target_size: Union[int, Tuple[int, int]]
             Target size for the image to be loaded.
 
@@ -201,23 +205,52 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         pixel_array: ndarray
             Image as numpy array.
         """
-        if path.lower().endswith('.dcm'):
+        if path.lower().endswith(('.tif', 'tiff')):
+            pixel_array = tifffile.imread(path)
+            if channels == 1:
+                if len(pixel_array.shape) == 3 and pixel_array.shape[0] == 3:
+                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
+                elif len(pixel_array.shape) == 2:
+                    pixel_array = np.expand_dims(pixel_array, axis=-1)
+            elif channels == 3:
+                if len(pixel_array.shape) == 2:
+                    pixel_array = gray2rgb(pixel_array)
+            elif len(pixel_array.shape) == 3:
+                pixel_array = np.moveaxis(pixel_array, 0, -1)
+            pixel_array = resize(pixel_array, target_size, preserve_range=True)
+            # ToDo: Check if special cases should be added - rgb2gray, ...
+        elif path.lower().endswith('.dcm'):
             pixel_array = pydicom.dcmread(path).pixel_array
-            if pixel_array.shape[2] == 3 and grayscale:
-                pixel_array = rgb2gray(pixel_array)
-            if pixel_array.shape[2] == 1 and not grayscale:
-                pixel_array = gray2rgb(pixel_array)
-            pixel_array = resize(pixel_array, target_size)
+            if channels == 1:
+                if len(pixel_array.shape) == 3 and pixel_array.shape[2] == 3:
+                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
+                elif len(pixel_array.shape) == 2:
+                    pixel_array = np.expand_dims(pixel_array, axis=-1)
+            elif channels == 3:
+                if len(pixel_array.shape) == 2:
+                    pixel_array = gray2rgb(pixel_array)
+            else:
+                # ToDo: Check if any other type of DICOM should be implemented https://dicom.innolitics.com/ciods/rt-dose/image-pixel/00280004
+                raise ValueError('For DICOM images number of channels can be set to 1 or 3!')
+            pixel_array = resize(pixel_array, target_size, preserve_range=True)
         else:
-            pixel_array = img_to_array(load_img(path, grayscale=grayscale, target_size=target_size))
+            if channels == 1:
+                color_mode = "grayscale"
+            elif channels == 3:
+                color_mode = "rgb"
+            elif channels == 4:
+                color_mode = "rgba"
+            else:
+                raise ValueError('For classical (PNG, JPG, ...) images number of channels can be set to 1, 3 or 4!')
+            pixel_array = img_to_array(load_img(path, color_mode=color_mode, target_size=target_size))
         return pixel_array
 
     @staticmethod
     def __split_images__(
-        images: List[ndarray],
-        h_splits: int,
-        w_splits: int,
-            ) -> list:
+            images: List[ndarray],
+            h_splits: int,
+            w_splits: int,
+    ) -> list:
         """
         Splits list of images/masks onto smaller ones.
 
@@ -244,8 +277,8 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         return images
 
     def read_images_and_masks_from_directory(
-        self, indices: Optional[List]
-            ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
+            self, indices: Optional[List]
+    ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
         """
         Composes the batch of data out of the loaded images and optionally masks.
 
@@ -266,24 +299,27 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
                 self.config["masks_paths"]
         if self.h_splits > 1 or self.w_splits > 1:
             selected_images = [
-                self.__read_image__(img_path[0], grayscale=self.grayscale,
-                                    target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
-                for img_path in selected_images_paths]
+                np.concatenate([self.__read_image__(si, channels=ch,
+                                                    target_size=(
+                                                        self.h_splits * self.net_h, self.w_splits * self.net_w))
+                                for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
+                selected_images_paths]
             selected_images = self.__split_images__(selected_images, self.h_splits, self.w_splits)
             if not self.only_images:
                 selected_masks = [
-                    sum([self.__read_image__(si, grayscale=False,
+                    sum([self.__read_image__(si, channels=3,
                                              target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
                 selected_masks = self.__split_images__(selected_masks, self.h_splits, self.w_splits)
         else:
             selected_images = [
-                self.__read_image__(img_path[0], grayscale=self.grayscale, target_size=self.target_size)
-                for img_path in selected_images_paths]
+                np.concatenate([self.__read_image__(si, channels=ch, target_size=self.target_size)
+                                for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
+                selected_images_paths]
             if not self.only_images:
                 selected_masks = [
-                    sum([self.__read_image__(si, grayscale=False, target_size=self.target_size)
+                    sum([self.__read_image__(si, channels=3, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         if not self.only_images:
@@ -341,10 +377,10 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
 
 def prepare_data_generator(
-    data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
-    augmentation_pipeline: Optional[A.Compose] = None, path: Optional[str] = None,
-    only_images: bool = False, return_paths: bool = False
-        ) -> SegmentationGenerator:
+        data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
+        augmentation_pipeline: Optional[A.Compose] = None, path: Optional[str] = None,
+        only_images: bool = False, return_paths: bool = False
+) -> SegmentationGenerator:
     """Prepares the train, validation and test generators, for each model separately.
 
     Parameters
@@ -376,14 +412,14 @@ def prepare_data_generator(
         net_w=model_cfg.net_w,
         h_splits=model_cfg.h_splits,
         w_splits=model_cfg.w_splits,
-        grayscale=model_cfg.grayscale,
+        channels=model_cfg.channels,
         augmentation_pipeline=augmentation_pipeline,
         batch_size=model_cfg.batch_size,
         shuffle=False,
         subdirs=data.subdirs,
         column_sep=data.column_sep,
         return_paths=return_paths
-        )
+    )
     return generator
 
 

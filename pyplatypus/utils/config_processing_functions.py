@@ -231,6 +231,38 @@ class YamlConfigLoader(object):
             model_config.pop("metrics")
         return model_config
 
+    @staticmethod
+    def process_augmentation_field(model_config: dict) -> dict:
+        """Extracts the configuration later used during the augmentation pipeline and data generators creation.
+        Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
+
+        Parameters
+        ----------
+        config: dict
+            Configuration created by the user. The lacking fields will be filled with the default values.
+
+        Returns
+        -------
+        augmentation_: dict
+            Stores the arguments for every implemented transformation. The ones not defined in the user input
+            are set to None and then filtered out."""
+        augmentation_field = model_config.get("augmentation")
+        if augmentation_field is not None:
+            if isinstance(augmentation_field, list):
+                augmentation = [getattr(AM, f"{callback_name}Spec")() for callback_name in augmentation_field]
+            elif isinstance(augmentation_field, dict):
+                augmentation = [
+                    getattr(
+                        AM, f"{augmentation_name}Spec"
+                        )(**augmentation_field.get(augmentation_name)) for augmentation_name in augmentation_field.keys()
+                    ]
+            else:
+                raise ValueError("The structure of input not recognized for callback field!")
+            model_config.update(augmentation=augmentation)
+        if augmentation_field is None and "augmentation" in model_config.keys():
+            model_config.pop("augmentation")
+        return model_config
+
     def create_semantic_segmentation_config(self, config: dict) -> SemanticSegmentationInput:
         """Extracts the data regarding the semantic segmentation CV task to be performed.
         Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
@@ -251,6 +283,7 @@ class YamlConfigLoader(object):
             m = self.process_callbacks_field(model_config=m)
             m = self.process_loss_field(model_config=m)
             m = self.process_metrics_field(model_config=m)
+            m = self.process_augmentation_field(model_config=m)
             models_.append(SemanticSegmentationModelSpec(**m))
         semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)
         return semantic_segmentation_
@@ -271,29 +304,6 @@ class YamlConfigLoader(object):
         object_detection_ = ObjectDetectionInput()
         return object_detection_
 
-    @staticmethod
-    def create_augmentation_config(config: dict) -> AM.AugmentationSpecFull:
-        """Extracts the configuration later used during the augmentation pipeline and data generators creation.
-        Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
-
-        Parameters
-        ----------
-        config: dict
-            Configuration created by the user. The lacking fields will be filled with the default values.
-
-        Returns
-        -------
-        augmentation_: AugmentationSpecFull
-            Stores the arguments for every implemented transformation. The ones not defined in the user input
-            are set to None and then filtered out."""
-        augmentation_config_ = config.get("augmentation")
-        augmentation_raw = dict()
-        for transform in augmentation_config_.keys():
-            spec = getattr(AM, f"{transform}Spec")(**dict(augmentation_config_.get(transform)))
-            augmentation_raw.update({transform: spec})
-        augmentation_ = AM.AugmentationSpecFull(**augmentation_raw)
-        return augmentation_
-
     def load(self) -> PlatypusSolverInput:
         """Loads the raw config from the YAML file, then each crucial configuration gets extracted from the main config
         and parsed through the Pydantic datamodel. Then every component is used for the Platypus Solver input creation.
@@ -308,12 +318,10 @@ class YamlConfigLoader(object):
 
         semantic_segmentation_ = self.create_semantic_segmentation_config(config=raw_config)
         object_detection_ = self.create_object_detection_config(config=raw_config)
-        augmentation_ = self.create_augmentation_config(config=raw_config)
 
         platypus_config = PlatypusSolverInput(
             object_detection=object_detection_,
-            semantic_segmentation=semantic_segmentation_,
-            augmentation=augmentation_
+            semantic_segmentation=semantic_segmentation_
             )
         return platypus_config
 

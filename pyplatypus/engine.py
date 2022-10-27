@@ -1,20 +1,21 @@
 import pandas as pd
 from random import randrange
 
+from pandas import DataFrame, Series
+
 from pyplatypus.utils.config_processing_functions import check_cv_tasks
 from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec, \
-    SemanticSegmentationInput
+from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction_utils import save_masks
 from albumentations import Compose
 import numpy as np
-from typing import Optional
+from typing import Optional, Union
 
 
 class PlatypusEngine:
@@ -96,15 +97,13 @@ class PlatypusEngine:
         using the train and validation data generators created prior to the fitting.
         """
         cv_tasks_to_perform = check_cv_tasks(self.config)
-        train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(
-            config=self.config)
         if 'semantic_segmentation' in cv_tasks_to_perform:
             self.cache.update(semantic_segmentation={})
-            self.build_and_train_segmentation_models(train_augmentation_pipeline, validation_augmentation_pipeline)
+            self.build_and_train_segmentation_models()
 
     def build_and_train_segmentation_models(
-            self, train_augmentation_pipeline: Optional[Compose], validation_augmentation_pipeline: Optional[Compose]
-    ):
+        self
+            ):
         """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.
 
         Parameters
@@ -116,6 +115,7 @@ class PlatypusEngine:
         """
         spec = self.config['semantic_segmentation']
         for model_cfg in self.config['semantic_segmentation'].models:
+            train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
             train_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=train_augmentation_pipeline,
                 path=spec.data.train_path, only_images=False, return_paths=False
@@ -126,16 +126,22 @@ class PlatypusEngine:
             )
             model = self.compile_u_shaped_model(model_cfg)
             callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
-            training_history = model.fit(
-                train_data_generator,
-                epochs=model_cfg.epochs,
-                steps_per_epoch=train_data_generator.steps_per_epoch,
-                validation_data=validation_data_generator,
-                validation_steps=validation_data_generator.steps_per_epoch,
-                callbacks=callbacks
-            )
+            if model_cfg.fit:
+                training_history = model.fit(
+                    train_data_generator,
+                    epochs=model_cfg.epochs,
+                    steps_per_epoch=train_data_generator.steps_per_epoch,
+                    validation_data=validation_data_generator,
+                    validation_steps=validation_data_generator.steps_per_epoch,
+                    callbacks=callbacks
+                )
+                training_history = pd.DataFrame(training_history.history)
+                best_model = self.serve_best_model(model, callbacks)
+            else:
+                training_history = pd.DataFrame()
+                best_model = model
             self.update_cache(
-                model_name=model_cfg.name, model=model, training_history=pd.DataFrame(training_history.history),
+                model_name=model_cfg.name, model=best_model, training_history=training_history,
                 model_specification=model_cfg
             )
 
@@ -234,7 +240,7 @@ class PlatypusEngine:
         m = self.cache.get(task_type).get(model_name).get("model")
         model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
 
-        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
         if custom_data_path is None:
             path = spec.data.validation_path
         else:
@@ -296,9 +302,9 @@ class PlatypusEngine:
         model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
 
         if training_augmentation:
-            augmentation_pipeline, _ = prepare_augmentation_pipelines(config=self.config)
+            augmentation_pipeline, _ = prepare_augmentation_pipelines(config=model_cfg)
         else:
-            _, augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+            _, augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
         if custom_data_path is None:
             path = spec.data.validation_path
         else:
@@ -306,14 +312,14 @@ class PlatypusEngine:
         g = prepare_data_generator(
             data=spec.data, model_cfg=model_cfg,
             augmentation_pipeline=augmentation_pipeline,
-            path=path, only_images=True, return_paths=False
+            path=path, only_images=False, return_paths=False
         )
         batch = g.__getitem__(randrange(g.steps_per_epoch))
         return batch
 
     def evaluate_models(
             self, custom_data_path: str = None, task_type: str = "semantic_segmentation"
-    ) -> list:
+    ) -> Union[DataFrame, Series]:
         """Evaluates all the models associated with a certain task or the one specified by the model_name.
 
         Parameters
@@ -332,6 +338,7 @@ class PlatypusEngine:
         for model_name in model_names:
             prepared_evaluation_metrics = self.evaluate_model(model_name, custom_data_path, task_type)
             evaluations.append(prepared_evaluation_metrics)
+        evaluations = pd.concat(evaluations)
         print("EVALUATION RESULTS:\n")
         print(evaluations)
         return evaluations
@@ -432,7 +439,8 @@ class PlatypusEngine:
         """
         task_cfg = self.config.get(task_type)
         m = self.cache.get(task_type).get(model_name).get("model")
-        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=self.config)
+        model_cfg = self.cache.get(task_type).get(model_name).get("model_specification")
+        _, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
         if custom_data_path is None:
             path = task_cfg.data.validation_path
         else:
@@ -463,3 +471,27 @@ class PlatypusEngine:
         """
         model_names = [model_cfg.name for model_cfg in config.get(task_type).models]
         return model_names
+
+    @staticmethod
+    def serve_best_model(model, callbacks: list):
+        """Takes care of the case of using both EarlyStopping and ModelCheckopint when the last weights setting
+        is not necessarily going to be the optimal one because of training interuption.
+        It returns an input model or the one with the weights loaded from a checkpoint.
+
+        Parameters
+        ----------
+        model : keras.engine.functional.Functional
+            Compiled model.
+        callbacks : list
+            List of callbacks data models.
+
+        Returns
+        -------
+        best_model: keras.engine.functional.Functional
+            Model brought back using the checkpoint.
+        """
+        callback_names = [callback.name for callback in callbacks]
+        if {"EarlyStopping", "ModelCheckpoint"}.issubset(set(callback_names)):
+            model_checkpoint_callback = [callback for callback in callbacks if callback.name == "ModelCheckpoint"][0]
+            model.load_weights(model_checkpoint_callback.filepath)
+        return model

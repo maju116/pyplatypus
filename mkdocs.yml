@@ -11,9 +11,6 @@ theme:
 plugins:
 - mkdocstrings
 
-extra_css:
-- stylesheets/extra.css
-
 nav:
   - Welcome!: index.md
   - The Creators: authors.md
@@ -21,4 +18,5 @@ nav:
   - Platypus Engine: platypus_engine.md
   - But why?: explanation.md
   - The Data Science Bowl Example: data_science_bowl_notebook/data_science_bowl_notebook.md
+  - 38 Cloud Segmentation in Satellite Images: cloud_notebook/38_cloud.md
   

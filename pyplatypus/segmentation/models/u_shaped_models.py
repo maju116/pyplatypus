@@ -13,28 +13,28 @@ from typing import Tuple, Any, Optional, Union, List
 class u_shaped_model:
 
     def __init__(
-            self,
-            name: str,
-            net_h: int,
-            net_w: int,
-            grayscale: bool,
-            blocks: Optional[int] = 4,
-            n_class: Optional[int] = 2,
-            filters: Optional[int] = 16,
-            dropout: Optional[float] = 0.1,
-            batch_normalization: Optional[bool] = True,
-            kernel_initializer: Optional[str] = "he_normal",
-            resunet: Optional[bool] = False,
-            linknet: Optional[bool] = False,
-            plus_plus: Optional[bool] = False,
-            deep_supervision: Optional[bool] = False,
-            use_separable_conv2d: Optional[bool] = True,
-            use_spatial_dropout2d: Optional[bool] = True,
-            use_up_sampling2d: Optional[bool] = False,
-            activation_layer: Optional[str] = "relu",
-            **kwargs
-    ) -> None:
-        """Creates semantic segmentation model architecture.
+        self,
+        name: str,
+        net_h: int,
+        net_w: int,
+        channels: Union[int, List[int]],
+        blocks: Optional[int] = 4,
+        n_class: Optional[int] = 2,
+        filters: Optional[int] = 16,
+        dropout: Optional[float] = 0.1,
+        batch_normalization: Optional[bool] = True,
+        kernel_initializer: Optional[str] = "he_normal",
+        resunet: Optional[bool] = False,
+        linknet: Optional[bool] = False,
+        plus_plus: Optional[bool] = False,
+        deep_supervision: Optional[bool] = False,
+        use_separable_conv2d: Optional[bool] = True,
+        use_spatial_dropout2d: Optional[bool] = True,
+        use_up_sampling2d: Optional[bool] = False,
+        activation_layer: Optional[str] = "relu",
+        **kwargs
+            ) -> None:
+        """Creates U-Net model architecture.
 
         Parameters
         ----------
@@ -44,8 +44,8 @@ class u_shaped_model:
             Input layer height.
         net_w : int
             Input layer width.
-        grayscale : bool
-            Defines input layer color channels -  `1` if `True`, `3` if `False`.
+        channels : int
+            Defines input layer color channels.
         blocks : Optional[int], optional
             Number of blocks in the model, by default 4
         n_class : Optional[int], optional
@@ -78,7 +78,7 @@ class u_shaped_model:
         self.name = name
         self.net_h = net_h
         self.net_w = net_w
-        self.grayscale = grayscale
+        self.channels = sum(channels) if isinstance(channels, list) else channels
         self.blocks = blocks
         self.n_class = n_class
         self.filters = filters
@@ -319,8 +319,7 @@ class u_shaped_model:
         input_layer:
             Input for U-Net/U-Net++ model.
         """
-        channels = 1 if self.grayscale else 3
-        input_shape = (self.net_h, self.net_w, channels)
+        input_shape = (self.net_h, self.net_w, self.channels)
         input_layer = Input(shape=input_shape, name='input_img')
         return input_layer
 

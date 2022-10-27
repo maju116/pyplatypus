@@ -3,23 +3,20 @@ semantic_segmentation:
     data:
         train_path: 'examples/data/data_science_bowl/stage1_train'
         validation_path: 'examples/data/data_science_bowl/stage1_validation'
-        test_path: 'examples/data/data_science_bowl/stage1_test'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
         subdirs: ["images", "masks"]
         column_sep: ';'
-        loss: 'focal loss'
-        metrics: ['tversky coefficient', 'iou coefficient']
-        optimizer: 'adam'
-
     models:
         - name: 'res_u_net'
+          fine_tuning_path: 'examples/models/ds_bowl_res_u_net.hdf5'
+          fit: False
           net_h: 256
           net_w: 256
           h_splits: 0
           w_splits: 0
-          grayscale: False
+          channels: 3
           blocks: 4
           n_class: 2
           filters: 16
@@ -37,12 +34,51 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 32
           epochs: 100
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
+          callbacks:
+            ModelCheckpoint:
+                filepath: "tests/testdata/res_u_net_checkpoint.hdf5"
+            EarlyStopping:
+                patience: 10
+            ProgbarLogger:
+                count_mode: "samples"
+            TerminateOnNaN:
+          augmentation:
+            Blur:
+                blur_limit: 7
+                always_apply: False
+                p: 0.5
+            Flip:
+                always_apply: False
+                p: 0.5
+            RandomRotate90:
+                always_apply: False
+                p: 0.5
+            ToFloat:
+                max_value: 255
+                always_apply: True
+                p: 1.0
+            InvertImg:
         - name: 'u_net_plus_plus'
+          fine_tuning_path: 'examples/models/ds_bowl_u_net_plus_plus.hdf5'
           net_h: 256
           net_w: 256
           h_splits: 0
           w_splits: 0
-          grayscale: False
+          channels: 3
           blocks: 2
           n_class: 2
           filters: 16
@@ -57,18 +93,26 @@ semantic_segmentation:
           use_up_sampling2d: True
           batch_size: 8
           epochs: 100
-augmentation:
-    Blur:
-        blur_limit: 7
-        always_apply: False
-        p: 0.5
-    Flip:
-        always_apply: False
-        p: 0.5
-    RandomRotate90:
-        always_apply: False
-        p: 0.5
-    ToFloat:
-        max_value: 255
-        always_apply: True
-        p: 1.0
+          callbacks:
+            ModelCheckpoint:
+                filepath: "tests/testdata/u_net_plus_plus_checkpoint.hdf5"
+            EarlyStopping:
+                patience: 10
+            ProgbarLogger:
+                count_mode: "samples"
+            TerminateOnNaN:
+          augmentation:
+            Blur:
+                blur_limit: 7
+                always_apply: False
+                p: 0.5
+            Flip:
+                always_apply: False
+                p: 0.5
+            RandomRotate90:
+                always_apply: False
+                p: 0.5
+            ToFloat:
+                max_value: 255
+                always_apply: True
+                p: 1.0

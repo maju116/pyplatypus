@@ -11,6 +11,7 @@ from pyplatypus.config.input_config import (
     implemented_modes, implemented_losses, implemented_metrics,
     available_optimizers, available_activations, available_callbacks
     )
+from pyplatypus.data_models.augmentation_datamodel import AugmentationSpecFull
 from pyplatypus.data_models.optimizer_datamodel import AdamSpec
 from pyplatypus.data_models.semantic_segmentation_loss_datamodel import CceLossSpec, IouCoefficientSpec
 
@@ -54,32 +55,34 @@ class SemanticSegmentationData(BaseModel):
 
 class SemanticSegmentationModelSpec(BaseModel):
     name: str
-    fine_tuning_path: Optional[str]
+    fine_tuning_path: Optional[str] = None
+    fit: bool = True
     net_h: PositiveInt
     net_w: PositiveInt
     blocks: PositiveInt
     n_class: conint(ge=2)
     filters: PositiveInt
-    dropout: confloat(ge=0, le=1)
-    h_splits: Optional[conint(ge=0)] = 0
-    w_splits: Optional[conint(ge=0)] = 0
-    grayscale: Optional[bool] = False
+    dropout: confloat(ge=0, le=1) = 0
+    h_splits: conint(ge=0) = 0
+    w_splits: conint(ge=0) = 0
+    channels: Union[int, List[int]] = 3
     kernel_initializer: Optional[str] = "he_normal"
-    batch_size: Optional[PositiveInt] = 32
-    epochs: Optional[PositiveInt] = 2
-    resunet: Optional[bool] = False
-    linknet: Optional[bool] = False
-    plus_plus: Optional[bool] = False
-    deep_supervision: Optional[bool] = False
-    use_separable_conv2d: Optional[bool] = True
-    use_spatial_dropout2d: Optional[bool] = True
-    use_up_sampling2d: Optional[bool] = False
-    u_net_conv_block_width: Optional[int] = 2
-    activation_layer: Optional[str] = "relu"
+    batch_size: PositiveInt = 32
+    epochs: PositiveInt = 2
+    resunet: bool = False
+    linknet: bool = False
+    plus_plus: bool = False
+    deep_supervision: bool = False
+    use_separable_conv2d: bool = True
+    use_spatial_dropout2d: bool = True
+    use_up_sampling2d: bool = False
+    u_net_conv_block_width: int = 2
+    activation_layer: str = "relu"
     loss: Any = CceLossSpec()
-    metrics: Optional[List[Any]] = [IouCoefficientSpec()]
+    metrics: List[Any] = [IouCoefficientSpec()]
     optimizer: Any = AdamSpec()
     callbacks: List[Any] = []
+    augmentation: Optional[List[Any]] = None
 
     @validator('fine_tuning_path')
     def check_if_fine_tuning_path_exists(cls, v: str):
@@ -87,6 +90,17 @@ class SemanticSegmentationModelSpec(BaseModel):
             if Path(v).exists():
                 return v
             raise NotADirectoryError("Specified weights path does not exist!")
+
+    @validator("channels")
+    def check_channels_format(cls, v: Union[int, List[int]]):
+        if isinstance(v, list):
+            if all(i > 0 for i in v):
+                return v
+            raise ValueError(f"All channels must be integers grater than 0!")
+        elif isinstance(v, int):
+            return v
+        else:
+            raise ValueError(f"All channels must be integers grater than 0!")
 
     @validator("activation_layer")
     def check_activation_type(cls, v: str):

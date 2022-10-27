@@ -9,6 +9,7 @@ class BlurSpec(BaseModel):
     blur_limit: Optional[float] = 7
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Blur"
 
 
 class GaussianBlurSpec(BaseModel):
@@ -16,22 +17,26 @@ class GaussianBlurSpec(BaseModel):
     sigma_limit: Optional[float] = 0
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "GaussianBlur"
 
 
 class MedianBlurSpec(BaseModel):
     blur_limit: Optional[PositiveFloat] = 9
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "MedianBlur"
 
 
 class MotionBlurSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "MotionBlur"
 
 
 class ErrorAugSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ErrorAug"
 
 
 class CLAHESpec(BaseModel):
@@ -39,6 +44,7 @@ class CLAHESpec(BaseModel):
     title_grid_size: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [1, 4]
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "CLAHE"
 
 
 class ChannelDropoutSpec(BaseModel):
@@ -46,11 +52,13 @@ class ChannelDropoutSpec(BaseModel):
     fill_value: Optional[float] = 0
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ChannelDropout"
 
 
 class ChannelShuffleSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ChannelShuffle"
 
 
 class ColorJitterSpec(BaseModel):
@@ -60,6 +68,7 @@ class ColorJitterSpec(BaseModel):
     hue: Optional[float] = .2
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ColorJitter"
 
 
 class DownscaleSpec(BaseModel):
@@ -68,6 +77,7 @@ class DownscaleSpec(BaseModel):
     interpolation: Optional[float] = 0
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Downscale"
 
 
 class EmbossSpec(BaseModel):
@@ -75,6 +85,7 @@ class EmbossSpec(BaseModel):
     title_grid_size: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [1, 4]
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Emboss"
 
 
 class EqualizeSpec(BaseModel):
@@ -84,12 +95,14 @@ class EqualizeSpec(BaseModel):
     mask_params: Optional[List[str]] = []
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Equalize"
 
 
 class FancyPCASpec(BaseModel):
     alpha: Optional[float] = .1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "FancyPCA"
 
 
 class GaussNoiseSpec(BaseModel):
@@ -98,6 +111,7 @@ class GaussNoiseSpec(BaseModel):
     per_channel: Optional[bool] = True
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "GaussianNoise"
 
 
 class HueSaturationValueSpec(BaseModel):
@@ -106,6 +120,7 @@ class HueSaturationValueSpec(BaseModel):
     val_shift_limit: Optional[PositiveFloat] = 20
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "HueSaturationValue"
 
 
 class ISONoiseSpec(BaseModel):
@@ -113,11 +128,13 @@ class ISONoiseSpec(BaseModel):
     title_grid_size: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [1, 4]
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ISONoise"
 
 
 class InvertImgSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "InvertImg"
 
 
 class MultiplicativeNoiseSpec(BaseModel):
@@ -126,6 +143,7 @@ class MultiplicativeNoiseSpec(BaseModel):
     elementwise: Optional[bool] = False
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "MultiplicativeNoise"
 
 
 class NormalizeSpec(BaseModel):
@@ -134,6 +152,7 @@ class NormalizeSpec(BaseModel):
     max_pixel_value: Optional[float] = 255
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1.
+    name: str = "Normalize"
 
 
 class RGBShiftSpec(BaseModel):
@@ -142,6 +161,7 @@ class RGBShiftSpec(BaseModel):
     b_shift_limit: Optional[PositiveFloat] = 20
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RGBShift"
 
 
 class RandomBrightnessContrastSpec(BaseModel):
@@ -150,6 +170,7 @@ class RandomBrightnessContrastSpec(BaseModel):
     brightness_by_max: Optional[bool] = True
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomBrightnessContrast"
 
 
 class RandomFogSpec(BaseModel):
@@ -158,6 +179,7 @@ class RandomFogSpec(BaseModel):
     alpha_coef: Optional[PositiveFloat] = 0.08
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomFog"
 
 
 class RandomGammaSpec(BaseModel):
@@ -165,6 +187,7 @@ class RandomGammaSpec(BaseModel):
     eps: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomGamma"
 
 
 class RandomRainSpec(BaseModel):
@@ -178,6 +201,7 @@ class RandomRainSpec(BaseModel):
     rain_type: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomRain"
 
 
 class RandomSnowSpec(BaseModel):
@@ -186,6 +210,7 @@ class RandomSnowSpec(BaseModel):
     brightness_coeff: Optional[PositiveFloat] = 2.5
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomSnow"
 
 
 class RandomShadowSpec(BaseModel):
@@ -195,6 +220,7 @@ class RandomShadowSpec(BaseModel):
     shadow_dimension: Optional[float] = 5
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomShadow"
 
 
 class RandomSunFlareSpec(BaseModel):
@@ -207,12 +233,14 @@ class RandomSunFlareSpec(BaseModel):
     src_color: Optional[conlist(PositiveFloat, min_items=3, max_items=3)] = [255, 255, 255]
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomSunFlare"
 
 
 class RandomToneCurveSpec(BaseModel):
     scale: Optional[float] = 0.1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomToneCurve"
 
 
 class SharpenSpec(BaseModel):
@@ -220,12 +248,14 @@ class SharpenSpec(BaseModel):
     lightness: Optional[conlist(PositiveFloat, min_items=2, max_items=2)] = [0.5, 1.0]
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Sharpen"
 
 
 class SolarizeSpec(BaseModel):
     threshold: Optional[float] = 128
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Solarize"
 
 
 class SuperpixelsSpec(BaseModel):
@@ -235,11 +265,13 @@ class SuperpixelsSpec(BaseModel):
     interpolation: Optional[float] = 1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Superpixels"
 
 
 class ToSepiaSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ToSepia"
 
 
 class AffineSpec(BaseModel):
@@ -256,6 +288,7 @@ class AffineSpec(BaseModel):
     fit_output: Optional[bool] = False
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Affine"
 
 
 class CenterCropSpec(BaseModel):
@@ -263,6 +296,7 @@ class CenterCropSpec(BaseModel):
     width: Optional[PositiveFloat] = 30
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "CenterCrop"
 
 
 class CoarseDropoutSpec(BaseModel):
@@ -276,6 +310,7 @@ class CoarseDropoutSpec(BaseModel):
     mask_fill_value: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "CoarseDropout"
 
 
 class CropSpec(BaseModel):
@@ -285,6 +320,7 @@ class CropSpec(BaseModel):
     y_max: Optional[PositiveFloat] = 1024
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Crop"
 
 
 class CropAndPadSpec(BaseModel):
@@ -298,6 +334,7 @@ class CropAndPadSpec(BaseModel):
     interpolation: Optional[PositiveFloat] = 1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "CropAndPad"
 
 
 class CropNonEmptyMaskIfExistsSpec(BaseModel):
@@ -307,6 +344,7 @@ class CropNonEmptyMaskIfExistsSpec(BaseModel):
     ignore_channels: Optional[bool] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "CropNonEmptyMaskIfExists"
 
 
 class ElasticTransformSpec(BaseModel):
@@ -314,18 +352,20 @@ class ElasticTransformSpec(BaseModel):
     sigma: Optional[float] = 50
     alpha_affine: Optional[float] = 50
     interpolation: Optional[float] = 1
-    border_mode: Optional[float] = 4    
+    border_mode: Optional[float] = 4
     value: Optional[float] = None
     mask_value: Optional[float] = None
     approximate: Optional[bool] = False
     same_dxdy: Optional[bool] = False
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "ElasticTransform"
 
 
 class FlipSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Flip"
 
 
 class GridDistortionSpec(BaseModel):
@@ -337,6 +377,7 @@ class GridDistortionSpec(BaseModel):
     mask_value: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "GridDistortion"
 
 
 class GridDropoutSpec(BaseModel):
@@ -352,11 +393,13 @@ class GridDropoutSpec(BaseModel):
     mask_fill_value: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "GridDropout"
 
 
 class HorizontalFlipSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "HorizontalFlip"
 
 
 class MaskDropoutSpec(BaseModel):
@@ -365,6 +408,7 @@ class MaskDropoutSpec(BaseModel):
     mask_fill_value: Optional[float] = 0
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "MaskDropout"
 
 
 class OpticalDistortionSpec(BaseModel):
@@ -376,6 +420,7 @@ class OpticalDistortionSpec(BaseModel):
     mask_value: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "OpticalDistortion"
 
 
 class PerspectiveSpec(BaseModel):
@@ -388,6 +433,7 @@ class PerspectiveSpec(BaseModel):
     interpolation: Optional[float] = 1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "Perspective"
 
 
 class PiecewiseAffineSpec(BaseModel):
@@ -403,6 +449,7 @@ class PiecewiseAffineSpec(BaseModel):
     keypoints_threshold: Optional[float] = 0.01
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "PiecewiseAffine"
 
 
 class RandomCropSpec(BaseModel):
@@ -410,6 +457,7 @@ class RandomCropSpec(BaseModel):
     width: Optional[PositiveFloat] = 30
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomCrop"
 
 
 class RandomCropNearBBoxSpec(BaseModel):
@@ -417,12 +465,14 @@ class RandomCropNearBBoxSpec(BaseModel):
     cropping_box_key: Optional[str] = "cropping_bbox"
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "RandomCropNearBBox"
 
 
 class RandomGridShuffleSpec(BaseModel):
     grid: Optional[conlist(float, min_items=2, max_items=2)] = [3, 3]
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = .5
+    name: str = "RandomGridShuffle"
 
 
 class RandomResizedCropSpec(BaseModel):
@@ -433,11 +483,13 @@ class RandomResizedCropSpec(BaseModel):
     interpolation: Optional[float] = 1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "RandomResizedCrop"
 
 
 class RandomRotate90Spec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "RandomRotate90"
 
 
 class RandomSizedBBoxSafeCropSpec(BaseModel):
@@ -447,6 +499,7 @@ class RandomSizedBBoxSafeCropSpec(BaseModel):
     interpolation: Optional[float] = 1
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "RandomSizedBBoxSafeCrop"
 
 
 class RotateSpec(BaseModel):
@@ -457,6 +510,7 @@ class RotateSpec(BaseModel):
     mask_value: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 0.5
+    name: str = "Rotate"
 
 
 class SafeRotateSpec(BaseModel):
@@ -467,6 +521,7 @@ class SafeRotateSpec(BaseModel):
     mask_value: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 0.5
+    name: str = "SafeRotate"
 
 
 class ShiftRotateSpec(BaseModel):
@@ -481,28 +536,33 @@ class ShiftRotateSpec(BaseModel):
     shift_limit_y: Optional[float] = None
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 0.5
+    name: str = "ShiftRotate"
 
 
 class TransposeSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 0.5
+    name: str = "Transpose"
 
 
 class VerticalFlipSpec(BaseModel):
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 0.5
+    name: str = "VerticalFlip"
 
 
 class FromFloatSpec(BaseModel):
     dtype: Optional[str] = "uint16"
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "FromFloat"
 
 
 class ToFloatSpec(BaseModel):
     max_value: Optional[float] = 255
     always_apply: Optional[bool] = False
     p: Optional[confloat(ge=0, le=1)] = 1
+    name: str = "ToFloat"
 
 
 class AugmentationSpecFull(BaseModel):

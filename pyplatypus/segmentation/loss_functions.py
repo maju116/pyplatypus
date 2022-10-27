@@ -143,11 +143,11 @@ class SegmentationLoss:
 
         Returns
         -------
-        cee_loss: tf.Tensor
+        cce_loss: tf.Tensor
             CCE (categorical cross-entropy) loss.
         """
-        cee_loss = kb.mean(kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32')))
-        return cee_loss
+        cce_loss = kb.mean(kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32')))
+        return cce_loss
 
     def cce_dice_loss(self, y_actual: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
@@ -164,8 +164,8 @@ class SegmentationLoss:
         -------
             CCE-Dice loss.
         """
-        cee_dice_loss = self.cce_loss(y_actual, y_pred) + self.dice_loss(y_actual, y_pred)
-        return cee_dice_loss
+        cce_dice_loss = self.cce_loss(y_actual, y_pred) + self.dice_loss(y_actual, y_pred)
+        return cce_dice_loss
 
     def iou_coefficient(self, y_actual: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
         """
@@ -230,9 +230,9 @@ class SegmentationLoss:
         focal_loss: tf.Tensor
             Focal loss.
         """
-        CEE_pixelwise = kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32'))
-        pt = kb.exp(-CEE_pixelwise)
-        focal_loss = kb.mean(CEE_pixelwise*alpha*(1-pt)**gamma)
+        CCE_pixelwise = kb.categorical_crossentropy(tf.cast(y_actual, 'float32'), tf.cast(y_pred, 'float32'))
+        pt = kb.exp(-CCE_pixelwise)
+        focal_loss = kb.mean(CCE_pixelwise*alpha*(1-pt)**gamma)
         return focal_loss
 
     @staticmethod
