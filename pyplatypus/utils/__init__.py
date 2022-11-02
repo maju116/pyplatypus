@@ -7,3 +7,4 @@ from . import lovasz_softmax
 from . import prediction
 from . import prepare_loss_metrics
 from . import toolbox
+from . import mask

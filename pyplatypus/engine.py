@@ -11,7 +11,7 @@ from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
-from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
+from pyplatypus.utils.mask import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction import save_masks
 from albumentations import Compose
 import numpy as np

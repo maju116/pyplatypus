@@ -10,7 +10,7 @@ import pydicom
 import tifffile
 from skimage.transform import resize
 from skimage.color import rgb2gray, gray2rgb
-from pyplatypus.utils.toolbox import split_masks_into_binary
+from pyplatypus.utils.mask import split_masks_into_binary
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, \
     SemanticSegmentationModelSpec
