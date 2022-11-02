@@ -1,4 +1,4 @@
-"""For the time being it is just a placeholder but with the new models flowing in, here the main config steering
+"""For the time being it is just a placeholder but with the new models flowing in, here the main constants steering
 te object detection models will be stored."""
 
 from pydantic import BaseModel

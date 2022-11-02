@@ -7,7 +7,7 @@ from typing import List, Optional, Union, Tuple, Any
 from pathlib import Path
 
 from pyplatypus.utils.toolbox import convert_to_snake_case
-from pyplatypus.config.input_config import (
+from pyplatypus.constants.input import (
     implemented_modes, implemented_losses, implemented_metrics,
     available_optimizers, available_activations, available_callbacks
     )

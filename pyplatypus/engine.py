@@ -26,7 +26,7 @@ class PlatypusEngine:
     Methods
     -------
     train(self)
-        Creates the augmentation pipeline based on the input config. Then the function performs
+        Creates the augmentation pipeline based on the input constants. Then the function performs
         the selected tasks e.g. semantic segmentation, which consists of compiling and fitting the model
         using the train and validation data generators created prior to the fitting.
 
@@ -49,7 +49,7 @@ class PlatypusEngine:
     predict_based_on_test_generator(self, model_name: str, custom_data_path: Optional[str] = None):
         Produces predictions based on the selected model and the data generator created on the course of building this model.
 
-    get_model_names(config: dict, task: Optional[str] = "semantic_segmentation"):
+    get_model_names(constants: dict, task: Optional[str] = "semantic_segmentation"):
         Extracts the names of all models related to the selected task.
     """
 
@@ -61,7 +61,7 @@ class PlatypusEngine:
         ----------
         config: PlatypusSolverInput
             Stores the specific task-related configs nested as its attributes e.g. to the models that are to
-            be trained can be accessed as config.semantic_segmentation.models.
+            be trained can be accessed as constants.semantic_segmentation.models.
         """
         self.config = dict(config)
         self.cache = {}
@@ -75,7 +75,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Comes straight from the input config.
+            Comes straight from the input constants.
         model : u_shaped_model
             Tensorflow model.
         training_history: pd.DataFrame
@@ -92,7 +92,7 @@ class PlatypusEngine:
 
     def train(self) -> None:
         """
-        Creates the augmentation pipeline based on the input config. Then the function performs
+        Creates the augmentation pipeline based on the input constants. Then the function performs
         the selected tasks e.g. semantic segmentation, which consists of compiling and fitting the model
         using the train and validation data generators created prior to the fitting.
         """
@@ -197,7 +197,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Name of the model to use, should be consistent with the input config.
+            Name of the model to use, should be consistent with the input constants.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         task_type : Optional[str], optional
@@ -221,7 +221,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Name of the model to use, should be consistent with the input config.
+            Name of the model to use, should be consistent with the input constants.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         task_type : Optional[str], optional
@@ -285,7 +285,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Name of the model to use, should be consistent with the input config.
+            Name of the model to use, should be consistent with the input constants.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         training_augmentation: bool
@@ -424,7 +424,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Name of the model to use, should be consistent with the input config.
+            Name of the model to use, should be consistent with the input constants.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         model_cfg: SemanticSegmentationModelSpec
@@ -460,7 +460,7 @@ class PlatypusEngine:
         Parameters
         ----------
         config : dict
-            It is expected to be of the same form as the input config.
+            It is expected to be of the same form as the input constants.
         task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
 

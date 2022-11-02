@@ -11,7 +11,7 @@ create_augmentation_pipeline(augmentation_dict: dict, train: bool)
 
 from typing import List, Optional, Any
 import albumentations as A
-from pyplatypus.config.augmentation_config import train_available_methods, validation_test_available_methods
+from pyplatypus.constants.augmentation import train_available_methods, validation_test_available_methods
 
 
 def filter_out_incorrect_methods(augmentation: list, train: bool) -> List[str]:

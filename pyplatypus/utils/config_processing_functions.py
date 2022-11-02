@@ -1,14 +1,14 @@
-"""This module offers the tools crucial in the config ingestion but also it's latter validation
+"""This module offers the tools crucial in the constants ingestion but also it's latter validation
 while some of the validation steps could get moved to the pydantic side but for now they are kept here.
 
 Classes
 -------
 YamlConfigLoader(object)
-    Provides the framework allowing us to ingest the raw config from the YAML shaped by a user.
+    Provides the framework allowing us to ingest the raw constants from the YAML shaped by a user.
 
 Functions
 ---------
-check_cv_tasks(config: dict)
+check_cv_tasks(constants: dict)
     Checks which Computer Vision tasks are to be performed.
 """
 
@@ -25,13 +25,13 @@ from pyplatypus.data_models import optimizer_datamodel as OM
 from pyplatypus.data_models import callbacks_datamodel as CM
 from pyplatypus.data_models import semantic_segmentation_loss_datamodel as SSLM
 
-from pyplatypus.config.input_config import available_callbacks_without_specification
+from pyplatypus.constants.input import available_callbacks_without_specification
 
 
 class YamlConfigLoader(object):
-    """Provides the framework allowing us to ingest the raw config from the
+    """Provides the framework allowing us to ingest the raw constants from the
     YAML shaped by a user. It provides us with the tool for directing the flow
-    of data contained in the config through the branching PlatypusSolverInput
+    of data contained in the constants through the branching PlatypusSolverInput
     structure. Therefore the essential information is extracted, validated, parsed
     and neatly organized in the expected structure.
 
@@ -40,35 +40,35 @@ class YamlConfigLoader(object):
     load_config_from_yaml(config_path: str)
         Loads configuration from YAML file.
 
-    create_semantic_segmentation_config(config: dict)
+    create_semantic_segmentation_config(constants: dict)
         Extracts the data regarding the semantic segmentation CV task to be performed.
 
-    create_object_detection_config(config: dict)
+    create_object_detection_config(constants: dict)
         Extracts the data regarding the object detection CV task to be performed.
 
-    create_augmentation_config(config: dict)
+    create_augmentation_config(constants: dict)
         Extracts the configuration later used during the augmentation pipeline and data generators creation.
 
     load()
-        Loads the raw config from the YAML file, then each crucial configuration gets extracted from the main config
+        Loads the raw constants from the YAML file, then each crucial configuration gets extracted from the main constants
         and parsed through the Pydantic datamodel.
     """
 
     def __init__(self, config_yaml_path: str) -> None:
-        """Initializes the class and checks the provided path to the YAML config.
+        """Initializes the class and checks the provided path to the YAML constants.
 
         Parameters
         ----------
         config_yaml_path:
-            Path to the user-specified config, it is required to exist.
+            Path to the user-specified constants, it is required to exist.
 
         Raises
         ------
-        NotADirectoryError: Raised if the path said to point at the config is invalid.
+        NotADirectoryError: Raised if the path said to point at the constants is invalid.
         """
         if not Path(config_yaml_path).exists():
             raise NotADirectoryError(
-                "The specified config path does not exist!"
+                "The specified constants path does not exist!"
                 )
         else:
             self.config_yaml_path = config_yaml_path
@@ -81,12 +81,12 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         config_path: str
-            Path from which the YAML config will be loaded into the memory.
+            Path from which the YAML constants will be loaded into the memory.
 
         Returns
         -------
-        config: dict
-            Loaded raw config.
+        constants: dict
+            Loaded raw constants.
         """
         with open(config_path) as cfg:
             config = load(cfg, Loader=FullLoader)
@@ -99,12 +99,12 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         model_config : dict
-            The element of the list of models from the input config.
+            The element of the list of models from the input constants.
 
         Returns
         -------
         model_config: dict
-            Reshaped config.
+            Reshaped constants.
         """
         optimizer_field = model_config.get("optimizer")
         if optimizer_field is not None:
@@ -123,12 +123,12 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         model_config : dict
-            The element of the list of models from the input config.
+            The element of the list of models from the input constants.
 
         Returns
         -------
         model_config: dict
-            Reshaped config.
+            Reshaped constants.
 
         Raises
         ------
@@ -167,7 +167,7 @@ class YamlConfigLoader(object):
         Returns
         -------
         model_config: dict
-            Processed config.
+            Processed constants.
 
         Raises
         ------
@@ -199,12 +199,12 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         model_config : dict
-            The element of the list of models from the input config.
+            The element of the list of models from the input constants.
 
         Returns
         -------
         model_config: dict
-            Reshaped config.
+            Reshaped constants.
 
         Raises
         ------
@@ -238,7 +238,7 @@ class YamlConfigLoader(object):
 
         Parameters
         ----------
-        config: dict
+        constants: dict
             Configuration created by the user. The lacking fields will be filled with the default values.
 
         Returns
@@ -294,7 +294,7 @@ class YamlConfigLoader(object):
         Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
 
         Parameters
-        config: dict
+        constants: dict
             Configuration created by the user. The lacking fields will be filled with the default values.
 
         Returns
@@ -305,7 +305,7 @@ class YamlConfigLoader(object):
         return object_detection_
 
     def load(self) -> PlatypusSolverInput:
-        """Loads the raw config from the YAML file, then each crucial configuration gets extracted from the main config
+        """Loads the raw constants from the YAML file, then each crucial configuration gets extracted from the main constants
         and parsed through the Pydantic datamodel. Then every component is used for the Platypus Solver input creation.
 
         Returns

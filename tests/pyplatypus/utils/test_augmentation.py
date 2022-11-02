@@ -22,17 +22,17 @@ class mocked_config:
 
 class TestFilterOutIncorrectMethods:
     def test_filter_out_incorrect_methods_train_no_valid_methods(self, mocker):
-        with mock.patch("pyplatypus.utils.augmentation_toolbox.train_available_methods", ["method_name5"]):
+        with mock.patch("pyplatypus.utils.augmentation.train_available_methods", ["method_name5"]):
             assert filter_out_incorrect_methods([mocked_augmentation_spec()], train=True) == []
 
     
     def test_filter_out_incorrect_methods_train_some_valid_methods(self, mocker):
-        with mock.patch("pyplatypus.utils.augmentation_toolbox.train_available_methods", ["method_name2", "method_name1"]):
+        with mock.patch("pyplatypus.utils.augmentation.train_available_methods", ["method_name2", "method_name1"]):
             assert filter_out_incorrect_methods([mocked_augmentation_spec()], train=True)[0].name == mocked_augmentation_spec().name
 
         
     def test_filter_out_incorrect_methods_validation_no_valid_methods(self, mocker):
-        with mock.patch("pyplatypus.utils.augmentation_toolbox.validation_test_available_methods", ["method_name2", "method_name1"]):
+        with mock.patch("pyplatypus.utils.augmentation.validation_test_available_methods", ["method_name2", "method_name1"]):
             assert filter_out_incorrect_methods([mocked_augmentation_spec()], train=False)[0].name == mocked_augmentation_spec.name
 
 class TestCreateAugmentationPipeline:
@@ -58,10 +58,10 @@ class TestCreateAugmentationPipeline:
 
     def test_create_augmentation_pipeline(self, monkeypatch, mocker):
         mocker.patch(
-            "pyplatypus.utils.augmentation_toolbox.filter_out_incorrect_methods",
+            "pyplatypus.utils.augmentation.filter_out_incorrect_methods",
             return_value=[mocked_augmentation_spec()]
             )
-        albumentations_path = "pyplatypus.utils.augmentation_toolbox.A"
+        albumentations_path = "pyplatypus.utils.augmentation.A"
         monkeypatch.setattr(
             albumentations_path+".method_name1", self.mocked_method1, raising=False
             )
@@ -74,5 +74,5 @@ class TestPrepareAugmentationPipelines:
         assert prepare_augmentation_pipelines(mocked_config(empty=True)) == (None, None)
 
     def test_prepare_augmentation_pipelines(self, mocker):
-        mocker.patch("pyplatypus.utils.augmentation_toolbox.create_augmentation_pipeline", return_value="pipeline")
+        mocker.patch("pyplatypus.utils.augmentation.create_augmentation_pipeline", return_value="pipeline")
         assert prepare_augmentation_pipelines(mocked_config(empty=False)) == ("pipeline", "pipeline")

@@ -1,4 +1,4 @@
-"""Script storing the main input for the solver, with the use of it, the data from YAML config gets parsed
+"""Script storing the main input for the solver, with the use of it, the data from YAML constants gets parsed
 through pydantic structures."""
 
 from pydantic import BaseModel
