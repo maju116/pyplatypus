@@ -140,9 +140,82 @@ class SemanticSegmentationModelSpec(BaseModel):
         raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
 
 
+class SemanticSegmentationEnsemblerSpec(BaseModel):
+    name: str
+    submodels: List[str]
+    copy_submodels_weights: bool = True
+    freeze_submodels_weights: bool = True
+    fine_tuning_path: Optional[str] = None
+    fit: bool = True
+    net_h: PositiveInt
+    net_w: PositiveInt
+    n_class: conint(ge=2)
+    filters: PositiveInt
+    kernel_size: Optional[Tuple[int, int]] = (3, 3)
+    dropout: confloat(ge=0, le=1) = 0
+    kernel_initializer: Optional[str] = "he_normal"
+    batch_size: PositiveInt = 32
+    epochs: PositiveInt = 2
+    use_separable_conv2d: bool = True
+    use_spatial_dropout2d: bool = True
+    u_net_conv_block_width: int = 2
+    activation_layer: str = "relu"
+    loss: Any = CceLossSpec()
+    metrics: List[Any] = [IouCoefficientSpec()]
+    optimizer: Any = AdamSpec()
+    callbacks: List[Any] = []
+    augmentation: Optional[List[Any]] = None
+
+    @validator('fine_tuning_path')
+    def check_if_fine_tuning_path_exists(cls, v: str):
+        if v is not None:
+            if Path(v).exists():
+                return v
+            raise NotADirectoryError("Specified weights path does not exist!")
+
+    @validator("activation_layer")
+    def check_activation_type(cls, v: str):
+        if v in available_activations:
+            return v
+        raise ValueError(f"""
+            The selected activation function: {v} is not available in keras! As a note, the activation
+            functions' names should be lowercase, maybe that solves the problem?
+            """)
+
+    @validator("loss")
+    def check_the_loss_name(cls, v: str):
+        v_converted = convert_to_snake_case(v.name)
+        if v_converted in implemented_losses:
+            return v
+        raise ValueError(f"The chosen loss: {v} is not one of the implemented losses!")
+
+    @validator("optimizer")
+    def check_optimizer(cls, v: Any):
+        optimizer_name = v.name
+        if optimizer_name in available_optimizers:
+            return v
+        raise ValueError(f" The chosen optimizer: {v} is not among the ones available in the Tensorflow!")
+
+    @validator("callbacks")
+    def check_callbacks(cls, v: Any):
+        if v:
+            callbacks_names = [callback.name for callback in v]
+            if set(callbacks_names).issubset(set(available_callbacks)):
+                return v
+            raise ValueError(f"The chosen callbacks: {', '.join(callbacks_names)} are not the subset of the implemented ones!")
+
+    @validator("metrics")
+    def check_the_metrics(cls, v: list):
+        v_converted = [convert_to_snake_case(model.name) for model in v]
+        if set(v_converted).issubset(set(implemented_metrics)):
+            return v
+        raise ValueError(f"The chosen metrics: {', '.join(v)} are not the subset of the implemented ones!")
+
+
 class SemanticSegmentationInput(BaseModel):
     data: SemanticSegmentationData
     models: List[SemanticSegmentationModelSpec]
+    ensemblers: Optional[List[SemanticSegmentationEnsemblerSpec]]
 
     @pydantic.validator("models")
     def check_models_names(cls, v):
