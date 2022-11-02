@@ -12,7 +12,7 @@ from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationMod
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
-from pyplatypus.utils.prediction_utils import save_masks
+from pyplatypus.utils.prediction import save_masks
 from albumentations import Compose
 import numpy as np
 from typing import Optional, Union
