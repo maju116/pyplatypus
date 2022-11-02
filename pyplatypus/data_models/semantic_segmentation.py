@@ -153,6 +153,8 @@ class SemanticSegmentationEnsemblerSpec(BaseModel):
     filters: PositiveInt
     kernel_size: Optional[Tuple[int, int]] = (3, 3)
     dropout: confloat(ge=0, le=1) = 0
+    h_splits: conint(ge=0) = 0
+    w_splits: conint(ge=0) = 0
     kernel_initializer: Optional[str] = "he_normal"
     batch_size: PositiveInt = 32
     epochs: PositiveInt = 2
