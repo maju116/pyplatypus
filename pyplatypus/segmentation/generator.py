@@ -2,6 +2,7 @@ import tensorflow as tf
 from typing import Tuple, List, Optional, Union, Any
 import numpy as np
 from numpy import ndarray
+from skimage.transform import resize
 import albumentations as A
 from pyplatypus.utils.mask import split_masks_into_binary, read_and_sum_masks
 from pyplatypus.utils.path import create_images_masks_paths, filter_paths_by_indices
@@ -141,29 +142,41 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
         return steps_per_epoch
 
-    def calculate_images_and_masks_target_sizes(self) -> Tuple[List, Tuple[int, int]]:
+    def calculate_masks_target_size(self) -> Tuple[int, int]:
         """
-        Calculates images and masks target sizes.
+        Calculates masks target size.
 
         Returns
         -------
-        images_target_size, masks_target_size:
-            Images and masks target sizes.
+        target_size: Tuple[int, int]
+            Masks target size.
         """
         if self.is_ensemble:
             if self.h_splits > 1 or self.w_splits > 1:
-                images_target_size = [(self.h_splits * h, self.w_splits * w) for h, w in (self.net_h, self.net_w)]
-                masks_target_size = [self.h_splits * self.ensemble_net_h, self.w_splits * self.ensemble_net_w]
+                target_size = (self.h_splits * self.ensemble_net_h, self.w_splits * self.ensemble_net_w)
             else:
-                images_target_size = [(h, w) for h, w in (self.net_h, self.net_w)]
-                masks_target_size = (self.ensemble_net_h, self.ensemble_net_w)
+                target_size = (self.ensemble_net_h, self.ensemble_net_w)
         else:
             if self.h_splits > 1 or self.w_splits > 1:
-                images_target_size = [(self.h_splits * self.net_h, self.w_splits * self.net_w)]
+                target_size = (self.h_splits * self.net_h, self.w_splits * self.net_w)
             else:
-                images_target_size = [(self.net_h, self.net_w)]
-            masks_target_size = images_target_size[0]
-        return images_target_size, masks_target_size
+                target_size = (self.net_h, self.net_w)
+        return target_size
+
+    def calculate_images_target_sizes(self) -> List[Tuple[int, int]]:
+        """
+        Calculates images target sizes.
+
+        Returns
+        -------
+        target_size: List[Tuple[int, int]]
+            Images target sizes.
+        """
+        if self.h_splits > 1 or self.w_splits > 1:
+            target_sizes = [(self.h_splits * h, self.w_splits * w) for h, w in zip(self.net_h, self.net_w)]
+        else:
+            target_sizes = [(h, w) for h, w in zip(self.net_h, self.net_w)]
+        return target_sizes
 
     def read_images_and_masks_from_directory(
             self, indices: Optional[List]
@@ -182,19 +195,17 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             List of images and masks.
         """
         selected_images_paths = filter_paths_by_indices(self.config["images_paths"], indices)
-        images_target_size, masks_target_size = self.calculate_images_and_masks_target_sizes()
-
-        selected_images = [read_and_concatenate_images(selected_images_paths, ch, its)
-                           for ch, its in zip(self.channels, images_target_size)]
+        target_size = self.calculate_masks_target_size()
+        channels = self.channels[0] if self.is_ensemble else self.channels
+        selected_images = read_and_concatenate_images(selected_images_paths, channels, target_size)
         if self.h_splits > 1 or self.w_splits > 1:
-            selected_images = [split_images(si, self.h_splits, self.w_splits) for si in selected_images]
+            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
         if not self.only_images:
             selected_masks_paths = filter_paths_by_indices(self.config["masks_paths"], indices)
-            selected_masks = read_and_sum_masks(selected_masks_paths, masks_target_size)
+            selected_masks = read_and_sum_masks(selected_masks_paths, target_size)
             selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
             if self.h_splits > 1 or self.w_splits > 1:
                 selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
-
         if not self.only_images:
             loaded_data = (selected_images, selected_masks, selected_images_paths)
         else:
@@ -206,84 +217,6 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.indexes = list(range(len(self.config["images_paths"])))
         if self.shuffle:
             np.random.shuffle(self.indexes)
-
-    def __getitem_single_input__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
-        """
-        Returns one batch of data.
-
-        Parameters
-        ----------
-        index: int
-            Batch index.
-
-        Returns
-        -------
-        batch: tuple
-            Batch of data being images and masks.
-        """
-        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        if not self.only_images:
-            images, masks, paths = self.read_images_and_masks_from_directory(indexes)
-            if self.augmentation_pipeline is not None:
-                transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
-                images = np.stack([tr['image'] for tr in transformed], axis=0)
-                masks = np.stack([tr['mask'] for tr in transformed], axis=0)
-            else:
-                images = np.stack(images, axis=0)
-                masks = np.stack(masks, axis=0)
-            batch = (images, masks)
-            if self.return_paths:
-                batch = (images, masks, paths)
-        else:
-            images, paths = self.read_images_and_masks_from_directory(indexes)
-            if self.augmentation_pipeline is not None:
-                transformed = [self.augmentation_pipeline(image=image) for image in images]
-                images = np.stack([tr['image'] for tr in transformed], axis=0)
-            else:
-                images = np.stack(images, axis=0)
-            batch = images
-            if self.return_paths:
-                batch = (images, paths)
-        return batch
-
-    def __getitem_ensemble__(self, index: int) -> Union[tuple[List[ndarray], ndarray], ndarray]:
-        """
-        Returns one batch of data.
-
-        Parameters
-        ----------
-        index: int
-            Batch index.
-
-        Returns
-        -------
-        batch: tuple
-            Batch of data being images and masks.
-        """
-        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
-        if not self.only_images:
-            images, masks, paths = self.read_images_and_masks_from_directory(indexes)
-            if self.augmentation_pipeline is not None:
-                transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
-                images = np.stack([tr['image'] for tr in transformed], axis=0)
-                masks = np.stack([tr['mask'] for tr in transformed], axis=0)
-            else:
-                images = np.stack(images, axis=0)
-                masks = np.stack(masks, axis=0)
-            batch = (images, masks)
-            if self.return_paths:
-                batch = (images, masks, paths)
-        else:
-            images, paths = self.read_images_and_masks_from_directory(indexes)
-            if self.augmentation_pipeline is not None:
-                transformed = [self.augmentation_pipeline(image=image) for image in images]
-                images = np.stack([tr['image'] for tr in transformed], axis=0)
-            else:
-                images = np.stack(images, axis=0)
-            batch = images
-            if self.return_paths:
-                batch = (images, paths)
-        return batch
 
     def __getitem__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
         """
@@ -299,10 +232,38 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         batch: tuple
             Batch of data being images and masks.
         """
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
         if self.is_ensemble:
-            return self.__getitem_ensemble__(index)
+            target_sizes = self.calculate_images_target_sizes()
+        if not self.only_images:
+            images, masks, paths = self.read_images_and_masks_from_directory(indexes)
+            if self.augmentation_pipeline is not None:
+                transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
+                images = [tr['image'] for tr in transformed]
+                masks = [tr['mask'] for tr in transformed]
+            if self.is_ensemble:
+                images = [[resize(im, ts) for im in images] for ts in target_sizes]
+                images = [np.stack(im, axis=0) for im in images]
+            else:
+                images = np.stack(images, axis=0)
+            masks = np.stack(masks, axis=0)
+            batch = (images, masks)
+            if self.return_paths:
+                batch = (images, masks, paths)
         else:
-            return self.__getitem_single_input__(index)
+            images, paths = self.read_images_and_masks_from_directory(indexes)
+            if self.augmentation_pipeline is not None:
+                transformed = [self.augmentation_pipeline(image=image) for image in images]
+                images = [tr['image'] for tr in transformed]
+            if self.is_ensemble:
+                images = [[resize(im, ts) for im in images] for ts in target_sizes]
+                images = [np.stack(im, axis=0) for im in images]
+            else:
+                images = np.stack(images, axis=0)
+            batch = images
+            if self.return_paths:
+                batch = (images, paths)
+        return batch
 
     def __len__(self) -> int:
         """Returns the number of batches that one epoch is comprised of."""
