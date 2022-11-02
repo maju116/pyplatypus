@@ -69,7 +69,7 @@ def create_images_masks_paths(
         return path_dict
 
 
-def filter_paths_by_indices(paths: List[str], indices: Optional[Tuple[int]]) -> List[str]:
+def filter_paths_by_indices(paths: List[List[str]], indices: Optional[Tuple[int]]) -> List[List[str]]:
     """
     Filters path list by indices.
 

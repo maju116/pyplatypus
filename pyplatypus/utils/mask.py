@@ -108,7 +108,7 @@ def binary_based_on_arg_max(array: np.array):
 
 def read_and_sum_masks(
         paths: List[List[str]],
-        target_size: Union[int, Tuple[int, int]]
+        target_size: Tuple[int, int]
 ) -> list:
     """
     Read and sums masks.
@@ -117,7 +117,7 @@ def read_and_sum_masks(
     ----------
     paths: List[List[str]]
         List of images paths to sum.
-    target_size: Union[int, Tuple[int, int]]
+    target_size: Tuple[int, int]
         Target size for the image to be loaded.
 
     Returns

@@ -101,7 +101,6 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.shuffle = shuffle
         self.subdirs = subdirs
         self.column_sep = column_sep
-        self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         self.return_paths = return_paths
         self.config = create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
@@ -142,6 +141,30 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
         return steps_per_epoch
 
+    def calculate_images_and_masks_target_sizes(self) -> Tuple[List, Tuple[int, int]]:
+        """
+        Calculates images and masks target sizes.
+
+        Returns
+        -------
+        images_target_size, masks_target_size:
+            Images and masks target sizes.
+        """
+        if self.is_ensemble:
+            if self.h_splits > 1 or self.w_splits > 1:
+                images_target_size = [(self.h_splits * h, self.w_splits * w) for h, w in (self.net_h, self.net_w)]
+                masks_target_size = [self.h_splits * self.ensemble_net_h, self.w_splits * self.ensemble_net_w]
+            else:
+                images_target_size = [(h, w) for h, w in (self.net_h, self.net_w)]
+                masks_target_size = (self.ensemble_net_h, self.ensemble_net_w)
+        else:
+            if self.h_splits > 1 or self.w_splits > 1:
+                images_target_size = [(self.h_splits * self.net_h, self.w_splits * self.net_w)]
+            else:
+                images_target_size = [(self.net_h, self.net_w)]
+            masks_target_size = images_target_size[0]
+        return images_target_size, masks_target_size
+
     def read_images_and_masks_from_directory(
             self, indices: Optional[List]
     ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
@@ -155,28 +178,28 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
         Returns
         -------
-        loaded_images: list
+        loaded_data: list
             List of images and masks.
         """
         selected_images_paths = filter_paths_by_indices(self.config["images_paths"], indices)
+        images_target_size, masks_target_size = self.calculate_images_and_masks_target_sizes()
+
+        selected_images = [read_and_concatenate_images(selected_images_paths, ch, its)
+                           for ch, its in zip(self.channels, images_target_size)]
         if self.h_splits > 1 or self.w_splits > 1:
-            target_size = (self.h_splits * self.net_h, self.w_splits * self.net_w)
-        else:
-            target_size = self.target_size
-        selected_images = read_and_concatenate_images(selected_images_paths, self.channels, target_size)
-        if self.h_splits > 1 or self.w_splits > 1:
-            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
+            selected_images = [split_images(si, self.h_splits, self.w_splits) for si in selected_images]
         if not self.only_images:
             selected_masks_paths = filter_paths_by_indices(self.config["masks_paths"], indices)
-            selected_masks = read_and_sum_masks(selected_masks_paths, target_size)
+            selected_masks = read_and_sum_masks(selected_masks_paths, masks_target_size)
             selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
             if self.h_splits > 1 or self.w_splits > 1:
                 selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
+
         if not self.only_images:
-            loaded_images = (selected_images, selected_masks, selected_images_paths)
+            loaded_data = (selected_images, selected_masks, selected_images_paths)
         else:
-            loaded_images = (selected_images, selected_images_paths)
-        return loaded_images
+            loaded_data = (selected_images, selected_images_paths)
+        return loaded_data
 
     def on_epoch_end(self) -> None:
         """Updates indexes on epoch end, optionally shuffles them for the sake of randomization."""
