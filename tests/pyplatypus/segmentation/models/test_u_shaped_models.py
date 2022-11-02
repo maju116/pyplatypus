@@ -32,7 +32,8 @@ class TestUShapedModel:
         "use_separable_conv2d": True,
         "use_spatial_dropout2d":True,
         "use_up_sampling2d": False,
-        "activation_layer": "relu"
+        "activation_layer": "relu",
+        "u_net_conv_block_width": 1
         })
 
     u_shaped_path = "pyplatypus.segmentation.models.u_shaped_models.u_shaped_model"
@@ -81,8 +82,7 @@ class TestUShapedModel:
         assert model.u_net_multiple_conv2d(
             input=input_layer,
             filters=2,
-            kernel_size=(3, 3),
-            u_net_conv_block_width=1
+            kernel_size=(3, 3)
             ).shape[1:] == expected_conv.shape[1:]
 
     @pytest.mark.parametrize(
@@ -105,14 +105,12 @@ class TestUShapedModel:
         assert model.res_u_net_multiple_conv2d(
             input=input_layer,
             filters=2,
-            kernel_size=(3, 3),
-            res_u_net_conv_block_width=1
+            kernel_size=(3, 3)
             ).shape[1:] == expected_conv.shape[1:]
         model.res_u_net_multiple_conv2d(
             input=input_layer,
             filters=2,
-            kernel_size=(3, 3),
-            res_u_net_conv_block_width=1
+            kernel_size=(3, 3)
             )
 
     @pytest.mark.parametrize("use_resunet, result", [(True, "res_u_net_block"), (False, "u_net_block")])

@@ -30,7 +30,7 @@ semantic_segmentation:
           use_separable_conv2d: True
           use_spatial_droput2d: True
           use_up_sampling2d: False
-          u_net_conv_block_width: 4
+          u_net_conv_block_width: 2
           activation_layer: "relu"
           batch_size: 4
           epochs: 1

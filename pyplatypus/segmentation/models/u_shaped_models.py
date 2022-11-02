@@ -241,9 +241,9 @@ class u_shaped_model:
             Multiple convolutional block of the model.
         """
         if self.resunet:
-            conv_block = self.res_u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
+            conv_block = self.res_u_net_multiple_conv2d(input, filters, kernel_size)
         else:
-            conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
+            conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size)
         return conv_block
 
     def activation(self):
