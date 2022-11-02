@@ -15,15 +15,15 @@ check_cv_tasks(constants: dict)
 from yaml import load, FullLoader
 from pathlib import Path
 from pyplatypus.utils.toolbox import convert_to_camel_case
-from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import (
+from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation import (
     SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
     )
-from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from pyplatypus.data_models import augmentation_datamodel as AM
-from pyplatypus.data_models import optimizer_datamodel as OM
-from pyplatypus.data_models import callbacks_datamodel as CM
-from pyplatypus.data_models import semantic_segmentation_loss_datamodel as SSLM
+from pyplatypus.data_models.object_detection import ObjectDetectionInput
+from pyplatypus.data_models import augmentation as AM
+from pyplatypus.data_models import optimizers as OM
+from pyplatypus.data_models import callbacks as CM
+from pyplatypus.data_models import semantic_segmentation_loss as SSLM
 
 from pyplatypus.constants.input import available_callbacks_without_specification
 

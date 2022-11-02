@@ -7,8 +7,8 @@ from pyplatypus.utils.config_processing_functions import check_cv_tasks
 from pyplatypus.utils.augmentation import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
-from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec
+from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks

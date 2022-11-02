@@ -3,13 +3,13 @@ from pathlib import Path
 import yaml
 import pytest
 
-from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import (
+from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation import (
     SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
     )
-from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from pyplatypus.data_models import augmentation_datamodel as AM
-from pyplatypus.data_models.optimizer_datamodel import AdamSpec
+from pyplatypus.data_models.object_detection import ObjectDetectionInput
+from pyplatypus.data_models import augmentation as AM
+from pyplatypus.data_models.optimizers import AdamSpec
 
 
 class mocked_optimizer_spec:

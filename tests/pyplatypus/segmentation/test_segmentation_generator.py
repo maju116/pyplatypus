@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, SemanticSegmentationModelSpec
 from pyplatypus.segmentation.generator import SegmentationGenerator, split_masks_into_binary, prepare_data_generator, predict_from_generator
 
 

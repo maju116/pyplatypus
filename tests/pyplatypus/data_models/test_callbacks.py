@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from pyplatypus.data_models.callbacks_datamodel import (
+from pyplatypus.data_models.callbacks import (
     EarlyStoppingSpec, ModelCheckpointSpec, ReduceLROnPlateauSpec, TensorBoardSpec, BackupAndRestoreSpec, CSVLoggerSpec, ProgbarLoggerSpec
     )
 from pydantic import ValidationError

@@ -1,5 +1,5 @@
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec
 
 from tensorflow.keras.layers import (
     SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,

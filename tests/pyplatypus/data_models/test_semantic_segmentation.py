@@ -1,4 +1,4 @@
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationModelSpec, SemanticSegmentationInput
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, SemanticSegmentationModelSpec, SemanticSegmentationInput
 from pathlib import Path
 import pytest
 
@@ -9,7 +9,7 @@ class mocked_optimizer_spec:
 
 class TestSemanticSegmentationData:
 
-    data_models_path = "pyplatypus.data_models.semantic_segmentation_datamodel"
+    data_models_path = "pyplatypus.data_models.semantic_segmentation"
 
     @staticmethod
     def create_input(tmpdir):
@@ -93,12 +93,12 @@ class TestSemanticSegmentationModelSpec:
     def test_check_mode_loss_metrics_optimizer_validators(self, mocker, tmpdir, data_update_expression):
         data = self.model_spec.copy()
         data.update(data_update_expression)
-        mocker.patch("pyplatypus.data_models.semantic_segmentation_datamodel.available_activations", ["valid_activation"])
+        mocker.patch("pyplatypus.data_models.semantic_segmentation.available_activations", ["valid_activation"])
         with pytest.raises(ValueError):
             SemanticSegmentationModelSpec(**data)
 
     def test_activation_layer_validator(self, mocker):
-        mocker.patch("pyplatypus.data_models.semantic_segmentation_datamodel.available_activations", ["valid_activation"])
+        mocker.patch("pyplatypus.data_models.semantic_segmentation.available_activations", ["valid_activation"])
         with pytest.raises(ValueError):
             SemanticSegmentationModelSpec(**self.model_spec)
 
@@ -129,7 +129,7 @@ class TestSemanticSegmentationInput:
         "optimizer": mocked_optimizer_spec(name="optimizer1")
     },
     ]
-    data_models_path = "pyplatypus.data_models.semantic_segmentation_datamodel"
+    data_models_path = "pyplatypus.data_models.semantic_segmentation"
 
     ssd_data = {
         "train_path": "",

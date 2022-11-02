@@ -11,9 +11,8 @@ from pyplatypus.constants.input import (
     implemented_modes, implemented_losses, implemented_metrics,
     available_optimizers, available_activations, available_callbacks
     )
-from pyplatypus.data_models.augmentation_datamodel import AugmentationSpecFull
-from pyplatypus.data_models.optimizer_datamodel import AdamSpec
-from pyplatypus.data_models.semantic_segmentation_loss_datamodel import CceLossSpec, IouCoefficientSpec
+from pyplatypus.data_models.optimizers import AdamSpec
+from pyplatypus.data_models.semantic_segmentation_loss import CceLossSpec, IouCoefficientSpec
 
 
 class SemanticSegmentationData(BaseModel):

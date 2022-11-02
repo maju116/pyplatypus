@@ -51,7 +51,7 @@ def create_augmentation_pipeline(augmentation: list, train: bool) -> A.core.comp
     ----------
     augmentation_dict: dict
         Augmentation dictionary, connecting the methods names to theirs configs.
-        Refer to platypus/data_models/augmentation_datamodel.py to learn about their exact structure.
+        Refer to platypus/data_models/augmentation.py to learn about their exact structure.
     train: bool
         Switches between different lists of allowed methods.
 

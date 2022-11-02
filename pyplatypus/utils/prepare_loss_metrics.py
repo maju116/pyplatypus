@@ -17,10 +17,10 @@ import pydantic
 from typing import Optional, Callable, Union
 from pyplatypus.utils.toolbox import convert_to_camel_case
 import pyplatypus.segmentation.extended_loss_functions as ELF
-from pyplatypus.data_models.optimizer_datamodel import (
+from pyplatypus.data_models.optimizers import (
     AdadeltaSpec, AdagradSpec, AdamSpec, AdamaxSpec, FtrlSpec, NadamSpec, RMSpropSpec, SGDSpec
     )
-from pyplatypus.data_models.callbacks_datamodel import (
+from pyplatypus.data_models.callbacks import (
     EarlyStoppingSpec, ModelCheckpointSpec, ReduceLROnPlateauSpec, TensorBoardSpec, BackupAndRestoreSpec,
     TerminateOnNaNSpec, CSVLoggerSpec, ProgbarLoggerSpec
 )

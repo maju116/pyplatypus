@@ -1,10 +1,10 @@
 from pyplatypus.engine import PlatypusEngine
-from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, SemanticSegmentationInput, \
+from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, SemanticSegmentationInput, \
     SemanticSegmentationModelSpec
-from pyplatypus.data_models.object_detection_datamodel import ObjectDetectionInput
-from pyplatypus.data_models.augmentation_datamodel import ToFloatSpec
-from pyplatypus.data_models.optimizer_datamodel import AdamSpec
+from pyplatypus.data_models.object_detection import ObjectDetectionInput
+from pyplatypus.data_models.augmentation import ToFloatSpec
+from pyplatypus.data_models.optimizers import AdamSpec
 import pytest
 import pandas as pd
 
@@ -189,9 +189,9 @@ class TestPlatypusEngine:
         ) == [.1, .2, .3]
 
     def test_prepare_evaluation_table(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation_datamodel.implemented_losses", ["loss_name"],
+        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation.implemented_losses", ["loss_name"],
                             raising=False)
-        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation_datamodel.implemented_metrics",
+        monkeypatch.setattr("pyplatypus.data_models.semantic_segmentation.implemented_metrics",
                             ["metric_name"], raising=False)
         model_cfg = SemanticSegmentationModelSpec(
             name="model_name", net_h=300, net_w=300, blocks=2, n_class=2, filters=5, dropout=.1,
