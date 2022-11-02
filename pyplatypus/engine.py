@@ -9,7 +9,7 @@ from pyplatypus.segmentation.generator import prepare_data_generator, predict_fr
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.segmentation.models.stacked_ensemble import stacked_ensembler
 from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
 from pyplatypus.utils.mask import transform_probabilities_into_binaries, concatenate_binary_masks
@@ -104,7 +104,8 @@ class PlatypusEngine:
     def build_and_train_segmentation_models(self) -> None:
         """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task."""
         spec = self.config['semantic_segmentation']
-        for model_cfg in self.config['semantic_segmentation'].models:
+        model_cfgs = spec.models if spec.ensemblers is None else spec.models + spec.ensemblers
+        for model_cfg in model_cfgs:
             train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
             train_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=train_augmentation_pipeline,
@@ -136,7 +137,7 @@ class PlatypusEngine:
             )
 
     @staticmethod
-    def compile_u_shaped_model(model_cfg: SemanticSegmentationModelSpec):
+    def compile_u_shaped_model(model_cfg: Union[SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec]):
         """Builds and compiles the U-shaped tensorflow model.
 
         Parameters
@@ -144,7 +145,11 @@ class PlatypusEngine:
         model_cfg : SemanticSegmentationModelSpec
             The model specification used for shaping the U-shaped architecture.
         """
-        model = u_shaped_model(
+        if isinstance(model_cfg, SemanticSegmentationEnsemblerSpec):
+            segmentation_model = stacked_ensembler
+        else:
+            segmentation_model = u_shaped_model
+        model = segmentation_model(
             **dict(model_cfg)
         ).model
         ftp = model_cfg.fine_tuning_path
