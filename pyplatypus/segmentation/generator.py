@@ -164,13 +164,14 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         else:
             target_size = self.target_size
         selected_images = read_and_concatenate_images(selected_images_paths, self.channels, target_size)
+        if self.h_splits > 1 or self.w_splits > 1:
+            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
         if not self.only_images:
             selected_masks_paths = filter_paths_by_indices(self.config["masks_paths"], indices)
             selected_masks = read_and_sum_masks(selected_masks_paths, target_size)
             selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-        if self.h_splits > 1 or self.w_splits > 1:
-            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
-            selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
+            if self.h_splits > 1 or self.w_splits > 1:
+                selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
         if not self.only_images:
             loaded_images = (selected_images, selected_masks, selected_images_paths)
         else:
