@@ -7,6 +7,7 @@ from pyplatypus.utils.config import check_cv_tasks
 from pyplatypus.utils.augmentation import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
+from pyplatypus.segmentation.models.stacked_ensemble import stacked_ensembler
 from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
@@ -14,7 +15,6 @@ from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prep
 from pyplatypus.utils.mask import transform_probabilities_into_binaries, concatenate_binary_masks
 from pyplatypus.utils.prediction import save_masks
 from albumentations import Compose
-import numpy as np
 from typing import Optional, Union
 
 
@@ -101,18 +101,8 @@ class PlatypusEngine:
             self.cache.update(semantic_segmentation={})
             self.build_and_train_segmentation_models()
 
-    def build_and_train_segmentation_models(
-        self
-            ):
-        """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.
-
-        Parameters
-        ----------
-        train_augmentation_pipeline : Optional[Compose]
-            Optional augmentation pipeline, native to the albumentations package.
-        validation_augmentation_pipeline : Optional[Compose]
-            Optional augmentation pipeline, native to the albumentations package.
-        """
+    def build_and_train_segmentation_models(self) -> None:
+        """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task."""
         spec = self.config['semantic_segmentation']
         for model_cfg in self.config['semantic_segmentation'].models:
             train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
