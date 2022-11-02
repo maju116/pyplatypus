@@ -94,7 +94,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.ensemble_net_w = ensemble_net_w
         self.h_splits = h_splits
         self.w_splits = w_splits
-        self.channels = channels if isinstance(channels, list) else [channels]
+        self.channels = channels
         self.is_ensemble = self.check_model_is_ensemble()
         self.augmentation_pipeline = augmentation_pipeline
         self.batch_size = batch_size

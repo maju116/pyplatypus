@@ -120,6 +120,7 @@ def read_and_concatenate_images(
     images: list
         List of images.
     """
+    channels = channels if isinstance(channels, list) else [channels]
     images = [np.concatenate([read_image(path, channels=ch, target_size=target_size)
                               for path, ch in zip(sub_list, channels)], axis=-1) for sub_list in paths]
     return images
