@@ -16,20 +16,20 @@ class stacked_ensembler:
     def __init__(
             self,
             submodels: List[tf.keras.Model],
-            n_class: int,
+            copy_submodels_weights: bool,
+            freeze_submodels_weights: bool,
             net_h: int,
             net_w: int,
+            n_class: int,
             filters: int,
             kernel_size: Tuple[int, int],
-            u_net_conv_block_width: int,
-            use_spatial_droput2d: bool,
             dropout: float,
-            use_separable_conv2d: bool,
-            kernel_initializer: str,
             batch_normalization: bool,
-            activation_layer: str,
-            copy_submodels_weights: bool = True,
-            freeze_submodels_weights: bool = True,
+            kernel_initializer: str,
+            use_separable_conv2d: Optional[bool] = True,
+            use_spatial_dropout2d: Optional[bool] = True,
+            activation_layer: Optional[str] = "relu",
+            u_net_conv_block_width: Optional[int] = 2,
             **kwargs
     ) -> None:
         """Creates semantic segmentation stacked ensemble model architecture.
@@ -56,20 +56,20 @@ class stacked_ensembler:
             Should the submodels weights be freezed (only if copy_submodels_weights == `True`).
         """
         self.submodels = submodels
-        self.n_class = n_class
-        self.net_h = net_h
-        self.net_w = net_w
-        self.filters = filters
-        self.kernel_size = kernel_size
-        self.u_net_conv_block_width = u_net_conv_block_width
-        self.use_separable_conv2d = use_separable_conv2d
-        self.use_spatial_droput2d = use_spatial_droput2d
-        self.dropout = dropout
-        self.kernel_initializer = kernel_initializer
-        self.batch_normalization = batch_normalization
-        self.activation_layer = activation_layer
         self.copy_submodels_weights = copy_submodels_weights
         self.freeze_submodels_weights = freeze_submodels_weights
+        self.net_h = net_h
+        self.net_w = net_w
+        self.n_class = n_class
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.dropout = dropout
+        self.batch_normalization = batch_normalization
+        self.kernel_initializer = kernel_initializer
+        self.use_separable_conv2d = use_separable_conv2d
+        self.use_spatial_dropout2d = use_spatial_dropout2d
+        self.activation_layer = activation_layer
+        self.u_net_conv_block_width = u_net_conv_block_width
         self.submodels = self.copy_submodels()
         self.model = self.build_model()
 
@@ -94,7 +94,7 @@ class stacked_ensembler:
         dropout_layer: KerasTensor
             Dropout created by the chosen method.
         """
-        if self.use_spatial_droput2d:
+        if self.use_spatial_dropout2d:
             dropout_layer = SpatialDropout2D(rate=self.dropout)
         else:
             dropout_layer = Dropout(rate=self.dropout)

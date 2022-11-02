@@ -32,6 +32,7 @@ class u_shaped_model:
         use_spatial_dropout2d: Optional[bool] = True,
         use_up_sampling2d: Optional[bool] = False,
         activation_layer: Optional[str] = "relu",
+        u_net_conv_block_width: Optional[int] = 2,
         **kwargs
             ) -> None:
         """Creates U-Net model architecture.
@@ -74,6 +75,8 @@ class u_shaped_model:
             If set to False, the transpozed convolutional layer is used, by default False
         activation_layer : Optional[str], optional
             Allows the user to choose any activation layer available in the tensorflow.keras.activations, by default "relu"
+        u_net_conv_block_width: int, optional
+            Width (nr of convolutions) in U-Net block.
         """
         self.name = name
         self.net_h = net_h
@@ -93,6 +96,7 @@ class u_shaped_model:
         self.use_spatial_droput2d = use_spatial_dropout2d
         self.use_up_sampling2d = use_up_sampling2d
         self.activation_layer = activation_layer
+        self.u_net_conv_block_width = u_net_conv_block_width
         self.model = self.build_model()
 
     def dropout_layer(self):
@@ -143,8 +147,7 @@ class u_shaped_model:
             self,
             input: tf.Tensor,
             filters: int,
-            kernel_size: Tuple[int, int],
-            u_net_conv_block_width: int = 2
+            kernel_size: Tuple[int, int]
     ) -> tf.Tensor:
         """
         Creates a multiple convolutional U-Net block.
@@ -158,15 +161,13 @@ class u_shaped_model:
         kernel_size: Tuple[int, int]
             An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             It is allowed to be a single integer to specify the same value for all spatial dimensions.
-        u_net_conv_block_width: int
-            Controls the amount of convolutional layers in the block, by default 2
 
         Returns
         -------
         input:
             Multiple convolutional block of the U-Net model.
         """
-        for i in range(u_net_conv_block_width):
+        for i in range(self.u_net_conv_block_width):
             input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
@@ -177,8 +178,7 @@ class u_shaped_model:
             self,
             input: tf.Tensor,
             filters: int,
-            kernel_size: Tuple[int, int],
-            res_u_net_conv_block_width: int = 2
+            kernel_size: Tuple[int, int]
     ) -> tf.Tensor:
         """
         Creates a multiple convolutional Res-U-Net block, with the raw input added before the final activation.
@@ -192,8 +192,6 @@ class u_shaped_model:
         kernel_size: Tuple[int, int]
             An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             It is allowed to be a single integer to specify the same value for all spatial dimensions.
-        res_u_net_conv_block_width: int
-            Controls the amount of convolutional layers in the block, by default 2.
 
         Returns:
             Multiple convolutional bloc of U-Net model.
@@ -204,7 +202,7 @@ class u_shaped_model:
             kernel_initializer=self.kernel_initializer)(
             input
         )
-        for i in range(res_u_net_conv_block_width):
+        for i in range(self.u_net_conv_block_width):
             input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
