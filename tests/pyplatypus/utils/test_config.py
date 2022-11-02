@@ -1,4 +1,4 @@
-from pyplatypus.utils.config_processing_functions import YamlConfigLoader, check_cv_tasks
+from pyplatypus.utils.config import YamlConfigLoader, check_cv_tasks
 from pathlib import Path
 import yaml
 import pytest
@@ -179,7 +179,7 @@ class TestYAMLConfigLoader:
         assert YamlConfigLoader.create_object_detection_config(config) == ObjectDetectionInput()
 
     def test_process_optimizer_field(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.OM.OptimizerNameSpec", mocked_optimizer_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.OM.OptimizerNameSpec", mocked_optimizer_spec, raising=False)
         config = self.mock_config()
         config.update(optimizer={"OptimizerName": {}})
         processed_config = YamlConfigLoader.process_optimizer_field(config)
@@ -193,18 +193,18 @@ class TestYAMLConfigLoader:
         assert "optimizer" not in processed_config.keys()
 
     def test_process_callbacks_field_list(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.available_callbacks_without_specification", ["Callback1", "Callback2"], raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.CM.Callback1Spec", mocked_callback1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.CM.Callback2Spec", mocked_callback2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.available_callbacks_without_specification", ["Callback1", "Callback2"], raising=False)
         config = self.mock_config()
         config.update(callbacks=["Callback1", "Callback2"])
         processed_config = YamlConfigLoader.process_callbacks_field(config)
         assert set([callback.name for callback in processed_config.get("callbacks")]) == set(["callback_1", "callback_2"])
 
     def test_process_callbacks_field_dict(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback1Spec", mocked_callback1_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.Callback2Spec", mocked_callback2_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.CM.TerminateOnNaNSpec", mocked_terminate_on_nan, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.CM.Callback1Spec", mocked_callback1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.CM.Callback2Spec", mocked_callback2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.CM.TerminateOnNaNSpec", mocked_terminate_on_nan, raising=False)
         config = self.mock_config()
         config.update(callbacks={"Callback1": {}, "Callback2": {}, "TerminateOnNaN": None})
         processed_config = YamlConfigLoader.process_callbacks_field(config)
@@ -223,16 +223,16 @@ class TestYAMLConfigLoader:
         assert "callbacks" not in processed_config.keys()
 
     def test_load(self, mocker):
-        ycl_path = "pyplatypus.utils.config_processing_functions.YamlConfigLoader."
+        ycl_path = "pyplatypus.utils.config.YamlConfigLoader."
         mocker.patch(ycl_path + "load_config_from_yaml", return_value=None)
         mocker.patch(ycl_path + "create_semantic_segmentation_config", return_value=None)
         mocker.patch(ycl_path + "create_object_detection_config", return_value=None)
-        mocker.patch("pyplatypus.utils.config_processing_functions.PlatypusSolverInput", self.mocked_solver_datamodel)
+        mocker.patch("pyplatypus.utils.config.PlatypusSolverInput", self.mocked_solver_datamodel)
         assert YamlConfigLoader(Path("")).load() == {}
 
 
     def test_process_loss_field_dict(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
         config = self.mock_config()
         config.update(loss={"loss_name": {}})
         processed_config = YamlConfigLoader.process_loss_field(config)
@@ -240,7 +240,7 @@ class TestYAMLConfigLoader:
         assert processed_config.get("loss").alpha == 0.5
 
     def test_process_loss_field_str(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.SSLM.LossNameSpec", mocked_loss_spec, raising=False)
         config = self.mock_config()
         config.update(loss="loss_name")
         processed_config = YamlConfigLoader.process_loss_field(config)
@@ -260,8 +260,8 @@ class TestYAMLConfigLoader:
         assert "loss" not in processed_config.keys()
 
     def test_process_loss_field_list(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
         config = self.mock_config()
         config.update(metrics=["metric_1", "metric_2"])
         processed_config = YamlConfigLoader.process_metrics_field(config)
@@ -269,8 +269,8 @@ class TestYAMLConfigLoader:
         assert processed_config.get("metrics")[1].name in ["metric_1", "metric_2"]
 
     def test_process_metrics_field_dict(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.SSLM.Metric1Spec", mocked_metric1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.SSLM.Metric2Spec", mocked_metric2_spec, raising=False)
         config = self.mock_config()
         config.update(metrics={"metric_1": {}, "metric_2": {}})
         processed_config = YamlConfigLoader.process_metrics_field(config)
@@ -290,8 +290,8 @@ class TestYAMLConfigLoader:
         assert "augmentation" not in processed_config.keys()
 
     def test_process_augmentation_field_dict(self, monkeypatch):
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.AM.Metric1Spec", mocked_metric1_spec, raising=False)
-        monkeypatch.setattr("pyplatypus.utils.config_processing_functions.AM.Metric2Spec", mocked_metric2_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.AM.Metric1Spec", mocked_metric1_spec, raising=False)
+        monkeypatch.setattr("pyplatypus.utils.config.AM.Metric2Spec", mocked_metric2_spec, raising=False)
         config = self.mock_config()
         config.update(augmentation={"Metric1": {}, "Metric2": {}})
         processed_config = YamlConfigLoader.process_augmentation_field(config)

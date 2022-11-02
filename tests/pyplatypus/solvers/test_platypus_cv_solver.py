@@ -15,7 +15,7 @@ class TestPlatypusSolver:
         with open(path_for_mocked_config, "w") as stream:
             yaml.dump({}, stream)
         
-        mocker.patch("pyplatypus.utils.config_processing_functions.YamlConfigLoader.load", return_value={"Success": True})
+        mocker.patch("pyplatypus.utils.config.YamlConfigLoader.load", return_value={"Success": True})
         ps = PlatypusSolver(config_yaml_path=path_for_mocked_config)
         assert ps.config.get("Success")
 
