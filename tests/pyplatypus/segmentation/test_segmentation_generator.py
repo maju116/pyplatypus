@@ -5,61 +5,6 @@ from pyplatypus.segmentation.generator import SegmentationGenerator, split_masks
 
 
 @pytest.mark.parametrize(
-    "path, mode, only_images, result",
-    [
-        ("tests/testdata/nested_dirs", "nested_dirs", False,
-         {'images_paths': [['tests/testdata/nested_dirs/image_1/images/test_image_1.png'],
-                           ['tests/testdata/nested_dirs/image_2/images/test_image_2.png'],
-                           ['tests/testdata/nested_dirs/image_3/images/test_image_3.png']],
-          'masks_paths': [['tests/testdata/nested_dirs/image_1/masks/test_mask_1_1.png',
-                           'tests/testdata/nested_dirs/image_1/masks/test_mask_1_2.png',
-                           'tests/testdata/nested_dirs/image_1/masks/test_mask_1_3.png'],
-                          ['tests/testdata/nested_dirs/image_2/masks/test_mask_2_1.png',
-                           'tests/testdata/nested_dirs/image_2/masks/test_mask_2_2.png',
-                           'tests/testdata/nested_dirs/image_2/masks/test_mask_2_3.png'],
-                          ['tests/testdata/nested_dirs/image_3/masks/test_mask_3_1.png',
-                           'tests/testdata/nested_dirs/image_3/masks/test_mask_3_2.png',
-                           'tests/testdata/nested_dirs/image_3/masks/test_mask_3_3.png']]}
-         ),
-        ("tests/testdata/nested_dirs", "nested_dirs", True,
-         {'images_paths': [['tests/testdata/nested_dirs/image_1/images/test_image_1.png'],
-                           ['tests/testdata/nested_dirs/image_2/images/test_image_2.png'],
-                           ['tests/testdata/nested_dirs/image_3/images/test_image_3.png']]}
-         ),
-        ("tests/testdata/test_config1.csv", "config_file", False,
-         {'images_paths': [['tests/testdata/dir/images/test_image_1.png'],
-                           ['tests/testdata/dir/images/test_image_2.png'],
-                           ['tests/testdata/dir/images/test_image_3.png']],
-          'masks_paths': [['tests/testdata/dir/masks/test_mask_1.png'],
-                          ['tests/testdata/dir/masks/test_mask_2.png'],
-                          ['tests/testdata/dir/masks/test_mask_3.png']]}
-         ),
-        ("tests/testdata/test_config1.csv", "config_file", True,
-         {'images_paths': [['tests/testdata/dir/images/test_image_1.png'],
-                           ['tests/testdata/dir/images/test_image_2.png'],
-                           ['tests/testdata/dir/images/test_image_3.png']]}
-         ),
-        ("tests/testdata/test_config2.csv", "config_file", False,
-         {'images_paths': [['tests/testdata/nested_dirs/image_1/images/test_image_1.png'],
-                           ['tests/testdata/nested_dirs/image_2/images/test_image_2.png'],
-                           ['tests/testdata/nested_dirs/image_3/images/test_image_3.png']],
-          'masks_paths': [['tests/testdata/nested_dirs/image_1/masks/test_mask_1_1.png',
-                           'tests/testdata/nested_dirs/image_1/masks/test_mask_1_2.png',
-                           'tests/testdata/nested_dirs/image_1/masks/test_mask_1_3.png'],
-                          ['tests/testdata/nested_dirs/image_2/masks/test_mask_2_1.png',
-                           'tests/testdata/nested_dirs/image_2/masks/test_mask_2_2.png',
-                           'tests/testdata/nested_dirs/image_2/masks/test_mask_2_3.png'],
-                          ['tests/testdata/nested_dirs/image_3/masks/test_mask_3_1.png',
-                           'tests/testdata/nested_dirs/image_3/masks/test_mask_3_2.png',
-                           'tests/testdata/nested_dirs/image_3/masks/test_mask_3_3.png']]}
-         )
-    ]
-)
-def test_create_images_masks_paths(path, mode, only_images, result):
-    assert SegmentationGenerator.create_images_masks_paths(path, mode, only_images, ("images", "masks"), ";") == result
-
-
-@pytest.mark.parametrize(
     "mask, colormap, result",
     [
         (np.array([255, 255, 255,
@@ -229,11 +174,12 @@ def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_
     assert (output[1] == result[1]).all()
 
 def test_calculate_steps_per_epoch(mocker):
-    mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator.create_images_masks_paths", return_value={"images_paths": ["path1", "path2", "path3", "path4"]})
+    mocker.patch("pyplatypus.segmentation.generator.create_images_masks_paths", return_value={"images_paths": ["path1", "path2", "path3", "path4"]})
     mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator.on_epoch_end", return_value=None)
     test_sg = SegmentationGenerator(path="", colormap=[])
     test_sg.batch_size = 2
     assert test_sg.calculate_steps_per_epoch() == 2
+
 
 def test_prepare_data_generator(mocker):
     data = SemanticSegmentationData(**{

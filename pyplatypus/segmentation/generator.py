@@ -1,21 +1,14 @@
 import tensorflow as tf
 from typing import Tuple, List, Optional, Union, Any
 import numpy as np
-import os
-import pandas as pd
 from numpy import ndarray
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import albumentations as A
-import pydicom
-import tifffile
-from skimage.transform import resize
-from skimage.color import rgb2gray, gray2rgb
 from pyplatypus.utils.mask import split_masks_into_binary
+from pyplatypus.utils.path import create_images_masks_paths
+from pyplatypus.utils.image import read_image, split_images
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, \
     SemanticSegmentationModelSpec
-
-import logging as log
 
 
 class SegmentationGenerator(tf.keras.utils.Sequence):
@@ -111,8 +104,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         self.return_paths = return_paths
-        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
-                                                     self.column_sep)
+        self.config = create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
         self.indexes = None
         self.steps_per_epoch = self.calculate_steps_per_epoch()
         print(len(self.config["images_paths"]), "images detected!")
@@ -150,161 +142,6 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
         return steps_per_epoch
 
-    @staticmethod
-    def create_images_masks_paths(
-            path: str, mode: str, only_images: bool, subdirs: Tuple[str, str], column_sep: str
-    ) -> dict:
-        """
-        Generates the dictionary storing the paths to the images and optionally coresponding masks.
-        It is the latter foundation upon which the batches are generated.
-
-        Parameters
-        ----------
-        path: str
-            Images and masks directory.
-        mode: str
-            Character. One of "nested_dirs", "config_file"
-        only_images: bool
-            Should generator read only images (e.g. on train set for predictions).
-        subdirs: Tuple[str, str]
-            Vector of two characters containing names of subdirectories with images and masks.
-        column_sep: str
-            Configuration file separator.
-
-        Returns
-        -------
-        path_dict: dict
-            Dictionary with images and optionally masks paths.
-        """
-        if mode in ["nested_dirs", 1]:
-            nested_dirs = os.listdir(path)
-            nested_dirs.sort()
-
-            images_paths = []
-            masks_paths = []
-            for nd in nested_dirs:
-                try:
-                    images_paths_batch = [
-                        os.path.join(path, nd, subdirs[0], s) for s in sorted(
-                            os.listdir(os.path.join(path, nd, subdirs[0]))
-                        )
-                    ]
-                    images_paths.append(images_paths_batch)
-                    if not only_images:
-                        masks_paths_batch = [
-                            os.path.join(path, nd, subdirs[1], s) for s in sorted(
-                                os.listdir(os.path.join(path, nd, subdirs[1]))
-                            )
-                        ]
-                        masks_paths.append(masks_paths_batch)
-                except FileNotFoundError:
-                    log.warning(f"The current image {nd} is incomplete for it contains only masks or images!")
-                    pass
-
-        elif mode in ["config_file", 2]:
-            config = pd.read_csv(path)
-            images_paths = [s.split(column_sep) for s in config.images.to_list()]
-            if not only_images:
-                masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
-        else:
-            raise ValueError("Incorrect 'mode' selected!")
-        if not only_images:
-            path_dict = {"images_paths": images_paths, "masks_paths": masks_paths}
-            return path_dict
-        else:
-            path_dict = {"images_paths": images_paths}
-            return path_dict
-
-    @staticmethod
-    def __read_image__(path: str, channels: int, target_size: Union[int, Tuple[int, int]]) -> ndarray:
-        """
-        Loads image as numpy array.
-
-        Parameters
-        ----------
-        path: str
-            Image path.
-        channels: int
-            Number of color channels.
-        target_size: Union[int, Tuple[int, int]]
-            Target size for the image to be loaded.
-
-        Returns
-        -------
-        pixel_array: ndarray
-            Image as numpy array.
-        """
-        if path.lower().endswith(('.tif', 'tiff')):
-            pixel_array = tifffile.imread(path)
-            if channels == 1:
-                if len(pixel_array.shape) == 3 and pixel_array.shape[0] == 3:
-                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
-                elif len(pixel_array.shape) == 2:
-                    pixel_array = np.expand_dims(pixel_array, axis=-1)
-            elif channels == 3:
-                if len(pixel_array.shape) == 2:
-                    pixel_array = gray2rgb(pixel_array)
-            elif len(pixel_array.shape) == 3:
-                pixel_array = np.moveaxis(pixel_array, 0, -1)
-            pixel_array = resize(pixel_array, target_size, preserve_range=True)
-            # ToDo: Check if special cases should be added - rgb2gray, ...
-        elif path.lower().endswith('.dcm'):
-            pixel_array = pydicom.dcmread(path).pixel_array
-            if channels == 1:
-                if len(pixel_array.shape) == 3 and pixel_array.shape[2] == 3:
-                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
-                elif len(pixel_array.shape) == 2:
-                    pixel_array = np.expand_dims(pixel_array, axis=-1)
-            elif channels == 3:
-                if len(pixel_array.shape) == 2:
-                    pixel_array = gray2rgb(pixel_array)
-            else:
-                # ToDo: Check if any other type of DICOM should be implemented https://dicom.innolitics.com/ciods/rt-dose/image-pixel/00280004
-                raise ValueError('For DICOM images number of channels can be set to 1 or 3!')
-            pixel_array = resize(pixel_array, target_size, preserve_range=True)
-        else:
-            if channels == 1:
-                color_mode = "grayscale"
-            elif channels == 3:
-                color_mode = "rgb"
-            elif channels == 4:
-                color_mode = "rgba"
-            else:
-                raise ValueError('For classical (PNG, JPG, ...) images number of channels can be set to 1, 3 or 4!')
-            pixel_array = img_to_array(load_img(path, color_mode=color_mode, target_size=target_size))
-        return pixel_array
-
-    @staticmethod
-    def __split_images__(
-            images: List[ndarray],
-            h_splits: int,
-            w_splits: int,
-    ) -> list:
-        """
-        Splits list of images/masks onto smaller ones.
-
-        Parameters
-        ----------
-        images: List[ndarray]
-            List of images or masks.
-        h_splits: int
-            Number of vertical splits of the image.
-        w_splits: int
-            Number of horizontal splits of the image.
-
-        Returns
-        -------
-        images: list
-            List of images or masks.
-        """
-        if h_splits > 1:
-            images = [np.vsplit(se, h_splits) for se in images]
-            images = [item for sublist in images for item in sublist]
-        if w_splits > 1:
-            images = [np.hsplit(se, w_splits) for se in images]
-            images = [item for sublist in images for item in sublist]
-        return images
-
     def read_images_and_masks_from_directory(
             self, indices: Optional[List]
     ) -> Union[tuple[list[Any], list[ndarray]], list[Any]]:
@@ -328,27 +165,27 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
                 self.config["masks_paths"]
         if self.h_splits > 1 or self.w_splits > 1:
             selected_images = [
-                np.concatenate([self.__read_image__(si, channels=ch,
+                np.concatenate([read_image(si, channels=ch,
                                                     target_size=(
                                                         self.h_splits * self.net_h, self.w_splits * self.net_w))
                                 for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
                 selected_images_paths]
-            selected_images = self.__split_images__(selected_images, self.h_splits, self.w_splits)
+            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
             if not self.only_images:
                 selected_masks = [
-                    sum([self.__read_image__(si, channels=3,
+                    sum([read_image(si, channels=3,
                                              target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-                selected_masks = self.__split_images__(selected_masks, self.h_splits, self.w_splits)
+                selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
         else:
             selected_images = [
-                np.concatenate([self.__read_image__(si, channels=ch, target_size=self.target_size)
+                np.concatenate([read_image(si, channels=ch, target_size=self.target_size)
                                 for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
                 selected_images_paths]
             if not self.only_images:
                 selected_masks = [
-                    sum([self.__read_image__(si, channels=3, target_size=self.target_size)
+                    sum([read_image(si, channels=3, target_size=self.target_size)
                          for si in sub_list]) for sub_list in selected_masks_paths]
                 selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
         if not self.only_images:
