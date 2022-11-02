@@ -22,7 +22,7 @@ class stacked_ensembler:
             net_w: int,
             n_class: Optional[int] = 2,
             filters: Optional[int] = 16,
-            kernel_size: Tuple[int, int] = (3, 3),
+            kernel_size: Optional[Tuple[int, int]] = (3, 3),
             dropout: Optional[float] = 0.1,
             batch_normalization: Optional[bool] = True,
             kernel_initializer: Optional[str] = "he_normal",
