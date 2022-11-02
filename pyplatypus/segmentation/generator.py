@@ -132,11 +132,12 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             raise ValueError("Height and width is set for multiple models, but channels for single model!")
         elif single_input_h and single_input_w and single_input_channels:
             return False
+        elif not isinstance(self.ensemble_net_h, int) or not isinstance(self.ensemble_net_w, int):
+            raise ValueError("For the ensemble model 'ensemble_net_h' and 'ensemble_net_w' must be set!")
+        elif len(self.net_h) == len(self.net_w) and len(self.net_w) == len(self.channels):
+            return True
         else:
-            if len(self.net_h) == len(self.net_w) and len(self.net_w) == len(self.channels):
-                return True
-            else:
-                raise ValueError("Heights, widths and channels set to different number of inputs!")
+            raise ValueError("Heights, widths and channels set to different number of inputs!")
 
     def calculate_steps_per_epoch(self) -> int:
         """Calculates the number of steps needed to go through all the images given the batch size.
@@ -362,7 +363,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
-    def __getitem__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
+    def __getitem_single_input__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
         """
         Returns one batch of data.
 
@@ -400,6 +401,64 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             if self.return_paths:
                 batch = (images, paths)
         return batch
+
+    def __getitem_ensemble__(self, index: int) -> Union[tuple[List[ndarray], ndarray], ndarray]:
+        """
+        Returns one batch of data.
+
+        Parameters
+        ----------
+        index: int
+            Batch index.
+
+        Returns
+        -------
+        batch: tuple
+            Batch of data being images and masks.
+        """
+        indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+        if not self.only_images:
+            images, masks, paths = self.read_images_and_masks_from_directory(indexes)
+            if self.augmentation_pipeline is not None:
+                transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
+                images = np.stack([tr['image'] for tr in transformed], axis=0)
+                masks = np.stack([tr['mask'] for tr in transformed], axis=0)
+            else:
+                images = np.stack(images, axis=0)
+                masks = np.stack(masks, axis=0)
+            batch = (images, masks)
+            if self.return_paths:
+                batch = (images, masks, paths)
+        else:
+            images, paths = self.read_images_and_masks_from_directory(indexes)
+            if self.augmentation_pipeline is not None:
+                transformed = [self.augmentation_pipeline(image=image) for image in images]
+                images = np.stack([tr['image'] for tr in transformed], axis=0)
+            else:
+                images = np.stack(images, axis=0)
+            batch = images
+            if self.return_paths:
+                batch = (images, paths)
+        return batch
+
+    def __getitem__(self, index: int) -> Union[tuple[ndarray, ndarray], ndarray]:
+        """
+        Returns one batch of data.
+
+        Parameters
+        ----------
+        index: int
+            Batch index.
+
+        Returns
+        -------
+        batch: tuple
+            Batch of data being images and masks.
+        """
+        if self.is_ensemble:
+            return self.__getitem_ensemble__(index)
+        else:
+            return self.__getitem_single_input__(index)
 
     def __len__(self) -> int:
         """Returns the number of batches that one epoch is comprised of."""

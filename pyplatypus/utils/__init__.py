@@ -1,7 +1,7 @@
 __version__ = '0.1.0rc2'
 __author__ = 'Michał Maj, Jakub Borkowski'
 
-from . import augmentation_toolbox
+from . import augmentation
 from . import config_processing_functions
 from . import lovasz_softmax
 from . import prediction_utils

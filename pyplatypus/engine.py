@@ -4,7 +4,7 @@ from random import randrange
 from pandas import DataFrame, Series
 
 from pyplatypus.utils.config_processing_functions import check_cv_tasks
-from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
+from pyplatypus.utils.augmentation import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput

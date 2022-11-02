@@ -1,4 +1,4 @@
-from pyplatypus.utils.augmentation_toolbox import (
+from pyplatypus.utils.augmentation import (
     filter_out_incorrect_methods, create_augmentation_pipeline, prepare_augmentation_pipelines
     )
 import albumentations as A
