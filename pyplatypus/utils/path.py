@@ -1,7 +1,7 @@
 import pandas as pd
 import logging as log
 import os
-from typing import Tuple
+from typing import Tuple, List, Optional
 
 
 def create_images_masks_paths(
@@ -67,3 +67,23 @@ def create_images_masks_paths(
     else:
         path_dict = {"images_paths": images_paths}
         return path_dict
+
+
+def filter_paths_by_indices(paths: List[str], indices: Optional[Tuple[int]]) -> List[str]:
+    """
+    Filters path list by indices.
+
+    Parameters
+    ----------
+        paths: List[str]
+            Images paths.
+        indices: Optional[Tuple[int]]
+            Indices.
+
+    Returns
+    -------
+    filtered_paths: List[str]
+        Filtered paths list.
+    """
+    filtered_paths = [paths[idx] for idx in indices] if indices is not None else paths
+    return filtered_paths

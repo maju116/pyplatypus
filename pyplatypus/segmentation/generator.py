@@ -3,9 +3,9 @@ from typing import Tuple, List, Optional, Union, Any
 import numpy as np
 from numpy import ndarray
 import albumentations as A
-from pyplatypus.utils.mask import split_masks_into_binary
-from pyplatypus.utils.path import create_images_masks_paths
-from pyplatypus.utils.image import read_image, split_images
+from pyplatypus.utils.mask import split_masks_into_binary, read_and_sum_masks
+from pyplatypus.utils.path import create_images_masks_paths, filter_paths_by_indices
+from pyplatypus.utils.image import split_images, read_and_concatenate_images
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, \
     SemanticSegmentationModelSpec
@@ -158,36 +158,19 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         loaded_images: list
             List of images and masks.
         """
-        selected_images_paths = [self.config["images_paths"][idx] for idx in indices] if indices is not None else \
-            self.config["images_paths"]
-        if not self.only_images:
-            selected_masks_paths = [self.config["masks_paths"][idx] for idx in indices] if indices is not None else \
-                self.config["masks_paths"]
+        selected_images_paths = filter_paths_by_indices(self.config["images_paths"], indices)
         if self.h_splits > 1 or self.w_splits > 1:
-            selected_images = [
-                np.concatenate([read_image(si, channels=ch,
-                                                    target_size=(
-                                                        self.h_splits * self.net_h, self.w_splits * self.net_w))
-                                for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
-                selected_images_paths]
-            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
-            if not self.only_images:
-                selected_masks = [
-                    sum([read_image(si, channels=3,
-                                             target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
-                         for si in sub_list]) for sub_list in selected_masks_paths]
-                selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-                selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
+            target_size = (self.h_splits * self.net_h, self.w_splits * self.net_w)
         else:
-            selected_images = [
-                np.concatenate([read_image(si, channels=ch, target_size=self.target_size)
-                                for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
-                selected_images_paths]
-            if not self.only_images:
-                selected_masks = [
-                    sum([read_image(si, channels=3, target_size=self.target_size)
-                         for si in sub_list]) for sub_list in selected_masks_paths]
-                selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+            target_size = self.target_size
+        selected_images = read_and_concatenate_images(selected_images_paths, self.channels, target_size)
+        if not self.only_images:
+            selected_masks_paths = filter_paths_by_indices(self.config["masks_paths"], indices)
+            selected_masks = read_and_sum_masks(selected_masks_paths, target_size)
+            selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+        if self.h_splits > 1 or self.w_splits > 1:
+            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
+            selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
         if not self.only_images:
             loaded_images = (selected_images, selected_masks, selected_images_paths)
         else:

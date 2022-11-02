@@ -18,7 +18,8 @@ binary_based_on_arg_max(array: np.array)
 """
 
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Union
+from pyplatypus.utils.image import read_image
 
 
 def split_masks_into_binary(
@@ -103,3 +104,26 @@ def binary_based_on_arg_max(array: np.array):
     highest_prob = array.max()
     array_binary = np.where(array == highest_prob, 1, 0)
     return array_binary
+
+
+def read_and_sum_masks(
+        paths: List[List[str]],
+        target_size: Union[int, Tuple[int, int]]
+) -> list:
+    """
+    Read and sums masks.
+
+    Parameters
+    ----------
+    paths: List[List[str]]
+        List of images paths to sum.
+    target_size: Union[int, Tuple[int, int]]
+        Target size for the image to be loaded.
+
+    Returns
+    -------
+    masks: list
+        List of masks.
+    """
+    masks = [sum([read_image(si, channels=3, target_size=target_size) for si in sub_list]) for sub_list in paths]
+    return masks

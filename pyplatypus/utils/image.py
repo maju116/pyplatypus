@@ -96,3 +96,30 @@ def split_images(
         images = [np.hsplit(se, w_splits) for se in images]
         images = [item for sublist in images for item in sublist]
     return images
+
+
+def read_and_concatenate_images(
+        paths: List[List[str]],
+        channels: List[int],
+        target_size: Union[int, Tuple[int, int]]
+) -> list:
+    """
+    Read and concatenates images along channel axis.
+
+    Parameters
+    ----------
+    paths: List[List[str]]
+        List of images paths to concatenate.
+    channels: List[int]
+        Number of color channels.
+    target_size: Union[int, Tuple[int, int]]
+        Target size for the image to be loaded.
+
+    Returns
+    -------
+    images: list
+        List of images.
+    """
+    images = [np.concatenate([read_image(path, channels=ch, target_size=target_size)
+                              for path, ch in zip(sub_list, channels)], axis=-1) for sub_list in paths]
+    return images
