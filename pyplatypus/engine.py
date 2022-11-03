@@ -106,6 +106,12 @@ class PlatypusEngine:
         spec = self.config['semantic_segmentation']
         model_cfgs = spec.models if spec.ensemblers is None else spec.models + spec.ensemblers
         for model_cfg in model_cfgs:
+            if isinstance(model_cfg, SemanticSegmentationEnsemblerSpec):
+                submodels_names = model_cfg.submodels
+                model_cfg.submodels = [self.cache['semantic_segmentation'][m]["model"] for m in submodels_names]
+                model_cfg.net_h = [self.cache['semantic_segmentation'][m]["model_specification"].net_h for m in submodels_names]
+                model_cfg.net_w = [self.cache['semantic_segmentation'][m]["model_specification"].net_w for m in submodels_names]
+                model_cfg.channels = [self.cache['semantic_segmentation'][m]["model_specification"].channels for m in submodels_names]
             train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
             train_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=train_augmentation_pipeline,
@@ -115,6 +121,7 @@ class PlatypusEngine:
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=validation_augmentation_pipeline,
                 path=spec.data.validation_path, only_images=False, return_paths=False
             )
+            print("Training model: ", model_cfg.name)
             model = self.compile_u_shaped_model(model_cfg)
             callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             if model_cfg.fit:
@@ -146,12 +153,9 @@ class PlatypusEngine:
             The model specification used for shaping the U-shaped architecture.
         """
         if isinstance(model_cfg, SemanticSegmentationEnsemblerSpec):
-            segmentation_model = stacked_ensembler
+            model = stacked_ensembler(**dict(model_cfg)).model
         else:
-            segmentation_model = u_shaped_model
-        model = segmentation_model(
-            **dict(model_cfg)
-        ).model
+            model = u_shaped_model(**dict(model_cfg)).model
         ftp = model_cfg.fine_tuning_path
         if ftp is not None:
             model.load_weights(ftp)

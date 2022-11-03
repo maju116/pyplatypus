@@ -9,7 +9,7 @@ from pyplatypus.utils.path import create_images_masks_paths, filter_paths_by_ind
 from pyplatypus.utils.image import split_images, read_and_concatenate_images
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
 from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, \
-    SemanticSegmentationModelSpec
+    SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec
 
 
 class SegmentationGenerator(tf.keras.utils.Sequence):
@@ -120,7 +120,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             raise ValueError("Width and height are set for different number of models!")
         elif (single_input_h and single_input_w) and not single_input_channels:
             raise ValueError("Height and width is set for single model, but channels for multiple models!")
-        elif (not single_input_h and not single_input_w) and single_input_channels:
+        elif (not single_input_h and not single_input_w) and not isinstance(self.channels, list):
             raise ValueError("Height and width is set for multiple models, but channels for single model!")
         elif single_input_h and single_input_w and single_input_channels:
             return False
@@ -271,7 +271,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
 
 def prepare_data_generator(
-        data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
+        data: SemanticSegmentationData, model_cfg: Union[SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec],
         augmentation_pipeline: Optional[A.Compose] = None, path: Optional[str] = None,
         only_images: bool = False, return_paths: bool = False
 ) -> SegmentationGenerator:
@@ -304,6 +304,8 @@ def prepare_data_generator(
         only_images=only_images,
         net_h=model_cfg.net_h,
         net_w=model_cfg.net_w,
+        ensemble_net_h=model_cfg.ensemble_net_h if hasattr(model_cfg, 'ensemble_net_h') else None,
+        ensemble_net_w=model_cfg.ensemble_net_w if hasattr(model_cfg, 'ensemble_net_w') else None,
         h_splits=model_cfg.h_splits,
         w_splits=model_cfg.w_splits,
         channels=model_cfg.channels,

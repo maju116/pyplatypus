@@ -18,8 +18,8 @@ class stacked_ensembler:
             submodels: List[tf.keras.Model],
             copy_submodels_weights: bool,
             freeze_submodels_weights: bool,
-            net_h: int,
-            net_w: int,
+            ensemble_net_h: int,
+            ensemble_net_w: int,
             n_class: Optional[int] = 2,
             filters: Optional[int] = 16,
             kernel_size: Optional[Tuple[int, int]] = (3, 3),
@@ -38,10 +38,10 @@ class stacked_ensembler:
         ----------
         submodels : List[tf.keras.Model]
             List with semantic segmentation models.
-        net_h : int
-            Input layer height.
-        net_w : int
-            Input layer width.
+        ensemble_net_h : int
+            Output layer height.
+        ensemble_net_w : int
+            Output layer width.
         filters: int
             Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
         kernel_size: Tuple[int, int]
@@ -58,8 +58,8 @@ class stacked_ensembler:
         self.submodels = submodels
         self.copy_submodels_weights = copy_submodels_weights
         self.freeze_submodels_weights = freeze_submodels_weights
-        self.net_h = net_h
-        self.net_w = net_w
+        self.ensemble_net_h = ensemble_net_h
+        self.ensemble_net_w = ensemble_net_w
         self.n_class = n_class
         self.filters = filters
         self.kernel_size = kernel_size
@@ -182,7 +182,7 @@ class stacked_ensembler:
                     layer._name = 'ensemble_' + str(i + 1) + '_' + layer.name
         inputs = [submodel.input for submodel in self.submodels]
         outputs = [submodel.output for submodel in self.submodels]
-        outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
+        outputs = [Resizing(height=self.ensemble_net_h, width=self.ensemble_net_w)(o) for o in outputs]
         merge = Concatenate()(outputs)
         output = self.multiple_conv2d(merge)
         output = self.convolutional_layer(filters=self.n_class, kernel_size=(1, 1), activation="softmax")(output)

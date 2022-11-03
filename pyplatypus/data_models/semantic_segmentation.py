@@ -148,7 +148,7 @@ class SemanticSegmentationEnsemblerSpec(BaseModel):
     fine_tuning_path: Optional[str] = None
     fit: bool = True
     ensemble_net_h: PositiveInt
-    ensemble_net_h: PositiveInt
+    ensemble_net_w: PositiveInt
     n_class: conint(ge=2)
     filters: PositiveInt
     kernel_size: Optional[Tuple[int, int]] = (3, 3)
@@ -167,6 +167,9 @@ class SemanticSegmentationEnsemblerSpec(BaseModel):
     optimizer: Any = AdamSpec()
     callbacks: List[Any] = []
     augmentation: Optional[List[Any]] = None
+    net_h: Any = None
+    net_w: Any = None
+    channels: Any = None
 
     @validator('fine_tuning_path')
     def check_if_fine_tuning_path_exists(cls, v: str):
