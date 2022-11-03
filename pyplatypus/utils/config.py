@@ -17,7 +17,7 @@ from pathlib import Path
 from pyplatypus.utils.toolbox import convert_to_camel_case
 from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
 from pyplatypus.data_models.semantic_segmentation import (
-    SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec
+    SemanticSegmentationData, SemanticSegmentationInput, SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec
     )
 from pyplatypus.data_models.object_detection import ObjectDetectionInput
 from pyplatypus.data_models import augmentation as AM
@@ -285,7 +285,18 @@ class YamlConfigLoader(object):
             m = self.process_metrics_field(model_config=m)
             m = self.process_augmentation_field(model_config=m)
             models_.append(SemanticSegmentationModelSpec(**m))
-        semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_)
+        if config.get("semantic_segmentation").get("ensemblers") is not None:
+            ensemblers_ = []
+            for e in config.get("semantic_segmentation").get("ensemblers"):
+                e = self.process_optimizer_field(model_config=e)
+                e = self.process_callbacks_field(model_config=e)
+                e = self.process_loss_field(model_config=e)
+                e = self.process_metrics_field(model_config=e)
+                e = self.process_augmentation_field(model_config=e)
+                ensemblers_.append(SemanticSegmentationEnsemblerSpec(**e))
+        else:
+            ensemblers_ = None
+        semantic_segmentation_ = SemanticSegmentationInput(data=data_, models=models_, ensemblers=ensemblers_)
         return semantic_segmentation_
 
     @staticmethod

@@ -147,8 +147,8 @@ class SemanticSegmentationEnsemblerSpec(BaseModel):
     freeze_submodels_weights: bool = True
     fine_tuning_path: Optional[str] = None
     fit: bool = True
-    net_h: PositiveInt
-    net_w: PositiveInt
+    ensemble_net_h: PositiveInt
+    ensemble_net_h: PositiveInt
     n_class: conint(ge=2)
     filters: PositiveInt
     kernel_size: Optional[Tuple[int, int]] = (3, 3)
