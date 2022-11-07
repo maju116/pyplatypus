@@ -10,7 +10,7 @@ class PlatypusSolver(PlatypusEngine):
     """
     def __init__(self, config_yaml_path: str):
         """The initialization method offers loading the YAML config on the run with the use of validated config path.
-        After the initialization we have global_cache and parsed constants at hand, ready to be used.
+        After the initialization we have global_cache and parsed config at hand, ready to be used.
 
         Parameters
         ----------
