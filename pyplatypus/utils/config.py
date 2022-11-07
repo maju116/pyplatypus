@@ -1,4 +1,4 @@
-"""This module offers the tools crucial in the constants ingestion but also it's latter validation
+"""This module offers the tools crucial in the config ingestion but also it's latter validation
 while some of the validation steps could get moved to the pydantic side but for now they are kept here.
 
 Classes
