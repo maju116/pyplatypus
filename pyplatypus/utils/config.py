@@ -86,7 +86,7 @@ class YamlConfigLoader(object):
         Returns
         -------
         config: dict
-            Loaded raw constants.
+            Loaded raw config.
         """
         with open(config_path) as cfg:
             config = load(cfg, Loader=FullLoader)
