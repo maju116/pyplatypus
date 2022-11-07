@@ -104,7 +104,7 @@ class YamlConfigLoader(object):
         Returns
         -------
         model_config: dict
-            Reshaped constants.
+            Reshaped config.
         """
         optimizer_field = model_config.get("optimizer")
         if optimizer_field is not None:
