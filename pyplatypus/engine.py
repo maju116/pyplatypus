@@ -459,7 +459,7 @@ class PlatypusEngine:
         Parameters
         ----------
         config : dict
-            It is expected to be of the same form as the input constants.
+            It is expected to be of the same form as the input config.
         task_type : Optional[str], optional
             Task of interest, by default "semantic_segmentation"
 
