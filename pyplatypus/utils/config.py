@@ -40,7 +40,7 @@ class YamlConfigLoader(object):
     load_config_from_yaml(config_path: str)
         Loads configuration from YAML file.
 
-    create_semantic_segmentation_config(constants: dict)
+    create_semantic_segmentation_config(config: dict)
         Extracts the data regarding the semantic segmentation CV task to be performed.
 
     create_object_detection_config(constants: dict)
