@@ -20,7 +20,7 @@ class PlatypusSolver(PlatypusEngine):
         Raises
         ------
         NotADirectoryError
-            In case of the constants path being invalid.
+            In case of the config path being invalid.
         """
         if not Path(config_yaml_path).exists():
             raise NotADirectoryError(
