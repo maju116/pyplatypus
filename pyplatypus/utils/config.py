@@ -50,7 +50,7 @@ class YamlConfigLoader(object):
         Extracts the configuration later used during the augmentation pipeline and data generators creation.
 
     load()
-        Loads the raw constants from the YAML file, then each crucial configuration gets extracted from the main constants
+        Loads the raw config from the YAML file, then each crucial configuration gets extracted from the main config
         and parsed through the Pydantic datamodel.
     """
 
