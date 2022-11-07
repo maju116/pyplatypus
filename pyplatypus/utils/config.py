@@ -46,7 +46,7 @@ class YamlConfigLoader(object):
     create_object_detection_config(config: dict)
         Extracts the data regarding the object detection CV task to be performed.
 
-    create_augmentation_config(constants: dict)
+    create_augmentation_config(config: dict)
         Extracts the configuration later used during the augmentation pipeline and data generators creation.
 
     load()
