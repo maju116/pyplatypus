@@ -15,7 +15,7 @@ class PlatypusSolver(PlatypusEngine):
         Parameters
         ----------
         config_yaml_path : str
-            The path pointing at the YAML constants to be used for the specific run.
+            The path pointing at the YAML config to be used for the specific run.
 
         Raises
         ------
