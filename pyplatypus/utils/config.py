@@ -55,7 +55,7 @@ class YamlConfigLoader(object):
     """
 
     def __init__(self, config_yaml_path: str) -> None:
-        """Initializes the class and checks the provided path to the YAML constants.
+        """Initializes the class and checks the provided path to the YAML config.
 
         Parameters
         ----------
