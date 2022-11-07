@@ -305,7 +305,7 @@ class YamlConfigLoader(object):
         Then the data is parsed to the correct types with the use of predefined pydantic-based datamodels.
 
         Parameters
-        constants: dict
+        config: dict
             Configuration created by the user. The lacking fields will be filled with the default values.
 
         Returns
