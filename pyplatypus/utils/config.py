@@ -238,7 +238,7 @@ class YamlConfigLoader(object):
 
         Parameters
         ----------
-        constants: dict
+        config: dict
             Configuration created by the user. The lacking fields will be filled with the default values.
 
         Returns
