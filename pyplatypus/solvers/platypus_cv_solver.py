@@ -9,7 +9,7 @@ class PlatypusSolver(PlatypusEngine):
     image classification.
     """
     def __init__(self, config_yaml_path: str):
-        """The initialization method offers loading the YAML constants on the run with the use of validated constants path.
+        """The initialization method offers loading the YAML config on the run with the use of validated config path.
         After the initialization we have global_cache and parsed constants at hand, ready to be used.
 
         Parameters
