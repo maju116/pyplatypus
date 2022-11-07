@@ -8,7 +8,7 @@ YamlConfigLoader(object)
 
 Functions
 ---------
-check_cv_tasks(constants: dict)
+check_cv_tasks(config: dict)
     Checks which Computer Vision tasks are to be performed.
 """
 
