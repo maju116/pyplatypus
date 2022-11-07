@@ -102,7 +102,7 @@ class PlatypusEngine:
             self.build_and_train_segmentation_models()
 
     def build_and_train_segmentation_models(self) -> None:
-        """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task."""
+        """Compiles and trains the model architecture utilized in tackling the semantic segmentation task."""
         spec = self.config['semantic_segmentation']
         model_cfgs = spec.models if spec.ensemblers is None else spec.models + spec.ensemblers
         for model_cfg in model_cfgs:

@@ -84,4 +84,42 @@ semantic_segmentation:
           activation_layer: "relu"
           batch_size: 4
           epochs: 1
+    ensemblers:
+        - name: 'res_u_net_unet'
+          submodels: ['res_u_net', 'u_net']
+          ensemble_net_h: 300
+          ensemble_net_w: 300
+          h_splits: 0
+          w_splits: 0
+          n_class: 2
+          filters: 16
+          epochs: 1
+          batch_size: 8
+          loss:
+            focal loss:
+                gamma: 1
+          metrics:
+            IOU Coefficient:
+            Tversky coefficient:
+                alpha: 1
+          optimizer:
+            Adam:
+                learning_rate: 0.001
+                beta_1: 0.9
+                beta_2: 0.999
+                epsilon: 1e-07
+                amsgrad: False
+          callbacks:
+            ModelCheckpoint:
+                filepath: "tests/testdata/chkpt.hdf5"
+            EarlyStopping:
+                patience: 10
+            ProgbarLogger:
+                count_mode: "samples"
+            TerminateOnNaN:
+          augmentation:
+            InvertImg:
+                always_apply: True
+                p: 1
+
           
