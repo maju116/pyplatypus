@@ -49,7 +49,7 @@ class PlatypusEngine:
     predict_based_on_test_generator(self, model_name: str, custom_data_path: Optional[str] = None):
         Produces predictions based on the selected model and the data generator created on the course of building this model.
 
-    get_model_names(constants: dict, task: Optional[str] = "semantic_segmentation"):
+    get_model_names(config: dict, task: Optional[str] = "semantic_segmentation"):
         Extracts the names of all models related to the selected task.
     """
 
