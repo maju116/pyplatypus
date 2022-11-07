@@ -4,7 +4,7 @@ while some of the validation steps could get moved to the pydantic side but for 
 Classes
 -------
 YamlConfigLoader(object)
-    Provides the framework allowing us to ingest the raw constants from the YAML shaped by a user.
+    Provides the framework allowing us to ingest the raw config from the YAML shaped by a user.
 
 Functions
 ---------
