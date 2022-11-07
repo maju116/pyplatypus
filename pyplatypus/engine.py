@@ -92,7 +92,7 @@ class PlatypusEngine:
 
     def train(self) -> None:
         """
-        Creates the augmentation pipeline based on the input constants. Then the function performs
+        Creates the augmentation pipeline based on the input config. Then the function performs
         the selected tasks e.g. semantic segmentation, which consists of compiling and fitting the model
         using the train and validation data generators created prior to the fitting.
         """
