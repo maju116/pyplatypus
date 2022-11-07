@@ -284,7 +284,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Name of the model to use, should be consistent with the input constants.
+            Name of the model to use, should be consistent with the input config.
         custom_data_path : Optional[str], optional
             If provided, the data is loaded from a custom source.
         training_augmentation: bool
