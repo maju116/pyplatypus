@@ -81,7 +81,7 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         config_path: str
-            Path from which the YAML constants will be loaded into the memory.
+            Path from which the YAML config will be loaded into the memory.
 
         Returns
         -------
