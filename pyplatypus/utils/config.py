@@ -60,7 +60,7 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         config_yaml_path:
-            Path to the user-specified constants, it is required to exist.
+            Path to the user-specified config, it is required to exist.
 
         Raises
         ------
