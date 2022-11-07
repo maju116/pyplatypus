@@ -64,7 +64,7 @@ class YamlConfigLoader(object):
 
         Raises
         ------
-        NotADirectoryError: Raised if the path said to point at the constants is invalid.
+        NotADirectoryError: Raised if the path said to point at the config is invalid.
         """
         if not Path(config_yaml_path).exists():
             raise NotADirectoryError(
