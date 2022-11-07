@@ -61,7 +61,7 @@ class PlatypusEngine:
         ----------
         config: PlatypusSolverInput
             Stores the specific task-related configs nested as its attributes e.g. to the models that are to
-            be trained can be accessed as constants.semantic_segmentation.models.
+            be trained can be accessed as config.semantic_segmentation.models.
         """
         self.config = dict(config)
         self.cache = {}
