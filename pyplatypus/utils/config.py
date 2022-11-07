@@ -43,7 +43,7 @@ class YamlConfigLoader(object):
     create_semantic_segmentation_config(config: dict)
         Extracts the data regarding the semantic segmentation CV task to be performed.
 
-    create_object_detection_config(constants: dict)
+    create_object_detection_config(config: dict)
         Extracts the data regarding the object detection CV task to be performed.
 
     create_augmentation_config(constants: dict)
