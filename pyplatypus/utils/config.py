@@ -199,7 +199,7 @@ class YamlConfigLoader(object):
         Parameters
         ----------
         model_config : dict
-            The element of the list of models from the input constants.
+            The element of the list of models from the input config.
 
         Returns
         -------
