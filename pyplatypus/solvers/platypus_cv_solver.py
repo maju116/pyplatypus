@@ -24,7 +24,7 @@ class PlatypusSolver(PlatypusEngine):
         """
         if not Path(config_yaml_path).exists():
             raise NotADirectoryError(
-                "The specified constants path does not exist!"
+                "The specified config path does not exist!"
                 )
         else:
             ycl = YamlConfigLoader(config_yaml_path)
