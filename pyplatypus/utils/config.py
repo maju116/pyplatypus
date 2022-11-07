@@ -316,7 +316,7 @@ class YamlConfigLoader(object):
         return object_detection_
 
     def load(self) -> PlatypusSolverInput:
-        """Loads the raw constants from the YAML file, then each crucial configuration gets extracted from the main constants
+        """Loads the raw config from the YAML file, then each crucial configuration gets extracted from the main config
         and parsed through the Pydantic datamodel. Then every component is used for the Platypus Solver input creation.
 
         Returns
