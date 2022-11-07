@@ -145,7 +145,7 @@ def prepare_callbacks_list(callbacks_specs: list) -> list:
     Parameters
     ----------
     callbacks_specs : list
-        List containing the Pydatnic-powered specificaions for each of the callbacks contained in the input constants.
+        List containing the Pydatnic-powered specificaions for each of the callbacks contained in the input config.
 
     Returns
     -------
