@@ -167,7 +167,7 @@ class YamlConfigLoader(object):
         Returns
         -------
         model_config: dict
-            Processed constants.
+            Processed config.
 
         Raises
         ------
