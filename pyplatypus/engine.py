@@ -75,7 +75,7 @@ class PlatypusEngine:
         Parameters
         ----------
         model_name : str
-            Comes straight from the input constants.
+            Comes straight from the input config.
         model : u_shaped_model
             Tensorflow model.
         training_history: pd.DataFrame
