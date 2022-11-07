@@ -204,7 +204,7 @@ class YamlConfigLoader(object):
         Returns
         -------
         model_config: dict
-            Reshaped constants.
+            Reshaped config.
 
         Raises
         ------
