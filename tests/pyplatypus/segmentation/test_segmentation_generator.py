@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, SemanticSegmentationModelSpec
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec
 from pyplatypus.segmentation.generator import SegmentationGenerator, split_masks_into_binary, prepare_data_generator, predict_from_generator
 
 
@@ -173,6 +173,7 @@ def test_segmentation_generator(path, colormap, mode, net_h, net_w, h_splits, w_
     assert np.allclose(output[0], result[0])
     assert (output[1] == result[1]).all()
 
+
 def test_calculate_steps_per_epoch(mocker):
     mocker.patch("pyplatypus.segmentation.generator.create_images_masks_paths", return_value={"images_paths": ["path1", "path2", "path3", "path4"]})
     mocker.patch("pyplatypus.segmentation.generator.SegmentationGenerator.on_epoch_end", return_value=None)
@@ -185,7 +186,7 @@ def test_prepare_data_generator(mocker):
     data = SemanticSegmentationData(**{
         "train_path": "tests/",
         "validation_path": "tests/",
-        "colormap": [[0,0,0]],
+        "colormap": [[0, 0, 0]],
         "mode": "nested_dirs",
         "shuffle": True,
         "subdirs": ["images", "masks"],
@@ -207,6 +208,7 @@ def test_prepare_data_generator(mocker):
 class mocked_model:
     def predict(images_batch: list):
         return [images_batch + "_predicted_mask"]
+
 
 class mocked_generator:
     def __init__(self, max=3):
