@@ -9,9 +9,7 @@ semantic_segmentation:
         subdirs: ["images", "masks"]
         column_sep: ';'
     models:
-        - name: 'res_u_net'
-          fine_tuning_path: 'examples/models/ds_bowl_res_u_net.hdf5'
-          fit: False
+        - name: 'ds_bowl_res_u_net'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -32,7 +30,7 @@ semantic_segmentation:
           use_up_sampling2d: False
           u_net_conv_block_width: 4
           activation_layer: "relu"
-          batch_size: 32
+          batch_size: 16
           epochs: 100
           loss:
             focal loss:
@@ -50,11 +48,12 @@ semantic_segmentation:
                 amsgrad: False
           callbacks:
             ModelCheckpoint:
-                filepath: "tests/testdata/res_u_net_checkpoint.hdf5"
+                filepath: "examples/models/ds_bowl_res_u_net.hdf5"
+                monitor: "val_loss"
+                save_best_only: True
+                save_weights_only: True
             EarlyStopping:
-                patience: 10
-            ProgbarLogger:
-                count_mode: "samples"
+                patience: 15
             TerminateOnNaN:
           augmentation:
             Blur:
@@ -71,9 +70,7 @@ semantic_segmentation:
                 max_value: 255
                 always_apply: True
                 p: 1.0
-            InvertImg:
-        - name: 'u_net_plus_plus'
-          fine_tuning_path: 'examples/models/ds_bowl_u_net_plus_plus.hdf5'
+        - name: 'ds_bowl_u_net_plus_plus'
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -95,11 +92,49 @@ semantic_segmentation:
           epochs: 100
           callbacks:
             ModelCheckpoint:
-                filepath: "tests/testdata/u_net_plus_plus_checkpoint.hdf5"
+                filepath: "examples/models/ds_bowl_u_net_plus_plus.hdf5"
+                monitor: "val_loss"
+                save_best_only: True
+                save_weights_only: True
             EarlyStopping:
-                patience: 10
-            ProgbarLogger:
-                count_mode: "samples"
+                patience: 15
+            TerminateOnNaN:
+          augmentation:
+            Blur:
+                blur_limit: 7
+                always_apply: False
+                p: 0.5
+            Flip:
+                always_apply: False
+                p: 0.5
+            RandomRotate90:
+                always_apply: False
+                p: 0.5
+            ToFloat:
+                max_value: 255
+                always_apply: True
+                p: 1.0
+    ensemblers:
+        - name: 'ds_bowl_res_u_net_u_net_plus_plus_ensembler'
+          submodels: ['ds_bowl_res_u_net', 'ds_bowl_u_net_plus_plus']
+          copy_submodels_weights: True
+          freeze_submodels_weights: True
+          ensemble_net_h: 256
+          ensemble_net_w: 256
+          h_splits: 0
+          w_splits: 0
+          n_class: 2
+          filters: 16
+          epochs: 100
+          batch_size: 8
+          callbacks:
+            ModelCheckpoint:
+                filepath: "examples/models/ds_bowl_res_u_net_u_net_plus_plus_ensembler.hdf5"
+                monitor: "val_loss"
+                save_best_only: True
+                save_weights_only: True
+            EarlyStopping:
+                patience: 15
             TerminateOnNaN:
           augmentation:
             Blur:
