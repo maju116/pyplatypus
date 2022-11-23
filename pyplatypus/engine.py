@@ -469,6 +469,8 @@ class PlatypusEngine:
             Names of the models associated with the chosen task.
         """
         model_names = [model_cfg.name for model_cfg in config.get(task_type).models]
+        if config.get(task_type).ensemblers is not None:
+            model_names = model_names + [model_cfg.name for model_cfg in config.get(task_type).ensemblers]
         return model_names
 
     @staticmethod
