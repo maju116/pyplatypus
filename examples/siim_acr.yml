@@ -1,8 +1,8 @@
 object_detection:
 semantic_segmentation:
     data:
-        train_path: 'examples/data/siim_training'
-        validation_path: 'examples/data/siim_validation'
+        train_path: 'examples/data/sim-arc/siim_training'
+        validation_path: 'examples/data/sim-arc/siim_validation'
         colormap: [[0, 0, 0], [255, 255, 255]]
         mode: 'nested_dirs'
         shuffle: False
