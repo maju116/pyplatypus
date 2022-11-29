@@ -1,21 +1,15 @@
 import tensorflow as tf
 from typing import Tuple, List, Optional, Union, Any
 import numpy as np
-import os
-import pandas as pd
 from numpy import ndarray
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-import albumentations as A
-import pydicom
-import tifffile
 from skimage.transform import resize
-from skimage.color import rgb2gray, gray2rgb
-from pyplatypus.utils.toolbox import split_masks_into_binary
+import albumentations as A
+from pyplatypus.utils.mask import split_masks_into_binary, read_and_sum_masks
+from pyplatypus.utils.path import create_images_masks_paths, filter_paths_by_indices
+from pyplatypus.utils.image import split_images, read_and_concatenate_images
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationData, \
-    SemanticSegmentationModelSpec
-
-import logging as log
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationData, \
+    SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec
 
 
 class SegmentationGenerator(tf.keras.utils.Sequence):
@@ -37,11 +31,13 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             colormap: Optional[List[Tuple[int, int, int]]],
             mode: str = "nested_dirs",
             only_images: bool = False,
-            net_h: int = 256,
-            net_w: int = 256,
+            net_h: Union[int, List[int]] = 256,
+            net_w: Union[int, List[int]] = 256,
+            ensemble_net_h: Optional[int] = None,
+            ensemble_net_w: Optional[int] = None,
             h_splits: int = 1,
             w_splits: int = 1,
-            channels: Union[int, List[int]] = 3,
+            channels: Union[int, List[int], List[Union[int, List[int]]]] = 3,
             augmentation_pipeline: Optional[A.core.composition.Compose] = None,
             batch_size: int = 32,
             shuffle: bool = True,
@@ -62,10 +58,14 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             Character. One of "nested_dirs", "config_file"
         only_images: bool
             Should generator read only images (e.g. on train set for predictions).
-        net_h: int
-            Input layer height. Must be equal to `2^x, x - natural`.
-        net_w: int
-            Input layer width. Must be equal to `2^x, x - natural`.
+        net_h: Union[int, List[int]]
+            Input layer height or list of heights for multiple inputs.
+        net_w: Union[int, List[int]]
+            Input layer width or list of widths for multiple inputs.
+        ensemble_net_h: Optional[int]
+            Output layer height for the ensemble model.
+        ensemble_net_w: Optional[int]
+            Output layer width for the ensemble model.
         h_splits: int
             Number of vertical splits of the image.
         w_splits: int
@@ -91,24 +91,45 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         self.only_images = only_images
         self.net_h = net_h
         self.net_w = net_w
+        self.ensemble_net_h = ensemble_net_h
+        self.ensemble_net_w = ensemble_net_w
         self.h_splits = h_splits
         self.w_splits = w_splits
-        self.channels = channels if isinstance(channels, list) else [channels]
+        self.channels = channels
+        self.is_ensemble = self.check_model_is_ensemble()
         self.augmentation_pipeline = augmentation_pipeline
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.subdirs = subdirs
         self.column_sep = column_sep
-        self.target_size = (net_h, net_w)
         self.classes = len(colormap)
         self.return_paths = return_paths
-        self.config = self.create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs,
-                                                     self.column_sep)
+        self.config = create_images_masks_paths(self.path, self.mode, self.only_images, self.subdirs, self.column_sep)
         self.indexes = None
         self.steps_per_epoch = self.calculate_steps_per_epoch()
         print(len(self.config["images_paths"]), "images detected!")
         print("Set 'steps_per_epoch' to:", self.steps_per_epoch)
         self.on_epoch_end()
+
+    def check_model_is_ensemble(self) -> bool:
+        """Checks if generator is used for ensemble model."""
+        single_input_h = isinstance(self.net_h, int)
+        single_input_w = isinstance(self.net_w, int)
+        single_input_channels = isinstance(self.channels, int) or all([isinstance(subitem, int) for subitem in self.channels])
+        if single_input_h != single_input_w:
+            raise ValueError("Width and height are set for different number of models!")
+        elif (single_input_h and single_input_w) and not single_input_channels:
+            raise ValueError("Height and width is set for single model, but channels for multiple models!")
+        elif (not single_input_h and not single_input_w) and not isinstance(self.channels, list):
+            raise ValueError("Height and width is set for multiple models, but channels for single model!")
+        elif single_input_h and single_input_w and single_input_channels:
+            return False
+        elif not isinstance(self.ensemble_net_h, int) or not isinstance(self.ensemble_net_w, int):
+            raise ValueError("For the ensemble model 'ensemble_net_h' and 'ensemble_net_w' must be set!")
+        elif len(self.net_h) == len(self.net_w) and len(self.net_w) == len(self.channels):
+            return True
+        else:
+            raise ValueError("Heights, widths and channels set to different number of inputs!")
 
     def calculate_steps_per_epoch(self) -> int:
         """Calculates the number of steps needed to go through all the images given the batch size.
@@ -121,160 +142,41 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
         steps_per_epoch = int(np.ceil(len(self.config["images_paths"]) / self.batch_size))
         return steps_per_epoch
 
-    @staticmethod
-    def create_images_masks_paths(
-            path: str, mode: str, only_images: bool, subdirs: Tuple[str, str], column_sep: str
-    ) -> dict:
+    def calculate_masks_target_size(self) -> Tuple[int, int]:
         """
-        Generates the dictionary storing the paths to the images and optionally coresponding masks.
-        It is the latter foundation upon which the batches are generated.
-
-        Parameters
-        ----------
-        path: str
-            Images and masks directory.
-        mode: str
-            Character. One of "nested_dirs", "config_file"
-        only_images: bool
-            Should generator read only images (e.g. on train set for predictions).
-        subdirs: Tuple[str, str]
-            Vector of two characters containing names of subdirectories with images and masks.
-        column_sep: str
-            Configuration file separator.
+        Calculates masks target size.
 
         Returns
         -------
-        path_dict: dict
-            Dictionary with images and optionally masks paths.
+        target_size: Tuple[int, int]
+            Masks target size.
         """
-        if mode in ["nested_dirs", 1]:
-            nested_dirs = os.listdir(path)
-            nested_dirs.sort()
-
-            images_paths = []
-            masks_paths = []
-            for nd in nested_dirs:
-                try:
-                    images_paths_batch = [
-                        os.path.join(path, nd, subdirs[0], s) for s in sorted(
-                            os.listdir(os.path.join(path, nd, subdirs[0]))
-                        )
-                    ]
-                    images_paths.append(images_paths_batch)
-                    if not only_images:
-                        masks_paths_batch = [
-                            os.path.join(path, nd, subdirs[1], s) for s in sorted(
-                                os.listdir(os.path.join(path, nd, subdirs[1]))
-                            )
-                        ]
-                        masks_paths.append(masks_paths_batch)
-                except FileNotFoundError:
-                    log.warning(f"The current image {nd} is incomplete for it contains only masks or images!")
-                    pass
-
-        elif mode in ["config_file", 2]:
-            config = pd.read_csv(path)
-            images_paths = [s.split(column_sep) for s in config.images.to_list()]
-            if not only_images:
-                masks_paths = [s.split(column_sep) for s in config.masks.to_list()]
-        else:
-            raise ValueError("Incorrect 'mode' selected!")
-        if not only_images:
-            path_dict = {"images_paths": images_paths, "masks_paths": masks_paths}
-            return path_dict
-        else:
-            path_dict = {"images_paths": images_paths}
-            return path_dict
-
-    @staticmethod
-    def __read_image__(path: str, channels: int, target_size: Union[int, Tuple[int, int]]) -> ndarray:
-        """
-        Loads image as numpy array.
-
-        Parameters
-        ----------
-        path: str
-            Image path.
-        channels: int
-            Number of color channels.
-        target_size: Union[int, Tuple[int, int]]
-            Target size for the image to be loaded.
-
-        Returns
-        -------
-        pixel_array: ndarray
-            Image as numpy array.
-        """
-        if path.lower().endswith(('.tif', 'tiff')):
-            pixel_array = tifffile.imread(path)
-            if channels == 1:
-                if len(pixel_array.shape) == 3 and pixel_array.shape[0] == 3:
-                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
-                elif len(pixel_array.shape) == 2:
-                    pixel_array = np.expand_dims(pixel_array, axis=-1)
-            elif channels == 3:
-                if len(pixel_array.shape) == 2:
-                    pixel_array = gray2rgb(pixel_array)
-            elif len(pixel_array.shape) == 3:
-                pixel_array = np.moveaxis(pixel_array, 0, -1)
-            pixel_array = resize(pixel_array, target_size, preserve_range=True)
-            # ToDo: Check if special cases should be added - rgb2gray, ...
-        elif path.lower().endswith('.dcm'):
-            pixel_array = pydicom.dcmread(path).pixel_array
-            if channels == 1:
-                if len(pixel_array.shape) == 3 and pixel_array.shape[2] == 3:
-                    pixel_array = np.expand_dims(rgb2gray(pixel_array), axis=-1)
-                elif len(pixel_array.shape) == 2:
-                    pixel_array = np.expand_dims(pixel_array, axis=-1)
-            elif channels == 3:
-                if len(pixel_array.shape) == 2:
-                    pixel_array = gray2rgb(pixel_array)
+        if self.is_ensemble:
+            if self.h_splits > 1 or self.w_splits > 1:
+                target_size = (self.h_splits * self.ensemble_net_h, self.w_splits * self.ensemble_net_w)
             else:
-                # ToDo: Check if any other type of DICOM should be implemented https://dicom.innolitics.com/ciods/rt-dose/image-pixel/00280004
-                raise ValueError('For DICOM images number of channels can be set to 1 or 3!')
-            pixel_array = resize(pixel_array, target_size, preserve_range=True)
+                target_size = (self.ensemble_net_h, self.ensemble_net_w)
         else:
-            if channels == 1:
-                color_mode = "grayscale"
-            elif channels == 3:
-                color_mode = "rgb"
-            elif channels == 4:
-                color_mode = "rgba"
+            if self.h_splits > 1 or self.w_splits > 1:
+                target_size = (self.h_splits * self.net_h, self.w_splits * self.net_w)
             else:
-                raise ValueError('For classical (PNG, JPG, ...) images number of channels can be set to 1, 3 or 4!')
-            pixel_array = img_to_array(load_img(path, color_mode=color_mode, target_size=target_size))
-        return pixel_array
+                target_size = (self.net_h, self.net_w)
+        return target_size
 
-    @staticmethod
-    def __split_images__(
-            images: List[ndarray],
-            h_splits: int,
-            w_splits: int,
-    ) -> list:
+    def calculate_images_target_sizes(self) -> List[Tuple[int, int]]:
         """
-        Splits list of images/masks onto smaller ones.
-
-        Parameters
-        ----------
-        images: List[ndarray]
-            List of images or masks.
-        h_splits: int
-            Number of vertical splits of the image.
-        w_splits: int
-            Number of horizontal splits of the image.
+        Calculates images target sizes.
 
         Returns
         -------
-        images: list
-            List of images or masks.
+        target_size: List[Tuple[int, int]]
+            Images target sizes.
         """
-        if h_splits > 1:
-            images = [np.vsplit(se, h_splits) for se in images]
-            images = [item for sublist in images for item in sublist]
-        if w_splits > 1:
-            images = [np.hsplit(se, w_splits) for se in images]
-            images = [item for sublist in images for item in sublist]
-        return images
+        if self.h_splits > 1 or self.w_splits > 1:
+            target_sizes = [(self.h_splits * h, self.w_splits * w) for h, w in zip(self.net_h, self.net_w)]
+        else:
+            target_sizes = [(h, w) for h, w in zip(self.net_h, self.net_w)]
+        return target_sizes
 
     def read_images_and_masks_from_directory(
             self, indices: Optional[List]
@@ -289,44 +191,26 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
         Returns
         -------
-        loaded_images: list
+        loaded_data: list
             List of images and masks.
         """
-        selected_images_paths = [self.config["images_paths"][idx] for idx in indices] if indices is not None else \
-            self.config["images_paths"]
-        if not self.only_images:
-            selected_masks_paths = [self.config["masks_paths"][idx] for idx in indices] if indices is not None else \
-                self.config["masks_paths"]
+        selected_images_paths = filter_paths_by_indices(self.config["images_paths"], indices)
+        target_size = self.calculate_masks_target_size()
+        channels = self.channels[0] if self.is_ensemble else self.channels
+        selected_images = read_and_concatenate_images(selected_images_paths, channels, target_size)
         if self.h_splits > 1 or self.w_splits > 1:
-            selected_images = [
-                np.concatenate([self.__read_image__(si, channels=ch,
-                                                    target_size=(
-                                                        self.h_splits * self.net_h, self.w_splits * self.net_w))
-                                for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
-                selected_images_paths]
-            selected_images = self.__split_images__(selected_images, self.h_splits, self.w_splits)
-            if not self.only_images:
-                selected_masks = [
-                    sum([self.__read_image__(si, channels=3,
-                                             target_size=(self.h_splits * self.net_h, self.w_splits * self.net_w))
-                         for si in sub_list]) for sub_list in selected_masks_paths]
-                selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
-                selected_masks = self.__split_images__(selected_masks, self.h_splits, self.w_splits)
-        else:
-            selected_images = [
-                np.concatenate([self.__read_image__(si, channels=ch, target_size=self.target_size)
-                                for si, ch in zip(sub_list, self.channels)], axis=-1) for sub_list in
-                selected_images_paths]
-            if not self.only_images:
-                selected_masks = [
-                    sum([self.__read_image__(si, channels=3, target_size=self.target_size)
-                         for si in sub_list]) for sub_list in selected_masks_paths]
-                selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+            selected_images = split_images(selected_images, self.h_splits, self.w_splits)
         if not self.only_images:
-            loaded_images = (selected_images, selected_masks, selected_images_paths)
+            selected_masks_paths = filter_paths_by_indices(self.config["masks_paths"], indices)
+            selected_masks = read_and_sum_masks(selected_masks_paths, target_size)
+            selected_masks = [split_masks_into_binary(mask, self.colormap) for mask in selected_masks]
+            if self.h_splits > 1 or self.w_splits > 1:
+                selected_masks = split_images(selected_masks, self.h_splits, self.w_splits)
+        if not self.only_images:
+            loaded_data = (selected_images, selected_masks, selected_images_paths)
         else:
-            loaded_images = (selected_images, selected_images_paths)
-        return loaded_images
+            loaded_data = (selected_images, selected_images_paths)
+        return loaded_data
 
     def on_epoch_end(self) -> None:
         """Updates indexes on epoch end, optionally shuffles them for the sake of randomization."""
@@ -349,26 +233,36 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
             Batch of data being images and masks.
         """
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+        if self.is_ensemble:
+            target_sizes = self.calculate_images_target_sizes()
         if not self.only_images:
             images, masks, paths = self.read_images_and_masks_from_directory(indexes)
             if self.augmentation_pipeline is not None:
                 transformed = [self.augmentation_pipeline(image=image, mask=mask) for image, mask in zip(images, masks)]
-                images = np.stack([tr['image'] for tr in transformed], axis=0)
-                masks = np.stack([tr['mask'] for tr in transformed], axis=0)
+                images = [tr['image'] for tr in transformed]
+                masks = [tr['mask'] for tr in transformed]
+            if self.is_ensemble:
+                images = [[resize(im, ts) for im in images] for ts in target_sizes]
+                images = [np.stack(im, axis=0) for im in images]
             else:
                 images = np.stack(images, axis=0)
-                masks = np.stack(masks, axis=0)
+            masks = np.stack(masks, axis=0)
             batch = (images, masks)
+            if self.return_paths:
+                batch = (images, masks, paths)
         else:
             images, paths = self.read_images_and_masks_from_directory(indexes)
             if self.augmentation_pipeline is not None:
                 transformed = [self.augmentation_pipeline(image=image) for image in images]
-                images = np.stack([tr['image'] for tr in transformed], axis=0)
+                images = [tr['image'] for tr in transformed]
+            if self.is_ensemble:
+                images = [[resize(im, ts) for im in images] for ts in target_sizes]
+                images = [np.stack(im, axis=0) for im in images]
             else:
                 images = np.stack(images, axis=0)
             batch = images
-        if self.return_paths:
-            batch = (images, paths)
+            if self.return_paths:
+                batch = (images, paths)
         return batch
 
     def __len__(self) -> int:
@@ -377,7 +271,7 @@ class SegmentationGenerator(tf.keras.utils.Sequence):
 
 
 def prepare_data_generator(
-        data: SemanticSegmentationData, model_cfg: SemanticSegmentationModelSpec,
+        data: SemanticSegmentationData, model_cfg: Union[SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec],
         augmentation_pipeline: Optional[A.Compose] = None, path: Optional[str] = None,
         only_images: bool = False, return_paths: bool = False
 ) -> SegmentationGenerator:
@@ -410,6 +304,8 @@ def prepare_data_generator(
         only_images=only_images,
         net_h=model_cfg.net_h,
         net_w=model_cfg.net_w,
+        ensemble_net_h=model_cfg.ensemble_net_h if hasattr(model_cfg, 'ensemble_net_h') else None,
+        ensemble_net_w=model_cfg.ensemble_net_w if hasattr(model_cfg, 'ensemble_net_w') else None,
         h_splits=model_cfg.h_splits,
         w_splits=model_cfg.w_splits,
         channels=model_cfg.channels,
