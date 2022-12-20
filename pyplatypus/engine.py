@@ -3,18 +3,18 @@ from random import randrange
 
 from pandas import DataFrame, Series
 
-from pyplatypus.utils.config_processing_functions import check_cv_tasks
-from pyplatypus.utils.augmentation_toolbox import prepare_augmentation_pipelines
+from pyplatypus.utils.config import check_cv_tasks
+from pyplatypus.utils.augmentation import prepare_augmentation_pipelines
 from pyplatypus.segmentation.generator import prepare_data_generator, predict_from_generator
 from pyplatypus.segmentation.models.u_shaped_models import u_shaped_model
-from pyplatypus.data_models.platypus_engine_datamodel import PlatypusSolverInput
-from pyplatypus.data_models.semantic_segmentation_datamodel import SemanticSegmentationModelSpec
+from pyplatypus.segmentation.models.stacked_ensemble import stacked_ensembler
+from pyplatypus.data_models.platypus_engine import PlatypusSolverInput
+from pyplatypus.data_models.semantic_segmentation import SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec
 from pyplatypus.utils.prepare_loss_metrics import prepare_loss_and_metrics, prepare_optimizer, prepare_callbacks_list
 
-from pyplatypus.utils.toolbox import transform_probabilities_into_binaries, concatenate_binary_masks
-from pyplatypus.utils.prediction_utils import save_masks
+from pyplatypus.utils.mask import transform_probabilities_into_binaries, concatenate_binary_masks
+from pyplatypus.utils.prediction import save_masks
 from albumentations import Compose
-import numpy as np
 from typing import Optional, Union
 
 
@@ -101,20 +101,17 @@ class PlatypusEngine:
             self.cache.update(semantic_segmentation={})
             self.build_and_train_segmentation_models()
 
-    def build_and_train_segmentation_models(
-        self
-            ):
-        """Compiles and trains the U-Shaped architecture utilized in tackling the semantic segmentation task.
-
-        Parameters
-        ----------
-        train_augmentation_pipeline : Optional[Compose]
-            Optional augmentation pipeline, native to the albumentations package.
-        validation_augmentation_pipeline : Optional[Compose]
-            Optional augmentation pipeline, native to the albumentations package.
-        """
+    def build_and_train_segmentation_models(self) -> None:
+        """Compiles and trains the model architecture utilized in tackling the semantic segmentation task."""
         spec = self.config['semantic_segmentation']
-        for model_cfg in self.config['semantic_segmentation'].models:
+        model_cfgs = spec.models if spec.ensemblers is None else spec.models + spec.ensemblers
+        for model_cfg in model_cfgs:
+            if isinstance(model_cfg, SemanticSegmentationEnsemblerSpec):
+                submodels_names = model_cfg.submodels
+                model_cfg.submodels = [self.cache['semantic_segmentation'][m]["model"] for m in submodels_names]
+                model_cfg.net_h = [self.cache['semantic_segmentation'][m]["model_specification"].net_h for m in submodels_names]
+                model_cfg.net_w = [self.cache['semantic_segmentation'][m]["model_specification"].net_w for m in submodels_names]
+                model_cfg.channels = [self.cache['semantic_segmentation'][m]["model_specification"].channels for m in submodels_names]
             train_augmentation_pipeline, validation_augmentation_pipeline = prepare_augmentation_pipelines(config=model_cfg)
             train_data_generator = prepare_data_generator(
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=train_augmentation_pipeline,
@@ -124,6 +121,7 @@ class PlatypusEngine:
                 data=spec.data, model_cfg=model_cfg, augmentation_pipeline=validation_augmentation_pipeline,
                 path=spec.data.validation_path, only_images=False, return_paths=False
             )
+            print("Training model: ", model_cfg.name)
             model = self.compile_u_shaped_model(model_cfg)
             callbacks = prepare_callbacks_list(callbacks_specs=model_cfg.callbacks)
             if model_cfg.fit:
@@ -146,7 +144,7 @@ class PlatypusEngine:
             )
 
     @staticmethod
-    def compile_u_shaped_model(model_cfg: SemanticSegmentationModelSpec):
+    def compile_u_shaped_model(model_cfg: Union[SemanticSegmentationModelSpec, SemanticSegmentationEnsemblerSpec]):
         """Builds and compiles the U-shaped tensorflow model.
 
         Parameters
@@ -154,9 +152,10 @@ class PlatypusEngine:
         model_cfg : SemanticSegmentationModelSpec
             The model specification used for shaping the U-shaped architecture.
         """
-        model = u_shaped_model(
-            **dict(model_cfg)
-        ).model
+        if isinstance(model_cfg, SemanticSegmentationEnsemblerSpec):
+            model = stacked_ensembler(**dict(model_cfg)).model
+        else:
+            model = u_shaped_model(**dict(model_cfg)).model
         ftp = model_cfg.fine_tuning_path
         if ftp is not None:
             model.load_weights(ftp)
@@ -470,6 +469,8 @@ class PlatypusEngine:
             Names of the models associated with the chosen task.
         """
         model_names = [model_cfg.name for model_cfg in config.get(task_type).models]
+        if config.get(task_type).ensemblers is not None:
+            model_names = model_names + [model_cfg.name for model_cfg in config.get(task_type).ensemblers]
         return model_names
 
     @staticmethod

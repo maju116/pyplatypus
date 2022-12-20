@@ -6,6 +6,6 @@ from . import segmentation
 from . import object_detection
 from . import solvers
 from . import utils
-from . import config
+from . import constants
 from . import data_models
 from . import engine

@@ -2,7 +2,7 @@ from tensorflow.keras.layers import (
     SeparableConv2D, BatchNormalization, MaxPool2D, Dropout, Conv2DTranspose,
     Concatenate, Cropping2D, Resizing, Average, Add, Conv2D, SpatialDropout2D,
     UpSampling2D
-    )
+)
 from tensorflow.keras import activations as KRACT
 from tensorflow.keras.backend import int_shape
 from tensorflow.keras import Model, Input
@@ -14,6 +14,7 @@ class u_shaped_model:
 
     def __init__(
         self,
+        name: str,
         net_h: int,
         net_w: int,
         channels: Union[int, List[int]],
@@ -31,12 +32,15 @@ class u_shaped_model:
         use_spatial_dropout2d: Optional[bool] = True,
         use_up_sampling2d: Optional[bool] = False,
         activation_layer: Optional[str] = "relu",
+        u_net_conv_block_width: Optional[int] = 2,
         **kwargs
             ) -> None:
         """Creates U-Net model architecture.
 
         Parameters
         ----------
+        name : str
+            Model name.
         net_h : int
             Input layer height.
         net_w : int
@@ -71,7 +75,10 @@ class u_shaped_model:
             If set to False, the transpozed convolutional layer is used, by default False
         activation_layer : Optional[str], optional
             Allows the user to choose any activation layer available in the tensorflow.keras.activations, by default "relu"
+        u_net_conv_block_width: int, optional
+            Width (nr of convolutions) in U-Net block.
         """
+        self.name = name
         self.net_h = net_h
         self.net_w = net_w
         self.channels = sum(channels) if isinstance(channels, list) else channels
@@ -89,6 +96,7 @@ class u_shaped_model:
         self.use_spatial_droput2d = use_spatial_dropout2d
         self.use_up_sampling2d = use_up_sampling2d
         self.activation_layer = activation_layer
+        self.u_net_conv_block_width = u_net_conv_block_width
         self.model = self.build_model()
 
     def dropout_layer(self):
@@ -106,20 +114,20 @@ class u_shaped_model:
         return dropout_layer
 
     def convolutional_layer(
-        self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "relu"
-            ) -> Union[SeparableConv2D, Conv2D]:
+            self, filters: int, kernel_size: Tuple[int, int], activation: Optional[str] = "linear"
+    ) -> Union[SeparableConv2D, Conv2D]:
         """
         Returns the convolutional layer of the demanded type.
 
         Parameters
         ----------
-        input: tf.Tensor
-            Model or layer object.
         filters: int
             Integer, the dimensionality of the output space (i.e. the number of output filters in the convolution).
         kernel_size: Tuple[int, int])
             An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             If single integer is supplied the same value is used for all spatial dimensions.
+        activation: Optional[str]
+            Activation function name.
 
         Returns
         -------
@@ -139,9 +147,8 @@ class u_shaped_model:
             self,
             input: tf.Tensor,
             filters: int,
-            kernel_size: Tuple[int, int],
-            u_net_conv_block_width: int = 2
-            ) -> tf.Tensor:
+            kernel_size: Tuple[int, int]
+    ) -> tf.Tensor:
         """
         Creates a multiple convolutional U-Net block.
 
@@ -154,15 +161,13 @@ class u_shaped_model:
         kernel_size: Tuple[int, int]
             An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             It is allowed to be a single integer to specify the same value for all spatial dimensions.
-        u_net_conv_block_width: int
-            Controls the amount of convolutional layers in the block, by default 2
 
         Returns
         -------
         input:
             Multiple convolutional block of the U-Net model.
         """
-        for i in range(u_net_conv_block_width):
+        for i in range(self.u_net_conv_block_width):
             input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
@@ -170,12 +175,11 @@ class u_shaped_model:
         return input
 
     def res_u_net_multiple_conv2d(
-        self,
-        input: tf.Tensor,
-        filters: int,
-        kernel_size: Tuple[int, int],
-        res_u_net_conv_block_width: int = 2
-            ) -> tf.Tensor:
+            self,
+            input: tf.Tensor,
+            filters: int,
+            kernel_size: Tuple[int, int]
+    ) -> tf.Tensor:
         """
         Creates a multiple convolutional Res-U-Net block, with the raw input added before the final activation.
 
@@ -188,8 +192,6 @@ class u_shaped_model:
         kernel_size: Tuple[int, int]
             An integer or tuple of 2 integers, specifying the width and height of the 2D convolution window.
             It is allowed to be a single integer to specify the same value for all spatial dimensions.
-        res_u_net_conv_block_width: int
-            Controls the amount of convolutional layers in the block, by default 2.
 
         Returns:
             Multiple convolutional bloc of U-Net model.
@@ -198,9 +200,9 @@ class u_shaped_model:
         raw_input = Conv2D(
             filters=filters, kernel_size=kernel_size, padding="same",
             kernel_initializer=self.kernel_initializer)(
-                input
-            )
-        for i in range(res_u_net_conv_block_width):
+            input
+        )
+        for i in range(self.u_net_conv_block_width):
             input = self.convolutional_layer(filters, kernel_size)(input)
             if self.batch_normalization:
                 input = BatchNormalization()(input)
@@ -212,12 +214,12 @@ class u_shaped_model:
         return input
 
     def multiple_conv2d_block(
-        self,
-        input: tf.Tensor,
-        filters: int,
-        kernel_size: Tuple[int, int],
-        conv_block_width: int = 2
-            ) -> tf.Tensor:
+            self,
+            input: tf.Tensor,
+            filters: int,
+            kernel_size: Tuple[int, int],
+            conv_block_width: int = 2
+    ) -> tf.Tensor:
         """
         Creates a multiple convolutional block, suiting the chosen architecture.
 
@@ -239,9 +241,9 @@ class u_shaped_model:
             Multiple convolutional block of the model.
         """
         if self.resunet:
-            conv_block = self.res_u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
+            conv_block = self.res_u_net_multiple_conv2d(input, filters, kernel_size)
         else:
-            conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size, conv_block_width)
+            conv_block = self.u_net_multiple_conv2d(input, filters, kernel_size)
         return conv_block
 
     def activation(self):
@@ -339,7 +341,8 @@ class u_shaped_model:
         output = Resizing(height=self.net_h, width=self.net_w)(output)
         if self.plus_plus and self.deep_supervision:
             outputs = subconv_layers[0].copy()
-            outputs = [self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(o) for o in outputs]
+            outputs = [self.convolutional_layer(filters=self.n_class, kernel_size=1, activation="softmax")(o) for o in
+                       outputs]
             outputs = [Resizing(height=self.net_h, width=self.net_w)(o) for o in outputs]
             outputs.append(output)
             output = Average()(outputs)
@@ -364,7 +367,7 @@ class u_shaped_model:
         Returns
         -------
         model:
-            U-Net/U-Net++ model.
+            Semantic segmentation model.
         """
         input_img = self.generate_input()
         conv_layers, pool_layers, subconv_layers = self.init_empty_layers_placeholders()
@@ -372,7 +375,7 @@ class u_shaped_model:
             current_input = input_img if block == 0 else pool_layers[block - 1]
             current_input = self.multiple_conv2d_block(
                 input=current_input, filters=self.filters * 2 ** block, kernel_size=(3, 3)
-                )
+            )
             conv_layers.append(current_input)
             current_input = MaxPool2D(pool_size=2)(current_input)
             current_input = self.dropout_layer()(current_input)
@@ -387,11 +390,12 @@ class u_shaped_model:
                         down_layer = Conv2DTranspose(
                             self.filters * 2 ** (self.blocks - block - 1),
                             kernel_size=(3, 3), strides=2, padding="same"
-                            )(down_layer)
+                        )(down_layer)
                     else:
                         down_layer = UpSampling2D((2, 2))(down_layer)
                         down_layer = Conv2D(
-                            self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2), padding="same"
+                            self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3), strides=(2, 2),
+                            padding="same"
                         )(down_layer)
                     left_layers = subconv_layers[subblock].copy()
                     left_layers.append(down_layer)
@@ -402,11 +406,11 @@ class u_shaped_model:
                     subblock_layer = Concatenate()(left_layers)
                     subblock_layer = self.multiple_conv2d_block(
                         input=subblock_layer, filters=self.filters * 2 ** block, kernel_size=(3, 3)
-                        )
+                    )
                     subconv_layers[subblock].append(subblock_layer)
         current_input = self.multiple_conv2d_block(
             input=current_input, filters=self.filters * 2 ** self.blocks, kernel_size=(3, 3)
-            )
+        )
         conv_layers.append(current_input)
         for block in range(self.blocks):
             if not self.use_up_sampling2d:
@@ -425,12 +429,12 @@ class u_shaped_model:
             else:
                 current_input = self.horizontal_connection()()([
                     current_input, Cropping2D(cropping=(ch, cw))(conv_layers[self.blocks - block - 1]),
-                    ])
+                ])
             current_input = self.dropout_layer()(current_input)
             current_input = self.multiple_conv2d_block(
                 input=current_input, filters=self.filters * 2 ** (self.blocks - block - 1), kernel_size=(3, 3)
-                )
+            )
             conv_layers.append(current_input)
         output = self.generate_output(conv_layers[2 * self.blocks], subconv_layers)
-        model = Model(inputs=input_img, outputs=output, name="u_net")
+        model = Model(inputs=input_img, outputs=output, name=self.name)
         return model
