@@ -10,6 +10,8 @@ semantic_segmentation:
         column_sep: ';'
     models:
         - name: 'sim_acr_res_u_net'
+          fine_tuning_path: "examples/models/sim_acr_res_u_net.hdf5"
+          fit: False
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -71,6 +73,8 @@ semantic_segmentation:
                 always_apply: True
                 p: 1.0
         - name: 'sim_acr_u_net_plus_plus'
+          fine_tuning_path: "examples/models/sim_acr_u_net_plus_plus.hdf5"
+          fit: False
           net_h: 256
           net_w: 256
           h_splits: 0
@@ -116,6 +120,8 @@ semantic_segmentation:
                 p: 1.0
     ensemblers:
         - name: 'sim_acr_res_u_net_u_net_plus_plus_ensembler'
+          fine_tuning_path: "examples/models/sim_acr_res_u_net_u_net_plus_plus_ensembler.hdf5"
+          fit: False
           submodels: ['sim_acr_res_u_net', 'sim_acr_u_net_plus_plus']
           copy_submodels_weights: True
           freeze_submodels_weights: True
