@@ -12,6 +12,9 @@ authors = [{ name = "Michal Maj", email = "michalmaj116@gmail.com" }]
 dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
+    "numpy>=1.24",
+    "pillow>=10.0",
+    "albumentations>=1.4",
 ]
 
 [project.scripts]

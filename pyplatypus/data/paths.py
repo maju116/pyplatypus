@@ -1,0 +1,152 @@
+"""Finding the images and the masks.
+
+Two layouts, both inherited from the old package because they are what the examples use:
+
+* `nested_dirs` - one directory per sample, holding an `images/` and a `masks/`
+  subdirectory. The Data Science Bowl puts 27 separate mask files in one sample, one per
+  nucleus, so masks are always a list.
+* `config_file` - a CSV with `images` and `masks` columns, several paths per cell
+  separated by `column_sep`.
+
+One deliberate change: the old version caught `FileNotFoundError`, logged a warning and
+carried on, so a sample missing its masks silently vanished from training. Warnings in a
+loop over 536 directories are warnings nobody reads. Here an incomplete sample is an
+error by default, and skipping is something the caller asks for.
+"""
+
+from __future__ import annotations
+
+import csv
+from dataclasses import dataclass
+from pathlib import Path
+
+from pyplatypus.errors import ConfigError
+from pyplatypus.spec.common import DataMode
+from pyplatypus.spec.data import SegmentationData
+
+
+@dataclass(frozen=True)
+class Sample:
+    """One image and the mask files that belong to it."""
+
+    key: str
+    images: tuple[Path, ...]
+    masks: tuple[Path, ...] = ()
+
+    @property
+    def image(self) -> Path:
+        return self.images[0]
+
+
+@dataclass(frozen=True)
+class Discovery:
+    samples: tuple[Sample, ...]
+    skipped: tuple[tuple[str, str], ...] = ()
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+
+def _nested_dirs(root: Path, subdirs: tuple[str, str], only_images: bool
+                 ) -> tuple[list[Sample], list[tuple[str, str]]]:
+    samples: list[Sample] = []
+    skipped: list[tuple[str, str]] = []
+
+    for entry in sorted(p for p in root.iterdir() if p.is_dir()):
+        image_dir = entry / subdirs[0]
+        if not image_dir.is_dir():
+            skipped.append((entry.name, f"no '{subdirs[0]}' directory"))
+            continue
+        images = tuple(sorted(p for p in image_dir.iterdir() if p.is_file()))
+        if not images:
+            skipped.append((entry.name, f"'{subdirs[0]}' is empty"))
+            continue
+
+        masks: tuple[Path, ...] = ()
+        if not only_images:
+            mask_dir = entry / subdirs[1]
+            if not mask_dir.is_dir():
+                skipped.append((entry.name, f"no '{subdirs[1]}' directory"))
+                continue
+            masks = tuple(sorted(p for p in mask_dir.iterdir() if p.is_file()))
+            if not masks:
+                skipped.append((entry.name, f"'{subdirs[1]}' is empty"))
+                continue
+
+        samples.append(Sample(key=entry.name, images=images, masks=masks))
+    return samples, skipped
+
+
+def _config_file(path: Path, column_sep: str, only_images: bool
+                 ) -> tuple[list[Sample], list[tuple[str, str]]]:
+    with path.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    if not rows:
+        raise ConfigError(f"'{path}' contains no rows")
+    if "images" not in rows[0]:
+        found = ", ".join(rows[0].keys())
+        raise ConfigError(f"'{path}' needs an 'images' column; found: {found}")
+    if not only_images and "masks" not in rows[0]:
+        found = ", ".join(rows[0].keys())
+        raise ConfigError(f"'{path}' needs a 'masks' column; found: {found}")
+
+    # Relative paths resolve against the CSV, not the working directory, so a config
+    # file travels with its data instead of only working from one place.
+    base = path.parent
+
+    def resolve(cell: str) -> tuple[Path, ...]:
+        out = []
+        for piece in cell.split(column_sep):
+            piece = piece.strip()
+            if piece:
+                candidate = Path(piece)
+                out.append(candidate if candidate.is_absolute() else base / candidate)
+        return tuple(out)
+
+    samples: list[Sample] = []
+    skipped: list[tuple[str, str]] = []
+    for number, row in enumerate(rows, start=2):  # row 1 is the header
+        images = resolve(row.get("images") or "")
+        masks = () if only_images else resolve(row.get("masks") or "")
+        key = f"row {number}"
+        if not images:
+            skipped.append((key, "no image path"))
+            continue
+        if not only_images and not masks:
+            skipped.append((key, "no mask path"))
+            continue
+        samples.append(Sample(key=key, images=images, masks=masks))
+    return samples, skipped
+
+
+def discover(root: str | Path, data: SegmentationData, *, only_images: bool = False,
+             strict: bool = True) -> Discovery:
+    """List the samples under `root`, which is one of the paths named in `data`."""
+    root = Path(root)
+    if not root.exists():
+        raise ConfigError(f"'{root}' does not exist")
+
+    if data.mode is DataMode.NESTED_DIRS:
+        if not root.is_dir():
+            raise ConfigError(f"mode is nested_dirs but '{root}' is not a directory")
+        samples, skipped = _nested_dirs(root, data.subdirs, only_images)
+    else:
+        if not root.is_file():
+            raise ConfigError(f"mode is config_file but '{root}' is not a file")
+        samples, skipped = _config_file(root, data.column_sep, only_images)
+
+    if not samples:
+        raise ConfigError(
+            f"'{root}' yielded no usable samples"
+            + (f"; {len(skipped)} were incomplete" if skipped else "")
+        )
+    if skipped and strict:
+        shown = "\n".join(f"  - {key}: {why}" for key, why in skipped[:10])
+        more = f"\n  ... and {len(skipped) - 10} more" if len(skipped) > 10 else ""
+        raise ConfigError(
+            f"{len(skipped)} of {len(samples) + len(skipped)} samples under '{root}' are "
+            f"incomplete:\n{shown}{more}\n"
+            "Pass strict=False to train on the rest instead."
+        )
+    return Discovery(samples=tuple(samples), skipped=tuple(skipped))
