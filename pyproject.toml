@@ -31,7 +31,7 @@ classifiers = [
 ]
 dependencies = [
     "pydantic>=2.7",
-    "pyyaml>=6.0",
+    "pyyaml>=6.0.3",
     "numpy>=1.24",
     "pillow>=10.0",
     "albumentations>=1.4",
