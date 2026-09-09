@@ -65,6 +65,10 @@ include = ["pyplatypus*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Makes `tests` an importable package root, so a test can pull a shared helper out of
+# tests/conftest.py. Without it that import works locally, where `python -m pytest` puts
+# the working directory on sys.path, and fails everywhere else - which is how CI found it.
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

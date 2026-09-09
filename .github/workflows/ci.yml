@@ -61,11 +61,17 @@ jobs:
       - name: Install the package
         run: uv pip install -e ".[dev]"
 
+      # --no-sync matters: a bare `uv run` re-resolves the environment from
+      # pyproject.toml and reinstalls the CUDA torch that the step above deliberately
+      # avoided, downloading about 4 GB to do it.
       - name: Run the tests
-        run: uv run pytest -q --durations=10
+        run: uv run --no-sync pytest -q --durations=10
 
       - name: The schema still generates
-        run: uv run platypus-schema
+        run: uv run --no-sync platypus-schema
+
+      - name: Confirm the CPU build is what was tested
+        run: uv run --no-sync python -c "import torch; assert torch.version.cuda is None or '${{ runner.os }}' == 'macOS', f'CUDA build {torch.version.cuda} leaked into CI'; print(torch.__version__)"
 
   build:
     needs: test
