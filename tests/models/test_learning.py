@@ -103,22 +103,46 @@ def test_separable_convolutions_still_learn():
 
 
 def test_skips_are_actually_used():
-    """Cut the skip connections and the same budget should do measurably worse. If it
-    does not, the decoder was never reading them."""
-    image, target = synthetic(size=64)
-    spec = SegmentationModel(name="m", input_shape=(64, 64), channels=1, n_class=2,
+    """Cut the skip connections and the same budget should do measurably worse.
+
+    Getting this test to mean anything took three attempts, and the first two are worth
+    recording because both passed while testing nothing.
+
+    Overfitting one image needs no skips at all: the bottleneck holds 8x8x64 numbers,
+    which is more than enough to memorise a 64x64 mask regardless of what came in. Making
+    the target finer did not help either - it was still one image, still memorised.
+
+    So the model has to *generalise*. Here the target is a per-pixel function of the
+    input, evaluated on images the model never saw. That detail exists only at full
+    resolution: it reaches the output through the skip connections or not at all.
+    """
+    torch.manual_seed(0)
+    spec = SegmentationModel(name="m", input_shape=(32, 32), channels=1, n_class=2,
                              blocks=3, filters=8)
 
-    torch.manual_seed(1)
-    intact = build_model(spec)
-    overfit(intact, image, target, steps=40)
-    with_skips = dice(intact, image, target)
+    def batch(n, seed):
+        generator = torch.Generator().manual_seed(seed)
+        image = torch.rand(n, 1, 32, 32, generator=generator)
+        return image, (image[:, 0] > 0.5).long()
 
-    torch.manual_seed(1)
-    severed = build_model(spec)
-    original_merge = severed._merge
-    severed._merge = lambda up, skips: original_merge(up, [torch.zeros_like(s) for s in skips])
-    overfit(severed, image, target, steps=40)
-    without_skips = dice(severed, image, target)
+    train_x, train_y = batch(8, seed=1)
+    test_x, test_y = batch(4, seed=99)
 
-    assert with_skips > without_skips
+    def fit_and_score(sever: bool) -> float:
+        torch.manual_seed(1)
+        model = build_model(spec)
+        if sever:
+            merge = model._merge
+            model._merge = lambda up, skips: merge(
+                up, [torch.zeros_like(s) for s in skips]
+            )
+        overfit(model, train_x, train_y, steps=150, lr=5e-3)
+        return dice(model, test_x, test_y)
+
+    with_skips = fit_and_score(sever=False)
+    without_skips = fit_and_score(sever=True)
+
+    assert with_skips > without_skips + 0.15, (
+        f"severing the skips barely mattered ({with_skips:.4f} vs {without_skips:.4f}); "
+        "either the decoder is not reading them, or the task does not need them"
+    )
