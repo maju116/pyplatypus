@@ -89,9 +89,12 @@ class Trainer:
                 if train:
                     loss.backward()
                     self.optimizer.step()
-                totals[f"{prefix}_loss"] += float(loss)
+                # detach before reading: torch >= 2.14 warns about turning a tensor
+                # that still tracks gradients into a scalar, and it would warn once per
+                # batch for the whole run.
+                totals[f"{prefix}_loss"] += loss.detach().item()
                 for name, metric in self.metrics.items():
-                    totals[f"{prefix}_{name}"] += float(metric(final, batch_y))
+                    totals[f"{prefix}_{name}"] += metric(final, batch_y).detach().item()
                 batches += 1
 
         if batches == 0:

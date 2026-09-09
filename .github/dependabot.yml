@@ -1,0 +1,11 @@
+# The default branch currently reports 50 vulnerabilities from the pins of the package
+# being replaced. Once main carries the rewrite, this keeps it from happening again.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }

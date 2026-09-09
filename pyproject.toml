@@ -4,31 +4,60 @@ version = "0.2.0.dev0"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Michal Maj", email = "michalmaj116@gmail.com" }]
-
-# torch arrives in step 3, huggingface_hub with the weights registry. The data
-# layer is deliberately numpy-only so it stays fast to test and reusable.
+keywords = [
+    "computer-vision",
+    "segmentation",
+    "medical-imaging",
+    "u-net",
+    "pytorch",
+    "deep-learning",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
 dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
     "numpy>=1.24",
     "pillow>=10.0",
     "albumentations>=1.4",
-    # Pinned to the CUDA 12.x line on purpose. torch 2.8+/cu13x dropped the whole Pascal
-    # family, which kills the author's GTX 1070 outright - see spike/FINDINGS.md stage 2.
-    # Loosen this only after checking what CUDA build the new version ships.
-    "torch>=2.7,<2.8",
+    # No upper bound on purpose. torch 2.8+ ships CUDA 13 builds, which dropped the
+    # Maxwell, Pascal and Volta generations - a GTX 10-series card needs a CUDA 12.x
+    # build and therefore torch 2.7.x. That is a property of somebody's hardware, not of
+    # this package, so it lives in the `pascal` extra instead of being forced on everyone.
+    "torch>=2.7",
 ]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov", "ruff>=0.6", "build", "twine"]
+# For a Pascal-generation GPU (GTX 10-series): the last torch built against CUDA 12.
+pascal = ["torch>=2.7,<2.8"]
 
 [project.scripts]
 platypus-schema = "pyplatypus.spec.schema:main"
 
-[project.optional-dependencies]
-dev = ["pytest>=8", "pytest-cov", "ruff"]
+[project.urls]
+Homepage = "https://github.com/maju116/pyplatypus"
+Repository = "https://github.com/maju116/pyplatypus"
+Issues = "https://github.com/maju116/pyplatypus/issues"
+"R package" = "https://github.com/maju116/platypus"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

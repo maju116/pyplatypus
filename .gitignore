@@ -40,8 +40,5 @@ dist/
 /examples/data_science_bowl_config.yaml
 /examples/claud_38_config.yaml
 
-# CI for the package being replaced: it targets main/development and references files
-# that now live in _legacy/. New workflows arrive with step 8.
-/.github/
 # Documents releases of the old package. A changelog for the rewrite starts at release.
 /CHANGELOG.md

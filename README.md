@@ -53,9 +53,18 @@ Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch a
 
 ## Requirements
 
-Python ≥ 3.10. **torch is pinned to the CUDA 12.x line on purpose**: 2.8 and later ship
-CUDA 13 builds, which dropped the entire Pascal generation. Check what CUDA build a newer
-torch carries before loosening that pin.
+Python ≥ 3.10, and torch ≥ 2.7.
+
+**If your GPU is a GTX 10-series (Pascal) or older**, install the `pascal` extra:
+
+```bash
+pip install "pyplatypus[pascal]"
+```
+
+torch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and
+Volta generations outright - no driver update brings them back. The last torch built
+against CUDA 12 is 2.7.x, which the extra pins. On anything from Turing (RTX 20-series)
+onwards, ignore this.
 
 ## Licence
 
