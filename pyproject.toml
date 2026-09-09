@@ -57,7 +57,7 @@ Issues = "https://github.com/maju116/pyplatypus/issues"
 "R package" = "https://github.com/maju116/platypus"
 
 [build-system]
-requires = ["setuptools>=77"]
+requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
