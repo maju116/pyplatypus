@@ -1,0 +1,34 @@
+[project]
+name = "pyplatypus"
+version = "0.2.0.dev0"
+description = "Computer vision for medical imaging: the engine behind the platypus R package."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Michal Maj", email = "michalmaj116@gmail.com" }]
+
+# torch arrives in step 3, huggingface_hub with the weights registry. The data
+# layer is deliberately numpy-only so it stays fast to test and reusable.
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+platypus-schema = "pyplatypus.spec.schema:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov", "ruff"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pyplatypus*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

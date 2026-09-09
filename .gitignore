@@ -1,0 +1,47 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+.idea/
+.ipynb_checkpoints/
+
+# Leading slashes matter. An unanchored "data/" also matches pyplatypus/data/ and
+# tests/data/, which quietly dropped the whole data layer from a commit once already.
+
+# Datasets and run artefacts never belong in the repo.
+/examples/data/
+/examples/output/
+*.h5
+*.hdf5
+*.safetensors
+*.pt
+*_history.csv
+
+# Generated at build time from the pydantic models, see spec/schema.py
+/schema/*.json
+
+# --- left over from the pre-rewrite package, still on disk, deliberately not tracked ---
+# The bulls dataset: 2239 files, 59 MB, and it was never in git before either.
+/data/
+# mkdocs site for the package being replaced; docs are rebuilt in step 8.
+/docs/
+/development_script.py
+/_legacy/
+
+# Examples written against the pre-rewrite schema; they would not validate today.
+/examples/*.ipynb
+/examples/*.csv
+/examples/siim_acr.yml
+/examples/data_science_bowl_config.yaml
+/examples/claud_38_config.yaml
+
+# CI for the package being replaced: it targets main/development and references files
+# that now live in _legacy/. New workflows arrive with step 8.
+/.github/
+# Documents releases of the old package. A changelog for the rewrite starts at release.
+/CHANGELOG.md
