@@ -4,8 +4,12 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> Rewrite in progress. This branch replaces the 2022 TensorFlow package with a PyTorch
-> one. It is not released, the API will move, and the R surface does not exist yet.
+> **0.2.0a1 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> The API will still move and the R surface does not exist yet, so pin the exact version
+> if you build on it.
+>
+> Everything on PyPI so far is a pre-release, so `pip install pyplatypus` resolves to this
+> one. `pip install pyplatypus==0.1.0rc2` gets the old TensorFlow package.
 
 ## What works today
 

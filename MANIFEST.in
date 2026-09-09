@@ -1,0 +1,11 @@
+# Without this, setuptools picks up tests/test_engine.py and nothing below it: top-level
+# test files are included by default, nested ones are not. Half a suite helps nobody, and
+# these tests carry a lot of the reasoning behind the design, so they all ship.
+graft tests
+include examples/data_science_bowl.yaml
+
+# Datasets, trained weights and run output never belong in a distribution.
+prune examples/data
+prune examples/output
+prune _legacy
+global-exclude __pycache__ *.py[cod] *.pt *.h5 *.hdf5
