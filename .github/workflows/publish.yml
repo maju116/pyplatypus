@@ -32,7 +32,7 @@ jobs:
           declared=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           test "$tagged" = "$declared" || {
             echo "tag $tagged does not match pyproject version $declared"; exit 1; }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: distributions
           path: dist/
