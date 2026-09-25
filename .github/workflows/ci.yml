@@ -104,7 +104,7 @@ jobs:
       # files the build step left behind, whatever the download actually produced.
       - name: Discard the built files, so only the artifact can satisfy what follows
         run: rm -rf dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: distributions
           path: dist/
