@@ -93,3 +93,31 @@ jobs:
         with:
           name: distributions
           path: dist/
+
+      # The release workflow hands the built distributions between jobs through an
+      # artifact, and download-artifact appears nowhere else - so a bump to that action
+      # used to arrive with a green tick from ten jobs, none of which executed a single
+      # line of it, and would only be found by a failed release. Doing the round trip
+      # here puts it on the tested path.
+      #
+      # Deleting dist/ first matters: without it the checks below would pass on the
+      # files the build step left behind, whatever the download actually produced.
+      - name: Discard the built files, so only the artifact can satisfy what follows
+        run: rm -rf dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+      - name: The distributions survived the round trip intact
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          ls -l dist/
+          wheels=(dist/*.whl); sdists=(dist/*.tar.gz)
+          test ${#wheels[@]} -eq 1 || { echo "expected 1 wheel, found ${#wheels[@]}"; exit 1; }
+          test ${#sdists[@]} -eq 1 || { echo "expected 1 sdist, found ${#sdists[@]}"; exit 1; }
+          # Still real archives, not a zip of a zip: exactly what changed in
+          # download-artifact v8, which stopped unconditionally decompressing.
+          python -c "import sys, zipfile; sys.exit(0 if zipfile.is_zipfile('${wheels[0]}') else 1)"
+          python -c "import sys, tarfile; sys.exit(0 if tarfile.is_tarfile('${sdists[0]}') else 1)"
+          uvx twine check dist/*
