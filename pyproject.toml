@@ -45,7 +45,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=9.1.1", "pytest-cov", "ruff>=0.6", "build", "twine"]
 # For a Pascal-generation GPU (GTX 10-series): the last torch built against CUDA 12.
-pascal = ["torch>=2.7,<2.8"]
+pascal = ["torch>=2.7,<2.15"]
 
 [project.scripts]
 platypus-schema = "pyplatypus.spec.schema:main"
