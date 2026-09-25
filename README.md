@@ -37,6 +37,10 @@ where 3D stops.
 uv venv --python 3.11 .venv
 uv pip install --python .venv/bin/python -e ".[dev]"
 .venv/bin/python -m pytest
+
+# The linter is pinned in pyproject.toml and installed on its own, so it agrees with CI
+# and does not drag torch along to read text files.
+uv run --only-group lint ruff check pyplatypus tests
 ```
 
 ```python
