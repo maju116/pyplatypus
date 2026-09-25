@@ -18,8 +18,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      - run: uvx ruff@0.16.6 check pyplatypus tests
-      - run: uvx ruff@0.16.6 format --check --diff pyplatypus tests
+      # --only-group installs ruff alone, at the version pyproject.toml pins, so CI and
+      # a contributor's machine cannot disagree about which rules apply.
+      - run: uv run --only-group lint ruff check pyplatypus tests
+      - run: uv run --only-group lint ruff format --check --diff pyplatypus tests
         continue-on-error: true   # formatting is not enforced yet, only reported
 
   test:

@@ -43,9 +43,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=9.1.1", "pytest-cov", "ruff>=0.6", "build", "twine"]
+dev = ["pytest>=9.1.1", "pytest-cov", "build", "twine"]
 # For a Pascal-generation GPU (GTX 10-series): the last torch built against CUDA 12.
 pascal = ["torch>=2.7,<2.8"]
+
+# The linter's version is declared here and nowhere else. It used to be pinned in the CI
+# workflow while the dev extra said `ruff>=0.6`, so a contributor could run `ruff check`
+# clean locally and still be told off by CI - ruff adds and changes rules between minor
+# releases, and 0.6 to 0.16 is a lot of them.
+#
+# A dependency group rather than an extra, because `uv run --only-group lint` installs
+# ruff and nothing else: the linter has no business pulling torch down to look at text.
+#
+#     uv run --only-group lint ruff check pyplatypus tests
+#
+[dependency-groups]
+lint = ["ruff==0.16.6"]
 
 [project.scripts]
 platypus-schema = "pyplatypus.spec.schema:main"
