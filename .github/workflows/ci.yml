@@ -89,7 +89,7 @@ jobs:
             --index-url https://download.pytorch.org/whl/cpu
           uv pip install --python /tmp/check/bin/python dist/*.whl
           /tmp/check/bin/python -c "import pyplatypus; print(pyplatypus.__version__)"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: distributions
           path: dist/
