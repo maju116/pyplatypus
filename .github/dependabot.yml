@@ -6,6 +6,14 @@ updates:
     directory: /
     schedule: { interval: monthly }
     open-pull-requests-limit: 5
+    # This is a library, not an application. The default strategy raises the *minimum*
+    # version of a dependency whenever a newer one appears, which costs users something
+    # and buys nobody anything: the package builds and its tests pass against the floors
+    # already declared, so lifting them only narrows the set of environments pyplatypus
+    # can be installed into and invites conflicts with whatever else is pinned there.
+    # `increase-if-necessary` moves a floor only when something actually requires it.
+    # Security advisories are unaffected and still come through.
+    versioning-strategy: increase-if-necessary
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
