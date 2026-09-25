@@ -14,6 +14,18 @@ updates:
     # `increase-if-necessary` moves a floor only when something actually requires it.
     # Security advisories are unaffected and still come through.
     versioning-strategy: increase-if-necessary
+    ignore:
+      # torch's bounds in this project encode a hardware fact, not a stale pin, and no
+      # test here can check it. The `pascal` extra says torch>=2.7,<2.8 because 2.8 and
+      # later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and Volta
+      # generations - a GTX 10-series card simply cannot run them, and no driver update
+      # changes that. Dependabot read `<2.8` as an upper bound to widen and proposed
+      # `<2.15` (#112), which would have handed exactly those users a torch their GPU
+      # cannot use, with ten green CI jobs behind it: the runners are CPU-only and never
+      # touch a Pascal card.
+      #
+      # The main dependency, plain `torch>=2.7`, has no upper bound to update anyway.
+      - dependency-name: torch
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
