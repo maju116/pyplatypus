@@ -58,7 +58,7 @@ pascal = ["torch>=2.7,<2.8"]
 #     uv run --only-group lint ruff check pyplatypus tests
 #
 [dependency-groups]
-lint = ["ruff==0.16.6"]
+lint = ["ruff==0.16.8"]
 
 [project.scripts]
 platypus-schema = "pyplatypus.spec.schema:main"
