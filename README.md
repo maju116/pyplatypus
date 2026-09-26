@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.2.0a1 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.2.0a2 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -25,6 +25,9 @@ Semantic segmentation in 2D, end to end:
   they already work on volumes.
 - **Tiling that goes both ways**: cut a large image into a grid instead of shrinking it,
   and get a full-size mask back.
+- **DICOM, read properly**: stored values converted to real units through the modality
+  LUT, a fixed window rather than one taken from the image, and MONOCHROME1 inverted.
+  Opening the file is the easy part; those three are what make two scans comparable.
 - **Many models from one file**, with a comparison table at the end.
 
 3D, object detection, ensembling and pretrained backbones are deliberately out of scope

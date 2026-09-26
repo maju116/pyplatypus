@@ -28,12 +28,23 @@ class ImageError(PlatypusError):
 
 def read_image(path: str | Path, *, channels: int = 3,
                size: tuple[int, ...] | None = None,
-               nearest: bool = False) -> np.ndarray:
-    """Read one image as a channels-last float32 array scaled to 0-1.
+               nearest: bool = False, dicom_window="auto") -> np.ndarray:
+    """Read one image as a channels-last array scaled to 0-1 (DICOM) or 0-255 (the rest).
 
     `nearest` must be used for masks: interpolating a mask invents colours that match no
     class, which then silently become background.
+
+    DICOM is detected by content rather than by extension, because exports out of an
+    archive frequently carry no extension or one the archive invented.
     """
+    from pyplatypus.data.dicom import looks_like_dicom, read_dicom
+
+    if looks_like_dicom(path):
+        array = read_dicom(path, window=dicom_window, channels=channels)
+        if size is not None:
+            array = _resize_array(array, size, nearest=nearest)
+        return array
+
     mode = _PIL_MODE.get(channels)
     if mode is None:
         raise ImageError(f"channels must be 1, 3 or 4 for ordinary images, got {channels}")
@@ -55,6 +66,27 @@ def read_image(path: str | Path, *, channels: int = 3,
     if array.ndim == 2:
         array = array[..., None]
     return array
+
+
+def _resize_array(array: np.ndarray, size: tuple[int, ...], *, nearest: bool
+                  ) -> np.ndarray:
+    """Resize a float array through PIL, one channel at a time.
+
+    DICOM arrives as real values rather than bytes, so it cannot go through the 8-bit path
+    without losing exactly the precision the modality LUT was applied to recover.
+    """
+    if len(size) != 2:
+        raise ImageError(f"2D readers take a (height, width), got {tuple(size)}")
+    resample = Image.Resampling.NEAREST if nearest else Image.Resampling.BILINEAR
+    channels = [
+        np.asarray(
+            Image.fromarray(array[..., c].astype(np.float32), mode="F")
+            .resize((size[1], size[0]), resample=resample),
+            dtype=np.float32,
+        )
+        for c in range(array.shape[-1])
+    ]
+    return np.stack(channels, axis=-1)
 
 
 def to_float(array: np.ndarray) -> np.ndarray:

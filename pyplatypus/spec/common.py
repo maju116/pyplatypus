@@ -55,3 +55,20 @@ class Activation(str, Enum):
     SILU = "silu"
     TANH = "tanh"
 
+
+
+# The windows radiologists actually use, as (centre, width) in Hounsfield units. Naming
+# one is clearer and less error-prone than typing two numbers, and it puts the vocabulary
+# of the field into the API rather than leaving it in a paper somewhere. Kept here rather
+# than beside the reader so that the spec stays free of numpy and pydicom.
+WINDOWS: dict[str, tuple[float, float]] = {
+    "brain": (40.0, 80.0),
+    "subdural": (75.0, 215.0),
+    "stroke": (32.0, 8.0),
+    "bone": (400.0, 1800.0),
+    "soft_tissue": (40.0, 400.0),
+    "abdomen": (60.0, 400.0),
+    "liver": (30.0, 150.0),
+    "lung": (-600.0, 1500.0),
+    "mediastinum": (50.0, 350.0),
+}
