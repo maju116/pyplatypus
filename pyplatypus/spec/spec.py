@@ -46,7 +46,7 @@ class PlatypusSpec(SpecModel):
         return self
 
     @model_validator(mode="after")
-    def classes_match_colormap(self):
+    def classes_match_the_data(self):
         expected = self.data.n_class
         wrong = [
             f"{model.name} has n_class={model.n_class}"
@@ -54,8 +54,11 @@ class PlatypusSpec(SpecModel):
             if model.n_class != expected
         ]
         if wrong:
+            # Named after whichever one is in use, because "the colormap defines 3 classes"
+            # is a confusing thing to be told about a spec that has no colormap.
+            source = "labels" if self.data.label_map else "colormap"
             raise ValueError(
-                f"the colormap defines {expected} classes, but " + "; ".join(wrong)
+                f"the {source} defines {expected} classes, but " + "; ".join(wrong)
             )
         return self
 

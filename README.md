@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.2.0a3 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a1 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -36,11 +36,21 @@ Semantic segmentation in 2D, end to end:
   separately and `summarise_cases()` gives the distribution and names the worst one. On the
   Data Science Bowl a model at 0.855 over the split turned out to score 0.006 on three
   images; the mean had no way of saying so.
+- **Volumes, not only slices**: NIfTI in, 3D U-Net out, patches through the same tiling
+  that cuts 2D images. Every volume is reoriented to canonical (RAS) first - a NIfTI's
+  affine, not its array order, says where the anatomy is, and two datasets read naively can
+  be mirror images of each other. Masks may be label maps (`labels: [0, 1]`) as well as
+  pictures, because that is how every volume format stores them.
 - **Many models from one file**, with a comparison table at the end.
 
-3D, object detection, ensembling and pretrained backbones are deliberately out of scope
-for v0.1. The spec and the model builder already handle volumes; the data pipeline is
-where 3D stops.
+Object detection, ensembling and pretrained backbones remain out of scope. So does
+augmentation in 3D: albumentations ships 3D transforms through a different call signature,
+and a 3D spec asking for augmentation is refused rather than silently ignored.
+
+Also not done yet, deliberately: **resampling to isotropic spacing**. Spacing is read and
+carried (`volume_spacing()`), because losing it would make resampling impossible later, but
+applying it changes the voxel grid the model sees and that is a decision to make explicitly
+rather than inside a reader.
 
 ## Try it
 

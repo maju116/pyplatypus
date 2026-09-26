@@ -156,8 +156,24 @@ def test_models_may_use_different_input_sizes(two_model_config):
     assert engine.predict("linknet", split="validation").shape[1:3] == (64, 64)
 
 
-def test_a_3d_spec_is_refused_with_a_useful_message(two_model_config):
-    two_model_config["models"] = [dict(two_model_config["models"][0],
-                                       input_shape=[32, 32, 32])]
-    with pytest.raises(EngineError, match="v0.1"):
-        Engine(from_dict(two_model_config), device="cpu")
+def test_a_3d_spec_trains(volume_root):
+    """The line this package spent v0.1 not crossing.
+
+    Same engine, same trainer, same losses; the only difference is that input_shape has
+    three entries and the data is volumes with label maps.
+    """
+    pytest.importorskip("nibabel")
+    spec = from_dict({
+        "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
+                 "labels": [0, 1], "shuffle": False},
+        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "n_class": 2, "blocks": 2,
+                    "filters": 4, "batch_size": 1, "epochs": 1, "channels": 1,
+                    "metrics": [{"name": "dice"}]}],
+    })
+    engine = Engine(spec, device="cpu")
+    history = engine.fit()["unet3d"]
+
+    assert len(history) == 1
+    assert "val_dice" in history.records[0]
+    masks = engine.predict("unet3d", split="validation")
+    assert masks.shape[1:] == (8, 8, 4, 2)

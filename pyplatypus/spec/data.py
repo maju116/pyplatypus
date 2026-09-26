@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 
 from pyplatypus.spec.common import WINDOWS, DataMode, SpecModel
 
@@ -25,25 +25,40 @@ class SegmentationData(SpecModel):
     test_path: str | None = None
 
     mode: DataMode = DataMode.NESTED_DIRS
-    colormap: list[Colour] = Field(
+    colormap: list[Colour] | None = Field(
+        None,
         min_length=2,
         description="One colour per class; index in this list is the class index.",
     )
-    dicom_window: str | tuple[float, float] = Field(
-        "auto",
+    labels: list[int] | None = Field(
+        None,
+        min_length=2,
         description=(
-            "How DICOM pixel values are mapped to 0-1: a named window such as 'lung' or "
-            "'soft_tissue', an explicit (centre, width) pair, 'auto' to use the window "
-            "recorded in the file, or 'full' for the whole range present. A fixed window "
-            "is what makes two scans comparable - scaling each image by its own extremes "
-            "lets one bright pixel rescale everything else. Ignored for ordinary images."
+            "For masks stored as label maps rather than pictures: the voxel value of each "
+            "class, in class order. This is how volumes label anything - NIfTI holds "
+            "integers, not colours - and how a single-channel PNG mask can be read too. "
+            "Exactly one of `colormap` and `labels` is given."
+        ),
+    )
+    window: str | tuple[float, float] = Field(
+        "auto",
+        validation_alias=AliasChoices("window", "dicom_window"),
+        description=(
+            "How values in real units are mapped to 0-1: a named window such as 'lung' or "
+            "'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the "
+            "file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole "
+            "range present. A fixed window is what makes two scans comparable: scaling each "
+            "one by its own extremes lets a single bright voxel rescale everything else. "
+            "Ignored for ordinary pictures, which are already 0-255. Accepted as "
+            "`dicom_window` too, the name it had while DICOM was the only format that "
+            "needed it."
         ),
     )
     subdirs: tuple[str, str] = ("images", "masks")
     column_sep: str = ";"
     shuffle: bool = True
 
-    @field_validator("dicom_window")
+    @field_validator("window")
     @classmethod
     def known_window(cls, value):
         if isinstance(value, str) and value not in {"auto", "full"} and value not in WINDOWS:
@@ -59,7 +74,9 @@ class SegmentationData(SpecModel):
 
     @field_validator("colormap")
     @classmethod
-    def channels_in_range(cls, value: list[tuple[int, int, int]]):
+    def channels_in_range(cls, value: list[tuple[int, int, int]] | None):
+        if value is None:
+            return value
         for index, colour in enumerate(value):
             if any(channel < 0 or channel > 255 for channel in colour):
                 raise ValueError(
@@ -71,10 +88,44 @@ class SegmentationData(SpecModel):
             )
         return value
 
+    @field_validator("labels")
+    @classmethod
+    def labels_are_distinct(cls, value: list[int] | None):
+        if value is None:
+            return value
+        if len(set(value)) != len(value):
+            raise ValueError(
+                "label values must be distinct - two classes sharing a value cannot be "
+                "told apart"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def one_way_of_naming_classes(self):
+        """Exactly one of `colormap` and `labels`.
+
+        Not both, even when they agree: two sources for the number of classes is two places
+        to change it and one of them will be forgotten. Not neither, because nothing else in
+        the spec says how many classes a mask holds - and guessing it from the data would
+        mean a dataset whose validation set happens to contain no tumour trains a model with
+        one class fewer.
+        """
+        if (self.colormap is None) == (self.labels is None):
+            raise ValueError(
+                "give exactly one of `colormap` (masks stored as pictures) and `labels` "
+                "(masks stored as label maps, which is how volumes do it)"
+            )
+        return self
+
     @property
     def n_class(self) -> int:
-        """The colormap decides how many classes there are. Nothing else gets a vote."""
-        return len(self.colormap)
+        """How many classes there are. The colormap or the labels decide; nothing else."""
+        return len(self.colormap if self.colormap is not None else self.labels)
+
+    @property
+    def label_map(self) -> bool:
+        """Whether masks are label maps rather than pictures."""
+        return self.labels is not None
 
     def check_paths(self) -> list[str]:
         """Return a human-readable problem for every path that is not there."""

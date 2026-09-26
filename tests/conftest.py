@@ -59,3 +59,35 @@ def binary_data():
         train_path="unused", validation_path="unused",
         colormap=[(0, 0, 0), (255, 255, 255)],
     )
+
+
+@pytest.fixture
+def volume_root(tmp_path):
+    """Three samples of NIfTI volumes with label-map masks, laid out as nested_dirs.
+
+    Small on purpose - 8x8x4 - because a 3D test that takes a minute gets skipped, and a
+    skipped test proves nothing.
+    """
+    nib = pytest.importorskip("nibabel")
+    root = tmp_path / "volumes"
+    for n in range(3):
+        sample = root / f"case_{n}"
+        (sample / "images").mkdir(parents=True, exist_ok=True)
+        (sample / "masks").mkdir(parents=True, exist_ok=True)
+
+        scan = np.full((8, 8, 4), -1000.0, dtype=np.float32)      # air
+        scan[2:6, 2:6, 1:3] = 40.0 + 10 * n                       # soft tissue
+        labels = np.zeros((8, 8, 4), dtype=np.float32)
+        labels[2:6, 2:6, 1:3] = 1
+
+        affine = np.diag([1.0, 1.0, 2.5, 1.0])
+        nib.save(nib.Nifti1Image(scan, affine), str(sample / "images" / "scan.nii.gz"))
+        nib.save(nib.Nifti1Image(labels, affine), str(sample / "masks" / "labels.nii.gz"))
+    return root
+
+
+@pytest.fixture
+def volume_data():
+    return SegmentationData(
+        train_path="unused", validation_path="unused", labels=[0, 1],
+    )

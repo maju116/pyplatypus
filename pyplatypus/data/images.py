@@ -29,7 +29,10 @@ class ImageError(PlatypusError):
 def read_image(path: str | Path, *, channels: int = 3,
                size: tuple[int, ...] | None = None,
                nearest: bool = False, dicom_window="auto") -> np.ndarray:
-    """Read one image as a channels-last array scaled to 0-1 (DICOM) or 0-255 (the rest).
+    """Read one image or volume as a channels-last array.
+
+    Scaled to 0-1 for anything read in real units (DICOM, NIfTI) and left at 0-255 for
+    ordinary pictures, which `to_float` divides later.
 
     `nearest` must be used for masks: interpolating a mask invents colours that match no
     class, which then silently become background.
@@ -38,6 +41,15 @@ def read_image(path: str | Path, *, channels: int = 3,
     archive frequently carry no extension or one the archive invented.
     """
     from pyplatypus.data.dicom import looks_like_dicom, read_dicom
+    from pyplatypus.data.volumes import looks_like_volume, read_volume
+
+    # A volume asks for a different reader, not a different pipeline. Dispatching here keeps
+    # every caller - the dataset, the plotting helpers, the R surface - reading "whatever is
+    # at this path, the way training would", which is the only way a picture of a prediction
+    # can be trusted to show what the model saw.
+    if looks_like_volume(path):
+        return read_volume(path, window=dicom_window, size=size, nearest=nearest,
+                           channels=channels)
 
     if looks_like_dicom(path):
         array = read_dicom(path, window=dicom_window, channels=channels)

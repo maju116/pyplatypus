@@ -1,6 +1,62 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a1]
+
+*2026-09-26*
+
+Volumes. The spec, the model builder, the losses, the metrics and the tiling were already
+rank-generic - `input_shape = [64, 64, 32]` has validated and built a 3D U-Net since
+0.2.0a1 - so what was missing was reading volumes, naming classes the way volumes do, and
+two refusals that existed to stop a half-working 3D run.
+
+### Added
+
+ - NIfTI reading (`read_volume`, `volume_spacing`), dispatched from `read_image` so
+   everything reads "whatever is at this path, the way training would". Two corrections
+   happen before anything looks at the array:
+   - **canonical orientation.** A NIfTI stores an affine, not an array in a known order,
+     and the same anatomy can arrive in any of 48 permutations and flips. Read two datasets
+     naively and one has the patient's left on the right; train on both and the model can
+     learn which dataset a scan came from. Every volume is reoriented to closest-canonical
+     RAS, and there is a test that two files describing the same anatomy through different
+     affines come back byte-identical
+   - **a fixed intensity window,** the same named windows the DICOM reader uses, so 'lung'
+     means one thing across the package. `auto` falls back to the range present for NIfTI,
+     which stores no window - stated rather than silent, since that is the one case where a
+     bright outlier still rescales everything else
+ - `labels` in the data section: masks as label maps rather than pictures, which is how
+   every volume format stores them. Exactly one of `colormap` and `labels` - not both even
+   when they agree, since two sources for the number of classes means one going stale, and
+   not neither, since guessing it from the data would let a validation set with no tumour
+   quietly train a model with one class fewer
+ - 3D patch sampling, which is `splits` at rank 3 and the same code as the 2D grid
+ - `resize_volume()`, through torch rather than scipy: one library fewer to conflict with
+
+### Changed
+
+ - The data pipeline and the engine no longer refuse a 3D spec. Trained end to end on
+   synthetic 64x64x32 CT volumes on a GTX 1070: 0.5s an epoch, per-case Dice, and
+   predictions returned as whole volumes
+ - `dicom_window` is now `window`, since NIfTI needs the same thing and the old name had
+   become a lie. `dicom_window` is still accepted - a released R package sends it - and
+   giving both is an error rather than a coin toss
+ - A class-count mismatch names whichever of `colormap` or `labels` is in use, instead of
+   always blaming the colormap
+ - `nibabel` is a hard dependency. A medical imaging package that cannot open a `.nii.gz`
+   is not one
+
+### Not done, on purpose
+
+ - **Resampling to isotropic spacing.** Spacing is read and carried, because losing it
+   would make resampling impossible later; applying it changes the voxel grid the model
+   sees, which is a decision to take explicitly rather than inside a reader
+ - **Augmentation in 3D.** albumentations ships 3D transforms through a different call
+   signature; a 3D spec asking for augmentation is refused, not silently ignored
+ - **DICOM series to volume.** Reading one DICOM slice works; assembling a directory of
+   them into a volume needs sorting by geometry and a consistency check, and is its own
+   piece of work
+
 ## [0.2.0a3]
 
 *2026-09-26*

@@ -18,7 +18,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 # Reject unknown keys. A typo in a YAML key should be an error the user can see, not a
 # setting that silently does nothing - that failure mode cost the old package real time.
-STRICT = ConfigDict(extra="forbid", frozen=True, validate_default=True)
+# populate_by_name so a field with an alias can still be given by its real name from
+# Python. Without it, `SegmentationData(window="lung")` would be rejected while the
+# YAML key worked, which is the sort of asymmetry nobody can guess.
+STRICT = ConfigDict(extra="forbid", frozen=True, validate_default=True,
+                    populate_by_name=True)
 
 
 class SpecModel(BaseModel):

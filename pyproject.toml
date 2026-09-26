@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.2.0a3"
+version = "0.3.0a1"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,6 +35,10 @@ dependencies = [
     "numpy>=1.24",
     "pillow>=10.0",
     "pydicom>=3.0",
+    # NIfTI is how research volumes travel - the Decathlon, BraTS, most of TCIA's derived
+    # sets. Small and pure Python, so it is a hard dependency rather than an extra: a
+    # medical imaging package that cannot open a .nii.gz is not one.
+    "nibabel>=5.2",
     "albumentations>=1.4",
     # No upper bound on purpose. torch 2.8+ ships CUDA 13 builds, which dropped the
     # Maxwell, Pascal and Volta generations - a GTX 10-series card needs a CUDA 12.x

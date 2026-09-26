@@ -46,7 +46,7 @@ def test_onehot_round_trip():
 
 
 def test_class_index_beyond_the_colormap_is_caught():
-    with pytest.raises(MaskError, match="only defines 2"):
+    with pytest.raises(MaskError, match="only 2 classes"):
         classes_to_onehot(np.array([[0, 5]]), 2)
 
 
