@@ -61,7 +61,8 @@ class SegmentationDataset:
 
         sample = self.samples[index]
         size = self.model.load_shape
-        image = read_image(sample.image, channels=self.model.channels, size=size)
+        image = read_image(sample.image, channels=self.model.channels, size=size,
+                           dicom_window=self.data.dicom_window)
 
         classes: np.ndarray | None = None
         if not self.only_images:

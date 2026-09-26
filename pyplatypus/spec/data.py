@@ -14,7 +14,7 @@ from typing import Annotated
 
 from pydantic import Field, field_validator
 
-from pyplatypus.spec.common import DataMode, SpecModel
+from pyplatypus.spec.common import WINDOWS, DataMode, SpecModel
 
 Colour = Annotated[tuple[int, int, int], Field(description="RGB, each channel 0-255.")]
 
@@ -29,9 +29,33 @@ class SegmentationData(SpecModel):
         min_length=2,
         description="One colour per class; index in this list is the class index.",
     )
+    dicom_window: str | tuple[float, float] = Field(
+        "auto",
+        description=(
+            "How DICOM pixel values are mapped to 0-1: a named window such as 'lung' or "
+            "'soft_tissue', an explicit (centre, width) pair, 'auto' to use the window "
+            "recorded in the file, or 'full' for the whole range present. A fixed window "
+            "is what makes two scans comparable - scaling each image by its own extremes "
+            "lets one bright pixel rescale everything else. Ignored for ordinary images."
+        ),
+    )
     subdirs: tuple[str, str] = ("images", "masks")
     column_sep: str = ";"
     shuffle: bool = True
+
+    @field_validator("dicom_window")
+    @classmethod
+    def known_window(cls, value):
+        if isinstance(value, str) and value not in {"auto", "full"} and value not in WINDOWS:
+            raise ValueError(
+                f"unknown window '{value}'; use 'auto', 'full', a (centre, width) pair, "
+                f"or one of: {', '.join(sorted(WINDOWS))}"
+            )
+        if not isinstance(value, str):
+            width = value[1]
+            if width <= 0:
+                raise ValueError(f"window width must be positive, got {width}")
+        return value
 
     @field_validator("colormap")
     @classmethod
