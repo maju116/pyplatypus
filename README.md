@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a2 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a3 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -41,6 +41,11 @@ Semantic segmentation in 2D, end to end:
   affine, not its array order, says where the anatomy is, and two datasets read naively can
   be mirror images of each other. Masks may be label maps (`labels: [0, 1]`) as well as
   pictures, because that is how every volume format stores them.
+- **Resampling to a common voxel size**: `target_spacing: [1, 1, 1]` fixes the millimetres
+  per voxel and then centre-crops or pads to the model's `input_shape`, instead of squeezing
+  every scan into the same box. Clinical scans cover whatever length the question needed - 40
+  slices of 1 mm is 40 mm of patient, 40 slices of 2.5 mm is 100 mm - so resizing alone makes
+  the same organ a different size in each and the network cannot tell.
 - **Many models from one file**, with a comparison table at the end.
 
 Several volumes per sample - one per modality, as BraTS ships - is refused rather than
@@ -48,10 +53,9 @@ half-read. Object detection, ensembling and pretrained backbones remain out of s
 augmentation in 3D: albumentations ships 3D transforms through a different call signature,
 and a 3D spec asking for augmentation is refused rather than silently ignored.
 
-Also not done yet, deliberately: **resampling to isotropic spacing**. Spacing is read and
-carried (`volume_spacing()`), because losing it would make resampling impossible later, but
-applying it changes the voxel grid the model sees and that is a decision to make explicitly
-rather than inside a reader.
+Resampling is opt-in rather than automatic: it changes the voxel grid the model sees, which
+is a decision to take deliberately. Without `target_spacing` the old behaviour stands and
+volumes are resized to `input_shape`.
 
 ## Try it
 

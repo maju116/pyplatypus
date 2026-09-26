@@ -1,6 +1,35 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a3]
+
+*2026-09-26*
+
+### Added
+
+ - `target_spacing` on the data section: resample every volume to a common voxel size, then
+   centre-crop or pad to the model's `input_shape`. Without it a volume is resized into the
+   box, and that is only harmless when two scans cover the same extent. Clinical scans do not:
+   40 slices of 1 mm is 40 mm of patient and 40 slices of 2.5 mm is 100 mm, so resizing makes
+   the same organ a different size in each and nothing in the data says so. Resampling fixes
+   the millimetres per voxel - the quantity anatomy is measured in - and cropping or padding
+   afterwards is what turns the varying shape into the one shape a network needs without
+   stretching away what the resampling established
+ - `resample_to_spacing()` and `crop_or_pad()`, centred, usable on their own
+ - Measured on a 10 mm sphere: 4189 mm3 in theory, 4224 at 1 mm slices. The same sphere at
+   2.5 mm slices reads 1688 voxels against the fine scan's 4224 - a 60% difference in what is
+   physically one object - and 3760 after resampling, an 11% difference. The rest is honest:
+   at 2.5 mm the caps were never measured, and resampling recovers no information an
+   acquisition did not take
+
+### Fixed
+
+ - **Masks went down a different reading path from images.** With `target_spacing` the image
+   was resampled and cropped while a single-file mask was merely resized, so every label sat
+   beside the anatomy it was labelling - a misalignment that trains quietly and shows up as a
+   model that cannot learn. Both now go through one function, and a test asserts the mask
+   covers the tissue rather than merely having the right shape
+
 ## [0.3.0a2]
 
 *2026-09-26*

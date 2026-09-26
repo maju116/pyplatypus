@@ -54,6 +54,16 @@ class SegmentationData(SpecModel):
             "needed it."
         ),
     )
+    target_spacing: tuple[float, float, float] | None = Field(
+        None,
+        description=(
+            "Resample every volume to this many millimetres per voxel before training, then "
+            "centre-crop or pad to the model's input_shape. Without it a volume is simply "
+            "resized to input_shape, which gives two scans of the same anatomy different "
+            "physical scale when they were acquired at different slice thicknesses - and the "
+            "network has no way to know. Volumes only; ignored for 2D."
+        ),
+    )
     subdirs: tuple[str, str] = ("images", "masks")
     column_sep: str = ";"
     shuffle: bool = True
@@ -86,6 +96,13 @@ class SegmentationData(SpecModel):
             raise ValueError(
                 "colours must be distinct - two classes sharing a colour cannot be told apart"
             )
+        return value
+
+    @field_validator("target_spacing")
+    @classmethod
+    def spacing_is_positive(cls, value):
+        if value is not None and any(v <= 0 for v in value):
+            raise ValueError(f"target_spacing must be positive millimetres, got {value}")
         return value
 
     @field_validator("labels")
