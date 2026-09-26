@@ -54,6 +54,19 @@ class SegmentationData(SpecModel):
             "needed it."
         ),
     )
+    channels_from: list[str] | None = Field(
+        None,
+        min_length=2,
+        description=(
+            "For datasets that keep one channel per file - BraTS ships T1, T1ce, T2 and FLAIR "
+            "per patient; 38-Cloud keeps its bands apart - one pattern per channel, in channel "
+            "order, each a regular expression matched against the file names. Every pattern "
+            "must match exactly one of a sample's files. Stated rather than inferred because "
+            "sorting gives flair, t1, t1ce, t2: reproducible, and anatomically meaningless. A "
+            "model trained with FLAIR in channel one and used on data where channel one is T1 "
+            "returns a plausible answer and no error."
+        ),
+    )
     target_spacing: tuple[float, float, float] | None = Field(
         None,
         description=(
@@ -95,6 +108,16 @@ class SegmentationData(SpecModel):
         if len(set(value)) != len(value):
             raise ValueError(
                 "colours must be distinct - two classes sharing a colour cannot be told apart"
+            )
+        return value
+
+    @field_validator("channels_from")
+    @classmethod
+    def patterns_are_distinct(cls, value):
+        if value is not None and len(set(value)) != len(value):
+            raise ValueError(
+                "channel patterns must be distinct - two channels matching the same file "
+                "would make one measurement into two"
             )
         return value
 

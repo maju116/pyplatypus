@@ -1,4 +1,5 @@
 from pyplatypus.data.augmentation import Augmenter, build_augmenter
+from pyplatypus.data.channels import ChannelError, match_channels
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.dicom_series import (
     Series,
@@ -26,6 +27,7 @@ from pyplatypus.data.splits import (
 
 __all__ = [
     "Augmenter",
+    "ChannelError",
     "Discovery",
     "Sample",
     "SegmentationDataset",
@@ -40,6 +42,7 @@ __all__ = [
     "group_of",
     "labels_to_classes",
     "looks_like_dicom_series",
+    "match_channels",
     "onehot_to_colours",
     "read_dicom_series",
     "read_image",

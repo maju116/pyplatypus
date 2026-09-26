@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a3 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a4 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -46,10 +46,15 @@ Semantic segmentation in 2D, end to end:
   every scan into the same box. Clinical scans cover whatever length the question needed - 40
   slices of 1 mm is 40 mm of patient, 40 slices of 2.5 mm is 100 mm - so resizing alone makes
   the same organ a different size in each and the network cannot tell.
+- **One channel per file, in a stated order**: `channels_from` takes one pattern per channel,
+  which is how BraTS ships four MRI sequences per patient and how satellite sets keep their
+  bands. Sorting the names gives flair, t1, t1ce, t2 - reproducible, and anatomically
+  meaningless; a model trained with FLAIR in channel one and used where channel one is T1
+  answers plausibly and reports nothing. A pattern matching two files, or none, or leaving a
+  file unused, is an error.
 - **Many models from one file**, with a comparison table at the end.
 
-Several volumes per sample - one per modality, as BraTS ships - is refused rather than
-half-read. Object detection, ensembling and pretrained backbones remain out of scope. So does
+Object detection, ensembling and pretrained backbones remain out of scope. So does
 augmentation in 3D: albumentations ships 3D transforms through a different call signature,
 and a 3D spec asking for augmentation is refused rather than silently ignored.
 

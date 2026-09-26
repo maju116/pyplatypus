@@ -46,6 +46,24 @@ class PlatypusSpec(SpecModel):
         return self
 
     @model_validator(mode="after")
+    def channels_match_the_data(self):
+        """One pattern per channel, or the stack the data produces is not the one the model
+        declared - which fails deep inside torch with a shape mismatch instead of here."""
+        if self.data.channels_from is None:
+            return self
+        expected = len(self.data.channels_from)
+        wrong = [
+            f"{model.name} has channels={model.channels}"
+            for model in self.models
+            if model.channels != expected
+        ]
+        if wrong:
+            raise ValueError(
+                f"channels_from lists {expected} channels, but " + "; ".join(wrong)
+            )
+        return self
+
+    @model_validator(mode="after")
     def classes_match_the_data(self):
         expected = self.data.n_class
         wrong = [
