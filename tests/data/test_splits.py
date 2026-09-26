@@ -9,6 +9,7 @@ becoming one-patient-per-slice - the bug that makes a bad result look good.
 from __future__ import annotations
 
 import csv
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -235,12 +236,14 @@ def test_paths_are_written_relative_so_the_dataset_can_move(tmp_path):
     written = write_splits(split, tmp_path, relative=True)
     with open(written["train"], newline="") as handle:
         row = next(csv.DictReader(handle))
-    assert not row["images"].startswith("/")
+    # Path(), not a leading slash: on Windows an absolute path starts with a drive letter,
+    # and asserting on '/' tested the platform rather than the behaviour.
+    assert not Path(row["images"]).is_absolute()
 
     written = write_splits(split, tmp_path / "elsewhere", relative=False)
     with open(written["train"], newline="") as handle:
         row = next(csv.DictReader(handle))
-    assert row["images"].startswith("/")
+    assert Path(row["images"]).is_absolute()
 
 
 def test_an_empty_split_is_not_written_as_an_empty_file(tmp_path):
