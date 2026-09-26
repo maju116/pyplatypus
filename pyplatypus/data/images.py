@@ -41,7 +41,14 @@ def read_image(path: str | Path, *, channels: int = 3,
     archive frequently carry no extension or one the archive invented.
     """
     from pyplatypus.data.dicom import looks_like_dicom, read_dicom
+    from pyplatypus.data.dicom_series import looks_like_dicom_series, read_dicom_series
     from pyplatypus.data.volumes import looks_like_volume, read_volume
+
+    # A directory of slices is one volume, which is how data leaves a hospital. Handled here
+    # so a CSV can name a series directory in the same column that names a file.
+    if looks_like_dicom_series(path):
+        return read_dicom_series(path, window=dicom_window, channels=channels, size=size,
+                                 nearest=nearest)
 
     # A volume asks for a different reader, not a different pipeline. Dispatching here keeps
     # every caller - the dataset, the plotting helpers, the R surface - reading "whatever is

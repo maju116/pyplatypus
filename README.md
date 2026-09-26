@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a1 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a2 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -43,7 +43,8 @@ Semantic segmentation in 2D, end to end:
   pictures, because that is how every volume format stores them.
 - **Many models from one file**, with a comparison table at the end.
 
-Object detection, ensembling and pretrained backbones remain out of scope. So does
+Several volumes per sample - one per modality, as BraTS ships - is refused rather than
+half-read. Object detection, ensembling and pretrained backbones remain out of scope. So does
 augmentation in 3D: albumentations ships 3D transforms through a different call signature,
 and a 3D spec asking for augmentation is refused rather than silently ignored.
 
