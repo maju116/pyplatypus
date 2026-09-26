@@ -1,6 +1,35 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a5]
+
+*2026-09-26*
+
+### Added
+
+ - Augmentation in 3D. Volumes go to albumentations through `volume` and `mask3d` rather than
+   `image` and `mask`, and one set of parameters applies to the whole volume - a per-slice
+   augmentation would tear the anatomy apart, and there is a test that every slice gets the
+   same geometry
+ - Support is uneven and that is handled rather than hidden. Of the transforms in albumentations
+   2.0.8, 97 can take a volume - `Affine`, `ElasticTransform`, `D4`, `CubicSymmetry`, the flips,
+   the blurs, the 3D-native crops - while others raise from inside the library, `GaussNoise` and
+   `ChannelDropout` as `KeyError: 'images'`, which is not a sentence anyone can act on. Each
+   transform in a 3D spec is tried against a small probe volume while the pipeline is built, and
+   an unsupported one is named then rather than forty minutes into training
+ - Probed per step rather than as a pipeline, so the message names the offending transform
+   instead of leaving a user to bisect eight of them
+ - `available_transforms(rank=3)` lists what can be used on volumes. Transforms that need
+   arguments cannot be probed with defaults and are kept rather than dropped - `CenterCrop3D` is
+   one of them, and it is written for volumes. "Could not check" is not "does not work"
+
+### Fixed
+
+ - The probe forces `p=1`. Without it the check asked its question only half the time, because
+   most transforms default to `p=0.5`: an unsupported transform passed roughly every other run
+   and crashed mid-epoch instead. The first version of the tests was flaky for the same reason
+   from the other side, and was caught by running them eight times rather than once
+
 ## [0.3.0a4]
 
 *2026-09-26*
