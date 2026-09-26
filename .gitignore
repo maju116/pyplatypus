@@ -39,6 +39,3 @@ dist/
 /examples/siim_acr.yml
 /examples/data_science_bowl_config.yaml
 /examples/claud_38_config.yaml
-
-# Documents releases of the old package. A changelog for the rewrite starts at release.
-/CHANGELOG.md
