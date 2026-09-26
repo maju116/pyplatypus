@@ -24,34 +24,48 @@ class SegmentationMetric(nn.Module):
         self.smooth = smooth
         self.include_background = include_background
 
-    def coefficient(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def combine(self, tp, fp, fn):
+        """The metric itself, as a formula on overlap statistics.
+
+        Everything else here is plumbing on top of this. Written at this level because a
+        score is not always computed from one array: a tiled image arrives in pieces, and
+        summing its TP, FP and FN and applying the formula once is the score for the whole
+        image, where averaging the pieces' scores is not - a ratio of sums is not the mean
+        of ratios.
+        """
         raise NotImplementedError
+
+    def coefficient(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return self.combine(*f.overlaps(prediction, target))
+
+    def reduce(self, per_class: torch.Tensor) -> torch.Tensor:
+        """One number from per-class scores, honouring include_background."""
+        if not self.include_background:
+            if per_class.shape[-1] < 2:
+                raise ValueError(
+                    "include_background=False needs at least two classes to leave one out"
+                )
+            per_class = per_class[..., 1:]
+        return per_class.mean()
 
     @torch.no_grad()
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         hard = f.as_onehot(logits.argmax(dim=1), logits.shape[1])
-        per_class = self.coefficient(hard, target)          # (batch, class)
-        if not self.include_background:
-            if per_class.shape[1] < 2:
-                raise ValueError(
-                    "include_background=False needs at least two classes to leave one out"
-                )
-            per_class = per_class[:, 1:]
-        return per_class.mean()
+        return self.reduce(self.coefficient(hard, target))   # (batch, class) -> scalar
 
 
 class Dice(SegmentationMetric):
     name = "dice"
 
-    def coefficient(self, prediction, target):
-        return f.dice_coefficient(prediction, target, self.smooth)
+    def combine(self, tp, fp, fn):
+        return f.dice_from_overlaps(tp, fp, fn, self.smooth)
 
 
 class Iou(SegmentationMetric):
     name = "iou"
 
-    def coefficient(self, prediction, target):
-        return f.iou_coefficient(prediction, target, self.smooth)
+    def combine(self, tp, fp, fn):
+        return f.iou_from_overlaps(tp, fp, fn, self.smooth)
 
 
 class Tversky(SegmentationMetric):
@@ -62,8 +76,8 @@ class Tversky(SegmentationMetric):
         super().__init__(smooth, include_background)
         self.alpha = alpha
 
-    def coefficient(self, prediction, target):
-        return f.tversky_coefficient(prediction, target, self.alpha, self.smooth)
+    def combine(self, tp, fp, fn):
+        return f.tversky_from_overlaps(tp, fp, fn, self.alpha, self.smooth)
 
 
 _BUILDERS = {

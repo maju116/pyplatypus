@@ -45,16 +45,32 @@ def overlaps(probs: torch.Tensor, target: torch.Tensor
     return tp, fp, fn
 
 
+# The three coefficients below are written twice over: once as a formula on overlap
+# statistics, and once as the convenient call on tensors. Anything that can sum TP, FP and
+# FN itself - scoring a case whose tiles arrived separately, for instance - needs the
+# formula without the tensors, and a metric must not have two implementations that can
+# drift apart. So the formula lives in `*_from_overlaps` and everything else calls it.
+def dice_from_overlaps(tp, fp, fn, smooth: float = 1.0):
+    return (2 * tp + smooth) / (2 * tp + fp + fn + smooth)
+
+
+def iou_from_overlaps(tp, fp, fn, smooth: float = 1.0):
+    return (tp + smooth) / (tp + fp + fn + smooth)
+
+
+def tversky_from_overlaps(tp, fp, fn, alpha: float = 0.5, smooth: float = 1.0):
+    beta = 1.0 - alpha
+    return (tp + smooth) / (tp + alpha * fn + beta * fp + smooth)
+
+
 def dice_coefficient(probs: torch.Tensor, target: torch.Tensor, smooth: float = 1.0
                      ) -> torch.Tensor:
-    tp, fp, fn = overlaps(probs, target)
-    return (2 * tp + smooth) / (2 * tp + fp + fn + smooth)
+    return dice_from_overlaps(*overlaps(probs, target), smooth)
 
 
 def iou_coefficient(probs: torch.Tensor, target: torch.Tensor, smooth: float = 1.0
                     ) -> torch.Tensor:
-    tp, fp, fn = overlaps(probs, target)
-    return (tp + smooth) / (tp + fp + fn + smooth)
+    return iou_from_overlaps(*overlaps(probs, target), smooth)
 
 
 def tversky_coefficient(probs: torch.Tensor, target: torch.Tensor, alpha: float = 0.5,
@@ -68,9 +84,7 @@ def tversky_coefficient(probs: torch.Tensor, target: torch.Tensor, alpha: float 
     through by two gives (2TP + 2s) / (2TP + FN + FP + 2s), so with smoothing it equals
     `dice_coefficient` at twice the smoothing. Easy to trip over when comparing runs.
     """
-    beta = 1.0 - alpha
-    tp, fp, fn = overlaps(probs, target)
-    return (tp + smooth) / (tp + alpha * fn + beta * fp + smooth)
+    return tversky_from_overlaps(*overlaps(probs, target), alpha, smooth)
 
 
 def cross_entropy(logits: torch.Tensor, target: torch.Tensor,

@@ -8,6 +8,7 @@ on the final one only - which is the prediction the user will actually receive.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -18,6 +19,7 @@ from torch.utils.data import DataLoader
 
 from pyplatypus.data.images import stitch
 from pyplatypus.objectives import build_loss, build_metrics
+from pyplatypus.objectives import functional as f
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.training.callbacks import Callback, TrainingState, build_callbacks
 from pyplatypus.training.optimizers import build_optimizer
@@ -138,6 +140,61 @@ class Trainer:
     @torch.no_grad()
     def evaluate(self, loader: DataLoader) -> dict[str, float]:
         return self._run_epoch(loader, train=False, prefix="val")
+
+    @torch.no_grad()
+    def score_cases(self, loader: DataLoader, cases: Sequence[str]) -> list[dict[str, Any]]:
+        """Metrics for each case separately, rather than one number for the whole split.
+
+        `cases` names the case each example belongs to, in the order the loader serves
+        them - so a tiled image contributes several examples under one name.
+
+        Tiles are summed, not averaged. Dice is a ratio of sums, so adding up TP, FP and FN
+        across an image's tiles and applying the formula once gives that image's Dice
+        exactly; averaging the tiles' Dice scores gives a different number, and the
+        difference is largest where it matters most - a tile holding a sliver of the object
+        scores badly and drags down a case the model actually segmented well.
+
+        Why per case at all: a single figure over a split hides the distribution, and the
+        distribution is the finding. "Dice 0.86" and "Dice 0.86, but 0.2 on three of the
+        forty patients" are not the same result, and only one of them is honest.
+        """
+        self.model.eval()
+        if len(cases) != len(loader.dataset):
+            raise ValueError(
+                f"{len(cases)} case names for {len(loader.dataset)} examples; they must "
+                "line up one to one"
+            )
+
+        totals: dict[str, list[torch.Tensor]] = {}
+        order: list[str] = []
+        position = 0
+
+        for batch_x, batch_y in loader:
+            batch_x = batch_x.to(self.device, non_blocking=True)
+            batch_y = batch_y.to(self.device, non_blocking=True)
+            out = self.model(batch_x)
+            if isinstance(out, tuple):
+                out = out[-1]
+            hard = f.as_onehot(out.argmax(dim=1), out.shape[1])
+            tp, fp, fn = f.overlaps(hard, batch_y)
+
+            for offset in range(batch_x.shape[0]):
+                case = cases[position + offset]
+                if case not in totals:
+                    totals[case] = [torch.zeros_like(tp[offset]) for _ in range(3)]
+                    order.append(case)
+                for slot, value in enumerate((tp, fp, fn)):
+                    totals[case][slot] += value[offset]
+            position += batch_x.shape[0]
+
+        rows = []
+        for case in order:
+            case_tp, case_fp, case_fn = totals[case]
+            row: dict[str, Any] = {"case": case}
+            for name, metric in self.metrics.items():
+                row[name] = metric.reduce(metric.combine(case_tp, case_fp, case_fn)).item()
+            rows.append(row)
+        return rows
 
     @torch.no_grad()
     def predict(self, loader: DataLoader) -> np.ndarray:

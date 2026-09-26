@@ -18,6 +18,7 @@ import torch
 from pyplatypus.data.augmentation import build_augmenter
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.paths import Sample, discover
+from pyplatypus.data.splits import group_of
 from pyplatypus.errors import PlatypusError
 from pyplatypus.models import build_model
 from pyplatypus.spec.models import SegmentationModel
@@ -151,6 +152,38 @@ class Engine:
             })
         return table
 
+    def evaluate_cases(self, model_name: str, split: str = "validation", *,
+                       group_by: str | None = None) -> list[dict[str, Any]]:
+        """One row per case instead of one row per model.
+
+        The comparison table answers "which model"; this answers "on whom does it fail",
+        which is the question a clinician asks first and the one a single mean cannot
+        answer. With `group_by`, each row also carries the group - the patient, usually -
+        so the rows can be summarised per patient rather than per slice.
+        """
+        run = self.runs.get(model_name)
+        if run is None:
+            known = ", ".join(self.runs) or "none"
+            raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
+        if not run.spec.metrics:
+            raise EngineError(
+                f"'{model_name}' has no metrics, so there is nothing to report per case. "
+                "Add at least one, for example metrics: [{name: dice}]."
+            )
+
+        dataset = self.dataset(run.spec, split)
+        tiles = dataset.tiles_per_sample
+        cases = [
+            group_of(sample.key, group_by) if group_by else sample.key
+            for sample in dataset.samples
+            for _ in range(tiles)
+        ]
+        # Never shuffled: the case names line up with the order examples arrive in.
+        loader = self.loader(run.spec, split, shuffle=False)
+        rows = run.trainer.score_cases(loader, cases)
+        key = "group" if group_by else "case"
+        return [{key: row.pop("case"), **row} for row in rows]
+
     # ---------------------------------------------------------------- predict
     def predict(self, model_name: str, split: str = "test") -> np.ndarray:
         """Class probabilities, channels-last, one array per source image.
@@ -192,3 +225,38 @@ class Engine:
             )
         chosen = (min if lower_is_better else max)(table, key=lambda row: row[key])
         return chosen["model"]
+
+
+def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Turn per-case rows into the distribution, one row per metric.
+
+    What a paper reports: not a single Dice, but its mean, its spread and its worst case.
+    The minimum is the one nobody publishes and everybody should - a model averaging 0.86
+    that scores 0.11 on some patient has a failure mode, and the mean is where it hides.
+
+    Standard deviation is the sample one (n-1), and is None for a single case, because the
+    spread of one number is not zero, it is unknown.
+    """
+    if not rows:
+        raise EngineError("there are no case scores to summarise")
+
+    label = "group" if "group" in rows[0] else "case"
+    metrics = [key for key, value in rows[0].items() if isinstance(value, float)]
+    if not metrics:
+        raise EngineError("these rows carry no metric columns")
+
+    out = []
+    for metric in metrics:
+        values = np.array([row[metric] for row in rows], dtype=float)
+        worst = min(rows, key=lambda row: row[metric])
+        out.append({
+            "metric": metric,
+            "n": int(values.size),
+            "mean": float(values.mean()),
+            "sd": float(values.std(ddof=1)) if values.size > 1 else None,
+            "median": float(np.median(values)),
+            "min": float(values.min()),
+            "max": float(values.max()),
+            f"worst_{label}": worst[label],
+        })
+    return out
