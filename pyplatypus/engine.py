@@ -50,12 +50,6 @@ class ModelRun:
 class Engine:
     def __init__(self, spec: PlatypusSpec, *, device: str | None = None,
                  num_workers: int = 0, strict_data: bool = True):
-        if spec.rank != 2:
-            raise EngineError(
-                f"this engine trains 2D models; the spec is {spec.rank}D. "
-                "The spec and the model builder already handle volumes - the data "
-                "pipeline is what v0.1 stops at."
-            )
         self.spec = spec
         self.device = device
         self.num_workers = num_workers

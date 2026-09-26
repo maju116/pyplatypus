@@ -64,12 +64,43 @@ def colours_to_classes(mask: np.ndarray, colormap: list[tuple[int, int, int]],
     return classes, float(1.0 - matched.mean())
 
 
+def labels_to_classes(mask: np.ndarray, labels: list[int], *, tolerance: float = 0.5
+                      ) -> tuple[np.ndarray, float]:
+    """Map a label map to class indices, dropping the channel axis.
+
+    The other half of `colours_to_classes`, for masks that hold numbers rather than
+    pictures - which is how every volume format labels anything, and how a single-channel
+    PNG can be read as well.
+
+    Compared with a tolerance because the values arrive as floats: a label map that has been
+    resampled, or merely round-tripped through float32, will not satisfy `== 2` reliably,
+    and a label silently failing to match becomes background. Half a unit is the right
+    tolerance for integer labels and catches nothing else.
+    """
+    if mask.ndim < 2:
+        raise MaskError(f"a mask needs at least 2 dimensions, got shape {mask.shape}")
+    values = mask[..., 0] if mask.shape[-1] == 1 else mask
+    if values.shape != mask.shape[:-1]:
+        raise MaskError(
+            f"a label map must have one channel, got shape {mask.shape}. A mask with "
+            "several channels is a picture - use a colormap for it."
+        )
+
+    classes = np.zeros(values.shape, dtype=np.int64)
+    matched = np.zeros(values.shape, dtype=bool)
+    for index, label in enumerate(labels):
+        hit = np.abs(values - float(label)) <= tolerance
+        classes[hit] = index
+        matched |= hit
+    return classes, float(1.0 - matched.mean())
+
+
 def classes_to_onehot(classes: np.ndarray, n_class: int) -> np.ndarray:
     """Class indices to a channels-last one-hot array."""
     highest = int(classes.max(initial=0))
     if highest >= n_class:
         raise MaskError(
-            f"found class index {highest} but the colormap only defines {n_class} classes"
+            f"found class index {highest} but only {n_class} classes are defined"
         )
     return np.eye(n_class, dtype=np.float32)[classes]
 

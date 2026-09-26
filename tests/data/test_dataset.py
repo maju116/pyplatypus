@@ -93,10 +93,30 @@ def test_colormap_coverage_flags_a_wrong_colormap(nested_root, binary_data):
     assert right.colormap_coverage() == pytest.approx(0.0)
 
 
-def test_3d_model_is_refused_by_the_2d_pipeline(nested_root, binary_data):
-    from pyplatypus.data.dataset import DataError
+def test_the_pipeline_serves_volumes(volume_root, volume_data):
+    """What used to be a scope line. The same dataset class, one rank up: the model asks for
+    a 3D input_shape and the samples are NIfTI files with label maps for masks."""
+    pytest.importorskip("nibabel")
+    samples = discover(volume_root, volume_data).samples
+    model = make_model(input_shape=(8, 8, 4), n_class=2)
+    dataset = SegmentationDataset(samples, model, volume_data)
 
-    samples = discover(nested_root, binary_data).samples
-    volume = make_model(input_shape=(64, 64, 64))
-    with pytest.raises(DataError, match="3D"):
-        SegmentationDataset(samples, volume, binary_data)
+    image, mask = dataset[0]
+    assert image.shape == (8, 8, 4, 3)
+    assert mask.shape == (8, 8, 4, 2)
+    assert mask.sum(axis=-1).min() == 1.0          # every voxel belongs to exactly one class
+
+
+def test_volume_patches_come_out_of_the_same_tiling(volume_root, volume_data):
+    """`splits` in 3D is patch sampling, and it is the same code as the 2D grid."""
+    pytest.importorskip("nibabel")
+    samples = discover(volume_root, volume_data).samples
+    # (2, 2, 1) over an 8x8x4 volume gives four 4x4x4 patches. The depth is not cut because
+    # four slices are already the smallest the network can pool twice.
+    model = make_model(input_shape=(4, 4, 4), n_class=2, splits=(2, 2, 1))
+    dataset = SegmentationDataset(samples, model, volume_data)
+
+    assert len(dataset) == len(samples) * 4
+    image, mask = dataset[0]
+    assert image.shape == (4, 4, 4, 3)
+    assert mask.shape == (4, 4, 4, 2)

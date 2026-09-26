@@ -15,7 +15,12 @@ import numpy as np
 
 from pyplatypus.data.augmentation import Augmenter
 from pyplatypus.data.images import read_image, tile, to_float
-from pyplatypus.data.masks import classes_to_onehot, colours_to_classes, unite_masks
+from pyplatypus.data.masks import (
+    classes_to_onehot,
+    colours_to_classes,
+    labels_to_classes,
+    unite_masks,
+)
 from pyplatypus.data.paths import Sample
 from pyplatypus.errors import PlatypusError
 from pyplatypus.spec.data import SegmentationData
@@ -36,8 +41,6 @@ class SegmentationDataset:
     def __init__(self, samples: tuple[Sample, ...], model: SegmentationModel,
                  data: SegmentationData, *, augmenter: Augmenter | None = None,
                  only_images: bool = False, cache_size: int = 8):
-        if model.rank != 2:
-            raise DataError(f"the 2D pipeline cannot serve a {model.rank}D model")
         self.samples = samples
         self.model = model
         self.data = data
@@ -62,20 +65,28 @@ class SegmentationDataset:
         sample = self.samples[index]
         size = self.model.load_shape
         image = read_image(sample.image, channels=self.model.channels, size=size,
-                           dicom_window=self.data.dicom_window)
+                           dicom_window=self.data.window)
 
         classes: np.ndarray | None = None
         if not self.only_images:
-            # Nearest, always: interpolating a mask invents colours that belong to no
-            # class and would quietly become background.
-            masks = [read_image(p, channels=3, size=size, nearest=True) for p in sample.masks]
+            # Nearest, always: interpolating a mask invents values that belong to no class
+            # and would quietly become background.
+            mask_channels = 1 if self.data.label_map else 3
+            masks = [read_image(p, channels=mask_channels, size=size, nearest=True)
+                     for p in sample.masks]
             united = unite_masks(masks)
-            classes, _ = colours_to_classes(united, self.data.colormap)
+            classes, _ = self._to_classes(united)
 
         self._cache[index] = (image, classes)
         if len(self._cache) > self._cache_size:
             self._cache.popitem(last=False)
         return image, classes
+
+    def _to_classes(self, mask: np.ndarray) -> tuple[np.ndarray, float]:
+        """Whichever way this dataset names its classes."""
+        if self.data.label_map:
+            return labels_to_classes(mask, self.data.labels)
+        return colours_to_classes(mask, self.data.colormap)
 
     def __getitem__(self, index: int) -> tuple[np.ndarray, np.ndarray | None]:
         if index < 0:
@@ -87,6 +98,7 @@ class SegmentationDataset:
         image, classes = self._load(sample_index)
 
         if self.model.splits is not None:
+            # Rank-generic: a 2D grid and a 3D patch grid are the same cut.
             image = tile(image, self.model.splits)[tile_index]
             if classes is not None:
                 classes = tile(classes[..., None], self.model.splits)[tile_index][..., 0]
@@ -100,18 +112,21 @@ class SegmentationDataset:
         return image, classes_to_onehot(classes, self.model.n_class)
 
     def colormap_coverage(self, limit: int = 20) -> float:
-        """Fraction of mask pixels matching no colour in the colormap.
+        """Fraction of mask voxels matching no colour, or no label value.
 
-        A number near 1 means the colormap does not describe this dataset - the single
-        most common way a segmentation run silently trains on nothing.
+        A number near 1 means the colormap - or the list of labels - does not describe this
+        dataset, which is the single most common way a segmentation run silently trains on
+        nothing at all.
         """
         if self.only_images:
             raise DataError("there are no masks to check")
         unmatched = []
+        mask_channels = 1 if self.data.label_map else 3
         for index in range(min(limit, len(self.samples))):
             sample = self.samples[index]
-            masks = [read_image(p, channels=3, size=self.model.load_shape, nearest=True)
+            masks = [read_image(p, channels=mask_channels, size=self.model.load_shape,
+                                nearest=True)
                      for p in sample.masks]
-            _, fraction = colours_to_classes(unite_masks(masks), self.data.colormap)
+            _, fraction = self._to_classes(unite_masks(masks))
             unmatched.append(fraction)
         return float(np.mean(unmatched))
