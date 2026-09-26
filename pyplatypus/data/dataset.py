@@ -31,6 +31,13 @@ class DataError(PlatypusError):
     kind = "data_error"
 
 
+def _is_series(paths: tuple) -> bool:
+    """Several files that are all DICOM: one volume, arriving a slice at a time."""
+    from pyplatypus.data.dicom import looks_like_dicom
+
+    return len(paths) > 1 and all(looks_like_dicom(p) for p in paths)
+
+
 class SegmentationDataset:
     """Samples on disk, presented as (image, one-hot mask) pairs.
 
@@ -64,16 +71,19 @@ class SegmentationDataset:
 
         sample = self.samples[index]
         size = self.model.load_shape
-        image = read_image(sample.image, channels=self.model.channels, size=size,
-                           dicom_window=self.data.window)
+        image = self._read(sample.images, channels=self.model.channels, size=size)
 
         classes: np.ndarray | None = None
         if not self.only_images:
             # Nearest, always: interpolating a mask invents values that belong to no class
             # and would quietly become background.
             mask_channels = 1 if self.data.label_map else 3
-            masks = [read_image(p, channels=mask_channels, size=size, nearest=True)
-                     for p in sample.masks]
+            if self.model.rank == 3 and _is_series(sample.masks):
+                masks = [self._read(sample.masks, channels=mask_channels, size=size,
+                                    nearest=True)]
+            else:
+                masks = [read_image(p, channels=mask_channels, size=size, nearest=True)
+                         for p in sample.masks]
             united = unite_masks(masks)
             classes, _ = self._to_classes(united)
 
@@ -81,6 +91,28 @@ class SegmentationDataset:
         if len(self._cache) > self._cache_size:
             self._cache.popitem(last=False)
         return image, classes
+
+    def _read(self, paths: tuple, *, channels: int, size: tuple[int, ...],
+              nearest: bool = False) -> np.ndarray:
+        """Read one sample's files, which may be a stack of DICOM slices.
+
+        A 3D model and several files per sample means those files are one volume. The rank
+        decides rather than a setting, for the same reason rank itself is derived: a 3D model
+        could not consume several separate volumes anyway.
+        """
+        if self.model.rank == 3 and _is_series(paths):
+            from pyplatypus.data.dicom_series import read_dicom_series
+
+            return read_dicom_series(list(paths), window=self.data.window,
+                                     channels=channels, size=size, nearest=nearest)
+        if self.model.rank == 3 and len(paths) > 1:
+            raise DataError(
+                f"sample has {len(paths)} files and the model is 3D, but they are not DICOM "
+                "slices. Several volumes per sample - one per modality, say - is not "
+                "supported yet; give one volume per sample."
+            )
+        return read_image(paths[0], channels=channels, size=size, nearest=nearest,
+                          dicom_window=self.data.window)
 
     def _to_classes(self, mask: np.ndarray) -> tuple[np.ndarray, float]:
         """Whichever way this dataset names its classes."""
@@ -124,9 +156,13 @@ class SegmentationDataset:
         mask_channels = 1 if self.data.label_map else 3
         for index in range(min(limit, len(self.samples))):
             sample = self.samples[index]
-            masks = [read_image(p, channels=mask_channels, size=self.model.load_shape,
-                                nearest=True)
-                     for p in sample.masks]
+            masks = [self._read(sample.masks, channels=mask_channels,
+                                size=self.model.load_shape, nearest=True)] \
+                if self.model.rank == 3 and _is_series(sample.masks) else [
+                    read_image(p, channels=mask_channels, size=self.model.load_shape,
+                               nearest=True)
+                    for p in sample.masks
+                ]
             _, fraction = self._to_classes(unite_masks(masks))
             unmatched.append(fraction)
         return float(np.mean(unmatched))

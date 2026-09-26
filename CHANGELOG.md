@@ -1,6 +1,44 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a2]
+
+*2026-09-26*
+
+### Added
+
+ - Reading a DICOM series: a folder of slices becomes one volume, which is how data leaves a
+   hospital. Four decisions, each of which produces a volume that trains without complaint
+   when taken wrongly:
+   - **order** comes from `ImagePositionPatient` projected onto the slice normal. Not the
+     filename, which sorts slice 10 before slice 2, and not `InstanceNumber` either, which
+     need only be unique within a series and is not required to follow the anatomy - it is
+     the documented fallback when there is no geometry at all, and `Series.sorted_by` says
+     which was used
+   - **one series at a time.** A folder out of an archive usually holds several - a scout, a
+     reconstruction, a phase - and `SeriesInstanceUID` separates them. Stacking two
+     interleaves two anatomies at two resolutions
+   - **one window for the whole series.** Slices of one series can record different windows;
+     honoured slice by slice they produce a brightness gradient the scanner never measured
+   - **canonical orientation,** through the same path a NIfTI takes, so one CT read from
+     DICOM and the same CT converted to NIfTI arrive identically oriented
+ - `describe_series()` checks a series without reading a pixel, because checking a hundred
+   cases should not cost a hundred gigabytes
+ - Slice spacing is measured from the positions, never from `SliceThickness` - thickness is
+   how thick a slice is, not how far apart they sit, and for an overlapping reconstruction
+   using it puts every slice past the first in the wrong place
+ - A gap in the positions is an error. A volume stacked over a gap does not lose a slice, it
+   puts everything past the gap somewhere else, and no metric would show it. With too few
+   slices for the median gap to mean anything the message says it cannot tell which gap is
+   wrong instead of naming one by arithmetic accident
+ - Series reading is wired into the pipeline two ways: a 3D model with several DICOM files in
+   one sample, and a path to a series directory in a CSV
+
+### Changed
+
+ - Several volumes per sample - one per modality, as BraTS ships - is refused with a message
+   saying so, rather than the first one being read and three quarters of the data ignored
+
 ## [0.3.0a1]
 
 *2026-09-26*
