@@ -274,9 +274,14 @@ CallbackSpec = Annotated[
 # serve both ranks. The interface stays either way.
 
 
-@lru_cache(maxsize=1)
-def available_transforms() -> frozenset[str]:
+@lru_cache(maxsize=2)
+def available_transforms(rank: int = 2) -> frozenset[str]:
     """Transform names the installed albumentations actually offers.
+
+    With `rank=3`, only those that can transform a volume. That list has to be found by trying
+    rather than read from anywhere: albumentations supports volumes unevenly, and a transform
+    that cannot raises from inside itself - `GaussNoise` comes back as `KeyError: 'images'`. Of
+    the transforms in 2.0.8, 71 work on volumes and 33 do not.
 
     Empty when albumentations is missing, in which case name checking is skipped and the
     backend reports the problem later - better than refusing a spec the user cannot fix.
@@ -285,10 +290,49 @@ def available_transforms() -> frozenset[str]:
         import albumentations
     except ImportError:  # pragma: no cover - exercised only without the optional backend
         return frozenset()
-    return frozenset(
+
+    names = frozenset(
         name for name in dir(albumentations)
         if name[:1].isupper() and not name.startswith(("Base", "Basic", "Dual"))
     )
+    if rank != 3:
+        return names
+    return frozenset(name for name in names if _transforms_volumes(albumentations, name))
+
+
+def _transforms_volumes(albumentations, name: str) -> bool:
+    """Whether this transform can be ruled out for volumes. Tried, because nothing declares it.
+
+    A transform that needs arguments - `CenterCrop3D` wants a size, and it is one of the
+    3D-native ones - cannot be probed with defaults, and is kept rather than dropped. "I could
+    not check" is not "it does not work", and dropping those would have hidden exactly the
+    transforms written for volumes. The authoritative check happens when the pipeline is built,
+    against the parameters the user actually gave.
+
+    Warnings are silenced: albumentations advises about aliases and slow implementations, and a
+    listing that emits twenty warnings is a listing nobody reads.
+    """
+    import warnings
+
+    import numpy as np
+
+    cls = getattr(albumentations, name, None)
+    if cls is None:
+        return False
+
+    probe = np.zeros((4, 8, 8, 1), dtype=np.float32)
+    mask = np.zeros((4, 8, 8), dtype=np.uint8)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            transform = cls(p=1)
+        except Exception:  # noqa: BLE001 - needs arguments, so it cannot be ruled out here
+            return True
+        try:
+            albumentations.Compose([transform])(volume=probe, mask3d=mask)
+        except Exception:  # noqa: BLE001
+            return False
+    return True
 
 
 class AugmentationStep(SpecModel):
