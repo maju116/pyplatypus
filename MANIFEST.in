@@ -9,3 +9,6 @@ prune examples/data
 prune examples/output
 prune _legacy
 global-exclude __pycache__ *.py[cod] *.pt *.h5 *.hdf5
+
+# The changelog ships too: an sdist is all some people ever see of a project.
+include CHANGELOG.md
