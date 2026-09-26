@@ -1,6 +1,32 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a4]
+
+*2026-09-26*
+
+### Added
+
+ - `channels_from`: one pattern per channel, in channel order, for datasets that keep one
+   channel per file. BraTS ships four MRI sequences per patient - T1, T1 after contrast, T2,
+   FLAIR - because different tumour structures are visible in different sequences; the 38-Cloud
+   satellite set keeps its bands the same way. Works at both ranks
+ - The order is **stated, never inferred.** Sorted, BraTS gives flair, t1, t1ce, t2: perfectly
+   reproducible and anatomically meaningless. A model trained with FLAIR in channel one and
+   then used on data whose channel one is T1 returns a plausible answer, with the right shape
+   and the right range, and nothing downstream can detect it
+ - Refusals, each naming the sample: a pattern matching no file, a pattern matching two (`_t1`
+   matches `_t1.nii.gz` and `_t1ce.nii.gz` alike), two channels resolving to one file, and a
+   file matched by no pattern - which left alone would be data the model never sees, and on a
+   dataset where an extra sequence appears for some patients only, a difference between cases
+ - Volume channels are compared **before** anything is resized, and a mismatch is an error.
+   Resizing each channel to the model's shape separately would hide it: the channels would
+   arrive the same size with their anatomy in different places. Spacing is checked too when
+   resampling. In 2D the bands of one scene may legitimately differ in resolution - Sentinel
+   ships 10 m and 20 m bands of one tile - so there no geometry is asserted
+ - `channels_from` is cross-checked against every model's `channels`, so a mismatch is a
+   specification error rather than a shape failure deep inside torch
+
 ## [0.3.0a3]
 
 *2026-09-26*

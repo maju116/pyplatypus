@@ -387,10 +387,10 @@ def test_a_series_per_case_trains_end_to_end(tmp_path):
     assert masks.shape == (3, 32, 32, 4, 2)
 
 
-def test_several_volumes_per_sample_are_refused_rather_than_guessed(tmp_path):
-    """Four NIfTI files per case is a multi-modal dataset - BraTS shape - and reading them as
-    channels is a real thing to want that this does not do yet. Saying so beats reading the
-    first one and training on a quarter of the data."""
+def test_several_volumes_per_sample_need_their_order_stated(tmp_path):
+    """Four NIfTI files per case is a multi-modal dataset - BraTS shape. Reading them as
+    channels works, but only once `channels_from` says which file is which: sorted names give
+    an order that is reproducible and anatomically meaningless. Without it, refused."""
     nib = pytest.importorskip("nibabel")
     from pyplatypus.data.dataset import DataError, SegmentationDataset
     from pyplatypus.data.paths import discover_samples
@@ -411,5 +411,5 @@ def test_several_volumes_per_sample_are_refused_rather_than_guessed(tmp_path):
     model = SegmentationModel(name="m", input_shape=(8, 8, 4), channels=1, n_class=2,
                               blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
-    with pytest.raises(DataError, match="not DICOM slices"):
+    with pytest.raises(DataError, match="channels_from"):
         dataset[0]
