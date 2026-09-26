@@ -78,10 +78,17 @@ class SegmentationDataset:
             # Nearest, always: interpolating a mask invents values that belong to no class
             # and would quietly become background.
             mask_channels = 1 if self.data.label_map else 3
-            if self.model.rank == 3 and _is_series(sample.masks):
+            if self.model.rank == 3:
+                # The same reader as the image, always. Sending masks down a different path
+                # was a real bug: with target_spacing the image was resampled and cropped
+                # while the mask was merely resized, so every label sat beside the anatomy it
+                # was labelling. Both go through one function now, and there is a test that
+                # the mask covers the tissue.
                 masks = [self._read(sample.masks, channels=mask_channels, size=size,
                                     nearest=True)]
             else:
+                # 2D keeps one file per object - the Data Science Bowl ships a mask per
+                # nucleus - and unites them.
                 masks = [read_image(p, channels=mask_channels, size=size, nearest=True)
                          for p in sample.masks]
             united = unite_masks(masks)
@@ -100,6 +107,9 @@ class SegmentationDataset:
         decides rather than a setting, for the same reason rank itself is derived: a 3D model
         could not consume several separate volumes anyway.
         """
+        if self.model.rank == 3 and self.data.target_spacing is not None:
+            return self._read_at_spacing(paths, channels=channels, size=size,
+                                         nearest=nearest)
         if self.model.rank == 3 and _is_series(paths):
             from pyplatypus.data.dicom_series import read_dicom_series
 
@@ -113,6 +123,39 @@ class SegmentationDataset:
             )
         return read_image(paths[0], channels=channels, size=size, nearest=nearest,
                           dicom_window=self.data.window)
+
+    def _read_at_spacing(self, paths: tuple, *, channels: int, size: tuple[int, ...],
+                         nearest: bool = False) -> np.ndarray:
+        """Read at the volume's own resolution, resample to the wanted voxel size, then fit.
+
+        The order matters. Reading straight to `size` - which is what happens without
+        `target_spacing` - resizes each volume into the same box, so a 40-slice scan and a
+        200-slice scan of the same chest come out at different physical scale. Resampling
+        first fixes the millimetres per voxel; cropping or padding afterwards is what turns
+        the varying shape that leaves into the one shape a network needs, without stretching
+        away what the resampling just established.
+        """
+        from pyplatypus.data.dicom_series import read_dicom_series, series_spacing
+        from pyplatypus.data.volumes import crop_or_pad, resample_to_spacing, volume_spacing
+
+        if _is_series(paths):
+            spacing = series_spacing(list(paths))
+            volume = read_dicom_series(list(paths), window=self.data.window,
+                                       channels=channels, nearest=nearest)
+        elif len(paths) > 1:
+            raise DataError(
+                f"sample has {len(paths)} files and the model is 3D, but they are not DICOM "
+                "slices. Several volumes per sample - one per modality, say - is not "
+                "supported yet; give one volume per sample."
+            )
+        else:
+            spacing = volume_spacing(paths[0])
+            volume = read_image(paths[0], channels=channels, nearest=nearest,
+                                dicom_window=self.data.window)
+
+        volume = resample_to_spacing(volume, spacing, self.data.target_spacing,
+                                     nearest=nearest)
+        return crop_or_pad(volume, size)
 
     def _to_classes(self, mask: np.ndarray) -> tuple[np.ndarray, float]:
         """Whichever way this dataset names its classes."""
@@ -156,13 +199,13 @@ class SegmentationDataset:
         mask_channels = 1 if self.data.label_map else 3
         for index in range(min(limit, len(self.samples))):
             sample = self.samples[index]
-            masks = [self._read(sample.masks, channels=mask_channels,
-                                size=self.model.load_shape, nearest=True)] \
-                if self.model.rank == 3 and _is_series(sample.masks) else [
-                    read_image(p, channels=mask_channels, size=self.model.load_shape,
-                               nearest=True)
-                    for p in sample.masks
-                ]
+            if self.model.rank == 3:
+                masks = [self._read(sample.masks, channels=mask_channels,
+                                    size=self.model.load_shape, nearest=True)]
+            else:
+                masks = [read_image(p, channels=mask_channels, size=self.model.load_shape,
+                                    nearest=True)
+                         for p in sample.masks]
             _, fraction = self._to_classes(unite_masks(masks))
             unmatched.append(fraction)
         return float(np.mean(unmatched))
