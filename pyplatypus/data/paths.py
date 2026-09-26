@@ -109,7 +109,10 @@ def _config_file(path: Path, column_sep: str, only_images: bool
     for number, row in enumerate(rows, start=2):  # row 1 is the header
         images = resolve(row.get("images") or "")
         masks = () if only_images else resolve(row.get("masks") or "")
-        key = f"row {number}"
+        # A `key` column wins over the row number, because the row number names nothing.
+        # `write_splits` puts the original sample name there, so a case that scores badly
+        # can be found on disk instead of being reported as 'row 55'.
+        key = (row.get("key") or "").strip() or f"row {number}"
         if not images:
             skipped.append((key, "no image path"))
             continue
@@ -120,21 +123,28 @@ def _config_file(path: Path, column_sep: str, only_images: bool
     return samples, skipped
 
 
-def discover(root: str | Path, data: SegmentationData, *, only_images: bool = False,
-             strict: bool = True) -> Discovery:
-    """List the samples under `root`, which is one of the paths named in `data`."""
+def discover_samples(root: str | Path, *, mode: DataMode = DataMode.NESTED_DIRS,
+                     subdirs: tuple[str, str] = ("images", "masks"),
+                     column_sep: str = ";", only_images: bool = False,
+                     strict: bool = True) -> Discovery:
+    """List the samples under `root`, given only the layout.
+
+    Separate from `discover` because finding files does not need a whole specification:
+    splitting a dataset has no model, no colormap and no loss, and should not have to
+    invent them.
+    """
     root = Path(root)
     if not root.exists():
         raise ConfigError(f"'{root}' does not exist")
 
-    if data.mode is DataMode.NESTED_DIRS:
+    if mode is DataMode.NESTED_DIRS:
         if not root.is_dir():
             raise ConfigError(f"mode is nested_dirs but '{root}' is not a directory")
-        samples, skipped = _nested_dirs(root, data.subdirs, only_images)
+        samples, skipped = _nested_dirs(root, subdirs, only_images)
     else:
         if not root.is_file():
             raise ConfigError(f"mode is config_file but '{root}' is not a file")
-        samples, skipped = _config_file(root, data.column_sep, only_images)
+        samples, skipped = _config_file(root, column_sep, only_images)
 
     if not samples:
         raise ConfigError(
@@ -150,3 +160,12 @@ def discover(root: str | Path, data: SegmentationData, *, only_images: bool = Fa
             "Pass strict=False to train on the rest instead."
         )
     return Discovery(samples=tuple(samples), skipped=tuple(skipped))
+
+
+def discover(root: str | Path, data: SegmentationData, *, only_images: bool = False,
+             strict: bool = True) -> Discovery:
+    """List the samples under `root`, which is one of the paths named in `data`."""
+    return discover_samples(
+        root, mode=data.mode, subdirs=data.subdirs, column_sep=data.column_sep,
+        only_images=only_images, strict=strict,
+    )

@@ -1,7 +1,7 @@
 import pytest
 
 from pyplatypus import ConfigError
-from pyplatypus.data import discover
+from pyplatypus.data import discover, discover_samples
 from pyplatypus.spec.common import DataMode
 
 
@@ -86,3 +86,25 @@ def test_config_file_needs_the_right_columns(tmp_path, binary_data):
     data = binary_data.model_copy(update={"mode": DataMode.CONFIG_FILE})
     with pytest.raises(ConfigError, match="'images' column"):
         discover(csv, data)
+
+
+def test_a_key_column_names_the_sample_instead_of_the_row_number(tmp_path):
+    """Row numbers are useless in a report. A per-case score saying 'row 55' cannot be
+    chased back to an image, which is the first thing anyone does with a bad score."""
+    (tmp_path / "a.png").write_bytes(b"")
+    (tmp_path / "m.png").write_bytes(b"")
+    config = tmp_path / "train.csv"
+    config.write_text("key,group,images,masks\nTCGA-18-5592,patient01,a.png,m.png\n")
+
+    found = discover_samples(config, mode=DataMode.CONFIG_FILE)
+    assert [s.key for s in found.samples] == ["TCGA-18-5592"]
+
+
+def test_without_a_key_column_the_row_number_is_still_used(tmp_path):
+    (tmp_path / "a.png").write_bytes(b"")
+    (tmp_path / "m.png").write_bytes(b"")
+    config = tmp_path / "train.csv"
+    config.write_text("images,masks\na.png,m.png\n")
+
+    found = discover_samples(config, mode=DataMode.CONFIG_FILE)
+    assert [s.key for s in found.samples] == ["row 2"]

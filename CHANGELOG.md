@@ -1,6 +1,36 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.2.0a3]
+
+*2026-09-26*
+
+### Added
+
+ - `split_dataset()` - split one directory into train/validation/test CSVs, keeping every
+   group whole. `group_by` is a regular expression read against the sample key, and a
+   group is whatever must not straddle the split: usually a patient, sometimes a study, a
+   scanner or a site. Slices of one patient on both sides of a split is the most common
+   way to report a segmentation score that means nothing, and it leaves no trace in the
+   output. Deterministic given the same samples, fractions, pattern and seed, in any
+   order; groups are handed to whichever split is furthest below its target share in
+   samples, so patients of wildly different sizes do not skew the fractions
+ - `evaluate_cases()` - one row per case rather than one number per split, optionally
+   grouped by patient, and `summarise_cases()` for the distribution: mean, sd, median,
+   range, and the name of the worst case. A model averaging Dice 0.855 on the Data Science
+   Bowl scored 0.006 on three images; nothing in the mean could say so
+ - A `key` column in a `config_file` CSV now names the sample, instead of it being called
+   'row 55'. Written by the splitter, so a bad score can be traced back to an image
+
+### Changed
+
+ - Each metric is now one formula, written on overlap statistics and reused for tensors -
+   which is what lets a tiled case be scored as a whole. Tiles are summed, not averaged: a
+   ratio of sums is not the mean of ratios, and averaging punishes a case whose object
+   happens to straddle a tile boundary
+ - Finding samples no longer needs a full specification (`discover_samples`), since
+   splitting a dataset has no model, no colormap and no loss to invent
+
 ## [0.2.0a2]
 
 *2026-09-26*
