@@ -1,6 +1,26 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a8]
+
+*2026-09-27*
+
+### Added
+
+ - The first published weights: **`dsbowl-unet`**, a U-Net at 256x256 that separates cell nuclei
+   from background in light microscopy. Trained on BBBC038v1 - the 2018 Data Science Bowl images,
+   CC0, taken from the Broad Bioimage Benchmark Collection rather than the Kaggle mirror. Dice
+   0.9205 mean over 134 held-out images, sd 0.053, median 0.9314, **worst case 0.7240**; the five
+   worst images are named in the sidecar
+ - It is **semantic, not instance**: touching nuclei come back as one region, so the numbers are
+   not comparable to the challenge's own leaderboard, which scored instances. The registry
+   description and the model card both say so, because someone counting nuclei with these weights
+   would otherwise get a wrong answer with no warning
+ - Pinned to commit `5e035c6a` of `maju116/platypus-weights`. Verified end to end against the real
+   Hub: the name resolves, the file lands in the Hugging Face cache, the sidecar travels with it,
+   and the reloaded weights score 0.9201 on the same validation split. A second call takes two
+   milliseconds and no network
+
 ## [0.3.0a7]
 
 *2026-09-27*

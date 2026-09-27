@@ -9,6 +9,7 @@ worse than no test.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -377,3 +378,28 @@ def test_a_local_file_still_works_without_huggingface_hub(monkeypatch, trained):
     load_into(fresh, str(path), spec)
     for name, value in model.state_dict().items():
         assert torch.equal(value, fresh.state_dict()[name])
+
+
+# ------------------------------------------------------------- the registry itself
+def test_the_published_entries_are_pinned_to_a_full_commit():
+    """Checked offline, because CI must not depend on huggingface.co. What is verifiable without
+    the network is the promise the registry makes: every entry names a full 40-character commit
+    rather than a branch or a tag, either of which can be moved to different numbers later."""
+    from pyplatypus.weights import REGISTRY
+
+    assert REGISTRY, "the registry is empty; a published name should be listed here"
+    for name, entry in REGISTRY.items():
+        assert re.fullmatch(r"[0-9a-f]{40}", entry.revision), f"{name} is not pinned"
+        assert entry.filename.endswith(".safetensors"), f"{name} is not safetensors"
+        assert "/" in entry.repo, f"{name} has no owner in its repo id"
+        assert entry.reference.startswith("hf://")
+
+
+def test_the_dsbowl_entry_says_what_it_cannot_do():
+    """The description is what someone reads before using it, so the limitation belongs in it:
+    these weights do not separate touching nuclei, and a count taken from them would be wrong."""
+    from pyplatypus.weights import REGISTRY
+
+    description = REGISTRY["dsbowl-unet"].description
+    assert "BBBC038" in description
+    assert "instance" in description.lower()

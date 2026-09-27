@@ -58,7 +58,18 @@ class Published:
 # The registry. Deliberately small and curated: a name here is a promise that the numbers
 # behind it will not change, so adding one is a decision and not a side effect of training
 # something. Revisions are full commit hashes rather than tags - a tag can be moved.
-REGISTRY: dict[str, Published] = {}
+REGISTRY: dict[str, Published] = {
+    "dsbowl-unet": Published(
+        repo="maju116/platypus-weights",
+        filename="dsbowl-unet.safetensors",
+        revision="5e035c6a39827c33e19507affb9415c3908ae383",
+        description=(
+            "U-Net, 256x256, nuclei in light microscopy. Trained on BBBC038v1 (the 2018 Data "
+            "Science Bowl, CC0). Dice 0.92 mean over 134 held-out images, worst case 0.72. "
+            "Semantic, not instance: touching nuclei come back as one region."
+        ),
+    ),
+}
 
 
 def known_weights() -> dict[str, str]:
