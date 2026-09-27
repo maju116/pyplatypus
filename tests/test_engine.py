@@ -128,11 +128,15 @@ def test_a_model_can_load_weights_and_skip_training(two_model_config, tmp_path):
     assert reloaded.evaluate()[0]["dice"] >= 0.0
 
 
-def test_a_missing_checkpoint_says_the_registry_is_not_wired_up(two_model_config):
+def test_an_unknown_weights_name_lists_the_published_ones(two_model_config):
+    """This used to assert that the registry was not wired up. It is now, so the test says what
+    happens instead: an unknown name is refused and the known ones are listed."""
+    from pyplatypus.weights import WeightsError
+
     two_model_config["models"] = [dict(two_model_config["models"][0],
                                        fit=False, weights="dsbowl2018")]
     engine = Engine(from_dict(two_model_config), device="cpu")
-    with pytest.raises(EngineError, match="registry"):
+    with pytest.raises(WeightsError, match="no published weights called"):
         engine.fit()
 
 

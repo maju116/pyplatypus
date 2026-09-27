@@ -1,6 +1,40 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a7]
+
+*2026-09-27*
+
+### Added
+
+ - Published weights by name. Three forms, in the order they will be used: `dsbowl-unet` from the
+   registry, `hf://owner/repo/file.safetensors@commit` for anything else on the Hub, and a local
+   path. A registry name carries the **commit** it was published at, and the `hf://` form requires
+   one - weights that change under a stable name are the worst kind of irreproducibility, since
+   the code is identical and the result is not
+ - A **sidecar** beside every published file, recording the architecture, input shape, channels,
+   classes, blocks and filters the weights were trained with, plus provenance. Loading refuses a
+   model they do not belong to *before* touching torch: a shape mismatch torch would catch anyway,
+   but weights trained on a different colormap with the same class count load cleanly and predict
+   nonsense
+ - `Engine.export_weights()` writes safetensors plus that sidecar, and takes arbitrary extra
+   fields - the dataset, its licence, the citation, the measured validation distribution. Weights
+   whose provenance is only in somebody's memory cannot be used by anybody else
+ - `safetensors` is a hard dependency; `huggingface_hub` is the optional `hub` extra, since most
+   runs never fetch weights and an air-gapped one cannot. Asking for a name without it gives a
+   message saying which command fixes it
+ - `examples/publish_dsbowl_weights.py` trains the first published weights from **BBBC038v1 at
+   the Broad Institute**, not the Kaggle mirror. The images are identical; the Kaggle copy is
+   governed by competition rules accepted at download, while BBBC038v1 carries an explicit CC0
+   waiver, and weights are a derivative of the data behind them
+
+### Notes
+
+ - Downloads land in the Hugging Face cache (`~/.cache/huggingface/hub`, or `HF_HOME`), which sits
+   outside any virtual environment - so weights survive reticulate rebuilding its uv environment,
+   and a pinned commit needs no network call once cached. Air-gapped sites now have two caches to
+   warm: that one and `~/.cache/uv`
+
 ## [0.3.0a6]
 
 *2026-09-27*

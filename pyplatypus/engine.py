@@ -87,14 +87,28 @@ class Engine:
 
     # ----------------------------------------------------------------- weights
     @staticmethod
-    def _load_weights(model: torch.nn.Module, reference: str) -> None:
-        path = Path(reference)
-        if not path.exists():
-            raise EngineError(
-                f"'{reference}' is not a file. Named weights from the registry are not "
-                "wired up yet; give a path to a local checkpoint for now."
-            )
-        model.load_state_dict(torch.load(path, map_location="cpu", weights_only=True))
+    def _load_weights(model: torch.nn.Module, reference: str,
+                      spec: SegmentationModel) -> dict | None:
+        """A registry name, a Hub reference, or a local path - see `pyplatypus.weights`."""
+        from pyplatypus.weights import load_into
+
+        return load_into(model, reference, spec)
+
+    def export_weights(self, model_name: str, path: str | Path, **extra) -> Path:
+        """Write one trained model's weights, ready to publish or to load again later.
+
+        safetensors plus a sidecar recording what the weights are for. Anything passed as
+        `extra` joins the sidecar, which is where the data they were trained on and its licence
+        belong - a weights file whose provenance is only in somebody's memory cannot be used by
+        anybody else.
+        """
+        from pyplatypus.weights import export_weights
+
+        run = self.runs.get(model_name)
+        if run is None:
+            known = ", ".join(self.runs) or "none"
+            raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
+        return export_weights(run.model, run.spec, path, extra=extra or None)
 
     # -------------------------------------------------------------------- fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
@@ -105,7 +119,7 @@ class Engine:
 
             network = build_model(model_spec)
             if model_spec.weights:
-                self._load_weights(network, model_spec.weights)
+                self._load_weights(network, model_spec.weights, model_spec)
 
             trainer = Trainer(network, model_spec, device=self.device)
             run = ModelRun(name=model_spec.name, spec=model_spec,

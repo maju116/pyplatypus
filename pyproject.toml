@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.3.0a6"
+version = "0.3.0a7"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,6 +39,9 @@ dependencies = [
     # sets. Small and pure Python, so it is a hard dependency rather than an extra: a
     # medical imaging package that cannot open a .nii.gz is not one.
     "nibabel>=5.2",
+    # Weights are read and written as safetensors, never pickle: a pickle executes code when
+    # it is loaded, so a weights file would be a program somebody else wrote. Tiny.
+    "safetensors>=0.4",
     "albumentations>=1.4",
     # No upper bound on purpose. torch 2.8+ ships CUDA 13 builds, which dropped the
     # Maxwell, Pascal and Volta generations - a GTX 10-series card needs a CUDA 12.x
@@ -51,6 +54,9 @@ dependencies = [
 dev = ["pytest>=9.1.1", "pytest-cov", "build", "twine"]
 # For a Pascal-generation GPU (GTX 10-series): the last torch built against CUDA 12.
 pascal = ["torch>=2.7,<2.8"]
+# Only needed to fetch published weights by name. Most runs never do, and an air-gapped
+# install cannot, so it is not part of the base install.
+hub = ["huggingface_hub>=0.30"]
 
 # The linter's version is declared here and nowhere else. It used to be pinned in the CI
 # workflow while the dev extra said `ruff>=0.6`, so a contributor could run `ruff check`
