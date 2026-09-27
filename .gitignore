@@ -39,3 +39,7 @@ dist/
 /examples/siim_acr.yml
 /examples/data_science_bowl_config.yaml
 /examples/claud_38_config.yaml
+
+# Trained weights. They belong on the Hub with a model card, not in the source tree - and the
+# publishing script writes here by default.
+/weights/

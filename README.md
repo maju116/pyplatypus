@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a6 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a7 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -57,6 +57,12 @@ Semantic segmentation in 2D, end to end:
   grid cannot be laid over the patient's scan by anything, which is the whole point of producing
   one. Returns a list rather than an array, because scans differ in size and resizing them to
   match is how a mask ends up describing the wrong anatomy.
+- **Weights by name, pinned to a commit**: `weights: dsbowl-unet` fetches published weights
+  from a registry entry that carries the exact commit they were published at, so a name means one
+  set of numbers forever. `hf://owner/repo/file.safetensors@commit` takes anything else on the
+  Hub, a path takes a local file, and a sidecar records what the weights were trained for -
+  loading refuses a model they do not belong to, because weights with the wrong colormap and the
+  right shape load cleanly and predict nonsense.
 - **Many models from one file**, with a comparison table at the end.
 
 Augmentation works in 3D, with a caveat the package handles rather than hides: albumentations
@@ -102,6 +108,15 @@ Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch a
 ## Requirements
 
 Python ≥ 3.10, and torch ≥ 2.7.
+
+**To fetch published weights by name**, install the `hub` extra:
+
+```bash
+pip install "pyplatypus[hub]"
+```
+
+It is not in the base install because most runs never fetch weights and an air-gapped one cannot.
+Local weights files and everything else work without it.
 
 **If your GPU is a GTX 10-series (Pascal) or older**, install the `pascal` extra:
 

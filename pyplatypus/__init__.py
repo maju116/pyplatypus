@@ -9,16 +9,26 @@ from pyplatypus.data.splits import split_dataset, split_samples
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.spec import PlatypusSpec, from_dict, from_yaml, spec_schema, write_schema
+from pyplatypus.weights import (
+    WeightsError,
+    export_weights,
+    known_weights,
+    resolve_weights,
+)
 
-__version__ = "0.3.0a6"
+__version__ = "0.3.0a7"
 __all__ = [
     "ConfigError",
     "Engine",
     "PlatypusError",
     "PlatypusSpec",
+    "WeightsError",
     "__version__",
+    "export_weights",
     "from_dict",
     "from_yaml",
+    "known_weights",
+    "resolve_weights",
     "spec_schema",
     "split_dataset",
     "split_samples",
