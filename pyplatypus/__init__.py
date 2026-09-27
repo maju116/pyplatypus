@@ -10,7 +10,7 @@ from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.spec import PlatypusSpec, from_dict, from_yaml, spec_schema, write_schema
 
-__version__ = "0.3.0a5"
+__version__ = "0.3.0a6"
 __all__ = [
     "ConfigError",
     "Engine",

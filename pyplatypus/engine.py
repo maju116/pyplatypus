@@ -16,7 +16,7 @@ import numpy as np
 import torch
 
 from pyplatypus.data.augmentation import build_augmenter
-from pyplatypus.data.dataset import SegmentationDataset
+from pyplatypus.data.dataset import SegmentationDataset, _is_series
 from pyplatypus.data.paths import Sample, discover
 from pyplatypus.data.splits import group_of
 from pyplatypus.errors import PlatypusError
@@ -179,12 +179,26 @@ class Engine:
         return [{key: row.pop("case"), **row} for row in rows]
 
     # ---------------------------------------------------------------- predict
-    def predict(self, model_name: str, split: str = "test") -> np.ndarray:
+    def predict(self, model_name: str, split: str = "test", *, space: str = "model"):
         """Class probabilities, channels-last, one array per source image.
 
         Tiles are reassembled, so an image that went in at 2048x1536 comes back at
         2048x1536 rather than as 24 unrelated pieces.
+
+        `space` decides which grid the answer is on, and the two are different enough that the
+        return type differs with it:
+
+        * `"model"` - one stacked array, every prediction on the model's grid. What training
+          saw, and the only form that can be a single array, since a stack requires one shape.
+        * `"source"` - a **list**, one array per sample, each on the grid of the file it came
+          from. What a person asked for when they asked to segment their scan: it can be laid
+          over that scan, written beside it, or measured in millilitres of its voxels. Sources
+          differ in size, so this cannot be stacked, and pretending otherwise by silently
+          resizing is how a mask ends up describing the wrong anatomy.
         """
+        if space not in ("model", "source"):
+            raise EngineError(f"space is 'model' or 'source', got '{space}'")
+
         run = self.runs.get(model_name)
         if run is None:
             known = ", ".join(self.runs) or "none"
@@ -192,7 +206,80 @@ class Engine:
         only_images = split == "test" and "test" in self._samples
         # Never shuffle: stitching depends on tiles arriving in the order they were cut.
         loader = self.loader(run.spec, split, shuffle=False, only_images=only_images)
-        return run.trainer.predict(loader)
+        predictions = run.trainer.predict(loader)
+
+        if space == "model":
+            return predictions
+        samples = self._samples[split]
+        return [
+            self._to_source_space(predictions[index], sample, run.spec)
+            for index, sample in enumerate(samples)
+        ]
+
+    def _to_source_space(self, prediction: np.ndarray, sample: Sample,
+                         model: SegmentationModel) -> np.ndarray:
+        """Undo what reading did, so the answer lands on the grid the data arrived on.
+
+        The forward path is: read at native size, resample to `target_spacing` if asked, then
+        crop or pad to the model's shape. This walks back out of it - crop or pad to the shape
+        resampling produced, then resize to the source's own shape - and the result is exactly
+        the source's shape by construction rather than by rounding.
+
+        Two things are lost on the way back and neither can be recovered, so both are worth
+        knowing. Interpolating probabilities smooths them, so a boundary returns slightly
+        softer than the model drew it. And where the forward crop cut anatomy away, the inverse
+        pads it with background: that padding means *not examined*, not *nothing there*. Give
+        the model an `input_shape` that covers the anatomy if that distinction matters.
+        """
+        from pyplatypus.data.images import resize_image
+        from pyplatypus.data.volumes import crop_or_pad, resize_volume
+
+        shape = self._source_shape(sample)
+
+        if model.rank == 3 and self.spec.data.target_spacing is not None:
+            from pyplatypus.data.volumes import resample_to_spacing
+
+            spacing = self._source_spacing(sample)
+            # The shape resampling produced on the way in, computed the same way, so the crop
+            # below is the exact inverse of the pad that happened there (and vice versa).
+            resampled = resample_to_spacing(
+                np.zeros((*shape, 1), dtype=np.float32), spacing,
+                self.spec.data.target_spacing,
+            ).shape[:3]
+            prediction = crop_or_pad(prediction, resampled)
+
+        if tuple(prediction.shape[:-1]) == tuple(shape):
+            return prediction
+        if model.rank == 3:
+            return resize_volume(prediction, shape)
+        return resize_image(prediction, shape)
+
+    def _source_shape(self, sample: Sample) -> tuple[int, ...]:
+        """The native shape of a sample, whatever it is made of."""
+        from pyplatypus.data.channels import match_channels
+        from pyplatypus.data.dicom_series import series_shape
+        from pyplatypus.data.images import spatial_shape
+
+        if _is_series(sample.images):
+            return series_shape(list(sample.images))
+        if self.spec.data.channels_from is not None and len(sample.images) > 1:
+            ordered = match_channels(sample.images, self.spec.data.channels_from,
+                                     key=sample.key)
+            return spatial_shape(ordered[0])
+        return spatial_shape(sample.images[0])
+
+    def _source_spacing(self, sample: Sample):
+        from pyplatypus.data.channels import match_channels
+        from pyplatypus.data.dicom_series import series_spacing
+        from pyplatypus.data.volumes import volume_spacing
+
+        if _is_series(sample.images):
+            return series_spacing(list(sample.images))
+        if self.spec.data.channels_from is not None and len(sample.images) > 1:
+            ordered = match_channels(sample.images, self.spec.data.channels_from,
+                                     key=sample.key)
+            return volume_spacing(ordered[0])
+        return volume_spacing(sample.images[0])
 
     def best_model(self, key: str = "dice", split: str = "validation") -> str:
         """Rank the models on one column.

@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a5 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a6 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -52,6 +52,11 @@ Semantic segmentation in 2D, end to end:
   meaningless; a model trained with FLAIR in channel one and used where channel one is T1
   answers plausibly and reports nothing. A pattern matching two files, or none, or leaving a
   file unused, is an error.
+- **The answer on the grid it came from**: `predict(space="source")` maps each prediction back
+  onto the scan it was computed from, undoing the resampling and the crop. A mask on the model's
+  grid cannot be laid over the patient's scan by anything, which is the whole point of producing
+  one. Returns a list rather than an array, because scans differ in size and resizing them to
+  match is how a mask ends up describing the wrong anatomy.
 - **Many models from one file**, with a comparison table at the end.
 
 Augmentation works in 3D, with a caveat the package handles rather than hides: albumentations

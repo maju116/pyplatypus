@@ -1,6 +1,36 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a6]
+
+*2026-09-27*
+
+### Added
+
+ - `predict(space="source")`: each prediction mapped back onto the grid of the file it was
+   computed from, undoing the resampling and the crop. Until now a prediction came back on the
+   model's grid only, which meant a mask that could be scored but not laid over the patient's
+   scan - `save_volumes()` refused to write it, correctly, since a mask with the wrong geometry
+   lands in the wrong place
+ - It returns a **list**, not an array, and that is the honest type: sources differ in size, a
+   stack needs one shape, and resizing them to match would produce a mask describing anatomy it
+   was not computed from. `space="model"` keeps the stacked array and remains the default
+ - The inverse is built from the forward path rather than guessed: crop or pad to the shape
+   resampling produced, then resize to the source's own shape, which lands on the source shape
+   by construction rather than by rounding. Works with or without `target_spacing`, and at both
+   ranks
+ - `spatial_shape()`, `volume_shape()` and `series_shape()` read a source's size from headers
+   alone - for volumes the *canonical* shape, matching the array the reader returns rather than
+   the file's own axis order
+
+### Known losses, documented rather than hidden
+
+ - Interpolating probabilities smooths them, so a boundary returns slightly softer than the
+   model drew it
+ - Where the forward crop cut anatomy away, the inverse pads it with background. That padding
+   means **not examined**, not **nothing there**. Give the model an `input_shape` that covers the
+   anatomy when the distinction matters
+
 ## [0.3.0a5]
 
 *2026-09-26*

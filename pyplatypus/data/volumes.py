@@ -111,6 +111,11 @@ def _load_canonical(path: str | Path):
         raise VolumeError(f"could not read '{path}': {error}") from None
 
 
+def volume_shape(path: str | Path) -> tuple[int, int, int]:
+    """The canonical shape of a volume, from its header alone."""
+    return tuple(int(size) for size in _load_canonical(path).shape[:3])
+
+
 def _rescale(values: np.ndarray, window: str | tuple[float, float], *, nearest: bool
              ) -> np.ndarray:
     """Map values to 0-1 through a fixed window, or leave a label map alone.
