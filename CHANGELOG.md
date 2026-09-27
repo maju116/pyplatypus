@@ -1,6 +1,25 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a9]
+
+*2026-09-27*
+
+### Added
+
+ - `examples/compare_dsbowl_architectures.py`: all four architectures in one specification, on one
+   split, reported with the size and the cost beside the score. Dice alone cannot decide which
+   weights are worth publishing - a model scoring 0.001 higher for twice the epoch time is a
+   different trade, not a better choice
+ - The comparison itself, in the README and the model card, because the result is the useful part:
+   **the spread across the four architectures is 0.0030 while the spread across images within one
+   of them is 0.054.** Re-running the same U-Net with another seed moves the mean by 0.0012, 40% of
+   the whole between-architecture spread. On this problem the architecture is not where the result
+   comes from, and that is worth an hour of somebody's compute to learn rather than a fortnight of
+   swapping decoders
+ - It is also why `dsbowl-unet` remains the only published entry: four names meaning the same thing
+   would be four permanent promises nobody needed
+
 ## [0.3.0a8]
 
 *2026-09-27*
