@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a8 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a9 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -63,7 +63,8 @@ Semantic segmentation in 2D, end to end:
   Hub, a path takes a local file, and a sidecar records what the weights were trained for -
   loading refuses a model they do not belong to, because weights with the wrong colormap and the
   right shape load cleanly and predict nonsense.
-- **Many models from one file**, with a comparison table at the end.
+- **Many models from one file**, with a comparison table at the end - which is how you find
+  out that on some problems the architecture is not what matters. See below.
 
 Augmentation works in 3D, with a caveat the package handles rather than hides: albumentations
 supports volumes unevenly - 97 of its transforms take one and the rest raise from inside the
@@ -104,6 +105,28 @@ masks = engine.predict(engine.best_model("dice"), split="test")
 `examples/data_science_bowl.yaml` trains a U-Net and a LinkNet on the 2018 Data Science
 Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch at
 160×160.
+
+## Many models, one table
+
+The point of a specification holding several models is that the comparison costs one command. Run
+`examples/compare_dsbowl_architectures.py` and all four architectures train on the same split with
+the same augmentation:
+
+| model | parameters | s/epoch | epochs | Dice mean | sd | median | min |
+|---|---|---|---|---|---|---|---|
+| U-Net | 1,942,594 | 15.5 | 60 | 0.9217 | 0.054 | 0.9353 | 0.7227 |
+| U-Net++ | 2,263,730 | 18.8 | 44 | 0.9212 | 0.055 | 0.9323 | 0.7459 |
+| LinkNet | 1,746,754 | 14.0 | 60 | 0.9203 | 0.053 | 0.9293 | 0.7205 |
+| Res-U-Net | 2,029,682 | 14.2 | 55 | 0.9187 | 0.058 | 0.9293 | 0.6706 |
+
+Which is worth reading for what it says rather than for the winner. **The spread across the four
+is 0.0030, and the spread across images within any one of them is 0.054** — the architectures are
+eighteen times closer to each other than the images are. Re-running the same U-Net with a
+different seed moves the number by 0.0012, which is 40% of the whole spread.
+
+On this problem the architecture is not where the result comes from, and a table like this is how
+you find that out in an hour instead of a fortnight. That is also why only one set of weights is
+published: four names that mean the same thing would be four promises nobody needed.
 
 ## Requirements
 
