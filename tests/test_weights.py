@@ -197,9 +197,14 @@ def test_the_registry_listing_is_readable():
 def fake_hub(monkeypatch, tmp_path):
     """Stand in for `hf_hub_download`, so the Hub path is tested offline.
 
+    Skips when `huggingface_hub` is genuinely absent, because it is an optional dependency and a
+    plain install should be able to run the suite. CI installs it on purpose - otherwise these
+    would skip forever and the Hub path would ship untested behind a green run.
+
     Returns the directory acting as the repo, so a test can put files in it and assert on what
     was asked for.
     """
+    pytest.importorskip("huggingface_hub")
     asked = []
 
     def download(repo_id, filename, revision=None, **kwargs):
@@ -326,3 +331,49 @@ def test_the_sidecar_counts_parameters_the_way_the_engine_does(trained):
 
     assert sidecar["parameters"] == sum(v.numel() for v in model.parameters())
     assert sidecar["state_dict_numel"] >= sidecar["parameters"]
+
+
+def test_asking_for_a_name_without_huggingface_hub_says_which_command_fixes_it(monkeypatch):
+    """The whole point of the dependency being optional is that its absence is survivable, and
+    that is a promise nothing was testing. Simulated by hiding the module from imports, which is
+    what a plain `pip install pyplatypus` looks like.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def without_hub(name, *args, **kwargs):
+        if name == "huggingface_hub" or name.startswith("huggingface_hub."):
+            raise ImportError("hidden for this test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_hub)
+
+    with pytest.raises(WeightsError) as raised:
+        resolve_weights("hf://maju116/platypus-weights/dsbowl-unet.safetensors@a1b2c3d")
+
+    message = str(raised.value)
+    assert "pyplatypus[hub]" in message
+    # And it offers the way out that needs no network at all.
+    assert "give the path" in message
+
+
+def test_a_local_file_still_works_without_huggingface_hub(monkeypatch, trained):
+    """Which is the claim that matters for an air-gapped install: no Hub, no problem."""
+    import builtins
+
+    _, model, path = trained
+    real_import = builtins.__import__
+
+    def without_hub(name, *args, **kwargs):
+        if name == "huggingface_hub" or name.startswith("huggingface_hub."):
+            raise ImportError("hidden for this test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_hub)
+
+    spec = model_spec()
+    fresh = build_model(spec)
+    load_into(fresh, str(path), spec)
+    for name, value in model.state_dict().items():
+        assert torch.equal(value, fresh.state_dict()[name])
