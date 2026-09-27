@@ -208,6 +208,22 @@ def series_spacing(source: str | Path | list) -> tuple[float, float, float]:
     return tuple(float(z) for z in image.header.get_zooms()[:3])
 
 
+def series_shape(source: str | Path | list) -> tuple[int, int, int]:
+    """The canonical shape of a series, from headers alone.
+
+    Not `Series.shape`, which is (rows, columns, slices) as the files store it: the reader
+    reorients to canonical, so the shape that describes the returned array can be a
+    permutation of that one.
+    """
+    import nibabel as nib
+
+    series = describe_series(source)
+    image = nib.as_closest_canonical(
+        nib.Nifti1Image(np.zeros(series.shape, dtype=np.float32), series.affine)
+    )
+    return tuple(int(size) for size in image.shape[:3])
+
+
 # --------------------------------------------------------------------- internals
 def _pixel_spacing(header) -> tuple[float, float]:
     spacing = getattr(header, "PixelSpacing", None)

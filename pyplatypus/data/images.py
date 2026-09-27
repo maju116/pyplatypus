@@ -87,6 +87,48 @@ def read_image(path: str | Path, *, channels: int = 3,
     return array
 
 
+def spatial_shape(path: str | Path) -> tuple[int, ...]:
+    """The size of what is at this path, without reading the pixels.
+
+    Needed by anything that has to put a prediction back where it came from: the model works
+    at its own size, and the answer belongs on the grid the data arrived on. Headers only,
+    because asking this about a hundred cases should not cost a hundred gigabytes.
+
+    For volumes the shape is the *canonical* one, matching what the reader returns - a NIfTI
+    whose axes are stored in another order comes back permuted, and the shape has to agree with
+    the array it describes rather than with the file.
+    """
+    from pyplatypus.data.dicom import looks_like_dicom
+    from pyplatypus.data.dicom_series import looks_like_dicom_series, series_shape
+    from pyplatypus.data.volumes import looks_like_volume, volume_shape
+
+    if looks_like_dicom_series(path):
+        return series_shape(path)
+    if looks_like_volume(path):
+        return volume_shape(path)
+    if looks_like_dicom(path):
+        import pydicom
+
+        try:
+            header = pydicom.dcmread(str(path), stop_before_pixels=True)
+            return (int(header.Rows), int(header.Columns))
+        except Exception as error:  # noqa: BLE001 - pydicom raises many things
+            raise ImageError(f"could not read '{path}': {error}") from None
+
+    try:
+        with Image.open(path) as handle:
+            width, height = handle.size
+    except OSError as error:
+        raise ImageError(f"could not read '{path}': {error}") from None
+    return (height, width)
+
+
+def resize_image(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = False
+                 ) -> np.ndarray:
+    """Resize a channels-last 2D float array. The rank-2 counterpart of `resize_volume`."""
+    return _resize_array(array, tuple(size), nearest=nearest)
+
+
 def _resize_array(array: np.ndarray, size: tuple[int, ...], *, nearest: bool
                   ) -> np.ndarray:
     """Resize a float array through PIL, one channel at a time.
