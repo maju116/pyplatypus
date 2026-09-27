@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.3.0a7"
+version = "0.3.0a8"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"

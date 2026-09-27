@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a7 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a8 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -57,7 +57,7 @@ Semantic segmentation in 2D, end to end:
   grid cannot be laid over the patient's scan by anything, which is the whole point of producing
   one. Returns a list rather than an array, because scans differ in size and resizing them to
   match is how a mask ends up describing the wrong anatomy.
-- **Weights by name, pinned to a commit**: `weights: dsbowl-unet` fetches published weights
+- **Weights by name, pinned to a commit**: `weights: dsbowl-unet` is published and fetches
   from a registry entry that carries the exact commit they were published at, so a name means one
   set of numbers forever. `hf://owner/repo/file.safetensors@commit` takes anything else on the
   Hub, a path takes a local file, and a sidecar records what the weights were trained for -
