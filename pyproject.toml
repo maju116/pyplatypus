@@ -69,7 +69,7 @@ hub = ["huggingface_hub>=0.30"]
 #     uv run --only-group lint ruff check pyplatypus tests
 #
 [dependency-groups]
-lint = ["ruff==0.16.8"]
+lint = ["ruff==0.16.9"]
 
 [project.scripts]
 platypus-schema = "pyplatypus.spec.schema:main"
