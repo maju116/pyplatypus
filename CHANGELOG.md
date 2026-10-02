@@ -1,7 +1,9 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.0a10]
+
+*2026-10-02*
 
 ### Added
 
