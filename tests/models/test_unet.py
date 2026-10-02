@@ -133,3 +133,84 @@ def test_gradients_reach_every_parameter():
     model(torch.randn(1, 3, 64, 64)).sum().backward()
     unused = [name for name, p in model.named_parameters() if p.grad is None]
     assert unused == []
+
+
+class StubEncoder(torch.nn.Module):
+    """A configurable stand-in, so the contract can be broken one way at a time.
+
+    `stride_first` is what every ImageNet backbone does: the stem halves the input
+    before anything is handed back as a skip connection.
+    """
+
+    def __init__(self, widths, *, stride_first=False, declare=None, drop_last=False):
+        super().__init__()
+        self.channels = tuple(declare if declare is not None else widths)
+        self.drop_last = drop_last
+        first_stride = 2 if stride_first else 1
+        self.stem = torch.nn.Conv2d(3, widths[0], 3, stride=first_stride, padding=1)
+        self.rest = torch.nn.ModuleList([
+            torch.nn.Conv2d(widths[i], widths[i + 1], 3, stride=2, padding=1)
+            for i in range(len(widths) - 1)
+        ])
+
+    def forward(self, x):
+        x = self.stem(x)
+        features = [x]
+        for layer in self.rest:
+            x = layer(x)
+            features.append(x)
+        return features[:-1] if self.drop_last else features
+
+
+def test_an_encoder_that_downsamples_before_the_first_skip_is_rejected():
+    """The head is a 1x1 convolution on level 0, so level 0 sets the prediction's size.
+
+    Without this check the model builds, trains, and produces masks at half the
+    resolution of the ones it is scored against - and the only symptom is a tensor-size
+    error raised from inside the loss, nowhere near the cause.
+    """
+    encoder = StubEncoder((8, 16, 32, 64), stride_first=True)
+    with pytest.raises(ModelError, match="level 0"):
+        build_model(spec(), encoder=encoder)
+
+
+def test_the_rejection_names_the_reason_a_backbone_would_do_this():
+    encoder = StubEncoder((8, 16, 32, 64), stride_first=True)
+    with pytest.raises(ModelError, match="stem strides by 2"):
+        build_model(spec(), encoder=encoder)
+
+
+def test_an_encoder_that_misdeclares_its_widths_is_rejected():
+    """The decoder sizes its convolutions from `channels` before seeing a tensor, so a
+    wrong declaration is a wrong decoder."""
+    encoder = StubEncoder((8, 16, 32, 64), declare=(8, 16, 32, 999))
+    with pytest.raises(ModelError, match="declares channels"):
+        build_model(spec(), encoder=encoder)
+
+
+def test_an_encoder_returning_fewer_maps_than_it_declares_is_rejected():
+    encoder = StubEncoder((8, 16, 32, 64), drop_last=True)
+    with pytest.raises(ModelError, match="returned 3 feature maps"):
+        build_model(spec(), encoder=encoder)
+
+
+def test_the_probe_leaves_the_encoder_in_training_mode():
+    """Verification runs a forward pass, so it must not quietly switch BatchNorm off for
+    the rest of the run."""
+    encoder = UShapedEncoder(2, 3, blocks=3, filters=8)
+    assert encoder.training
+    build_model(spec(), encoder=encoder)
+    assert encoder.training
+
+
+def test_verification_costs_one_tiny_forward_pass():
+    """The probe is the smallest input the level count allows, not the spec's shape."""
+    seen = []
+
+    class Watching(UShapedEncoder):
+        def forward(self, x):
+            seen.append(tuple(x.shape))
+            return super().forward(x)
+
+    build_model(spec(input_shape=(256, 256), blocks=3), encoder=Watching(2, 3, blocks=3, filters=8))
+    assert seen == [(1, 3, 8, 8)]

@@ -1,6 +1,52 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+ - **Pretrained encoders.** `encoder: resnet34` builds a timm backbone as the contracting path and
+   `pretrained: true` is a separate flag that loads its ImageNet weights - separate on purpose, so
+   naming a backbone never reaches the network on a machine that has none. `timm` is the optional
+   `encoders` extra
+ - `freeze_encoder: 5` holds the transferred layers still for that many epochs, and
+   `encoder_learning_rate` gives them a rate of their own. Both act on the layers that actually
+   arrived pretrained and not on the full-resolution stage added in front of them, which starts
+   random and is the one part that must keep learning. Parameter groups are split by object
+   identity, so no rename can misfile one
+ - Freezing sets `eval()` as well as `requires_grad`, and does it *after* `model.train()`: a frozen
+   BatchNorm otherwise rewrites its running statistics from every batch it sees, which changes the
+   very thing the freeze was protecting
+ - `examples/compare_pretrained_encoders.py` and the measurement it produced, in the README: three
+   datasets, one per modality, three seeds each. **The mechanisms work and the transfer does not.**
+   Use `freeze_encoder` rather than `encoder_learning_rate` alone - on Kvasir a tenth of the rate
+   is the worst configuration in the table. Expect convergence in half the epochs rather than a
+   better score. A bigger encoder earns its place where the target is thin, pretrained or not: on
+   SIIM-ACR every ResNet variant roughly doubles the built-in encoder, whose seed spread there is
+   larger than its own mean
+
+### Changed
+
+ - `verify_encoder` checks a supplied encoder **by measurement** rather than by its declaration: one
+   tiny probe at build time confirms the level count, that `channels` matches what comes back, that
+   level 0 is at input resolution, and that every level halves. The seam had an unstated contract -
+   an encoder whose stem strides by 2, which is every ImageNet backbone, was accepted in silence and
+   produced masks at half the size of the ones scoring them, surfacing much later as a bare tensor
+   size error from inside the loss
+ - Levels are chosen from a backbone by downsampling factor rather than position, so `vgg16`'s
+   full-resolution level is used directly and the patch-based backbones (`convnext_*`, `swin_*`),
+   whose features start at 1/4, are refused by name with the reason instead of having a 1/2 level
+   invented for them
+ - CI installs the `encoders` extra. An optional extra CI does not install is a feature shipped
+   untested behind a green run, because its tests skip rather than fail
+
+### Refused
+
+ - `pretrained` without `encoder`, which would otherwise read as transfer learning and do nothing
+ - `encoder` at rank 3, caught while the specification is read so a 3D run fails before anything is
+   downloaded. ImageNet is images; there is nothing to transfer to a volume
+ - `blocks` deeper than the backbone has stages, and backbone names timm does not know
+
 ## [0.3.0a9]
 
 *2026-09-27*

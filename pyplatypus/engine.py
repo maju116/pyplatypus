@@ -21,6 +21,7 @@ from pyplatypus.data.paths import Sample, discover
 from pyplatypus.data.splits import group_of
 from pyplatypus.errors import PlatypusError
 from pyplatypus.models import build_model
+from pyplatypus.models.encoders import PretrainedEncoder
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.spec.spec import PlatypusSpec
 from pyplatypus.training.torch_data import make_loader
@@ -117,7 +118,7 @@ class Engine:
             if verbose:
                 print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
 
-            network = build_model(model_spec)
+            network = build_model(model_spec, encoder=_encoder_for(model_spec))
             if model_spec.weights:
                 self._load_weights(network, model_spec.weights, model_spec)
 
@@ -320,6 +321,23 @@ class Engine:
             )
         chosen = (min if lower_is_better else max)(table, key=lambda row: row[key])
         return chosen["model"]
+
+
+def _encoder_for(spec: SegmentationModel) -> PretrainedEncoder | None:
+    """The encoder a spec asks for, or None to let the model build its own.
+
+    The block options are passed through so the one stage we own matches the rest of the
+    network; the backbone's own layers are whatever they were trained as.
+    """
+    if spec.encoder is None:
+        return None
+    return PretrainedEncoder(
+        spec.encoder, in_channels=spec.channels, blocks=spec.blocks,
+        filters=spec.filters, pretrained=spec.pretrained, rank=spec.rank,
+        width=spec.block_width, batch_norm=spec.batch_normalization,
+        separable=spec.separable_conv, act=spec.activation,
+        drop=spec.dropout, spatial_dropout=spec.spatial_dropout,
+    )
 
 
 def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

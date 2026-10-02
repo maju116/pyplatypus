@@ -74,6 +74,42 @@ class SegmentationModel(SpecModel):
         ),
     )
 
+    encoder: str | None = Field(
+        None,
+        description=(
+            "A timm backbone to use as the contracting path, e.g. 'resnet34'. Leave "
+            "unset for the built-in encoder, which is the only one that works in 3D."
+        ),
+    )
+    pretrained: bool = Field(
+        False,
+        description=(
+            "Load the encoder's ImageNet weights. Separate from `encoder` on purpose: "
+            "naming a backbone builds that architecture, and this is the flag that "
+            "reaches the network, which matters where there is no network."
+        ),
+    )
+
+    encoder_learning_rate: float | None = Field(
+        None,
+        gt=0,
+        description=(
+            "A separate, usually smaller learning rate for the layers that arrived "
+            "pretrained. The full-resolution stage added in front of them is ours and "
+            "starts random, so it trains at the optimizer's own rate. Unset means one "
+            "rate for the whole network."
+        ),
+    )
+    freeze_encoder: int = Field(
+        0,
+        ge=0,
+        description=(
+            "Keep the pretrained layers fixed for this many epochs, then train them. "
+            "Lets the random decoder settle before its gradients reach weights worth "
+            "keeping. A number at or above `epochs` freezes them for the whole run."
+        ),
+    )
+
     weights: str | None = Field(
         None,
         description="Registry name (e.g. 'dsbowl2018') or a path to a local checkpoint.",
@@ -168,6 +204,44 @@ class SegmentationModel(SpecModel):
                     f"callback '{callback.name}' watches '{watched}', which this model "
                     f"does not produce; available: {', '.join(sorted(available))}"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def pretrained_needs_an_encoder(self):
+        """`pretrained` on its own has nothing to load into: the built-in encoder is ours
+        and no one published weights for it. Silently ignoring the flag would leave
+        someone believing they had transfer learning when they had none."""
+        if self.pretrained and self.encoder is None:
+            raise ValueError(
+                "pretrained=true needs `encoder` to say which backbone to load, e.g. "
+                "encoder='resnet34'; the built-in encoder has no published weights"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def encoder_settings_need_an_encoder(self):
+        """Both of these address one problem - a random decoder's gradients arriving at
+        transferred weights - so neither means anything without transferred weights."""
+        for field, value in (("encoder_learning_rate", self.encoder_learning_rate),
+                             ("freeze_encoder", self.freeze_encoder or None)):
+            if value is not None and self.encoder is None:
+                raise ValueError(
+                    f"{field} needs `encoder` to name a backbone; there is nothing "
+                    f"transferred for it to apply to"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def encoders_are_two_dimensional(self):
+        """Refused here rather than at build time so a 3D spec fails while it is being
+        read, before anything is downloaded or a GPU is touched."""
+        if self.encoder is not None and self.rank != 2:
+            raise ValueError(
+                f"encoder='{self.encoder}' is a 2D backbone but input_shape is "
+                f"{self.rank}D ({tuple(self.input_shape)}); ImageNet is images, so there "
+                f"is nothing to transfer to a volume. Leave `encoder` unset - the "
+                f"built-in encoder works at both ranks."
+            )
         return self
 
     @model_validator(mode="after")

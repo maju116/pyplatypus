@@ -57,6 +57,16 @@ pascal = ["torch>=2.7,<2.8"]
 # Only needed to fetch published weights by name. Most runs never do, and an air-gapped
 # install cannot, so it is not part of the base install.
 hub = ["huggingface_hub>=0.30"]
+# Pretrained encoders: `encoder = "resnet34"`. timm supplies the backbone architectures and
+# their ImageNet weights. An extra rather than a dependency because our own encoder needs
+# none of it, it is the only encoder that works in 3D, and timm is not small.
+#
+# timm also pulls in torchvision, which pins itself tightly to a torch version, so this extra
+# can drag torch forward: installing it alone on a Pascal card resolved torch to a CUDA 13
+# build and the GPU silently disappeared. On that hardware ask for both -
+# `pip install "pyplatypus[encoders,pascal]"` - which resolves to torch 2.7.1 and
+# torchvision 0.22.1. Verified, not assumed.
+encoders = ["timm>=1.0"]
 
 # The linter's version is declared here and nowhere else. It used to be pinned in the CI
 # workflow while the dev extra said `ruff>=0.6`, so a contributor could run `ruff check`

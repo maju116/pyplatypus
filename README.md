@@ -65,6 +65,13 @@ Semantic segmentation in 2D, end to end:
   right shape load cleanly and predict nonsense.
 - **Many models from one file**, with a comparison table at the end - which is how you find
   out that on some problems the architecture is not what matters. See below.
+- **A pretrained backbone as the contracting path**: `encoder: resnet34` builds that
+  architecture, and `pretrained: true` is the separate flag that loads its ImageNet weights -
+  separate because the first thing a named backbone should not do is reach the network on a
+  machine that has none. Any timm backbone whose features start at half resolution works;
+  `blocks` says how many of its stages to use, and the full-resolution level a U-shaped
+  decoder needs is one block of ours, because no ImageNet stem has one. What it is measurably
+  worth, and what it is not, is below.
 
 Augmentation works in 3D, with a caveat the package handles rather than hides: albumentations
 supports volumes unevenly - 97 of its transforms take one and the rest raise from inside the
@@ -72,7 +79,7 @@ library, `GaussNoise` as `KeyError: 'images'`. Every transform in a 3D specifica
 against a small probe volume while the pipeline is built, so an unsupported one is named before
 training starts, and `available_transforms(rank=3)` lists what is usable.
 
-Object detection, ensembling and pretrained backbones remain out of scope.
+Object detection and ensembling remain out of scope.
 
 Resampling is opt-in rather than automatic: it changes the voxel grid the model sees, which
 is a decision to take deliberately. Without `target_spacing` the old behaviour stands and
@@ -128,6 +135,62 @@ On this problem the architecture is not where the result comes from, and a table
 you find that out in an hour instead of a fortnight. That is also why only one set of weights is
 published: four names that mean the same thing would be four promises nobody needed.
 
+## What a pretrained encoder is worth
+
+`encoder` and `pretrained` are two flags, not one, and the reason is that the second is the only
+one that reaches the network:
+
+```yaml
+models:
+  - name: polyps
+    encoder: resnet34        # builds a ResNet-34 contracting path
+    pretrained: true         # and loads its ImageNet weights
+    freeze_encoder: 5        # holding them still while the decoder settles
+```
+
+Measured on three datasets, one per modality, 3 seeds each, each configuration compared at its
+best validation Dice with the best weights restored. Small training sets on purpose - 40 to 100
+images - because that is the regime transfer learning is supposed to be for.
+
+| | DS Bowl, microscopy | SIIM-ACR, chest X-ray | Kvasir-SEG, endoscopy |
+|---|---|---|---|
+| built-in encoder, 1.9M | **0.8460** ±0.0068 | 0.0531 ±0.0586 | 0.5830 ±0.0128 |
+| resnet34 from scratch, 9.0M | 0.7891 ±0.0992 | 0.1073 ±0.0033 | 0.5670 ±0.0251 |
+| pretrained, `freeze_encoder: 5` | 0.8333 ±0.0151 | **0.1203** ±0.0116 | **0.5932** ±0.0170 |
+| pretrained, `encoder_learning_rate: lr/10` | 0.8326 ±0.0094 | 0.1011 ±0.0092 | 0.5329 ±0.0101 |
+
+Four things come out of it, and they repeat on all three:
+
+**Use `freeze_encoder`, not `encoder_learning_rate` alone.** Freezing is the better pretrained
+variant everywhere, and on Kvasir a tenth of the learning rate is the *worst* configuration in the
+table - below the built-in encoder and below the same ResNet trained from nothing. Giving one
+learning rate to the whole network is worse still: on DS Bowl it costs 0.045 of Dice and
+quadruples the seed spread, because a random decoder's gradients undo the transferred weights
+before the decoder has learned anything to be worth it.
+
+**Do not expect a better score. Expect to reach it sooner.** On Kvasir the built-in encoder needed
+150, 110 and 83 epochs for its three seeds; pretrained-and-frozen needed 64, 82 and 83 for the
+same Dice. That halving is the one benefit that showed up consistently.
+
+**Capacity matters where the target is thin.** On SIIM, where a pneumothorax covers a median 0.59%
+of the frame, every ResNet variant roughly doubles the built-in encoder's score - and the built-in
+encoder's seed spread (±0.0586) is larger than its own mean, with two of three seeds never
+learning at all. That is an argument for being able to swap the encoder, independent of ImageNet.
+
+**ImageNet features do not transfer to these images.** The clearest number is from DS Bowl with
+the backbone frozen for the whole run: 0.6068, against 0.8460 for an encoder that learned the
+task from 40 images. And Kvasir is the fairest test available - camera photographs of tissue,
+three channels, natural lighting - where the best pretrained configuration beats the built-in
+encoder by 0.0102 with a seed spread of 0.0170. Inside the noise.
+
+So the feature is here, correct, and documented for what it does: a faster route to the same
+answer, and a bigger encoder for problems that need one. Our own 1.9M-parameter encoder beats
+ResNet-34's 9.0M on two of the three datasets.
+
+Reproduce with `examples/compare_pretrained_encoders.py`. Raw logs and per-seed numbers are in
+`measurements/`. The SIIM-ACR images came from a Kaggle competition, so no weights trained on
+them are published; BBBC038v1 is CC0 and Kvasir-SEG is CC BY 4.0.
+
 ## Requirements
 
 Python ≥ 3.10, and torch ≥ 2.7.
@@ -140,6 +203,18 @@ pip install "pyplatypus[hub]"
 
 It is not in the base install because most runs never fetch weights and an air-gapped one cannot.
 Local weights files and everything else work without it.
+
+**For a pretrained encoder**, install the `encoders` extra, which brings timm:
+
+```bash
+pip install "pyplatypus[encoders]"
+```
+
+On a Pascal-generation GPU ask for both extras together — `pyplatypus[encoders,pascal]`. timm
+pulls in torchvision, torchvision pins its torch version by equality, and asking for timm alone
+resolved torch to a CUDA 13 build whose kernels start at `sm_75`; a GTX 1070 is `sm_61`, so the
+GPU disappears and the error blames the driver. The two extras together resolve to torch 2.7.1
+and torchvision 0.22.1.
 
 **If your GPU is a GTX 10-series (Pascal) or older**, install the `pascal` extra:
 

@@ -64,7 +64,7 @@ jobs:
       # must not be optional in CI. Without it those tests skip, and a skipped test proves
       # nothing - the code would be shipped untested while the run stayed green.
       - name: Install the package
-        run: uv pip install -e ".[dev,hub]"
+        run: uv pip install -e ".[dev,hub,encoders]"
 
       # --no-sync matters: a bare `uv run` re-resolves the environment from
       # pyproject.toml and reinstalls the CUDA torch that the step above deliberately

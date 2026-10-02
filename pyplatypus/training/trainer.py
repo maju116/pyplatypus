@@ -22,7 +22,7 @@ from pyplatypus.objectives import build_loss, build_metrics
 from pyplatypus.objectives import functional as f
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.training.callbacks import Callback, TrainingState, build_callbacks
-from pyplatypus.training.optimizers import build_optimizer
+from pyplatypus.training.optimizers import build_optimizer, parameter_groups
 
 
 @dataclass
@@ -63,8 +63,16 @@ class Trainer:
         self.model = model.to(self.device)
         self.loss_fn = build_loss(spec.loss)
         self.metrics = build_metrics(spec.metrics)
-        self.optimizer = build_optimizer(spec.optimizer, self.model.parameters())
+        # The layers that arrived pretrained, if any. Held separately because both
+        # `encoder_learning_rate` and `freeze_encoder` act on exactly that part and on
+        # nothing else - the full-resolution stage in front of them is ours and random.
+        self.transferred = getattr(getattr(self.model, "encoder", None), "transferred", None)
+        self.optimizer = build_optimizer(
+            spec.optimizer,
+            parameter_groups(self.model, self.transferred, spec.encoder_learning_rate),
+        )
         self.callbacks = callbacks if callbacks is not None else build_callbacks(spec.callbacks)
+        self._frozen: bool | None = None
 
     def _loss_and_final(self, batch_x: torch.Tensor, batch_y: torch.Tensor):
         out = self.model(batch_x)
@@ -77,6 +85,11 @@ class Trainer:
     def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str
                    ) -> dict[str, float]:
         self.model.train(train)
+        # After model.train(), never before: that call reaches every submodule, so a
+        # transferred encoder put in eval() earlier would be switched straight back and
+        # its BatchNorm statistics would drift after all.
+        if self._frozen and self.transferred is not None:
+            self.transferred.eval()
         totals: dict[str, float] = {f"{prefix}_loss": 0.0}
         totals.update({f"{prefix}_{name}": 0.0 for name in self.metrics})
         batches = 0
@@ -103,6 +116,21 @@ class Trainer:
             raise ValueError(f"the {prefix} loader produced no batches")
         return {key: value / batches for key, value in totals.items()}
 
+    def _set_transferred_frozen(self, frozen: bool) -> None:
+        """Freeze or release the transferred layers.
+
+        `eval()` as well as `requires_grad`, and that second half is the one that is easy
+        to miss: a frozen BatchNorm still rewrites its running mean and variance from
+        every batch it sees. Pretrained weights were fitted alongside pretrained
+        statistics, so letting the statistics drift while holding the weights fixed
+        changes the thing being protected, quietly and from the first batch.
+        """
+        if self.transferred is None or self._frozen == frozen:
+            return
+        for parameter in self.transferred.parameters():
+            parameter.requires_grad_(not frozen)
+        self._frozen = frozen
+
     def fit(self, train_loader: DataLoader, validation_loader: DataLoader | None = None,
             *, epochs: int | None = None, verbose: bool = False) -> History:
         epochs = epochs if epochs is not None else self.spec.epochs
@@ -114,6 +142,7 @@ class Trainer:
 
         for epoch in range(1, epochs + 1):
             started = time.perf_counter()
+            self._set_transferred_frozen(epoch <= self.spec.freeze_encoder)
             logs = self._run_epoch(train_loader, train=True, prefix="train")
             if validation_loader is not None:
                 logs.update(self._run_epoch(validation_loader, train=False, prefix="val"))
