@@ -56,9 +56,17 @@ jobs:
       # from the CPU index first leaves the requirement satisfied, so the package install
       # below will not pull the CUDA one. The index is given alone: combined with an
       # --extra-index-url, uv resolves torch from PyPI and the CUDA build arrives anyway.
-      - name: Install CPU torch
+      #
+      # torchvision comes from the same index and in the same command, never from PyPI
+      # afterwards. It ships compiled operators built against one exact torch, so a
+      # torchvision resolved separately loads and then raises
+      # `operator torchvision::nms does not exist` the moment anything imports it - which
+      # on this package means every test that touches a pretrained encoder, because timm
+      # imports torchvision at module level. It is pulled in by the `encoders` extra, so
+      # naming it here is what keeps the pair consistent.
+      - name: Install CPU torch and torchvision
         if: runner.os != 'macOS'
-        run: uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+        run: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
       # `hub` as well as `dev`: the Hub path in the weights registry is optional at runtime and
       # must not be optional in CI. Without it those tests skip, and a skipped test proves
