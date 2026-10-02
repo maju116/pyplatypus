@@ -13,7 +13,7 @@ from __future__ import annotations
 import torch
 from torch import nn
 
-from pyplatypus.models.encoders import Encoder, UShapedEncoder
+from pyplatypus.models.encoders import Encoder, UShapedEncoder, verify_encoder
 from pyplatypus.models.layers import (
     ConvBlock,
     ModelError,
@@ -55,12 +55,11 @@ class UShapedNet(nn.Module):
             self.rank, spec.channels, blocks=spec.blocks, filters=spec.filters,
             residual=residual, **self.block_options,
         )
+        # Measured, not trusted: a supplied encoder is checked against what the decoder
+        # is about to assume of it. Ours passes by construction; the check is here for
+        # every other one, and it is cheap.
+        verify_encoder(self.encoder, self.rank, spec.channels, spec.blocks + 1)
         widths = self.encoder.channels
-        if len(widths) != spec.blocks + 1:
-            raise ModelError(
-                f"encoder reports {len(widths)} levels but the spec asks for "
-                f"{spec.blocks + 1} (blocks + bottleneck)"
-            )
 
         learned = not spec.upsample
         self.ups = nn.ModuleDict()
