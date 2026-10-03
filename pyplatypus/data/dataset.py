@@ -10,6 +10,7 @@ The torch adapter transposes once, at the boundary.
 from __future__ import annotations
 
 from collections import OrderedDict
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -30,6 +31,62 @@ from pyplatypus.spec.models import SegmentationModel
 
 class DataError(PlatypusError):
     kind = "data_error"
+
+
+#: How many masks to read before an early exit is allowed. One file's unmatched fraction is
+#: not an estimate of anything.
+_MINIMUM_SAMPLES = 5
+
+
+def _spread(total: int, count: int) -> list[int]:
+    """`count` indices over `0..total-1`, ordered so that any prefix still spans the range.
+
+    Two things are wanted at once and they pull apart. The sample must cross the whole
+    dataset, because real ones arrive sorted - by patient, by acquisition date, sometimes
+    by class - and a prefix of a sorted listing is a biased sample: "this class is absent"
+    drawn from one can mean only "the positives are later in the list". But the scan also
+    wants to stop early when it has its answer, and stopping early on an in-order sweep
+    reads only the beginning, which is the bias again.
+
+    So the order bisects: first, last, middle, then the midpoints of what is left. Ten
+    reads out of ten thousand samples still touch both ends and the middle. Deterministic,
+    and needing no seed to be reproducible.
+    """
+    if total <= 0 or count <= 0:
+        return []
+    if count >= total:
+        positions = list(range(total))
+    else:
+        step = (total - 1) / (count - 1) if count > 1 else 0
+        positions = sorted({round(i * step) for i in range(count)})
+
+    order: list[int] = []
+    def bisect(lo: int, hi: int) -> None:
+        if lo > hi:
+            return
+        mid = (lo + hi) // 2
+        order.append(positions[mid])
+        bisect(lo, mid - 1)
+        bisect(mid + 1, hi)
+
+    if positions:
+        order.append(positions[0])
+        if len(positions) > 1:
+            order.append(positions[-1])
+        bisect(1, len(positions) - 2)
+    seen = set()
+    return [i for i in order if not (i in seen or seen.add(i))]
+
+
+@dataclass(frozen=True)
+class MaskReport:
+    """What a colormap or a list of labels matched, over a sample of the masks."""
+
+    unmatched: float
+    present_classes: list[int]
+    missing_classes: list[int]
+    samples_checked: int
+    total_samples: int
 
 
 def _series_spacing(paths: tuple):
@@ -263,15 +320,55 @@ class SegmentationDataset:
     def colormap_coverage(self, limit: int = 20) -> float:
         """Fraction of mask voxels matching no colour, or no label value.
 
-        A number near 1 means the colormap - or the list of labels - does not describe this
-        dataset, which is the single most common way a segmentation run silently trains on
-        nothing at all.
+        Kept as it was because the R surface calls it. `inspect_masks` is the fuller
+        answer, and the one worth acting on: see what this number cannot see, below.
+        """
+        return self.inspect_masks(limit=limit).unmatched
+
+    def inspect_masks(self, limit: int = 20) -> MaskReport:
+        """What the colormap, or the list of labels, actually matches in these masks.
+
+        Two findings, and the second is the one that matters.
+
+        `unmatched` is the fraction of mask voxels matching no entry, which fall back to
+        class 0. Near 1 it says the colormap does not describe this dataset at all.
+
+        **But it scales with the size of the thing being segmented, so on its own it
+        cannot see the failure that matters most.** Measured on synthetic masks whose
+        foreground is pure white and a colormap asking for VOC red instead:
+
+            foreground 20.0% of the image -> unmatched 19.83%
+            foreground  5.0%              -> unmatched  4.96%
+            foreground  0.6%              -> unmatched  0.61%
+
+        The last is a colormap that matches none of the labelled tissue, and it is
+        indistinguishable from the 0.72% that JPEG compression leaves around the edges of
+        a correct mask. A small lesion is the ordinary medical case, so the quietest
+        signal belongs to the most dangerous mistake.
+
+        `missing_classes` does not scale. A declared class that appears in no mask at all
+        is provable: its channel in the target is zero everywhere, so the loss has nothing
+        to push towards and the model cannot be shown what it is meant to find. In the
+        same measurement the correct colormap gave per-class counts of [15984, 400] and
+        the wrong one gave [16384, 0] - 400 pixels against exactly none, at any lesion
+        size.
         """
         if self.only_images:
             raise DataError("there are no masks to check")
         unmatched = []
+        seen: set[int] = set()
         mask_channels = 1 if self.data.label_map else 3
-        for index in range(min(limit, len(self.samples))):
+        total = len(self.samples)
+        wanted = set(range(self.model.n_class))
+        read = 0
+        for index in _spread(total, min(limit, total)):
+            # Stop once every declared class has turned up and enough files have been read
+            # for the unmatched figure to mean something. The good case then costs a
+            # handful of reads, and the effort goes where there is doubt - on Data Science
+            # Bowl, where each sample carries one mask file per nucleus, scanning fifty
+            # samples took 3.8 seconds and the first few answer the question.
+            if read >= _MINIMUM_SAMPLES and not (wanted - seen):
+                break
             sample = self.samples[index]
             if self.model.rank == 3:
                 masks = [self._read(sample.masks, channels=mask_channels,
@@ -280,6 +377,14 @@ class SegmentationDataset:
                 masks = [read_image(p, channels=mask_channels, size=self.model.load_shape,
                                     nearest=True)
                          for p in sample.masks]
-            _, fraction = self._to_classes(unite_masks(masks))
+            classes, fraction = self._to_classes(unite_masks(masks))
             unmatched.append(fraction)
-        return float(np.mean(unmatched))
+            seen.update(int(value) for value in np.unique(classes))
+            read += 1
+        return MaskReport(
+            unmatched=float(np.mean(unmatched)) if unmatched else 0.0,
+            present_classes=sorted(seen),
+            missing_classes=sorted(wanted - seen),
+            samples_checked=read,
+            total_samples=total,
+        )
