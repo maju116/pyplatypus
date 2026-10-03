@@ -45,7 +45,35 @@ be ceremony. The release comes when there is a detector to score.
    loses none, which makes the input size a decision rather than a default - and is the
    difference between "the model is poor" and "the target never held half the cells"
 
+### Added — anchors fitted to your own boxes
+
+ - `generate_anchors`, `fit_shapes`, `box_shapes` and `anchor_coverage`. k-means over box
+   shapes with **IoU as the distance**, k-means++ seeding, carried over from the old
+   package - the piece of it with no equivalent anywhere in R
+ - `AnchorFit` carries `mean_iou`, the quantity the fit maximises and the number that says
+   whether these anchors describe this data. Comparing it across `anchors_per_grid` is how
+   the count gets chosen instead of assumed; the old implementation **printed a class table
+   and drew a scatter plot as side effects and reported no number at all**
+ - `anchor_coverage` answers "are COCO's anchors good enough for my data" in one number
+   rather than a training run. On blood-cell-shaped boxes: **0.67 borrowed against 0.92
+   fitted**
+ - **The whole pipeline is verified against COCO's published anchors.** Plant the nine as
+   clusters of boxes, refit from nothing, and COCO's anchors come back in COCO's groups to
+   within 1-3 pixels at 416 - which checks the seeding, the distance, the convergence and
+   the grouping at once
+
 ### Fixed, in work carried over rather than in released code
+
+ - **Anchors are grouped into scales by area, not by width.** Verified against the one
+   external reference there is: sorting the nine COCO anchors by area reproduces their
+   published grouping exactly, and sorting by width - what the old code did - does not. It
+   puts (30, 61) in the finest grid and (33, 23) in the middle one, swapping them
+ - **Box shapes are measured in the space the encoder uses.** The old code divided a box by
+   its source image, which equals the fraction of the network input only when the image is
+   stretched to fill it. With letterboxing a square object in a 640x480 image is square
+   after letterboxing and **33% taller than it is wide** under source normalisation. For a
+   dataset of one image size the distortion is uniform and the model compensates; it stops
+   being harmless the moment sizes are mixed or COCO weights are loaded
 
  - **Pascal VOC's one-pixel convention.** VOC stores 1-based inclusive indices, so pixels
    1 to 10 are ten pixels wide and `xmax - xmin` is nine - leaving **81% of the true area**,

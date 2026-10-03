@@ -6,6 +6,13 @@ no way to say whether it detected anything, and no number to put beside publishe
 Everything else here is unmeasurable until this part exists.
 """
 
+from pyplatypus.detection.anchors import (
+    AnchorFit,
+    anchor_coverage,
+    box_shapes,
+    fit_shapes,
+    generate_anchors,
+)
 from pyplatypus.detection.annotations import (
     Annotation,
     describe_annotations,
@@ -41,19 +48,24 @@ __all__ = [
     "COCO_ANCHORS",
     "COCO_THRESHOLDS",
     "STRIDES",
+    "AnchorFit",
     "Annotation",
     "DetectionError",
     "DetectionMetrics",
     "Encoding",
     "Letterbox",
+    "anchor_coverage",
     "average_precision",
     "box_areas",
+    "box_shapes",
     "clip_boxes",
     "decode",
     "describe_annotations",
     "detection_report",
     "drop_degenerate",
     "encode",
+    "fit_shapes",
+    "generate_anchors",
     "grid_shapes",
     "iou_matrix",
     "match_detections",
