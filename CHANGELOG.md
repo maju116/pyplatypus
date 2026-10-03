@@ -1,6 +1,48 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+ - **`fit()` refuses to train on masks the colormap does not describe.** A colormap matching
+   none of the labelled tissue is the quietest failure in segmentation: every mask reads as
+   background, the loss falls because background is most of a medical image, the metrics look
+   plausible, and the model learns to answer "nothing here". Nothing in a training log says so
+ - The refusal is on **class presence, not on the unmatched fraction**, and that choice is the
+   substance of this change. The unmatched fraction scales with the size of the thing being
+   segmented, so on a small lesion - the ordinary medical case - the most dangerous mistake
+   makes the quietest signal. Measured on synthetic masks with a colormap asking for VOC red
+   where the masks are white: a foreground covering 20% of the image gives 19.8% unmatched,
+   5% gives 4.96%, and **0.6% gives 0.61% - indistinguishable from the 0.72% that JPEG
+   compression leaves around the edge of a correct mask.** A declared class that appears in no
+   mask does not scale: the same measurement gave per-class pixel counts of [15984, 400] for
+   the correct colormap and [16384, 0] for the wrong one, at any lesion size
+ - `n_class` higher than the data has classes is caught by the same check and is invisible to
+   the fraction entirely - every voxel matches an entry, so the unmatched figure is exactly
+   zero while one output channel can never be trained
+ - `SegmentationDataset.inspect_masks()` returns a `MaskReport`: the unmatched fraction, which
+   classes appear, which are missing, and how much of the dataset was read.
+   `colormap_coverage()` is unchanged and now delegates to it
+ - A high unmatched fraction with every class present is a **warning** rather than a refusal,
+   because some of it is legitimate. The threshold is 5%, which sits in the measured gap
+   between compression artefacts (under 1%) and a wholesale mistake (19.8% and 100%)
+ - `Engine(..., check_masks=False)` skips it, and the refusal names that along with the call
+   that looks at more of the data than the check does. Both were run as written before being
+   printed
+
+### Changed
+
+ - The sample the check reads is **spread across the dataset and ordered so that any prefix
+   still spans it** - first, last, middle, then midpoints. Real datasets arrive sorted, by
+   patient or acquisition date or class, so a prefix is a biased sample and "this class is
+   absent" drawn from one can mean only "the positives are later in the list". Tested on a
+   dataset whose only labelled tissue is in the last 3% of a sorted listing, which a prefix
+   would have refused
+ - The scan **stops once every class has turned up** and at least five masks have been read,
+   so effort goes where there is doubt. On Data Science Bowl, where each sample carries one
+   mask file per nucleus, a fifty-sample scan cost 3.8 seconds; it now answers in 0.13
+
 ## [0.3.0a10]
 
 *2026-10-02*

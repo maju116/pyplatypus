@@ -8,6 +8,7 @@ model on distorted data measures the distortion.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,12 @@ from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.spec.spec import PlatypusSpec
 from pyplatypus.training.torch_data import make_loader
 from pyplatypus.training.trainer import History, Trainer
+
+#: Unmatched fraction above which the colormap is probably wrong. Measured: correct masks
+#: give 0.00%, JPEG compression around a mask's edge gives 0.72%, a wrong foreground colour
+#: gives the size of the foreground (19.8% measured on a 20% object), a wrong background
+#: gives 100%. This sits in the gap, nearer the artefact end.
+_UNMATCHED_WARNING = 0.05
 
 
 class EngineError(PlatypusError):
@@ -50,10 +57,12 @@ class ModelRun:
 
 class Engine:
     def __init__(self, spec: PlatypusSpec, *, device: str | None = None,
-                 num_workers: int = 0, strict_data: bool = True):
+                 num_workers: int = 0, strict_data: bool = True,
+                 check_masks: bool = True):
         self.spec = spec
         self.device = device
         self.num_workers = num_workers
+        self.check_masks = check_masks
         self.runs: dict[str, ModelRun] = {}
 
         self._samples: dict[str, tuple[Sample, ...]] = {
@@ -111,10 +120,87 @@ class Engine:
             raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
         return export_weights(run.model, run.spec, path, extra=extra or None)
 
+    # ------------------------------------------------------------------ checks
+    def _refuse_masks_that_describe_nothing(self, model_spec: SegmentationModel) -> None:
+        """Look at the training masks before training on them.
+
+        A colormap or a list of labels that does not match the masks is the most common
+        way a run trains on nothing at all, and it is silent: the loss falls, the metrics
+        look plausible because the background is most of every medical image, and the
+        model learns to answer "background" everywhere. Nothing in a training log says so.
+
+        A **declared class that appears in no mask** is refused. That is provable rather
+        than suspicious - its channel in the target is zero everywhere, so there is no
+        gradient towards it and the model is never shown the thing it is being asked to
+        find. It is also the one signal that does not shrink with the lesion: see
+        `SegmentationDataset.inspect_masks` for the measurement.
+
+        A high unmatched fraction with every class present is only **warned** about,
+        because some of it is legitimate - JPEG compression around the edge of a mask
+        measured 0.72% on Kvasir-SEG, and antialiasing does the same. The threshold sits
+        in the gap between that and a wholesale mistake, which measured 19.8% for a wrong
+        foreground colour and 100% for a wrong background.
+        """
+        if not self.check_masks:
+            return
+        # Nearest-neighbour reading of a mask is cheap in 2D and not in 3D, where every
+        # sample is a volume. Fewer samples there, enough that absence still means
+        # something.
+        limit = 8 if model_spec.rank == 3 else 50
+        dataset = self.dataset(model_spec, "train")
+        report = dataset.inspect_masks(limit=limit)
+
+        if report.missing_classes:
+            described = self._describe_classes(report.missing_classes)
+            verb = "never appears" if len(report.missing_classes) == 1 else "never appear"
+            raise EngineError(
+                f"model '{model_spec.name}' declares n_class={model_spec.n_class}, but "
+                f"{described} {verb} in the training masks - checked "
+                f"{report.samples_checked} of {report.total_samples}, and "
+                f"{report.unmatched:.1%} of their voxels matched no entry.\n"
+                f"  A class with no examples has no gradient towards it: the run would "
+                f"finish, the loss would fall, and the model would answer 'background' "
+                f"everywhere.\n"
+                f"  Either the colormap or labels do not describe these masks, or "
+                f"n_class counts a class the data does not contain.\n"
+                f"  Classes that do appear: {report.present_classes}.\n"
+                f"  To look at more of the data than this check does:\n"
+                f"    engine.dataset(spec.models[0], 'train').inspect_masks(limit=500)\n"
+                f"  If the class is real but rarer than that, Engine(..., "
+                f"check_masks=False) proceeds - knowing it cannot be learned from the "
+                f"examples present."
+            )
+
+        if report.unmatched > _UNMATCHED_WARNING:
+            warnings.warn(
+                f"model '{model_spec.name}': {report.unmatched:.1%} of the training "
+                f"masks' voxels match no colormap entry or label, and become background. "
+                f"Compression around a mask's edge accounts for well under 1%; this is "
+                f"more than that. Check the colormap against the mask files.",
+                stacklevel=3,
+            )
+
+    def _describe_classes(self, indices: list[int]) -> str:
+        """Name a class by what the specification said it was, not by its number alone."""
+        data = self.spec.data
+        parts = []
+        for index in indices:
+            if data.label_map and data.labels is not None and index < len(data.labels):
+                parts.append(f"class {index} (label {data.labels[index]})")
+            elif data.colormap is not None and index < len(data.colormap):
+                parts.append(f"class {index} (colour {tuple(data.colormap[index])})")
+            else:
+                parts.append(f"class {index}")
+        if len(parts) == 1:
+            return parts[0]
+        return ", ".join(parts[:-1]) + " and " + parts[-1]
+
     # -------------------------------------------------------------------- fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
         """Train every model the spec asks for, in order."""
         for model_spec in self.spec.models:
+            if model_spec.fit:
+                self._refuse_masks_that_describe_nothing(model_spec)
             if verbose:
                 print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
 

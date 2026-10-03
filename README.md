@@ -63,6 +63,13 @@ Semantic segmentation in 2D, end to end:
   Hub, a path takes a local file, and a sidecar records what the weights were trained for -
   loading refuses a model they do not belong to, because weights with the wrong colormap and the
   right shape load cleanly and predict nonsense.
+- **A refusal before training on masks the colormap does not describe.** This is the
+  quietest way a segmentation run wastes a day: the colours in the specification match none of
+  the labelled tissue, every mask reads as background, the loss falls because background is
+  most of a medical image, and the model learns to answer "nothing here". `fit()` now reads a
+  sample of the training masks first and **refuses when a declared class appears in none of
+  them** - which is provable rather than suspicious, since a class with no examples has no
+  gradient towards it. `Engine(..., check_masks=False)` proceeds anyway.
 - **Many models from one file**, with a comparison table at the end - which is how you find
   out that on some problems the architecture is not what matters. See below.
 - **A pretrained backbone as the contracting path**: `encoder: resnet34` builds that
