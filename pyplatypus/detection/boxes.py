@@ -182,3 +182,72 @@ def drop_degenerate(boxes, labels, *, minimum_side: float = 1.0):
     keep = ((array[:, 2] - array[:, 0]) >= minimum_side) & \
            ((array[:, 3] - array[:, 1]) >= minimum_side)
     return array[keep], tags[keep], int((~keep).sum())
+
+
+def non_max_suppression(boxes, scores, labels=None, *, iou_threshold: float = 0.45,
+                        score_threshold: float = 0.0, per_class: bool = True,
+                        limit: int | None = None):
+    """Keep the confident box and drop the ones that overlap it.
+
+    A detector predicts from every cell of every grid, so one object arrives as a cluster
+    of boxes. Without this, each cluster is one true positive and a handful of false ones,
+    and precision collapses for a reason that has nothing to do with whether the object was
+    found - which is the same thing the metric's greedy matching says: a duplicate box is a
+    false positive.
+
+    **Suppression is per class by default.** A platelet sitting on a red cell is two
+    objects at nearly the same place, and suppressing across classes deletes one of them.
+    Pass `per_class=False` only when the classes are genuinely exclusive.
+    """
+    array = _boxes(boxes)
+    confidence = np.asarray(scores, dtype=float).ravel()
+    if len(array) != len(confidence):
+        raise DetectionError(
+            f"{len(array)} boxes and {len(confidence)} scores; there must be one score "
+            f"per box"
+        )
+    tags = (np.zeros(len(array), dtype=int) if labels is None
+            else np.asarray(labels, dtype=int).ravel())
+    if len(tags) != len(array):
+        raise DetectionError(f"{len(array)} boxes and {len(tags)} labels; they must agree")
+    if not 0 < iou_threshold <= 1:
+        raise DetectionError(
+            f"iou_threshold must be above 0 and at most 1; got {iou_threshold}"
+        )
+    if array.size == 0:
+        return np.zeros(0, dtype=int)
+
+    alive = confidence >= score_threshold
+    groups = [np.where(alive & (tags == value))[0] for value in np.unique(tags)] \
+        if per_class else [np.where(alive)[0]]
+
+    kept: list[int] = []
+    for group in groups:
+        order = group[np.argsort(-confidence[group], kind="stable")]
+        while order.size:
+            best = order[0]
+            kept.append(int(best))
+            if order.size == 1:
+                break
+            overlaps = _pairwise_iou(array[best], array[order[1:]])
+            order = order[1:][overlaps < iou_threshold]
+
+    kept_array = np.asarray(kept, dtype=int)
+    # Back into descending confidence across classes, so a caller taking the first N takes
+    # the most confident N rather than the most confident of class 0.
+    kept_array = kept_array[np.argsort(-confidence[kept_array], kind="stable")]
+    return kept_array[:limit] if limit is not None else kept_array
+
+
+def _pairwise_iou(one: np.ndarray, many: np.ndarray) -> np.ndarray:
+    left = np.maximum(one[0], many[:, 0])
+    top = np.maximum(one[1], many[:, 1])
+    right = np.minimum(one[2], many[:, 2])
+    bottom = np.minimum(one[3], many[:, 3])
+    overlap = np.clip(right - left, 0, None) * np.clip(bottom - top, 0, None)
+    area_one = max(one[2] - one[0], 0) * max(one[3] - one[1], 0)
+    area_many = np.clip(many[:, 2] - many[:, 0], 0, None) * \
+        np.clip(many[:, 3] - many[:, 1], 0, None)
+    union = area_one + area_many - overlap
+    return np.divide(overlap, union, out=np.zeros_like(overlap, dtype=float),
+                     where=union > 0)
