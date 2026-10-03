@@ -225,8 +225,15 @@ class Yolo3Loss(nn.Module):
                 if truth[index].numel() == 0:
                     continue
                 flat = boxes[index].reshape(-1, 4)
-                overlaps = _iou(flat, truth[index].to(boxes.device))
-                best = overlaps.max(dim=1).values
+                truths = truth[index].to(boxes.device)
+                best = torch.zeros(len(flat), device=boxes.device)
+                # In chunks, because the pairwise matrix is cells x truths and both grow:
+                # the finest grid of a 608 input has 17,328 cells and a blood smear has up
+                # to 45 objects, which is where this ran out of memory at batch 8. The
+                # chunk bounds it without changing the answer.
+                for start in range(0, len(flat), _IOU_CHUNK):
+                    piece = flat[start:start + _IOU_CHUNK]
+                    best[start:start + _IOU_CHUNK] = _iou(piece, truths).max(dim=1).values
                 mask[index] = (best > self.ignore_threshold).reshape(boxes.shape[1:-1])
             return mask
 
@@ -264,6 +271,11 @@ class Yolo3Loss(nn.Module):
                                                centre_x + width / 2, centre_y + height / 2]))
         return [torch.stack(rows) if rows else torch.zeros((0, 4), device=targets[0].device)
                 for rows in out]
+
+
+#: How many predicted boxes to compare against the truths at once. The pairwise matrix is
+#: chunk x truths, so this bounds the ignore mask's memory independently of the input size.
+_IOU_CHUNK = 4096
 
 
 def _iou(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:

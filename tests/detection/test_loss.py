@@ -206,6 +206,32 @@ def test_the_mask_is_not_differentiated_through():
     assert prediction.grad is None
 
 
+def test_chunking_the_overlaps_does_not_change_the_mask(monkeypatch):
+    """The chunk exists to bound memory, so it has to be invisible in the answer.
+
+    Asserted against the unchunked result rather than against a stored mask, because the
+    claim is an equivalence and not a particular shape. Several truths and a chunk smaller
+    than one grid, so every boundary case is crossed.
+    """
+    import pyplatypus.detection.loss as module
+
+    boxes = [[40, 40, 140, 140], [200, 210, 260, 280], [300, 20, 390, 100],
+             [10, 300, 120, 400], [180, 180, 200, 205]]
+    targets = targets_for(boxes, [0, 1, 2, 0, 1])
+    loss = Yolo3Loss(anchors=ANCHORS, n_class=3, ignore_threshold=0.3)
+    truth = loss._truth_boxes(targets)
+    predictions = [p * 0.3 for p in perfect(targets)]
+
+    monkeypatch.setattr(module, "_IOU_CHUNK", 10 ** 9)
+    whole = [loss._ignore_mask(i, predictions[i], truth) for i in range(3)]
+    monkeypatch.setattr(module, "_IOU_CHUNK", 7)
+    chunked = [loss._ignore_mask(i, predictions[i], truth) for i in range(3)]
+
+    assert any(m.any() for m in whole), "nothing was ignored, so there is nothing to compare"
+    for one, other in zip(whole, chunked):
+        assert torch.equal(one, other)
+
+
 # --- truth recovered from the targets ---------------------------------------------------
 
 def test_the_truth_boxes_are_read_back_out_of_the_targets():
