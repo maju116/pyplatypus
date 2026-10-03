@@ -23,6 +23,42 @@ be ceremony. The release comes when there is a detector to score.
    pycocotools installed. A detection number that disagrees with COCO is a number nobody can
    compare to anything
 
+### Added — annotations, letterboxing and the target encoder
+
+ - `read_voc`, `read_labelme`, `read_annotations` and `describe_annotations`. Pascal VOC
+   first, because that is what BCCD ships and what the old package's readers handled
+ - `Letterbox`, which scales by one factor and pads, **replacing the plain resize the old
+   package used**. That resize stretched a 640x480 photograph; it was internally consistent,
+   since boxes were normalised by the source dimensions, but the COCO weights were trained
+   on letterboxed input so loading them onto stretched images is a silent mismatch. The
+   transform is reversible and carries what it did, so a box predicted in the network's
+   space goes back onto the pixels it came from - the detection counterpart of
+   `predict(space="source")`. Padding is grey rather than black: black is a legitimate pixel
+   value in a radiograph
+ - `encode` / `decode`, boxes to the three target tensors and back, **tested as exact
+   inverses**. `anchors_per_grid` comes from the anchors given rather than a constant, and
+   anchors are fractions of the input so the same ones describe the same shapes at 416 and
+   at 608
+ - `Encoding.unplaced` counts the boxes that **cannot be represented**: two objects of one
+   shape whose centres fall in the same cell share one slot, so the second is lost. At the
+   density of a blood smear a 416 input loses about **one object in eleven** and a 608 input
+   loses none, which makes the input size a decision rather than a default - and is the
+   difference between "the model is poor" and "the target never held half the cells"
+
+### Fixed, in work carried over rather than in released code
+
+ - **Pascal VOC's one-pixel convention.** VOC stores 1-based inclusive indices, so pixels
+   1 to 10 are ten pixels wide and `xmax - xmin` is nine - leaving **81% of the true area**,
+   which on a fifteen-pixel platelet is not a rounding question. The minima have 1
+   subtracted, once, where the format is known. Choosing wrongly is caught rather than
+   silent: a minimum of 0 cannot occur under a 1-based reading, so a file containing one is
+   refused with the alternative named
+ - **An infinity in the old target encoding.** It stored `logit(centre - floor(centre))`,
+   and that fraction is zero whenever a box's centre lands on a cell boundary. Measured on a
+   416 input at grid 13: **37 of 1200** integer-pixel boxes, so about one in thirty had a
+   `-inf` target. The target now holds the offset itself and the loss applies the sigmoid,
+   so nothing is inverted and nothing can be infinite
+
 ### Decided, and said in the code rather than assumed
 
 Two numbers both honestly called "mAP" can differ by points on identical predictions, so
