@@ -1,6 +1,48 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Detection work begins. Left unreleased on purpose: metrics alone are not something the R
+package can use, and releasing to satisfy a loop that exists so R can reach a feature would
+be ceremony. The release comes when there is a detector to score.
+
+### Added
+
+ - `pyplatypus.detection`, starting with **metrics**. The package this replaces had a YOLOv3
+   that trained and drew pictures and reported no precision, no recall and no average
+   precision - its only number was mean IoU per grid, computed inside the loss, which measures
+   agreement with the model's own training target. So there was no way to say whether it
+   detected anything, and no number to put beside published weights. Everything else is
+   unmeasurable until this exists, which is why it is first
+ - `iou_matrix`, `match_detections`, `average_precision`, `detection_report`. Pure numpy and
+   no torch: they work on boxes, so they are testable without a model
+ - **Agreement with `pycocotools` is a test, not a one-off check.** mAP@0.5 and mAP@[.50:.95]
+   match the COCO reference implementation to 1e-18 on five reproducible problems, and those
+   values are baked into the suite so the agreement is verified on every run without
+   pycocotools installed. A detection number that disagrees with COCO is a number nobody can
+   compare to anything
+
+### Decided, and said in the code rather than assumed
+
+Two numbers both honestly called "mAP" can differ by points on identical predictions, so
+`detection_report` returns the conventions it used beside the score.
+
+ - **Boxes are continuous `(xmin, ymin, xmax, ymax)`.** Pascal VOC stores pixel indices and
+   adds 1 per side, which raises a 10-pixel box's IoU by 21%; that belongs in the annotation
+   reader, not here
+ - **Matching is greedy by descending score, one truth each**, so a duplicate box is a false
+   positive - which is what makes non-maximum suppression worth doing
+ - **Predictions are pooled across images before AP**, never averaged per image. The curve is
+   one ranking over the dataset; a mean of per-image APs is dominated by images with one
+   object. Same reason the segmentation metrics sum TP, FP and FN before applying their
+   formula - a ratio of sums is not the mean of ratios
+ - **A class with no ground truth scores `None`, not zero**, and is left out of the mean;
+   `classes_without_truth` says which. Three interpolations are offered - `all` (VOC 2010+),
+   `101` (COCO) and `11` (VOC 2007) - because papers quote all three
+ - `difficult` objects are excluded when annotations carry the flag, as VOC's own evaluation
+   excludes them
+
 ## [0.3.0a11]
 
 *2026-10-03*
