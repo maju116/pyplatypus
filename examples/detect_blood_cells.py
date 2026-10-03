@@ -190,7 +190,15 @@ def main() -> None:
     parser.add_argument("--data", required=True, help="the BCCD directory")
     parser.add_argument("--size", type=int, default=416, help="divisible by 32")
     parser.add_argument("--epochs", type=int, default=120)
-    parser.add_argument("--batch", type=int, default=8)
+    parser.add_argument("--batch", type=int, default=8,
+                        help="the micro-batch that has to fit in memory")
+    parser.add_argument("--accumulate", type=int, default=1,
+                        help="micro-batches per optimiser step, so the effective batch is "
+                             "--batch times this. A 608 input at batch 8 needs 7.4 GB of "
+                             "activations, which does not fit an 8 GB card; 4 with 2 "
+                             "accumulated does, at the same effective batch. **Not the "
+                             "same run**: batch norm still sees the micro-batch, so its "
+                             "statistics are noisier than a true batch of 8.")
     parser.add_argument("--rate", type=float, default=1e-4)
     parser.add_argument("--anchors-per-grid", type=int, default=3)
     parser.add_argument("--objectness", type=float, default=0.01,
@@ -215,7 +223,10 @@ def main() -> None:
     val_names = split_names(root, "val")
     test_names = split_names(root, "test")
     print(f"BCCD: {len(train_names)} train, {len(val_names)} val, {len(test_names)} test")
-    print(f"device: {device}, input {arguments.size}\n")
+    effective = arguments.batch * arguments.accumulate
+    print(f"device: {device}, input {arguments.size}, micro-batch {arguments.batch}"
+          + (f" x {arguments.accumulate} accumulated = {effective}"
+             if arguments.accumulate > 1 else "") + "\n")
 
     # Anchors from this data, not COCO's. `anchor_coverage` is the way to see the difference.
     annotations = [read_voc(root / "Annotations" / f"{name}.xml", LABELS)
@@ -257,17 +268,31 @@ def main() -> None:
         model.train()
         totals = {}
         steps = 0
+        pending = 0
+        optimiser.zero_grad()
         for images, targets in loader:
             images = images.to(device)
             targets = [t.to(device) for t in targets]
             parts = loss_fn(model(images), targets)
-            optimiser.zero_grad()
-            parts.total.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
-            optimiser.step()
+            # Scaled by the accumulation, so the gradient is the mean over the effective
+            # batch rather than its sum - otherwise the learning rate would mean something
+            # different at every --accumulate.
+            (parts.total / arguments.accumulate).backward()
+            pending += 1
+            if pending == arguments.accumulate:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+                optimiser.step()
+                optimiser.zero_grad()
+                pending = 0
             for key, value in parts.as_dict().items():
                 totals[key] = totals.get(key, 0.0) + value
             steps += 1
+        if pending:
+            # Whatever is left at the end of an epoch, rather than discarded: with 205
+            # images the last group is usually partial.
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+            optimiser.step()
+            optimiser.zero_grad()
         schedule.step()
         record = {"epoch": epoch, **{k: v / steps for k, v in totals.items()}}
         history.append(record)
@@ -321,6 +346,8 @@ def main() -> None:
                 "anchors": fit.anchors,
                 "anchor_mean_iou": fit.mean_iou,
                 "input": arguments.size,
+                "batch": arguments.batch,
+                "accumulate": arguments.accumulate,
                 "epochs": arguments.epochs,
                 "history": history,
                 "targets": survey,
