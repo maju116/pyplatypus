@@ -25,6 +25,7 @@ from pyplatypus.detection.boxes import (
     box_areas,
     clip_boxes,
     drop_degenerate,
+    non_max_suppression,
 )
 from pyplatypus.detection.encode import (
     COCO_ANCHORS,
@@ -34,6 +35,7 @@ from pyplatypus.detection.encode import (
     encode,
     grid_shapes,
 )
+from pyplatypus.detection.loss import LossParts, Yolo3Loss
 from pyplatypus.detection.metrics import (
     COCO_THRESHOLDS,
     DetectionError,
@@ -43,6 +45,7 @@ from pyplatypus.detection.metrics import (
     iou_matrix,
     match_detections,
 )
+from pyplatypus.detection.yolo3 import Darknet53, Yolo3, build_yolo3
 
 __all__ = [
     "COCO_ANCHORS",
@@ -50,14 +53,19 @@ __all__ = [
     "STRIDES",
     "AnchorFit",
     "Annotation",
+    "Darknet53",
     "DetectionError",
     "DetectionMetrics",
     "Encoding",
     "Letterbox",
+    "LossParts",
+    "Yolo3",
+    "Yolo3Loss",
     "anchor_coverage",
     "average_precision",
     "box_areas",
     "box_shapes",
+    "build_yolo3",
     "clip_boxes",
     "decode",
     "describe_annotations",
@@ -69,6 +77,7 @@ __all__ = [
     "grid_shapes",
     "iou_matrix",
     "match_detections",
+    "non_max_suppression",
     "read_annotations",
     "read_labelme",
     "read_voc",

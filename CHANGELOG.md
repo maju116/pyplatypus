@@ -45,6 +45,54 @@ be ceremony. The release comes when there is a detector to score.
    loses none, which makes the input size a decision rather than a default - and is the
    difference between "the model is poor" and "the target never held half the cells"
 
+### Added — a detector, and the first number anyone can compare
+
+ - `Yolo3`, `Darknet53` and `build_yolo3`. **61,949,149 parameters for 80 classes and three
+   anchors, which is YOLOv3's published figure** - the one external check on the
+   architecture's inventory, and what the COCO weights require, since a structure that
+   merely resembles Darknet-53 loads them cleanly and predicts nonsense
+ - `Yolo3Loss`, reported in four parts because one number cannot say what is wrong: a run
+   whose coordinate loss falls while its objectness does not is finding the right places and
+   refusing to commit. The ignore mask is the part most reimplementations drop - a cell that
+   was not assigned a truth but predicts a box overlapping one contributes **nothing** to
+   the objectness term, rather than being trained towards zero, which would teach the model
+   to suppress correct answers
+ - `non_max_suppression`, **per class by default**: a platelet on a red cell is two objects
+   at one place and suppressing across classes deletes one of them
+ - `DetectionMetrics.mean_matched_iou` and a third return from `match_detections`: how well
+   the boxes that matched actually fit. Average precision uses IoU as a *threshold* and says
+   nothing about the fit, so this is the quantity the AP figures only imply. Weighted by how
+   many matched, not a mean of per-class means
+ - `examples/detect_blood_cells.py`: BCCD from `github.com/Shenggan/BCCD_Dataset` (MIT, and
+   not the Kaggle mirror, for the reason given in 0.3.0a8's notes), trained from nothing,
+   with its own train/val/test split
+
+### Measured
+
+150 epochs, 33 minutes on a GTX 1070, BCCD's own test split:
+
+    mAP@0.5 0.8576    mAP@[.50:.95] 0.5050    mean IoU of matched boxes 0.8046
+
+    class       AP@0.5    IoU   truth   prec@0.5   rec@0.5
+    RBC         0.7986  0.809     805      0.720     0.804
+    WBC         0.9546  0.854      71      0.922     1.000
+    Platelets   0.8197  0.707      69      0.524     0.942
+
+The first number in this package's history that can be compared with anybody else's - the
+old YOLOv3 reported mean IoU per grid from inside its loss and nothing else, which is why
+its Blood Cell Detection example ended on a picture.
+
+**The ceiling is localisation, and it is size-dependent exactly as geometry predicts.** AP
+by threshold: white cells hold 0.789 at IoU 0.80 while platelets fall from 0.820 to 0.041.
+A two-pixel error per side costs a 30-pixel box a sixth of its overlap and a 200-pixel box
+almost nothing. So mAP@[.50:.95] on a dataset of small objects measures how finely a box can
+be placed, not how well objects are found.
+
+**And the loss converged rather than stalled.** It plateaus at 5.936 against a floor of
+**5.891**, computed exactly on real batches: cross-entropy against a soft target bottoms out
+at the target's own entropy, so the coordinate term cannot reach zero. Two runs agreed to
+0.003 of mAP.
+
 ### Added — anchors fitted to your own boxes
 
  - `generate_anchors`, `fit_shapes`, `box_shapes` and `anchor_coverage`. k-means over box

@@ -60,25 +60,25 @@ def truth(*boxes):
 
 
 def test_a_prediction_over_a_truth_is_a_hit():
-    _, hit = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, hit, _ = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
     assert hit.tolist() == [True]
 
 
 def test_a_prediction_below_the_threshold_is_a_miss():
     # IoU 1/3, threshold 0.5.
-    _, hit = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, hit, _ = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
     assert hit.tolist() == [False]
 
 
 def test_a_second_prediction_on_the_same_object_is_a_false_positive():
     """Which is what makes non-maximum suppression worth doing."""
-    _, hit = match_detections([[0, 0, 10, 10], [0, 0, 10, 10]], [0.9, 0.8],
+    _, hit, _ = match_detections([[0, 0, 10, 10], [0, 0, 10, 10]], [0.9, 0.8],
                               truth([0, 0, 10, 10]))
     assert hit.tolist() == [True, False]
 
 
 def test_the_higher_scoring_prediction_claims_the_truth():
-    order, hit = match_detections([[5, 5, 15, 15], [0, 0, 10, 10]], [0.3, 0.9],
+    order, hit, _ = match_detections([[5, 5, 15, 15], [0, 0, 10, 10]], [0.3, 0.9],
                                   truth([0, 0, 10, 10]))
     # Sorted by score, so the good box comes first and takes it.
     assert order.tolist() == [1, 0]
@@ -87,17 +87,17 @@ def test_the_higher_scoring_prediction_claims_the_truth():
 
 def test_among_candidates_the_best_overlap_wins():
     """Two truths in reach; the prediction should take the one it fits, not the first."""
-    _, hit = match_detections([[9, 0, 20, 10]], [0.9],
+    _, hit, _ = match_detections([[9, 0, 20, 10]], [0.9],
                               truth([0, 0, 10, 10], [10, 0, 20, 10]))
     assert hit.tolist() == [True]
     # And the one it took is the better fit: with only the poor truth present, it misses.
-    _, poor = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, poor, _ = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10]))
     assert poor.tolist() == [False]
 
 
 def test_ties_in_score_keep_the_input_order():
     """So a report is reproducible rather than dependent on the sort's internals."""
-    order, _ = match_detections([[0, 0, 1, 1], [2, 2, 3, 3], [4, 4, 5, 5]],
+    order, _, _ = match_detections([[0, 0, 1, 1], [2, 2, 3, 3], [4, 4, 5, 5]],
                                 [0.5, 0.5, 0.5], truth())
     assert order.tolist() == [0, 1, 2]
 
@@ -340,3 +340,60 @@ def test_the_reference_problems_are_not_trivial():
             labels=[str(i) for i in range(case["n_class"])], interpolation="101"
         ).mean_average_precision
         assert 0 < score < 1, (seed, score)
+
+
+# --- how well the matched boxes actually fit --------------------------------------------
+
+def test_matching_reports_the_overlap_it_matched_at():
+    """The threshold throws this away: a box matching at 0.52 and one at 0.97 are both a
+    hit, and only one of them is well placed."""
+    _, hit, overlap = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
+    assert hit.tolist() == [True]
+    assert overlap[0] == pytest.approx(1.0)
+
+    # A looser fit: 0.5 of the way across, IoU 1/3 - below the default threshold, so no hit
+    # and no overlap recorded.
+    _, hit, overlap = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
+    assert hit.tolist() == [False]
+    assert overlap[0] == 0.0
+
+
+def test_the_report_says_how_well_the_matches_fit():
+    """Which is the number the AP figures only imply. A detector scoring 0.85 at IoU 0.5
+    and 0.50 averaged over 0.50-0.95 is finding its objects and placing them loosely."""
+    truths = [one_image([[0, 0, 100, 100]], [0])]
+    tight = [one_image([[0, 0, 100, 100]], [0], [0.9])]
+    loose = [one_image([[0, 0, 70, 100]], [0], [0.9])]      # IoU 0.7
+
+    assert detection_report(tight, truths, labels=["a"]).mean_matched_iou == \
+        pytest.approx(1.0)
+    assert detection_report(loose, truths, labels=["a"]).mean_matched_iou == \
+        pytest.approx(0.7, abs=0.01)
+
+
+def test_the_matched_overlap_is_weighted_by_how_many_matched():
+    """A class with two matches should not weigh the same as one with eight hundred."""
+    truths = [
+        one_image([[0, 0, 100, 100]], [0]),
+        one_image([[0, 0, 100, 100], [200, 0, 300, 100], [400, 0, 500, 100]], [1, 1, 1]),
+    ]
+    preds = [
+        one_image([[0, 0, 60, 100]], [0], [0.9]),                      # class 0: IoU 0.6
+        one_image([[0, 0, 100, 100], [200, 0, 300, 100], [400, 0, 500, 100]],
+                  [1, 1, 1], [0.9, 0.9, 0.9]),                          # class 1: IoU 1.0
+    ]
+    report = detection_report(preds, truths, labels=["a", "b"])
+    by_class = {row["label"]: row["mean_matched_iou"] for row in report.per_class}
+    assert by_class["a"] == pytest.approx(0.6, abs=0.01)
+    assert by_class["b"] == pytest.approx(1.0)
+    # One match at 0.6 and three at 1.0 weighted gives 0.9, not the 0.8 a mean of means
+    # would give.
+    assert report.mean_matched_iou == pytest.approx(0.9, abs=0.01)
+
+
+def test_nothing_matched_means_the_overlap_is_unknown_not_zero():
+    truths = [one_image([[0, 0, 100, 100]], [0])]
+    preds = [one_image([[500, 500, 600, 600]], [0], [0.9])]
+    report = detection_report(preds, truths, labels=["a"])
+    assert report.per_class[0]["mean_matched_iou"] is None
+    assert report.mean_matched_iou is None

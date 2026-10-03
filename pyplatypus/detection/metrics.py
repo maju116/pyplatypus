@@ -63,6 +63,12 @@ class DetectionMetrics:
     iou_thresholds: tuple[float, ...]
     interpolation: Interpolation
     classes_without_truth: list[int] = field(default_factory=list)
+    #: Mean overlap of the boxes that did match, at the lowest threshold. Average precision
+    #: uses IoU as a *threshold* and says nothing about how well the matched boxes fit, so
+    #: this is the quantity the AP figures only imply: a model scoring 0.85 at IoU 0.5 and
+    #: 0.50 averaged over 0.50-0.95 is finding the objects and placing them loosely, and
+    #: this says so in one number instead of through the difference between two.
+    mean_matched_iou: float | None = None
 
     def as_rows(self) -> list[dict[str, Any]]:
         """One row per class plus an overall row, which is the shape R wants."""
@@ -78,6 +84,7 @@ class DetectionMetrics:
             "false_negatives": sum(row["false_negatives"] for row in self.per_class),
             "precision": None,
             "recall": None,
+            "mean_matched_iou": self.mean_matched_iou,
         })
         return rows
 
@@ -131,12 +138,17 @@ def iou_matrix(a: Any, b: Any) -> np.ndarray:
 
 
 def match_detections(pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *,
-                     iou_threshold: float = 0.5) -> tuple[np.ndarray, np.ndarray]:
-    """Which predictions hit a truth, in descending order of score.
+                     iou_threshold: float = 0.5
+                     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Which predictions hit a truth, in descending order of score, and how well.
 
-    Returns `(order, hit)`: the indices that sort the predictions by score, and a boolean
-    per prediction in that order. A truth already claimed by a higher-scoring prediction
-    cannot be claimed again, so a duplicate box is a false positive.
+    Returns `(order, hit, overlap)`: the indices that sort the predictions by score, a
+    boolean per prediction in that order, and the IoU at which each hit matched - zero
+    where it did not. A truth already claimed by a higher-scoring prediction cannot be
+    claimed again, so a duplicate box is a false positive.
+
+    The overlap is returned because the threshold throws it away: a box matching at 0.52
+    and one matching at 0.97 are both a hit, and only one of them is well placed.
     """
     predictions = _as_boxes(pred_boxes, what="pred_boxes")
     truths = _as_boxes(truth_boxes, what="truth_boxes")
@@ -151,8 +163,9 @@ def match_detections(pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *,
     # which makes the result reproducible rather than dependent on the sort's internals.
     order = np.argsort(-scores, kind="stable")
     hit = np.zeros(len(order), dtype=bool)
+    matched_at = np.zeros(len(order), dtype=float)
     if len(truths) == 0 or len(predictions) == 0:
-        return order, hit
+        return order, hit, matched_at
 
     overlaps = iou_matrix(predictions[order], truths)
     taken = np.zeros(len(truths), dtype=bool)
@@ -163,7 +176,8 @@ def match_detections(pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *,
         best = candidates[np.argmax(overlaps[position, candidates])]
         taken[best] = True
         hit[position] = True
-    return order, hit
+        matched_at[position] = overlaps[position, best]
+    return order, hit, matched_at
 
 
 def average_precision(hit: Any, n_truth: int, *,
@@ -253,6 +267,7 @@ def detection_report(predictions: Sequence[dict[str, Any]],
     for index in classes:
         pooled_hits: dict[float, list[np.ndarray]] = {t: [] for t in thresholds}
         pooled_scores: list[np.ndarray] = []
+        pooled_overlaps: list[np.ndarray] = []
         n_truth = 0
         n_predicted = 0
 
@@ -264,11 +279,12 @@ def detection_report(predictions: Sequence[dict[str, Any]],
             if len(p_boxes) == 0:
                 continue
             for threshold in thresholds:
-                order, hit = match_detections(p_boxes, p_scores, t_boxes,
-                                              iou_threshold=threshold)
+                order, hit, overlap = match_detections(p_boxes, p_scores, t_boxes,
+                                                       iou_threshold=threshold)
                 pooled_hits[threshold].append(hit)
                 if threshold == thresholds[0]:
                     pooled_scores.append(np.asarray(p_scores, dtype=float)[order])
+                    pooled_overlaps.append(overlap[hit])
 
         # Pooled, then re-sorted by score across images: the curve is one ranking over the
         # dataset, so per-image order would make it depend on which image came first.
@@ -293,10 +309,15 @@ def detection_report(predictions: Sequence[dict[str, Any]],
         false_positives = int((~first).sum())
         false_negatives = int(max(n_truth - true_positives, 0))
 
+        overlaps_matched = (np.concatenate(pooled_overlaps) if pooled_overlaps
+                            else np.zeros(0))
         rows.append({
             "label": labels[index] if labels is not None and index < len(labels) else str(index),
             "class": index,
             "average_precision": averaged,
+            # How well the boxes that matched actually fit, at the lowest threshold.
+            "mean_matched_iou": (float(overlaps_matched.mean())
+                                 if overlaps_matched.size else None),
             "n_truth": n_truth,
             "n_predicted": n_predicted,
             "true_positives": true_positives,
@@ -308,12 +329,20 @@ def detection_report(predictions: Sequence[dict[str, Any]],
 
     scored = [row["average_precision"] for row in rows
               if row["average_precision"] is not None]
+    # Weighted by how many boxes matched, not a mean of per-class means: a class with two
+    # matches should not weigh the same as one with eight hundred.
+    weights = [row["true_positives"] for row in rows
+               if row["mean_matched_iou"] is not None]
+    values = [row["mean_matched_iou"] for row in rows
+              if row["mean_matched_iou"] is not None]
     return DetectionMetrics(
         mean_average_precision=float(np.mean(scored)) if scored else None,
         per_class=rows,
         iou_thresholds=thresholds,
         interpolation=interpolation,
         classes_without_truth=without_truth,
+        mean_matched_iou=(float(np.average(values, weights=weights))
+                          if values and sum(weights) else None),
     )
 
 
