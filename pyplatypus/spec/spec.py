@@ -2,25 +2,56 @@
 
 Both `platypus_spec(...)` in R and a YAML file produce this object. Nothing downstream
 can tell which one was used, which is the entire point.
+
+`task` chooses between two of them. It is a discriminator rather than a setting because
+it decides the *type* of `data` and of every entry in `models`: a detection spec holding
+a `colormap`, or a segmentation spec holding `anchors`, is not a spec with a stray field
+but two intentions in one file. Pydantic reads the tag first and then validates against
+one shape, so a mistake is reported against the task that was asked for instead of as a
+list of everything both tasks would have accepted.
+
+One task per spec, not one per model, for the same reason there is one rank per spec:
+every model shares a data pipeline, and masks and boxes are not the same pipeline.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, TypeAdapter, model_validator
 
-from pyplatypus.spec.common import SpecModel
+from pyplatypus.spec.common import SpecModel, Task
 from pyplatypus.spec.data import SegmentationData
+from pyplatypus.spec.detection import DetectionData, DetectionModel
 from pyplatypus.spec.models import SegmentationModel
 
 
 class PlatypusSpec(SpecModel):
-    data: SegmentationData
-    models: list[SegmentationModel] = Field(min_length=1)
+    """The shared base of `SegmentationSpec` and `DetectionSpec`.
+
+    Not built directly - `data` and `models` live on the subclasses, because their types
+    are what `task` selects. `from_dict` and `from_yaml` return whichever one the task
+    asks for, and both are instances of this, so anything that only needs a name, a seed
+    or a rank can take a `PlatypusSpec` and not care.
+    """
+
+    task: Task
 
     seed: int | None = Field(None, description="Set it if you want a reproducible run.")
     output_dir: str = "platypus_output"
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_the_base_class(cls, data):
+        """Say what is wrong directly. Without this, `PlatypusSpec(data=..., models=...)`
+        fails as two 'extra inputs are not permitted' errors, which describes the symptom
+        and not the cause."""
+        if cls is PlatypusSpec:
+            raise ValueError(
+                "PlatypusSpec is the shared base of SegmentationSpec and DetectionSpec. "
+                "Build one of those directly, or let from_dict/from_yaml choose by `task`."
+            )
+        return data
 
     @model_validator(mode="after")
     def unique_model_names(self):
@@ -44,6 +75,28 @@ class PlatypusSpec(SpecModel):
             listed = ", ".join(f"{m.name}={m.rank}D" for m in self.models)
             raise ValueError(f"every model must have the same spatial rank; got {listed}")
         return self
+
+    @property
+    def rank(self) -> int:
+        return self.models[0].rank
+
+    @property
+    def n_class(self) -> int:
+        """How many classes the data describes. The data decides, at either task."""
+        return self.data.n_class
+
+    def check_paths(self) -> list[str]:
+        return self.data.check_paths()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Plain data, for the trip back across the bridge into R."""
+        return self.model_dump(mode="json")
+
+
+class SegmentationSpec(PlatypusSpec):
+    task: Literal[Task.SEGMENTATION] = Task.SEGMENTATION
+    data: SegmentationData
+    models: list[SegmentationModel] = Field(min_length=1)
 
     @model_validator(mode="after")
     def channels_match_the_data(self):
@@ -80,13 +133,14 @@ class PlatypusSpec(SpecModel):
             )
         return self
 
-    @property
-    def rank(self) -> int:
-        return self.models[0].rank
 
-    def check_paths(self) -> list[str]:
-        return self.data.check_paths()
+class DetectionSpec(PlatypusSpec):
+    task: Literal[Task.DETECTION]
+    data: DetectionData
+    models: list[DetectionModel] = Field(min_length=1)
 
-    def to_dict(self) -> dict[str, Any]:
-        """Plain data, for the trip back across the bridge into R."""
-        return self.model_dump(mode="json")
+
+#: Validate through this, never through one class, so `task` picks the shape.
+AnySpec = Annotated[SegmentationSpec | DetectionSpec, Field(discriminator="task")]
+
+SPEC_ADAPTER: TypeAdapter[SegmentationSpec | DetectionSpec] = TypeAdapter(AnySpec)

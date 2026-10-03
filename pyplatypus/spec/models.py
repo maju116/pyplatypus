@@ -3,6 +3,13 @@
 `input_shape` carries the spatial size and nothing else; `rank` is read off its length.
 That is PLAN.md rule 1, and it is why there is no `net_h`/`net_w` pair here - a pair
 cannot become a triple without an API break.
+
+`ModelSpec` is what every task's model has: a name, a size, how long to train, what to
+train with, and whether to train at all. What it deliberately does *not* have is `loss`
+and `metrics`. Segmentation chooses both from a menu of nine and three; YOLOv3 has one
+composite objective that is part of the architecture, and mean average precision is not
+one option among several. Offering a choice that does not exist is worse than offering
+none - see the architecture comparison in the README for the same argument about weights.
 """
 
 from __future__ import annotations
@@ -32,12 +39,62 @@ class Initialiser(str, Enum):
     GLOROT_UNIFORM = "glorot_uniform"
 
 
-class SegmentationModel(SpecModel):
+class ModelSpec(SpecModel):
+    """What one model needs whatever it is predicting."""
+
     name: str = Field(min_length=1, description="Unique within a spec; names the outputs.")
-    architecture: Architecture = Architecture.U_NET
 
     input_shape: SpatialShape
     channels: int = Field(3, ge=1)
+
+    optimizer: OptimizerSpec = Field(default_factory=Adam)
+    callbacks: list[CallbackSpec] = Field(default_factory=list)
+    augmentation: list[AugmentationStep] | None = None
+
+    epochs: int = Field(10, ge=1)
+    batch_size: int = Field(8, ge=1)
+
+    weights: str | None = Field(
+        None,
+        description="Registry name (e.g. 'dsbowl-unet') or a path to a local checkpoint.",
+    )
+    fit: bool = Field(True, description="Set false to load weights and skip training.")
+
+    @property
+    def rank(self) -> int:
+        """2 for images, 3 for volumes. Derived, never declared."""
+        return len(self.input_shape)
+
+    @property
+    def monitorable(self) -> set[str]:
+        """Quantities a callback may watch, given what this model reports."""
+        return {"train_loss", "val_loss"}
+
+    @model_validator(mode="after")
+    def callbacks_watch_something_that_exists(self):
+        """A callback watching 'val_dice' when no Dice metric was requested would wait
+        forever for a number that never arrives. The old package could not catch this
+        because the monitor was a free string checked nowhere."""
+        available = self.monitorable
+        for callback in self.callbacks:
+            watched = getattr(callback, "monitor", None)
+            if watched is not None and watched not in available:
+                raise ValueError(
+                    f"callback '{callback.name}' watches '{watched}', which this model "
+                    f"does not produce; available: {', '.join(sorted(available))}"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def not_fitting_needs_weights(self):
+        if not self.fit and self.weights is None:
+            raise ValueError("fit=false only makes sense together with weights")
+        return self
+
+
+class SegmentationModel(ModelSpec):
+    architecture: Architecture = Architecture.U_NET
+
     n_class: int = Field(2, ge=2)
 
     blocks: int = Field(4, ge=1, le=8)
@@ -57,13 +114,6 @@ class SegmentationModel(SpecModel):
 
     loss: LossSpec = Field(default_factory=CceLoss)
     metrics: list[MetricSpec] = Field(default_factory=lambda: [IouMetric()])
-    optimizer: OptimizerSpec = Field(default_factory=Adam)
-    callbacks: list[CallbackSpec] = Field(default_factory=list)
-    augmentation: list[AugmentationStep] | None = None
-
-    epochs: int = Field(10, ge=1)
-    batch_size: int = Field(8, ge=1)
-
     splits: tuple[int, ...] | None = Field(
         None,
         description=(
@@ -109,17 +159,6 @@ class SegmentationModel(SpecModel):
             "keeping. A number at or above `epochs` freezes them for the whole run."
         ),
     )
-
-    weights: str | None = Field(
-        None,
-        description="Registry name (e.g. 'dsbowl2018') or a path to a local checkpoint.",
-    )
-    fit: bool = Field(True, description="Set false to load weights and skip training.")
-
-    @property
-    def rank(self) -> int:
-        """2 for images, 3 for volumes. Derived, never declared."""
-        return len(self.input_shape)
 
     @property
     def load_shape(self) -> tuple[int, ...]:
@@ -187,24 +226,9 @@ class SegmentationModel(SpecModel):
 
     @property
     def monitorable(self) -> set[str]:
-        """Quantities a callback may watch, given this model's metrics."""
-        return {"train_loss", "val_loss"} | {f"val_{m.name}" for m in self.metrics} \
+        """The loss, plus every metric this model was asked for."""
+        return super().monitorable | {f"val_{m.name}" for m in self.metrics} \
             | {f"train_{m.name}" for m in self.metrics}
-
-    @model_validator(mode="after")
-    def callbacks_watch_something_that_exists(self):
-        """A callback watching 'val_dice' when no Dice metric was requested would wait
-        forever for a number that never arrives. The old package could not catch this
-        because the monitor was a free string checked nowhere."""
-        available = self.monitorable
-        for callback in self.callbacks:
-            watched = getattr(callback, "monitor", None)
-            if watched is not None and watched not in available:
-                raise ValueError(
-                    f"callback '{callback.name}' watches '{watched}', which this model "
-                    f"does not produce; available: {', '.join(sorted(available))}"
-                )
-        return self
 
     @model_validator(mode="after")
     def pretrained_needs_an_encoder(self):
@@ -242,10 +266,4 @@ class SegmentationModel(SpecModel):
                 f"is nothing to transfer to a volume. Leave `encoder` unset - the "
                 f"built-in encoder works at both ranks."
             )
-        return self
-
-    @model_validator(mode="after")
-    def not_fitting_needs_weights(self):
-        if not self.fit and self.weights is None:
-            raise ValueError("fit=false only makes sense together with weights")
         return self

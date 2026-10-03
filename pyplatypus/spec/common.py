@@ -36,6 +36,20 @@ SpatialShape = Annotated[
 ]
 
 
+class Task(str, Enum):
+    """What the models in a spec are being asked to do.
+
+    One task per spec, not one per model: every model in a spec shares a data pipeline,
+    and masks and bounding boxes are not the same pipeline. It decides the type of `data`
+    and of every entry in `models`, which is why it is a discriminator rather than a
+    setting - a detection spec holding a `colormap` is not a spec with an odd field in it,
+    it is two different intentions in one file.
+    """
+
+    SEGMENTATION = "segmentation"
+    DETECTION = "detection"
+
+
 class Architecture(str, Enum):
     """One field, mutually exclusive by construction."""
 
