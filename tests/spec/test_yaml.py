@@ -8,19 +8,29 @@ import yaml
 from pyplatypus import ConfigError, from_dict, from_yaml
 
 FIXTURE = "tests/fixtures/experiment.yaml"
+DETECTION_FIXTURE = "tests/fixtures/detection.yaml"
 
 
-@pytest.fixture
-def yaml_file(tmp_path, data_block):
+def _written(fixture, tmp_path, data_block, name):
     text = (
-        Path(FIXTURE)
+        Path(fixture)
         .read_text()
         .replace("PLACEHOLDER_TRAIN", data_block["train_path"])
         .replace("PLACEHOLDER_VALID", data_block["validation_path"])
     )
-    path = tmp_path / "experiment.yaml"
+    path = tmp_path / name
     path.write_text(text)
     return path
+
+
+@pytest.fixture
+def yaml_file(tmp_path, data_block):
+    return _written(FIXTURE, tmp_path, data_block, "experiment.yaml")
+
+
+@pytest.fixture
+def detection_yaml_file(tmp_path, data_block):
+    return _written(DETECTION_FIXTURE, tmp_path, data_block, "detection.yaml")
 
 
 def test_yaml_loads(yaml_file):
@@ -62,3 +72,36 @@ def test_empty_yaml_says_so(tmp_path):
     path.write_text("")
     with pytest.raises(ConfigError, match="empty"):
         from_yaml(path)
+
+
+# --- the same file format, the other task -----------------------------------------------
+
+def test_a_detection_experiment_reads_from_the_same_file_format(detection_yaml_file):
+    """One format, two tasks. The settings in this file were command-line flags during the
+    BCCD run, which is what "detection is in the spec" has to mean to be worth anything."""
+    from pyplatypus import DetectionSpec
+
+    spec = from_yaml(detection_yaml_file)
+    assert isinstance(spec, DetectionSpec)
+    assert spec.data.classes == ["RBC", "WBC", "Platelets"]
+    model = spec.models[0]
+    assert (model.name, model.epochs, model.anchors) == ("bccd", 150, None)
+    assert model.score_threshold == pytest.approx(0.01)
+    assert model.augmentation[0].name == "HorizontalFlip"
+    assert model.callbacks[0].patience == 25
+
+
+def test_detection_yaml_and_dict_produce_the_same_object(detection_yaml_file):
+    from_file = from_yaml(detection_yaml_file)
+    from_code = from_dict(yaml.safe_load(detection_yaml_file.read_text()))
+    assert from_file == from_code
+    assert from_file.to_dict() == from_code.to_dict()
+
+
+def test_a_detection_specs_dict_round_trips(detection_yaml_file):
+    """`to_dict` is how a spec reaches R, so what comes out has to go back in - including
+    `task`, which the dict has to carry or the trip back would land on segmentation."""
+    spec = from_yaml(detection_yaml_file)
+    payload = spec.to_dict()
+    assert payload["task"] == "detection"
+    assert from_dict(payload, check_paths=False) == spec

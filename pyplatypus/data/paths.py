@@ -22,7 +22,7 @@ from pathlib import Path
 
 from pyplatypus.errors import ConfigError
 from pyplatypus.spec.common import DataMode
-from pyplatypus.spec.data import SegmentationData
+from pyplatypus.spec.data import DataSpec
 
 
 @dataclass(frozen=True)
@@ -162,9 +162,14 @@ def discover_samples(root: str | Path, *, mode: DataMode = DataMode.NESTED_DIRS,
     return Discovery(samples=tuple(samples), skipped=tuple(skipped))
 
 
-def discover(root: str | Path, data: SegmentationData, *, only_images: bool = False,
+def discover(root: str | Path, data: DataSpec, *, only_images: bool = False,
              strict: bool = True) -> Discovery:
-    """List the samples under `root`, which is one of the paths named in `data`."""
+    """List the samples under `root`, which is one of the paths named in `data`.
+
+    `DataSpec` rather than `SegmentationData`: finding files needs the layout and nothing
+    else, so this already works for a detection spec, whose second subdirectory holds
+    annotation files instead of masks.
+    """
     return discover_samples(
         root, mode=data.mode, subdirs=data.subdirs, column_sep=data.column_sep,
         only_images=only_images, strict=strict,

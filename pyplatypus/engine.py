@@ -24,7 +24,7 @@ from pyplatypus.errors import PlatypusError
 from pyplatypus.models import build_model
 from pyplatypus.models.encoders import PretrainedEncoder
 from pyplatypus.spec.models import SegmentationModel
-from pyplatypus.spec.spec import PlatypusSpec
+from pyplatypus.spec.spec import PlatypusSpec, SegmentationSpec
 from pyplatypus.training.torch_data import make_loader
 from pyplatypus.training.trainer import History, Trainer
 
@@ -59,6 +59,14 @@ class Engine:
     def __init__(self, spec: PlatypusSpec, *, device: str | None = None,
                  num_workers: int = 0, strict_data: bool = True,
                  check_masks: bool = True):
+        if not isinstance(spec, SegmentationSpec):
+            raise EngineError(
+                f"this engine trains segmentation; the specification's task is "
+                f"'{spec.task.value}'. The detection half of the spec exists and "
+                f"validates, but nothing trains from it yet - until it does, a detector "
+                f"is assembled by hand from pyplatypus.detection, the way "
+                f"examples/detect_blood_cells.py does."
+            )
         self.spec = spec
         self.device = device
         self.num_workers = num_workers

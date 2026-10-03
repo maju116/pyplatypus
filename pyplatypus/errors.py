@@ -8,17 +8,29 @@ is the audience.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import ValidationError
 
+#: pydantic renders an enum used as a union tag with `repr`, so a message about a
+#: mistyped `task` would offer "<Task.DETECTION: 'detection'>" as the thing to write.
+#: The value is what a user types; the class is an implementation detail.
+_ENUM_REPR = re.compile(r"<[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9_]+: ('[^']*'|\d+)>")
 
-def _render_location(location: tuple[Any, ...]) -> str:
+
+def _render_location(location: tuple[Any, ...], drop: str | None = None) -> str:
     """Turn pydantic's ('models', 0, 'filters') into 'models[0].filters'.
 
     Union members show up in the location as the matched variant's name; those entries
-    are noise to a user who never asked about unions, so they are dropped.
+    are noise to a user who never asked about unions, so they are dropped. `drop` removes
+    one leading entry by name, which is how the tag of a discriminated union goes - the
+    caller knows the tag it chose, and nothing in the error itself tells a tag apart from
+    a field that happens to share its name.
     """
+    location = tuple(location)
+    if drop is not None and location and location[0] == drop:
+        location = location[1:]
     parts: list[str] = []
     for item in location:
         if isinstance(item, int):
@@ -58,15 +70,16 @@ class ConfigError(PlatypusError):
         super().__init__(message)
 
     @classmethod
-    def from_validation_error(cls, error: ValidationError,
-                              source: str | None = None) -> ConfigError:
+    def from_validation_error(cls, error: ValidationError, source: str | None = None, *,
+                              drop_prefix: str | None = None) -> ConfigError:
         problems = []
         for raw in error.errors():
             message = raw.get("msg", "invalid value")
             for noise in ("Value error, ", "Assertion failed, "):
                 message = message.removeprefix(noise)
+            message = _ENUM_REPR.sub(lambda m: m.group(1), message)
             entry = {
-                "where": _render_location(raw.get("loc", ())),
+                "where": _render_location(raw.get("loc", ()), drop=drop_prefix),
                 "problem": message,
             }
             if "input" in raw:

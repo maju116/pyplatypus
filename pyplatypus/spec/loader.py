@@ -13,21 +13,36 @@ import yaml
 from pydantic import ValidationError
 
 from pyplatypus.errors import ConfigError
-from pyplatypus.spec.spec import PlatypusSpec
+from pyplatypus.spec.common import Task
+from pyplatypus.spec.spec import SPEC_ADAPTER, PlatypusSpec
 
 
 def from_dict(config: dict[str, Any], *, source: str | None = None,
               check_paths: bool = True) -> PlatypusSpec:
-    """Validate a dict into a spec, raising ConfigError with every problem at once."""
+    """Validate a dict into a spec, raising ConfigError with every problem at once.
+
+    A configuration with no `task` is a segmentation one, because every configuration
+    written before detection existed is. The default is applied here rather than on the
+    field: a discriminated union needs its tag present in the input to choose a branch at
+    all, so there is nowhere else to put it. On a copy, since a caller's dict is theirs.
+    """
     if not isinstance(config, dict):
         raise ConfigError(
             f"a configuration must be a mapping of keys to values, got {type(config).__name__}",
             source=source,
         )
+    if "task" not in config:
+        config = {**config, "task": Task.SEGMENTATION.value}
     try:
-        spec = PlatypusSpec.model_validate(config)
+        spec = SPEC_ADAPTER.validate_python(config)
     except ValidationError as error:
-        raise ConfigError.from_validation_error(error, source=source) from None
+        # The union's tag leads every nested location - 'detection.models[0].anchors' -
+        # and reads as a field called 'detection'. Only the caller knows the tag.
+        tag = config.get("task")
+        raise ConfigError.from_validation_error(
+            error, source=source,
+            drop_prefix=tag if isinstance(tag, str) else None,
+        ) from None
 
     if check_paths:
         problems = spec.check_paths()

@@ -18,10 +18,63 @@ be ceremony. The release comes when there is a detector to score.
  - `iou_matrix`, `match_detections`, `average_precision`, `detection_report`. Pure numpy and
    no torch: they work on boxes, so they are testable without a model
  - **Agreement with `pycocotools` is a test, not a one-off check.** mAP@0.5 and mAP@[.50:.95]
-   match the COCO reference implementation to 1e-18 on five reproducible problems, and those
+   match the COCO reference implementation to 1e-12 - the tolerance the suite asserts - on
+   five reproducible problems, and those
    values are baked into the suite so the agreement is verified on every run without
    pycocotools installed. A detection number that disagrees with COCO is a number nobody can
    compare to anything
+
+### Added — detection in the specification
+
+ - **`task`**, a discriminator on the specification: `segmentation` (the default) or
+   `detection`. It selects the *type* of `data` and of every entry in `models`, rather than
+   switching a flag, so a detection configuration carrying a `colormap` or a segmentation one
+   carrying `anchors` is refused by name instead of silently ignored. One task per spec, not
+   one per model, for the same reason there is one rank per spec: every model in a spec shares
+   a data pipeline, and masks and boxes are not the same pipeline
+ - A configuration with no `task` is a segmentation one, so every file and every released R
+   package written before this keeps working unchanged
+ - `DetectionData` - `classes` in class order (position is the class index, stated rather than
+   read from the files, where it would come out alphabetical), `annotation_format`,
+   `coordinates` for the VOC 1-based-inclusive convention, `strict_labels`. No background
+   entry, unlike a colormap: a region of an image holding no object is not a box
+ - `DetectionModel` - `anchors` as fractions of the input, fitted to the training data when
+   unset; `anchors_per_grid`, `ignore_threshold`, `score_threshold`, `nms_threshold`,
+   `operating_point`. Every one of these was a command-line flag in
+   `examples/detect_blood_cells.py`, which is where a setting lives when it has nowhere better
+   to be
+ - `DataSpec` and `ModelSpec`, the shared bases the two tasks are built from. What they
+   deliberately do **not** carry is `loss` and `metrics`: segmentation picks both from a menu
+   of nine and three, YOLOv3's objective is part of its architecture, and mean average
+   precision is not one option among several. A field that accepts a value and ignores it is
+   worse than no field
+ - Refusals that cost nothing now and a confusing failure later: detection at rank 3 (ImageNet
+   is images and YOLOv3 is a 2D architecture), an input side that is not a multiple of 32,
+   anchors given in pixels rather than fractions - with the conversion named, since COCO
+   publishes its nine in pixels at 416 - anchors that disagree with `anchors_per_grid`, grids
+   with different anchor counts, duplicate class names, and `coordinates` set for LabelMe,
+   which stores continuous pixel coordinates and has no convention to pick
+
+### Changed
+
+ - A union tag no longer reads as a field. pydantic puts the matched tag at the head of every
+   nested location, so a problem in a detection spec was reported at
+   `detection.models[0].anchors`; it now says `models[0].anchors`. An enum used as a tag is
+   also no longer rendered with `repr`, so a mistyped task is told to use `'detection'` rather
+   than `<Task.DETECTION: 'detection'>`
+ - The JSON Schema's top level is now a `oneOf` over the two tasks with a `discriminator`, and
+   the per-task fields live under `$defs`. Its docstring claimed it was shipped inside the R
+   package; it is not, and has not needed to be - the R package sends the configuration to the
+   engine and translates the engine's refusal, which keeps one validator instead of two that
+   can disagree
+ - `Engine` refuses a detection spec and says why. The spec validates and nothing trains from
+   it yet; saying so beats failing somewhere inside the data pipeline, and beats a feature that
+   is advertised and does not work. A detector is still assembled by hand from
+   `pyplatypus.detection`, the way `examples/detect_blood_cells.py` does
+ - `PlatypusSpec` is now the shared base of `SegmentationSpec` and `DetectionSpec` and is not
+   built directly. `from_dict` and `from_yaml` return whichever the task asks for, and both
+   are instances of it, so nothing that only needed a seed or a rank changes. Building the base
+   directly says so rather than failing as two "extra inputs are not permitted"
 
 ### Added — annotations, letterboxing and the target encoder
 

@@ -1,0 +1,40 @@
+# A detection experiment, in the same file format as a segmentation one. `task` is what
+# makes the rest of the file mean something different, so it goes first.
+#
+# Deliberately close to what the BCCD run used, because the point of the detection half
+# of the spec is that those settings had nowhere to live except command-line flags.
+task: detection
+
+data:
+  train_path: PLACEHOLDER_TRAIN
+  validation_path: PLACEHOLDER_VALID
+  mode: nested_dirs
+  subdirs: [images, annotations]
+  annotation_format: pascal_voc
+  # Position is the class index the model learns, which is why it is written down.
+  classes: [RBC, WBC, Platelets]
+
+models:
+  - name: bccd
+    architecture: yolo3
+    input_shape: [416, 416]
+    channels: 3
+    # No anchors: fitted to these annotations, which on blood cells covers their boxes
+    # at a mean IoU of 0.92 against 0.67 for COCO's.
+    anchors_per_grid: 3
+    ignore_threshold: 0.5
+    score_threshold: 0.01
+    nms_threshold: 0.45
+    operating_point: 0.5
+    optimizer:
+      name: adam
+      learning_rate: 0.0001
+    augmentation:
+      - name: HorizontalFlip
+        params: {p: 0.5}
+    callbacks:
+      - name: early_stopping
+        patience: 25
+        monitor: val_loss
+    epochs: 150
+    batch_size: 8

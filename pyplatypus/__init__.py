@@ -8,7 +8,16 @@ and windowed in real units; masks are colour pictures or label maps.
 from pyplatypus.data.splits import split_dataset, split_samples
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
-from pyplatypus.spec import PlatypusSpec, from_dict, from_yaml, spec_schema, write_schema
+from pyplatypus.spec import (
+    DetectionSpec,
+    PlatypusSpec,
+    SegmentationSpec,
+    Task,
+    from_dict,
+    from_yaml,
+    spec_schema,
+    write_schema,
+)
 from pyplatypus.weights import (
     WeightsError,
     export_weights,
@@ -19,9 +28,12 @@ from pyplatypus.weights import (
 __version__ = "0.3.0a11"
 __all__ = [
     "ConfigError",
+    "DetectionSpec",
     "Engine",
     "PlatypusError",
     "PlatypusSpec",
+    "SegmentationSpec",
+    "Task",
     "WeightsError",
     "__version__",
     "export_weights",

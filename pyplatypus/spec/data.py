@@ -1,4 +1,10 @@
-"""Where the images and masks come from.
+"""Where the data comes from.
+
+`DataSpec` holds what every task needs - the three paths, the layout, the window - and a
+task's own class adds what only it needs. Segmentation needs to be told how a mask names
+its classes; detection needs to be told how an annotation file does. Neither question has
+an answer that fits the other, which is why there are two classes rather than one with
+optional halves.
 
 Note what is *not* here: existence checks on paths. The old package raised
 `NotADirectoryError` inside a validator, which meant a spec could not be built unless
@@ -19,12 +25,72 @@ from pyplatypus.spec.common import WINDOWS, DataMode, SpecModel
 Colour = Annotated[tuple[int, int, int], Field(description="RGB, each channel 0-255.")]
 
 
-class SegmentationData(SpecModel):
+class DataSpec(SpecModel):
+    """The part of "where is the data" that does not depend on what is being learned."""
+
     train_path: str
     validation_path: str
     test_path: str | None = None
 
     mode: DataMode = DataMode.NESTED_DIRS
+    subdirs: tuple[str, str] = Field(
+        description=(
+            "For `nested_dirs`, the two subdirectories of each sample: the images, and "
+            "whatever labels them - masks for segmentation, annotation files for "
+            "detection. No default here; each task has its own."
+        ),
+    )
+    column_sep: str = ";"
+    shuffle: bool = True
+    window: str | tuple[float, float] = Field(
+        "auto",
+        validation_alias=AliasChoices("window", "dicom_window"),
+        description=(
+            "How values in real units are mapped to 0-1: a named window such as 'lung' or "
+            "'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the "
+            "file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole "
+            "range present. A fixed window is what makes two scans comparable: scaling each "
+            "one by its own extremes lets a single bright voxel rescale everything else. "
+            "Ignored for ordinary pictures, which are already 0-255. Accepted as "
+            "`dicom_window` too, the name it had while DICOM was the only format that "
+            "needed it."
+        ),
+    )
+
+    @field_validator("window")
+    @classmethod
+    def known_window(cls, value):
+        if isinstance(value, str) and value not in {"auto", "full"} and value not in WINDOWS:
+            raise ValueError(
+                f"unknown window '{value}'; use 'auto', 'full', a (centre, width) pair, "
+                f"or one of: {', '.join(sorted(WINDOWS))}"
+            )
+        if not isinstance(value, str):
+            width = value[1]
+            if width <= 0:
+                raise ValueError(f"window width must be positive, got {width}")
+        return value
+
+    def check_paths(self) -> list[str]:
+        """Return a human-readable problem for every path that is not there."""
+        problems = []
+        wanted = [("train_path", self.train_path), ("validation_path", self.validation_path)]
+        if self.test_path is not None:
+            wanted.append(("test_path", self.test_path))
+        for field, value in wanted:
+            path = Path(value)
+            if not path.exists():
+                problems.append(f"{field}: '{value}' does not exist")
+            elif self.mode is DataMode.NESTED_DIRS and not path.is_dir():
+                problems.append(f"{field}: '{value}' is not a directory, but mode is nested_dirs")
+            elif self.mode is DataMode.CONFIG_FILE and not path.is_file():
+                problems.append(f"{field}: '{value}' is not a file, but mode is config_file")
+        return problems
+
+
+class SegmentationData(DataSpec):
+    subdirs: tuple[str, str] = ("images", "masks")
+
     colormap: list[Colour] | None = Field(
         None,
         min_length=2,
@@ -38,20 +104,6 @@ class SegmentationData(SpecModel):
             "class, in class order. This is how volumes label anything - NIfTI holds "
             "integers, not colours - and how a single-channel PNG mask can be read too. "
             "Exactly one of `colormap` and `labels` is given."
-        ),
-    )
-    window: str | tuple[float, float] = Field(
-        "auto",
-        validation_alias=AliasChoices("window", "dicom_window"),
-        description=(
-            "How values in real units are mapped to 0-1: a named window such as 'lung' or "
-            "'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the "
-            "file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole "
-            "range present. A fixed window is what makes two scans comparable: scaling each "
-            "one by its own extremes lets a single bright voxel rescale everything else. "
-            "Ignored for ordinary pictures, which are already 0-255. Accepted as "
-            "`dicom_window` too, the name it had while DICOM was the only format that "
-            "needed it."
         ),
     )
     channels_from: list[str] | None = Field(
@@ -77,24 +129,6 @@ class SegmentationData(SpecModel):
             "network has no way to know. Volumes only; ignored for 2D."
         ),
     )
-    subdirs: tuple[str, str] = ("images", "masks")
-    column_sep: str = ";"
-    shuffle: bool = True
-
-    @field_validator("window")
-    @classmethod
-    def known_window(cls, value):
-        if isinstance(value, str) and value not in {"auto", "full"} and value not in WINDOWS:
-            raise ValueError(
-                f"unknown window '{value}'; use 'auto', 'full', a (centre, width) pair, "
-                f"or one of: {', '.join(sorted(WINDOWS))}"
-            )
-        if not isinstance(value, str):
-            width = value[1]
-            if width <= 0:
-                raise ValueError(f"window width must be positive, got {width}")
-        return value
-
     @field_validator("colormap")
     @classmethod
     def channels_in_range(cls, value: list[tuple[int, int, int]] | None):
@@ -166,19 +200,3 @@ class SegmentationData(SpecModel):
     def label_map(self) -> bool:
         """Whether masks are label maps rather than pictures."""
         return self.labels is not None
-
-    def check_paths(self) -> list[str]:
-        """Return a human-readable problem for every path that is not there."""
-        problems = []
-        wanted = [("train_path", self.train_path), ("validation_path", self.validation_path)]
-        if self.test_path is not None:
-            wanted.append(("test_path", self.test_path))
-        for field, value in wanted:
-            path = Path(value)
-            if not path.exists():
-                problems.append(f"{field}: '{value}' does not exist")
-            elif self.mode is DataMode.NESTED_DIRS and not path.is_dir():
-                problems.append(f"{field}: '{value}' is not a directory, but mode is nested_dirs")
-            elif self.mode is DataMode.CONFIG_FILE and not path.is_file():
-                problems.append(f"{field}: '{value}' is not a file, but mode is config_file")
-        return problems
