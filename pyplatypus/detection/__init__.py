@@ -6,8 +6,30 @@ no way to say whether it detected anything, and no number to put beside publishe
 Everything else here is unmeasurable until this part exists.
 """
 
+from pyplatypus.detection.annotations import (
+    Annotation,
+    describe_annotations,
+    read_annotations,
+    read_labelme,
+    read_voc,
+)
+from pyplatypus.detection.boxes import (
+    Letterbox,
+    box_areas,
+    clip_boxes,
+    drop_degenerate,
+)
+from pyplatypus.detection.encode import (
+    COCO_ANCHORS,
+    STRIDES,
+    Encoding,
+    decode,
+    encode,
+    grid_shapes,
+)
 from pyplatypus.detection.metrics import (
     COCO_THRESHOLDS,
+    DetectionError,
     DetectionMetrics,
     average_precision,
     detection_report,
@@ -16,10 +38,26 @@ from pyplatypus.detection.metrics import (
 )
 
 __all__ = [
+    "COCO_ANCHORS",
     "COCO_THRESHOLDS",
+    "STRIDES",
+    "Annotation",
+    "DetectionError",
     "DetectionMetrics",
+    "Encoding",
+    "Letterbox",
     "average_precision",
+    "box_areas",
+    "clip_boxes",
+    "decode",
+    "describe_annotations",
     "detection_report",
+    "drop_degenerate",
+    "encode",
+    "grid_shapes",
     "iou_matrix",
     "match_detections",
+    "read_annotations",
+    "read_labelme",
+    "read_voc",
 ]
