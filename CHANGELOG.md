@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.0a12] - 2026-10-04
 
 Object detection, end to end: a specification with `task: detection` trains a YOLOv3 through
 the same engine as a segmentation one, scores it per class against `pycocotools`-agreeing
@@ -64,6 +64,16 @@ would serve nothing but the ceremony. It happens when the R side needs it.
 
 ### Added — detection in the engine
 
+ - **`bccd-yolo3` in the weights registry**: YOLOv3 at 416x416 for RBC, WBC and Platelets,
+   trained on BCCD (MIT) using the dataset's own split, pinned to commit `24fbff08`.
+   `mAP@0.5` 0.857 on the 72 held-out images - the **median of five seeds**, not the best,
+   because the spread is 0.0159 and reporting one run would be reporting whichever seed was
+   chosen. The card states what decides whether the weights answer someone's question:
+   **platelets are the unreliable class**, precision 0.54 at confidence 0.5 and four times
+   the seed-to-seed variance of the other two.
+
+   Verified by fetching it by name from the Hub on a cold cache and scoring it: 0.8571 /
+   0.5003 / 0.8058, equal to the card and the sidecar to four places
  - **`DetectionEngine`**, and `build_engine(spec)` which returns it or `Engine` according to
    the task, so a caller holding a spec never has to ask. Two classes rather than one with a
    branch in every method: past discovery the two tasks differ at every step - three target

@@ -69,6 +69,19 @@ REGISTRY: dict[str, Published] = {
             "Semantic, not instance: touching nuclei come back as one region."
         ),
     ),
+    "bccd-yolo3": Published(
+        repo="maju116/platypus-weights",
+        filename="bccd-yolo3.safetensors",
+        revision="24fbff0833455a747c7bac9c2b8dc43073ce4e82",
+        description=(
+            "YOLOv3, 416x416, blood cells in smear photographs: RBC, WBC, Platelets. "
+            "Trained on BCCD (MIT) using its own split. mAP@0.5 0.857 on the 72 held-out "
+            "images, the median of five seeds whose spread is 0.0159. Platelets are the "
+            "unreliable class - precision 0.54 at confidence 0.5, and four times the "
+            "seed-to-seed variance of the other two. The anchors are in the sidecar and "
+            "loading adopts them; the weights mean nothing without them."
+        ),
+    ),
 }
 
 

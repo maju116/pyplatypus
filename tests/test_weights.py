@@ -193,6 +193,34 @@ def test_the_registry_listing_is_readable():
         assert isinstance(name, str) and isinstance(description, str)
 
 
+def test_every_registry_entry_pins_a_full_commit():
+    """A tag can be moved and a short hash can become ambiguous, so a registry name holds
+    forty hex characters or it is not a promise. Checked over the whole registry rather
+    than per entry, because the next one added is the one that would get it wrong."""
+    import re
+
+    from pyplatypus.weights import REGISTRY
+
+    assert REGISTRY, "the registry is empty, so this test proves nothing"
+    for name, entry in REGISTRY.items():
+        assert re.fullmatch(r"[0-9a-f]{40}", entry.revision), (
+            f"{name} pins '{entry.revision}', which is not a full commit hash"
+        )
+        assert entry.filename.endswith(".safetensors"), name
+        assert entry.description.strip(), name
+
+
+def test_a_registry_name_resolves_to_its_pinned_reference():
+    """The `hf://` form a name expands to, which is what the error messages quote."""
+    from pyplatypus.weights import REGISTRY
+
+    entry = REGISTRY["bccd-yolo3"]
+    assert entry.reference == (
+        "hf://maju116/platypus-weights/bccd-yolo3.safetensors"
+        "@24fbff0833455a747c7bac9c2b8dc43073ce4e82"
+    )
+
+
 # ------------------------------------------------- the Hub path, without the Hub
 @pytest.fixture
 def fake_hub(monkeypatch, tmp_path):
