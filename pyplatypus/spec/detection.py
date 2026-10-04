@@ -129,6 +129,10 @@ class DetectionData(DataSpec):
         return self
 
     @property
+    def label_column(self) -> str:
+        return "annotations"
+
+    @property
     def n_class(self) -> int:
         """How many classes there are. `classes` decides; nothing else."""
         return len(self.classes)
@@ -211,6 +215,53 @@ class DetectionModel(ModelSpec):
             "what is computed at all, this one decides where on the curve to stand."
         ),
     )
+
+    def weights_fingerprint(self) -> dict:
+        """`anchors_per_grid` rather than `blocks` and `filters`: it is what sets the
+        head's width, so weights with a different one cannot be loaded at all. `n_class`
+        sets it too and is not here, because the model does not hold it - the engine adds
+        it, from the data's `classes`."""
+        return {**super().weights_fingerprint(),
+                "anchors_per_grid": self.anchors_per_grid}
+
+    min_visibility: float = Field(
+        0.25,
+        ge=0,
+        le=1,
+        description=(
+            "How much of a box must survive an augmentation that removes part of the "
+            "frame, as a fraction of its original area, for the box to be kept. A "
+            "convention rather than a measurement; what is defensible is the direction. "
+            "A box keeping two pixels of a cell teaches the model that a two-pixel "
+            "fragment is a whole cell, which produces false positives everywhere, while "
+            "dropping a heavily truncated object only fails to teach it about that "
+            "object. Pascal VOC marks such objects `truncated` for the same reason.\n"
+            "Irrelevant unless a transform can lose part of the frame: flips and "
+            "rotations never do."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def weights_and_anchors_are_two_answers_to_one_question(self):
+        """A detector's weights decode boxes *relative to the anchors they were trained
+        with*. Read with other anchors, the same weights produce boxes scaled by a fixed
+        factor - plausible boxes, plausible scores, wrong places, and nothing in any output
+        to say so.
+
+        So loading adopts the anchors recorded beside the file, which makes a specification
+        that also names anchors two claims about one model with one of them untrue. Refused
+        rather than resolved: taking the file's and warning would mean the specification no
+        longer describes the run, which is the property everything else here rests on.
+        """
+        if self.weights is not None and self.anchors is not None:
+            raise ValueError(
+                f"model '{self.name}' names both `weights` and `anchors`. A detector's "
+                f"weights decode boxes relative to the anchors they were trained with, so "
+                f"loading uses the ones recorded beside the file - which would leave the "
+                f"anchors in this specification describing nothing. Remove `anchors` to "
+                f"use theirs, or remove `weights` to fit new ones to your own boxes."
+            )
+        return self
 
     @model_validator(mode="after")
     def detection_is_two_dimensional(self):

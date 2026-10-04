@@ -69,6 +69,19 @@ REGISTRY: dict[str, Published] = {
             "Semantic, not instance: touching nuclei come back as one region."
         ),
     ),
+    "bccd-yolo3": Published(
+        repo="maju116/platypus-weights",
+        filename="bccd-yolo3.safetensors",
+        revision="24fbff0833455a747c7bac9c2b8dc43073ce4e82",
+        description=(
+            "YOLOv3, 416x416, blood cells in smear photographs: RBC, WBC, Platelets. "
+            "Trained on BCCD (MIT) using its own split. mAP@0.5 0.857 on the 72 held-out "
+            "images, the median of five seeds whose spread is 0.0159. Platelets are the "
+            "unreliable class - precision 0.54 at confidence 0.5, and four times the "
+            "seed-to-seed variance of the other two. The anchors are in the sidecar and "
+            "loading adopts them; the weights mean nothing without them."
+        ),
+    ),
 }
 
 
@@ -188,17 +201,23 @@ def describe(weights: Path) -> dict | None:
     return _SIDECARS.get(str(weights))
 
 
-def load_into(model, reference: str, spec) -> dict | None:
+def load_into(model, reference: str, spec, *, extra: dict | None = None) -> dict | None:
     """Load weights into a model, after checking they belong to it.
 
     Returns the sidecar when there was one, so a caller can report what it loaded.
+
+    `extra` adds fields to the comparison that the model specification cannot answer for
+    itself. A detector is the case: its head's width is `anchors_per_grid * (n_class + 5)`
+    and `n_class` lives on the data, not the model, so the engine supplies it - along with
+    the class *names*, because weights trained on the same number of differently ordered
+    classes load cleanly and label every box wrongly.
     """
     import torch
 
     path = resolve_weights(reference)
     sidecar = describe(path)
     if sidecar is not None:
-        _refuse_mismatch(sidecar, spec, reference)
+        _refuse_mismatch(sidecar, spec, reference, extra=extra)
 
     if path.suffix == ".safetensors":
         try:
@@ -224,7 +243,8 @@ def load_into(model, reference: str, spec) -> dict | None:
     return sidecar
 
 
-def _refuse_mismatch(sidecar: dict, spec, reference: str) -> None:
+def _refuse_mismatch(sidecar: dict, spec, reference: str, *,
+                     extra: dict | None = None) -> None:
     """Compare what the weights are for with what the model is, and say which field differs.
 
     Before loading rather than after: `load_state_dict` catches a different number of
@@ -232,20 +252,19 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str) -> None:
     colormap with the same class count. Those load cleanly and predict nonsense.
     """
     problems = []
-    checks = (
-        ("architecture", getattr(spec.architecture, "value", spec.architecture)),
-        ("input_shape", tuple(spec.input_shape)),
-        ("channels", spec.channels),
-        ("n_class", spec.n_class),
-        ("blocks", spec.blocks),
-        ("filters", spec.filters),
-    )
-    for field, mine in checks:
+    for field, mine in {**spec.weights_fingerprint(), **(extra or {})}.items():
         theirs = sidecar.get(field)
         if theirs is None:
             continue
-        if isinstance(mine, tuple):
-            theirs = tuple(theirs)
+        if isinstance(mine, list):
+            # Compared as lists, because that is what JSON gives back, but rendered as
+            # tuples: a shape reads as (256, 256) in Python and in every message this
+            # package has ever printed, and a released vignette shows it that way.
+            theirs = list(theirs)
+            if theirs != mine:
+                problems.append(f"{field}: weights say {tuple(theirs)}, the model says "
+                                f"{tuple(mine)}")
+            continue
         if theirs != mine:
             problems.append(f"{field}: weights say {theirs}, the model says {mine}")
 
@@ -284,13 +303,7 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
     save_file(state, str(target))
 
     sidecar = {
-        "architecture": getattr(spec.architecture, "value", spec.architecture),
-        "input_shape": list(spec.input_shape),
-        "channels": spec.channels,
-        "n_class": spec.n_class,
-        "blocks": spec.blocks,
-        "filters": spec.filters,
-        "rank": spec.rank,
+        **spec.weights_fingerprint(),
         # Two different counts, named apart. `parameters` is what the comparison table reports;
         # a state dict also holds buffers - BatchNorm's running statistics - so summing it gives
         # a larger number. Having both under one name made the sidecar disagree with

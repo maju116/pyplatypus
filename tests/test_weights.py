@@ -193,6 +193,34 @@ def test_the_registry_listing_is_readable():
         assert isinstance(name, str) and isinstance(description, str)
 
 
+def test_every_registry_entry_pins_a_full_commit():
+    """A tag can be moved and a short hash can become ambiguous, so a registry name holds
+    forty hex characters or it is not a promise. Checked over the whole registry rather
+    than per entry, because the next one added is the one that would get it wrong."""
+    import re
+
+    from pyplatypus.weights import REGISTRY
+
+    assert REGISTRY, "the registry is empty, so this test proves nothing"
+    for name, entry in REGISTRY.items():
+        assert re.fullmatch(r"[0-9a-f]{40}", entry.revision), (
+            f"{name} pins '{entry.revision}', which is not a full commit hash"
+        )
+        assert entry.filename.endswith(".safetensors"), name
+        assert entry.description.strip(), name
+
+
+def test_a_registry_name_resolves_to_its_pinned_reference():
+    """The `hf://` form a name expands to, which is what the error messages quote."""
+    from pyplatypus.weights import REGISTRY
+
+    entry = REGISTRY["bccd-yolo3"]
+    assert entry.reference == (
+        "hf://maju116/platypus-weights/bccd-yolo3.safetensors"
+        "@24fbff0833455a747c7bac9c2b8dc43073ce4e82"
+    )
+
+
 # ------------------------------------------------- the Hub path, without the Hub
 @pytest.fixture
 def fake_hub(monkeypatch, tmp_path):
@@ -403,3 +431,27 @@ def test_the_dsbowl_entry_says_what_it_cannot_do():
     description = REGISTRY["dsbowl-unet"].description
     assert "BBBC038" in description
     assert "instance" in description.lower()
+
+
+def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
+    """The exact wording of this line is in a released vignette.
+
+    The fingerprint moved onto the spec and started comparing `input_shape` as a list,
+    because that is what JSON returns - which quietly turned `(256, 256)` into
+    `[256, 256]` in the message, and the vignette into a document showing output the
+    package no longer produces. Nothing else would have noticed.
+    """
+    from pyplatypus.models import build_model
+    from pyplatypus.spec.models import SegmentationModel
+    from pyplatypus.weights import WeightsError, export_weights, load_into
+
+    trained = SegmentationModel(name="a", input_shape=(256, 256))
+    written = export_weights(build_model(trained), trained,
+                             tmp_path / "w.safetensors")
+
+    other = SegmentationModel(name="b", input_shape=(160, 160))
+    with pytest.raises(WeightsError) as caught:
+        load_into(build_model(other), str(written), other)
+    assert "input_shape: weights say (256, 256), the model says (160, 160)" in str(
+        caught.value
+    )

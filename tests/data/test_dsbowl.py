@@ -98,11 +98,26 @@ def test_tiling_a_real_image_round_trips(train, data):
 
 def test_throughput_is_not_absurd(train, data):
     """Not a benchmark - a tripwire. If reading a sample ever takes a tenth of a second
-    the GPU will sit idle and someone should notice here first."""
+    the GPU will sit idle and someone should notice here first.
+
+    The **fastest** of three passes, not the only one. As a single pass this failed about
+    one local run in eight - caught while a GPU run and two test loops were sharing the
+    machine - and a tripwire that trips on a busy laptop teaches people to re-run it
+    instead of reading it. The minimum is still a real measurement: a genuine regression
+    makes every pass slow, and no amount of idle machine makes a slow reader fast.
+    """
     model = SegmentationModel(name="unet", input_shape=(256, 256), n_class=2, blocks=4)
     dataset = SegmentationDataset(train.samples, model, data, cache_size=1)
-    start = time.perf_counter()
-    for index in range(30):
-        dataset[index]
-    per_sample = (time.perf_counter() - start) / 30
-    assert per_sample < 0.1, f"{per_sample * 1000:.0f} ms per sample is too slow"
+
+    passes = []
+    for _ in range(3):
+        start = time.perf_counter()
+        for index in range(30):
+            dataset[index]
+        passes.append((time.perf_counter() - start) / 30)
+
+    per_sample = min(passes)
+    assert per_sample < 0.1, (
+        f"{per_sample * 1000:.0f} ms per sample is too slow "
+        f"(passes: {', '.join(f'{p * 1000:.0f}' for p in passes)} ms)"
+    )

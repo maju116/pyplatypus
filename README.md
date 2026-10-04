@@ -4,7 +4,7 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a11 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
+> **0.3.0a12 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
 > The API will still move and the R surface does not exist yet, so pin the exact version
 > if you build on it.
 >
@@ -86,7 +86,45 @@ library, `GaussNoise` as `KeyError: 'images'`. Every transform in a 3D specifica
 against a small probe volume while the pipeline is built, so an unsupported one is named before
 training starts, and `available_transforms(rank=3)` lists what is usable.
 
-Object detection and ensembling remain out of scope.
+**Object detection is built and not yet released.** `task: detection` in a specification
+gives a YOLOv3 trained from the same pipeline - anchors fitted to your own boxes, Pascal VOC
+or LabelMe annotations, predictions back in each image's own pixels, and mean average
+precision per class that agrees with `pycocotools`. On BCCD, from nothing, over five seeds:
+
+    mAP@0.5                    0.8660 +/- 0.0159
+    mAP@[.50:.95]              0.5159 +/- 0.0199
+    mean IoU of matched boxes  0.8041 +/- 0.0026
+
+about 37 minutes a seed on a GTX 1070, and `examples/detect_blood_cells.py` is that run.
+
+Five seeds rather than one, because on this dataset a single number would be whichever seed
+got reported: the runs span 0.853 to 0.887 of mAP@0.5. **How well the boxes fit is far
+steadier than how many are found** - the matched overlap varies by a quarter of a point
+where average precision varies by one and a half - so a difference of a point in mAP here is
+not a result, and the first draft of this work read several of them as one.
+
+**`bccd-yolo3` is published**, so boxes on an image need no GPU and no afternoon:
+
+```python
+engine = build_engine(from_dict({
+    "task": "detection",
+    "data": {"train_path": "images/", "validation_path": "images/",
+             "classes": ["RBC", "WBC", "Platelets"]},
+    "models": [{"name": "cells", "input_shape": [416, 416],
+                "weights": "bccd-yolo3", "fit": False}],
+}))
+engine.fit()                               # loads the weights, trains nothing
+found = engine.predict("cells", "validation")
+```
+
+The anchors come out of the sidecar beside the file and are adopted, because a detector's
+weights mean nothing without them - read with any others they give plausible boxes in the
+wrong places. A specification that names its own anchors alongside `weights` is refused
+rather than quietly overruled.
+
+None of this is in the version on PyPI, so `pip install pyplatypus` does not have it yet.
+
+Ensembling remains out of scope.
 
 Resampling is opt-in rather than automatic: it changes the voxel grid the model sees, which
 is a decision to take deliberately. Without `target_spacing` the old behaviour stands and

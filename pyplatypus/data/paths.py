@@ -77,7 +77,8 @@ def _nested_dirs(root: Path, subdirs: tuple[str, str], only_images: bool
     return samples, skipped
 
 
-def _config_file(path: Path, column_sep: str, only_images: bool
+def _config_file(path: Path, column_sep: str, only_images: bool,
+                 label_column: str = "masks"
                  ) -> tuple[list[Sample], list[tuple[str, str]]]:
     with path.open(newline="") as handle:
         rows = list(csv.DictReader(handle))
@@ -87,9 +88,11 @@ def _config_file(path: Path, column_sep: str, only_images: bool
     if "images" not in rows[0]:
         found = ", ".join(rows[0].keys())
         raise ConfigError(f"'{path}' needs an 'images' column; found: {found}")
-    if not only_images and "masks" not in rows[0]:
+    if not only_images and label_column not in rows[0]:
         found = ", ".join(rows[0].keys())
-        raise ConfigError(f"'{path}' needs a 'masks' column; found: {found}")
+        raise ConfigError(
+            f"'{path}' needs a '{label_column}' column; found: {found}"
+        )
 
     # Relative paths resolve against the CSV, not the working directory, so a config
     # file travels with its data instead of only working from one place.
@@ -108,7 +111,7 @@ def _config_file(path: Path, column_sep: str, only_images: bool
     skipped: list[tuple[str, str]] = []
     for number, row in enumerate(rows, start=2):  # row 1 is the header
         images = resolve(row.get("images") or "")
-        masks = () if only_images else resolve(row.get("masks") or "")
+        masks = () if only_images else resolve(row.get(label_column) or "")
         # A `key` column wins over the row number, because the row number names nothing.
         # `write_splits` puts the original sample name there, so a case that scores badly
         # can be found on disk instead of being reported as 'row 55'.
@@ -117,7 +120,7 @@ def _config_file(path: Path, column_sep: str, only_images: bool
             skipped.append((key, "no image path"))
             continue
         if not only_images and not masks:
-            skipped.append((key, "no mask path"))
+            skipped.append((key, f"no {label_column} path"))
             continue
         samples.append(Sample(key=key, images=images, masks=masks))
     return samples, skipped
@@ -126,7 +129,7 @@ def _config_file(path: Path, column_sep: str, only_images: bool
 def discover_samples(root: str | Path, *, mode: DataMode = DataMode.NESTED_DIRS,
                      subdirs: tuple[str, str] = ("images", "masks"),
                      column_sep: str = ";", only_images: bool = False,
-                     strict: bool = True) -> Discovery:
+                     strict: bool = True, label_column: str = "masks") -> Discovery:
     """List the samples under `root`, given only the layout.
 
     Separate from `discover` because finding files does not need a whole specification:
@@ -144,7 +147,7 @@ def discover_samples(root: str | Path, *, mode: DataMode = DataMode.NESTED_DIRS,
     else:
         if not root.is_file():
             raise ConfigError(f"mode is config_file but '{root}' is not a file")
-        samples, skipped = _config_file(root, column_sep, only_images)
+        samples, skipped = _config_file(root, column_sep, only_images, label_column)
 
     if not samples:
         raise ConfigError(
@@ -172,5 +175,5 @@ def discover(root: str | Path, data: DataSpec, *, only_images: bool = False,
     """
     return discover_samples(
         root, mode=data.mode, subdirs=data.subdirs, column_sep=data.column_sep,
-        only_images=only_images, strict=strict,
+        only_images=only_images, strict=strict, label_column=data.label_column,
     )

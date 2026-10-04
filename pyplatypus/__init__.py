@@ -3,9 +3,14 @@
 Specification, data pipeline, U-shaped models, losses and metrics, training, splitting by
 patient and scoring per case, in 2D and 3D. Volumes arrive as NIfTI, reoriented to canonical
 and windowed in real units; masks are colour pictures or label maps.
+
+Two tasks, chosen by `task` in the specification: segmentation through `Engine`, and object
+detection through `DetectionEngine`. `build_engine(spec)` returns the right one, so holding
+a spec is enough.
 """
 
 from pyplatypus.data.splits import split_dataset, split_samples
+from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.spec import (
@@ -25,9 +30,11 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.3.0a11"
+__version__ = "0.3.0a12"
 __all__ = [
     "ConfigError",
+    "DetectionEngine",
+    "DetectionReport",
     "DetectionSpec",
     "Engine",
     "PlatypusError",
@@ -36,6 +43,7 @@ __all__ = [
     "Task",
     "WeightsError",
     "__version__",
+    "build_engine",
     "export_weights",
     "from_dict",
     "from_yaml",

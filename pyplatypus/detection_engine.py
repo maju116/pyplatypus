@@ -1,0 +1,577 @@
+"""Many detectors, one spec - the detection counterpart of `Engine`.
+
+The two engines are separate classes rather than one with a branch in every method,
+because what they do differs at every step past discovery: three targets instead of one,
+a loss that is part of the architecture, and an evaluation that cannot be accumulated per
+batch because mean average precision is a property of a whole split's ranking.
+
+`build_engine(spec)` returns whichever one the spec's task asks for, so a caller that
+holds a spec never has to ask.
+
+Three things here are decisions rather than plumbing:
+
+* **anchors are fitted to the training annotations** when the spec does not give them, and
+  recorded on the run. A detector cannot be reloaded without the anchors it was trained
+  with - the same weights with different anchors predict boxes scaled by a fixed factor,
+  with no other symptom.
+* **predictions come back in the source image's own pixels**, as a list. There is no array
+  form: images differ in size and so does the number of boxes found in each.
+* **the target survey runs before training**, so a dataset the encoder cannot represent is
+  visible in time to change `input_shape` rather than afterwards.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+
+from pyplatypus.data.augmentation import build_box_augmenter
+from pyplatypus.data.detection import DetectionDataset, TargetSurvey
+from pyplatypus.data.paths import Sample, discover
+from pyplatypus.detection.anchors import AnchorFit, anchor_coverage, box_shapes, generate_anchors
+from pyplatypus.detection.boxes import non_max_suppression
+from pyplatypus.detection.encode import COCO_ANCHORS, decode
+from pyplatypus.detection.metrics import (
+    COCO_THRESHOLDS,
+    DetectionMetrics,
+    detection_report,
+)
+from pyplatypus.detection.yolo3 import build_yolo3
+from pyplatypus.engine import EngineError
+from pyplatypus.spec.detection import DetectionModel
+from pyplatypus.spec.spec import DetectionSpec, PlatypusSpec, SegmentationSpec
+from pyplatypus.training.detection_trainer import DetectionTrainer
+from pyplatypus.training.torch_data import make_detection_loader
+from pyplatypus.training.trainer import History, seed_everything
+
+#: Unplaced fraction above which the encoder is losing enough objects to matter. Measured
+#: on BCCD at a 416 input: 3 boxes of 2804, 0.1%. A synthetic frame packed with 45 equal
+#: boxes lost 9%, which is the shape of a dataset this would warn about.
+_UNPLACED_WARNING = 0.02
+
+
+@dataclass(frozen=True)
+class DetectionReport:
+    """One model on one split, under the three sets of conventions a table needs.
+
+    Held as one object because they come from one pass over the data and because the
+    conventions are part of the result: the same predictions score differently at IoU 0.5
+    and averaged over 0.50-0.95, and precision and recall mean nothing without a
+    confidence to read them at.
+    """
+
+    model: str
+    split: str
+    #: Average precision at IoU 0.5 - whether the objects were found.
+    half: DetectionMetrics
+    #: Averaged over IoU 0.50 to 0.95 in steps of 0.05, COCO's own - how well they fit.
+    coco: DetectionMetrics
+    #: The same predictions at `operating_point`, where precision and recall live.
+    at_operating_point: DetectionMetrics
+
+    def as_row(self, run: DetectorRun) -> dict[str, Any]:
+        return {
+            "model": self.model,
+            "architecture": run.spec.architecture.value,
+            "parameters": run.parameters,
+            "epochs_run": len(run.history),
+            "map_50": self.half.mean_average_precision,
+            "map_50_95": self.coco.mean_average_precision,
+            "mean_matched_iou": self.half.mean_matched_iou,
+            "n_truth": sum(row["n_truth"] for row in self.half.per_class),
+            "n_predicted": sum(row["n_predicted"] for row in self.half.per_class),
+            "classes_without_truth": len(self.half.classes_without_truth),
+        }
+
+    def per_class(self) -> list[dict[str, Any]]:
+        rows = []
+        for row, at_point in zip(self.half.per_class,
+                                 self.at_operating_point.per_class, strict=True):
+            rows.append({
+                "class": row["label"],
+                "average_precision": row["average_precision"],
+                "mean_matched_iou": row["mean_matched_iou"],
+                "n_truth": row["n_truth"],
+                "n_predicted": at_point["n_predicted"],
+                "precision": at_point["precision"],
+                "recall": at_point["recall"],
+            })
+        return rows
+
+
+@dataclass
+class DetectorRun:
+    """Everything one detector left behind.
+
+    `anchors` is here and not only in the spec because they may have been fitted, and in
+    that case this is the only record of them.
+    """
+
+    name: str
+    spec: DetectionModel
+    model: torch.nn.Module
+    trainer: DetectionTrainer
+    anchors: tuple
+    anchor_fit: AnchorFit | None = None
+    survey: TargetSurvey | None = None
+    history: History = field(default_factory=History)
+    trained: bool = False
+
+    @property
+    def parameters(self) -> int:
+        return sum(p.numel() for p in self.model.parameters())
+
+
+class DetectionEngine:
+    def __init__(self, spec: DetectionSpec, *, device: str | None = None,
+                 num_workers: int = 0, strict_data: bool = True,
+                 accumulate: int = 1):
+        if not isinstance(spec, DetectionSpec):
+            raise EngineError(
+                f"this engine trains detectors; the specification's task is "
+                f"'{spec.task.value}'. Use Engine for segmentation, or build_engine(spec) "
+                f"and let the task choose."
+            )
+        self.spec = spec
+        self.device = device
+        self.num_workers = num_workers
+        self.accumulate = accumulate
+        self.runs: dict[str, DetectorRun] = {}
+        seed_everything(spec.seed)
+
+        self._samples: dict[str, tuple[Sample, ...]] = {
+            "train": discover(spec.data.train_path, spec.data, strict=strict_data).samples,
+            "validation": discover(spec.data.validation_path, spec.data,
+                                   strict=strict_data).samples,
+        }
+        #: Splits whose annotations are there. Training and validation must have them;
+        #: a test split may or may not, and which it is decides what can be asked of it.
+        self.labelled = {"train", "validation"}
+        if spec.data.test_path:
+            self._samples["test"] = self._discover_test(strict=strict_data)
+
+    def _discover_test(self, *, strict: bool) -> tuple[Sample, ...]:
+        """The test split, with its annotations if it has any.
+
+        Unlike segmentation, a detection test split is often labelled - BCCD's is, which is
+        what makes its published numbers comparable - so annotations are asked for first and
+        their absence is not an error. The split is then recorded as unlabelled: `predict`
+        works on it and `evaluate` refuses it by name, rather than scoring it against empty
+        truth and reporting zero.
+
+        **"No annotations" and "some annotations" are not the same thing.** Falling back
+        whenever labelled discovery failed would turn a test split with two missing files
+        into an unlabelled one - throwing away the seventy that are there and reporting
+        nothing. So the fallback happens only when the split carries no annotations at all;
+        an incomplete one raises, which is what `strict` is for.
+        """
+        from pyplatypus.errors import ConfigError
+
+        try:
+            samples = discover(self.spec.data.test_path, self.spec.data,
+                               strict=strict).samples
+        except ConfigError:
+            if self._test_has_any_annotations():
+                raise
+            return discover(self.spec.data.test_path, self.spec.data,
+                            only_images=True, strict=strict).samples
+        self.labelled.add("test")
+        return samples
+
+    def _test_has_any_annotations(self) -> bool:
+        """Whether the test split carries annotations for anything, without reading them."""
+        from pyplatypus.spec.common import DataMode
+
+        path = Path(self.spec.data.test_path)
+        if self.spec.data.mode is DataMode.CONFIG_FILE:
+            if not path.is_file():
+                return False
+            first = path.read_text().splitlines()[:1]
+            header = first[0] if first else ""
+            return self.spec.data.label_column in [
+                name.strip() for name in header.split(",")
+            ]
+        if not path.is_dir():
+            return False
+        wanted = self.spec.data.subdirs[1]
+        return any((entry / wanted).is_dir() and any((entry / wanted).iterdir())
+                   for entry in path.iterdir() if entry.is_dir())
+
+    # ------------------------------------------------------------------ data
+    def dataset(self, model: DetectionModel, split: str, *, anchors=None,
+                only_images: bool = False, augmented: bool = False) -> DetectionDataset:
+        if split not in self._samples:
+            raise EngineError(
+                f"no '{split}' data in this spec; available: "
+                f"{', '.join(sorted(self._samples))}"
+            )
+        augmenter = build_box_augmenter(
+            model.augmentation,
+            input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
+            min_visibility=model.min_visibility,
+        ) if augmented else None
+        return DetectionDataset(
+            self._samples[split], model, self.spec.data,
+            anchors=anchors if anchors is not None else self._anchors_for(model),
+            only_images=only_images, augmenter=augmenter,
+        )
+
+    def loader(self, model: DetectionModel, split: str, *, anchors=None,
+               shuffle: bool = False, augmented: bool = False):
+        return make_detection_loader(
+            self.dataset(model, split, anchors=anchors, augmented=augmented),
+            batch_size=model.batch_size, shuffle=shuffle, num_workers=self.num_workers,
+        )
+
+    def _anchors_for(self, model: DetectionModel):
+        """The anchors in use for this model: the run's if it has one, else the spec's.
+
+        COCO's are the last resort and only reachable before `fit`, for a dataset whose
+        anchors have not been fitted yet - looking at a target tensor needs *some* anchors.
+        """
+        run = self.runs.get(model.name)
+        if run is not None:
+            return run.anchors
+        given = model.anchors_as_tuples
+        return given if given is not None else COCO_ANCHORS
+
+    # ------------------------------------------------------------------ anchors
+    def fit_anchors(self, model: DetectionModel) -> AnchorFit | None:
+        """k-means with an IoU distance over the training boxes, or nothing to do.
+
+        Euclidean distance on (width, height) is scale-blind - (0.02, 0.02) and
+        (0.04, 0.04) sit the same distance apart as (0.50, 0.50) and (0.52, 0.52), while
+        their overlaps are 0.25 and 0.93 - so the distance is 1 - IoU, which is what the
+        anchors are for.
+        """
+        if model.anchors_as_tuples is not None:
+            return None
+        dataset = self.dataset(model, "train", anchors=COCO_ANCHORS)
+        return generate_anchors(
+            dataset.annotations(), anchors_per_grid=model.anchors_per_grid,
+            scales=3, input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
+            seed=self.spec.seed if self.spec.seed is not None else 0,
+        )
+
+    def anchor_coverage(self, model_name: str, split: str = "train") -> dict[str, Any]:
+        """How well the anchors in use cover this split's boxes.
+
+        Worth asking of a split the anchors were *not* fitted on: anchors that cover the
+        training boxes at 0.92 and the validation boxes at 0.70 say the two splits hold
+        different objects, which no training curve shows.
+        """
+        run = self._run(model_name)
+        self._needs_annotations(split)
+        dataset = self.dataset(run.spec, split, anchors=run.anchors)
+        shapes = box_shapes(dataset.annotations(),
+                            input_shape=(int(run.spec.input_shape[0]),
+                                         int(run.spec.input_shape[1])))
+        flat = [pair for group in run.anchors for pair in group]
+        return anchor_coverage(shapes, flat)
+
+    # ------------------------------------------------------------------ fit
+    def fit(self, *, verbose: bool = False) -> dict[str, History]:
+        for model_spec in self.spec.models:
+            if verbose:
+                print(f"\n=== {model_spec.name} "
+                      f"({model_spec.architecture.value}) ===")
+
+            network = build_yolo3(n_class=self.spec.data.n_class,
+                                  anchors_per_grid=model_spec.anchors_per_grid,
+                                  in_channels=model_spec.channels)
+
+            if model_spec.weights:
+                # The anchors come with the weights, because the weights only mean
+                # anything with them. A specification that also named some is refused
+                # while it is read, so there is nothing to reconcile here.
+                sidecar = self._load_weights(network, model_spec.weights, model_spec)
+                anchors = self._anchors_from(sidecar, model_spec)
+                fit = None
+                if verbose:
+                    print(f"loaded '{model_spec.weights}' with its own anchors")
+            else:
+                fit = self.fit_anchors(model_spec) if model_spec.fit else None
+                anchors = fit.anchors if fit is not None else self._anchors_for(model_spec)
+                if verbose and fit is not None:
+                    print(f"anchors fitted to {fit.boxes_used} boxes, mean IoU "
+                          f"{fit.mean_iou:.4f} ({fit.boxes_dropped} dropped as degenerate)")
+
+            trainer = DetectionTrainer(
+                network, model_spec, anchors=anchors, n_class=self.spec.data.n_class,
+                device=self.device, accumulate=self.accumulate,
+            )
+            run = DetectorRun(name=model_spec.name, spec=model_spec, model=trainer.model,
+                              trainer=trainer, anchors=anchors, anchor_fit=fit)
+            self.runs[model_spec.name] = run
+
+            if model_spec.fit:
+                run.survey = self._survey(run, verbose=verbose)
+                run.history = trainer.fit(
+                    # Augmented for training and never for validation: measuring a model
+                    # on distorted data measures the distortion.
+                    self.loader(model_spec, "train", anchors=anchors, augmented=True,
+                                shuffle=self.spec.data.shuffle),
+                    self.loader(model_spec, "validation", anchors=anchors),
+                    verbose=verbose,
+                )
+                run.trained = True
+
+        return {name: run.history for name, run in self.runs.items()}
+
+    def _survey(self, run: DetectorRun, *, verbose: bool) -> TargetSurvey:
+        """What the target can hold, before an epoch is spent."""
+        survey = self.dataset(run.spec, "train", anchors=run.anchors).survey()
+        if verbose:
+            print(f"targets: {survey.placed} boxes placed, {survey.unplaced} could not be "
+                  f"({survey.unplaced_fraction:.1%}), {survey.dropped} dropped as "
+                  f"degenerate")
+        if survey.unplaced_fraction > _UNPLACED_WARNING:
+            import warnings
+
+            warnings.warn(
+                f"model '{run.spec.name}': the target cannot hold "
+                f"{survey.unplaced_fraction:.1%} of the training boxes "
+                f"({survey.unplaced} of {survey.total}). Two objects of one shape whose "
+                f"centres land in the same grid cell share a slot, so the second is "
+                f"dropped - it is never shown to the model and never counted as missed. "
+                f"A larger input_shape gives finer grids; more anchors per grid gives "
+                f"more slots in each.",
+                stacklevel=3,
+            )
+        return survey
+
+    def _load_weights(self, model: torch.nn.Module, reference: str,
+                      spec: DetectionModel) -> dict | None:
+        """Load, checking the two things the model specification cannot answer itself.
+
+        `n_class` sets the head's width and lives on the data; the class *names* decide
+        what every predicted label means. Weights trained on three classes in another
+        order load without complaint and label every box wrongly - the detection
+        counterpart of §4n's weights trained on a different colormap.
+        """
+        from pyplatypus.weights import load_into
+
+        return load_into(model, reference, spec, extra={
+            "n_class": self.spec.data.n_class,
+            "classes": list(self.spec.data.classes),
+        })
+
+    def _anchors_from(self, sidecar: dict | None, spec: DetectionModel) -> tuple:
+        """The anchors the weights were trained with, or a refusal.
+
+        A detector without its anchors cannot be used at all: every box it decodes would
+        be scaled by whatever factor separates the anchors it learned from the ones it is
+        read with. There is no sensible default, so a file that does not carry them is
+        refused rather than guessed at.
+        """
+        recorded = (sidecar or {}).get("anchors")
+        if not recorded:
+            raise EngineError(
+                f"'{spec.weights}' carries no anchors, so the boxes it predicts cannot be "
+                f"decoded. A detector's weights are relative to the anchors they were "
+                f"trained with and nothing can recover them from the weights themselves. "
+                f"Weights written by DetectionEngine.export_weights record them in the "
+                f"sidecar beside the file; one converted from elsewhere needs them added."
+            )
+        anchors = tuple(tuple((float(w), float(h)) for w, h in group)
+                        for group in recorded)
+        widths = {len(group) for group in anchors}
+        if widths != {spec.anchors_per_grid}:
+            raise EngineError(
+                f"'{spec.weights}' was trained with {sorted(widths)} anchors per grid and "
+                f"the model asks for {spec.anchors_per_grid}; the head is one tensor of "
+                f"width anchors_per_grid * (n_class + 5), so these weights do not fit it."
+            )
+        return anchors
+
+    # ------------------------------------------------------------------ predict
+    def predict(self, model_name: str, split: str = "test") -> list[dict[str, Any]]:
+        """Boxes, scores and labels for every image in a split, in its own pixels.
+
+        A list and not an array, and in source pixels rather than the network's frame -
+        both for the same reason the segmentation side returns a list for
+        `space="source"`. Images differ in size, the number of boxes found differs per
+        image, and a box in a letterboxed 416x416 frame cannot be drawn on the photograph
+        it came from without undoing the letterbox, which is a step nobody should have to
+        remember.
+        """
+        run = self._run(model_name)
+        dataset = self.dataset(run.spec, split, anchors=run.anchors,
+                               only_images=split not in self.labelled)
+        from pyplatypus.training.torch_data import to_channels_first
+
+        out = []
+        for index in range(len(dataset)):
+            example = dataset.read(index)
+            outputs = run.trainer.raw_outputs(to_channels_first(example.image))
+            boxes, scores, labels = decode(
+                outputs, anchors=run.anchors,
+                input_shape=(int(run.spec.input_shape[0]), int(run.spec.input_shape[1])),
+                n_class=self.spec.data.n_class,
+                objectness=run.spec.score_threshold, raw=True,
+            )
+            keep = non_max_suppression(boxes, scores, labels,
+                                       iou_threshold=run.spec.nms_threshold)
+            out.append({
+                "key": dataset.samples[index].key,
+                "boxes": example.fit.inverse(boxes[keep]) if len(keep)
+                         else np.zeros((0, 4)),
+                "scores": scores[keep],
+                "labels": labels[keep],
+                "names": [self.spec.data.classes[i] for i in labels[keep]],
+            })
+        return out
+
+    # ------------------------------------------------------------------ evaluate
+    def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
+        """One row per model: the comparison table, with detection's columns.
+
+        Different columns from the segmentation table, because they answer a different
+        question. `mean_matched_iou` is the one worth keeping beside the averages: the gap
+        between mAP@0.5 and mAP@[.50:.95] is localisation, and this is that gap as a
+        single number - how well the boxes that matched actually fit, rather than merely
+        that they cleared a threshold.
+
+        **No precision or recall here**, although `operating_point` says where to read
+        them. Averaging them over classes needs a weighting and every choice of weighting
+        is a different claim: summed over BCCD's 4155 red cells, 372 white and 361
+        platelets, a single precision is a statement about red cells wearing the costume
+        of a statement about the model. They are in `evaluate_classes`, per class, which
+        is the only form in which they mean anything. `DetectionMetrics.as_rows` made the
+        same decision - its "all" row leaves both as None.
+        """
+        if not self.runs:
+            raise EngineError("nothing has been trained or loaded yet; call fit() first")
+        return [self.report(name, split).as_row(run)
+                for name, run in self.runs.items()]
+
+    def evaluate_classes(self, model_name: str, split: str = "validation"
+                         ) -> list[dict[str, Any]]:
+        """One row per class instead of one row per model.
+
+        The row that matters on an unbalanced dataset, which is most of them: BCCD has
+        4155 red cells against 372 white and 361 platelets, so a single number is a number
+        about red cells.
+        """
+        return self.report(model_name, split).per_class()
+
+    def split_sizes(self) -> dict[str, int]:
+        """How many images each split holds, and in which order they were found."""
+        return {name: len(samples) for name, samples in self._samples.items()}
+
+    def report(self, model_name: str, split: str = "validation") -> DetectionReport:
+        """Everything a detection table is read off, from one pass over the split.
+
+        Public because `evaluate` and `evaluate_classes` are both views over it, and a
+        caller that wants both - which the example does - would otherwise run the model
+        over the split twice. No caching: a cache would be stale the moment the model
+        trained another epoch, and the honest alternative is to hand back the thing and
+        let the caller hold it.
+        """
+        half, coco, point = self._reports(model_name, split)
+        return DetectionReport(model=model_name, split=split, half=half, coco=coco,
+                               at_operating_point=point)
+
+    def _reports(self, model_name: str, split: str):
+        """The three reports every detection table is read off.
+
+        Two thresholds and they are not the same thing. `score_threshold` is kept low
+        because average precision is a property of the **whole ranking** - cutting the
+        tail off removes the part of the curve AP integrates over and inflates the score.
+        `operating_point` is where precision and recall are read, because those are a
+        single choice of confidence and mean nothing without one.
+        """
+        run = self._run(model_name)
+        self._needs_annotations(split, model_name=run.name)
+        predictions = self.predict(model_name, split)
+        dataset = self.dataset(run.spec, split, anchors=run.anchors)
+        truths = [dataset.annotation(index).as_truth() for index in range(len(dataset))]
+        classes = list(self.spec.data.classes)
+        return (
+            detection_report(predictions, truths, labels=classes,
+                             iou_thresholds=(0.5,), interpolation="101"),
+            detection_report(predictions, truths, labels=classes,
+                             iou_thresholds=COCO_THRESHOLDS, interpolation="101"),
+            detection_report(predictions, truths, labels=classes,
+                             iou_thresholds=(0.5,), interpolation="101",
+                             score_threshold=run.spec.operating_point),
+        )
+
+    # ------------------------------------------------------------------ odds and ends
+    def _needs_annotations(self, split: str, model_name: str = "<model>") -> None:
+        """Refuse a question about boxes that are not there.
+
+        Scoring an unlabelled split against empty truth would report zero, which is a
+        different statement from "there is nothing to score against" - and a zero in a
+        table is read as a result.
+        """
+        if split not in self.labelled:
+            raise EngineError(
+                f"the '{split}' split has no annotations, so there is nothing to compare "
+                f"against. predict('{model_name}', '{split}') works on it."
+            )
+
+    def _run(self, model_name: str) -> DetectorRun:
+        run = self.runs.get(model_name)
+        if run is None:
+            known = ", ".join(self.runs) or "none"
+            raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
+        return run
+
+    def model_names(self) -> list[str]:
+        return list(self.runs)
+
+    def export_weights(self, model_name: str, path: str | Path, **extra) -> Path:
+        """Write one detector's weights, with the anchors in the sidecar.
+
+        The anchors are not optional metadata. The same weights read with different
+        anchors decode every box scaled by a fixed factor, and nothing about the output
+        says so - the boxes are plausible, the scores are plausible, and they are in the
+        wrong places.
+        """
+        from pyplatypus.weights import export_weights
+
+        run = self._run(model_name)
+        payload = {
+            "anchors": [[list(pair) for pair in group] for group in run.anchors],
+            "classes": list(self.spec.data.classes),
+            **extra,
+        }
+        return export_weights(run.model, run.spec, path, extra=payload)
+
+    def best_model(self, key: str = "map_50", split: str = "validation") -> str:
+        table = self.evaluate(split)
+        if key not in table[0]:
+            available = ", ".join(k for k, v in table[0].items()
+                                  if isinstance(v, (int, float)))
+            raise EngineError(
+                f"no column '{key}' in the evaluation table; available: {available}"
+            )
+        if any(row[key] is None for row in table):
+            raise EngineError(
+                f"'{key}' is undefined for at least one model, so they cannot be ranked "
+                f"on it. A class with no truth boxes in this split has no average "
+                f"precision, and a mean over classes that excludes it is not comparable."
+            )
+        return max(table, key=lambda row: row[key])["model"]
+
+
+def build_engine(spec: PlatypusSpec, **kwargs):
+    """The engine this spec's task asks for.
+
+    Here rather than in `engine.py` to keep the import one way round: detection imports
+    `EngineError` from there and nothing comes back.
+    """
+    from pyplatypus.engine import Engine
+
+    if isinstance(spec, DetectionSpec):
+        return DetectionEngine(spec, **kwargs)
+    if isinstance(spec, SegmentationSpec):
+        return Engine(spec, **kwargs)
+    raise EngineError(
+        f"no engine for task '{getattr(spec, 'task', '?')}'"
+    )
