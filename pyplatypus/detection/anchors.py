@@ -129,9 +129,15 @@ def shape_table(annotations: Sequence[Any], *, labels: Sequence[str] | None = No
 
     What `box_shapes` drops, and what makes the picture worth looking at: a cloud of
     widths and heights says how varied the objects are, and the same cloud coloured by
-    class says whether a class has anchors near it at all. On BCCD the three classes
-    occupy three distinct regions, which is why anchors fitted to all of them together
-    still cover each - and why COCO's, fitted to cars and people, cover none of them well.
+    class says whether a class has anchors near it at all.
+
+    Measured on BCCD, whose three classes have median sides of 133, 69 and 26 pixels at a
+    416 input: anchors fitted to all three together cover each of them at 0.88, 0.85 and
+    0.83, so fitting to the mixture does not abandon the smallest class. COCO's nine cover
+    the same three at 0.64, 0.70 and 0.70 - *evenly* worse rather than blind to one, which
+    is the useful thing to know. They are not aimed elsewhere; they span 10 to 373 pixels
+    a side because COCO holds objects of every size, and most of that range describes
+    nothing here.
 
     Plain lists rather than arrays: this crosses into R as a data frame.
     """

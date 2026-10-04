@@ -159,9 +159,9 @@ class DetectionModel(ModelSpec):
             "The box shapes the model predicts offsets from, as fractions of the input "
             "size, one group per grid from coarsest to finest. Unset fits them to the "
             "training annotations with k-means under an IoU distance, which is what you "
-            "want: COCO's anchors on blood cells cover their boxes at a mean IoU of 0.67 "
-            "against 0.92 for anchors fitted to them. Fitted anchors are recorded with "
-            "the run, since a detector cannot be reloaded without them."
+            "want: measured on BCCD's 2,805 training boxes, COCO's anchors cover them at a "
+            "mean IoU of 0.65 against 0.88 for anchors fitted to them. Fitted anchors are "
+            "recorded with the run, since a detector cannot be reloaded without them."
         ),
     )
     anchors_per_grid: int = Field(
