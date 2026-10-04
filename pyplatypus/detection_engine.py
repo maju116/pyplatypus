@@ -280,15 +280,26 @@ class DetectionEngine:
                 print(f"\n=== {model_spec.name} "
                       f"({model_spec.architecture.value}) ===")
 
-            fit = self.fit_anchors(model_spec) if model_spec.fit else None
-            anchors = fit.anchors if fit is not None else self._anchors_for(model_spec)
-            if verbose and fit is not None:
-                print(f"anchors fitted to {fit.boxes_used} boxes, mean IoU "
-                      f"{fit.mean_iou:.4f} ({fit.boxes_dropped} dropped as degenerate)")
-
             network = build_yolo3(n_class=self.spec.data.n_class,
                                   anchors_per_grid=model_spec.anchors_per_grid,
                                   in_channels=model_spec.channels)
+
+            if model_spec.weights:
+                # The anchors come with the weights, because the weights only mean
+                # anything with them. A specification that also named some is refused
+                # while it is read, so there is nothing to reconcile here.
+                sidecar = self._load_weights(network, model_spec.weights, model_spec)
+                anchors = self._anchors_from(sidecar, model_spec)
+                fit = None
+                if verbose:
+                    print(f"loaded '{model_spec.weights}' with its own anchors")
+            else:
+                fit = self.fit_anchors(model_spec) if model_spec.fit else None
+                anchors = fit.anchors if fit is not None else self._anchors_for(model_spec)
+                if verbose and fit is not None:
+                    print(f"anchors fitted to {fit.boxes_used} boxes, mean IoU "
+                          f"{fit.mean_iou:.4f} ({fit.boxes_dropped} dropped as degenerate)")
+
             trainer = DetectionTrainer(
                 network, model_spec, anchors=anchors, n_class=self.spec.data.n_class,
                 device=self.device, accumulate=self.accumulate,
@@ -332,6 +343,50 @@ class DetectionEngine:
                 stacklevel=3,
             )
         return survey
+
+    def _load_weights(self, model: torch.nn.Module, reference: str,
+                      spec: DetectionModel) -> dict | None:
+        """Load, checking the two things the model specification cannot answer itself.
+
+        `n_class` sets the head's width and lives on the data; the class *names* decide
+        what every predicted label means. Weights trained on three classes in another
+        order load without complaint and label every box wrongly - the detection
+        counterpart of §4n's weights trained on a different colormap.
+        """
+        from pyplatypus.weights import load_into
+
+        return load_into(model, reference, spec, extra={
+            "n_class": self.spec.data.n_class,
+            "classes": list(self.spec.data.classes),
+        })
+
+    def _anchors_from(self, sidecar: dict | None, spec: DetectionModel) -> tuple:
+        """The anchors the weights were trained with, or a refusal.
+
+        A detector without its anchors cannot be used at all: every box it decodes would
+        be scaled by whatever factor separates the anchors it learned from the ones it is
+        read with. There is no sensible default, so a file that does not carry them is
+        refused rather than guessed at.
+        """
+        recorded = (sidecar or {}).get("anchors")
+        if not recorded:
+            raise EngineError(
+                f"'{spec.weights}' carries no anchors, so the boxes it predicts cannot be "
+                f"decoded. A detector's weights are relative to the anchors they were "
+                f"trained with and nothing can recover them from the weights themselves. "
+                f"Weights written by DetectionEngine.export_weights record them in the "
+                f"sidecar beside the file; one converted from elsewhere needs them added."
+            )
+        anchors = tuple(tuple((float(w), float(h)) for w, h in group)
+                        for group in recorded)
+        widths = {len(group) for group in anchors}
+        if widths != {spec.anchors_per_grid}:
+            raise EngineError(
+                f"'{spec.weights}' was trained with {sorted(widths)} anchors per grid and "
+                f"the model asks for {spec.anchors_per_grid}; the head is one tensor of "
+                f"width anchors_per_grid * (n_class + 5), so these weights do not fit it."
+            )
+        return anchors
 
     # ------------------------------------------------------------------ predict
     def predict(self, model_name: str, split: str = "test") -> list[dict[str, Any]]:

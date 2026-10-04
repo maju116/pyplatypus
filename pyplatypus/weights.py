@@ -188,17 +188,23 @@ def describe(weights: Path) -> dict | None:
     return _SIDECARS.get(str(weights))
 
 
-def load_into(model, reference: str, spec) -> dict | None:
+def load_into(model, reference: str, spec, *, extra: dict | None = None) -> dict | None:
     """Load weights into a model, after checking they belong to it.
 
     Returns the sidecar when there was one, so a caller can report what it loaded.
+
+    `extra` adds fields to the comparison that the model specification cannot answer for
+    itself. A detector is the case: its head's width is `anchors_per_grid * (n_class + 5)`
+    and `n_class` lives on the data, not the model, so the engine supplies it - along with
+    the class *names*, because weights trained on the same number of differently ordered
+    classes load cleanly and label every box wrongly.
     """
     import torch
 
     path = resolve_weights(reference)
     sidecar = describe(path)
     if sidecar is not None:
-        _refuse_mismatch(sidecar, spec, reference)
+        _refuse_mismatch(sidecar, spec, reference, extra=extra)
 
     if path.suffix == ".safetensors":
         try:
@@ -224,7 +230,8 @@ def load_into(model, reference: str, spec) -> dict | None:
     return sidecar
 
 
-def _refuse_mismatch(sidecar: dict, spec, reference: str) -> None:
+def _refuse_mismatch(sidecar: dict, spec, reference: str, *,
+                     extra: dict | None = None) -> None:
     """Compare what the weights are for with what the model is, and say which field differs.
 
     Before loading rather than after: `load_state_dict` catches a different number of
@@ -232,7 +239,7 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str) -> None:
     colormap with the same class count. Those load cleanly and predict nonsense.
     """
     problems = []
-    for field, mine in spec.weights_fingerprint().items():
+    for field, mine in {**spec.weights_fingerprint(), **(extra or {})}.items():
         theirs = sidecar.get(field)
         if theirs is None:
             continue

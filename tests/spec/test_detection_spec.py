@@ -251,22 +251,34 @@ def test_model_names_must_be_unique_at_either_task(detection_config):
         build({**detection_config, "models": twice})
 
 
-def test_fit_false_reaches_the_dead_end_in_one_step(detection_config):
-    """The base's validator would say "fit=false only makes sense together with weights",
-    and adding weights to satisfy that would arrive at the refusal below. Detection
-    replaces it by name so there is one message, not a trail of two."""
-    with pytest.raises(ConfigError) as caught:
+def test_not_fitting_needs_weights_at_either_task(detection_config):
+    """Shared with segmentation, and it was briefly not: while loading a detector was
+    unsupported, `fit: false` was a dead end and detection replaced this message to say so
+    in one step. Loading works now, so `fit: false` is an ordinary thing to want - load a
+    published detector and predict with it - and the base's message is the right one
+    again."""
+    with pytest.raises(ConfigError, match="fit=false only makes sense together with"):
         build({**detection_config,
                "models": [{"name": "bccd", "input_shape": [416, 416], "fit": False}]})
-    assert "fit=false: loading weights into a detector" in str(caught.value)
 
 
-def test_segmentation_keeps_its_own_message(config):
-    """The override is on the detection model only, so replacing the validator by name
-    must not reach across."""
-    models = [{**config["models"][0], "fit": False}]
-    with pytest.raises(ConfigError, match="fit=false only makes sense"):
-        build({**config, "models": models})
+def test_fit_false_with_weights_is_accepted(detection_config):
+    """What a vignette opens with: boxes on an image before any training."""
+    spec = build({**detection_config,
+                  "models": [{"name": "bccd", "input_shape": [416, 416],
+                              "weights": "bccd-yolo3", "fit": False}]})
+    assert spec.models[0].fit is False
+    assert spec.models[0].weights == "bccd-yolo3"
+
+
+def test_naming_weights_and_anchors_is_refused(detection_config):
+    """Two claims about one model with one of them untrue. Loading adopts the anchors
+    recorded beside the weights, so anchors in the specification would describe nothing."""
+    with pytest.raises(ConfigError, match="both `weights` and `anchors`"):
+        build({**detection_config,
+               "models": [{"name": "bccd", "input_shape": [416, 416],
+                           "weights": "bccd-yolo3",
+                           "anchors": [[[0.3, 0.3], [0.2, 0.2], [0.1, 0.1]]] * 3}]})
 
 
 def test_a_callback_can_only_watch_the_loss(detection_config):

@@ -210,11 +210,27 @@ would serve nothing but the ceremony. It happens when the R side needs it.
    function and twenty flags. What is left is the part that is genuinely about BCCD - where its
    files are and what its canonical splits say - and the script writes out the YAML of the run
    it just did, beside the results
- - **Loading weights into a detector is refused, with the reason.** A detector's weights only
-   mean anything together with the anchors they were trained with, so loading has to adopt the
-   anchors recorded beside the file, and what happens when the specification also names some has
-   not been decided. Writing works and records them, which is what makes the decision possible
-   later
+ - **Loading weights into a detector adopts the anchors recorded beside the file**, because a
+   detector's weights only mean anything with them: read with any others, the same weights
+   decode every box scaled by a fixed factor - plausible boxes, plausible scores, wrong places,
+   and nothing in the output to say so. A file that carries no anchors is refused rather than
+   guessed at, and so is one whose anchors-per-grid does not fit the head.
+
+   A specification naming both `weights` and `anchors` is **refused**: two claims about one
+   model with one of them untrue. Taking the file's and warning would mean the specification
+   no longer describes the run, which is the property everything else here rests on.
+
+   The engine also checks what the model specification cannot answer for itself - `n_class`,
+   which sets the head's width and lives on the data, and the class **names**, because weights
+   trained on the same number of differently ordered classes load cleanly and label every box
+   wrongly. The detection counterpart of weights trained on a different colormap.
+
+   `fit: false` is therefore a usable thing for a detector: load a published detector and
+   predict with it, which is what a vignette needs to open with.
+
+   The test is a round trip - train, export, load into a specification that names no anchors at
+   all, and compare the **boxes**. Verified to catch wrong anchors by scaling the adopted ones
+   by 1.2
  - `weights_fingerprint()` moved onto the spec, so what identifies a file of weights is an
    architecture's own answer. `blocks` and `filters` identify a U-shaped model and mean nothing
    to a detector, whose head width is set by its anchor count instead - a fixed list in

@@ -474,16 +474,107 @@ def test_exported_weights_carry_the_anchors(trained, tmp_path):
     assert "n_class" not in sidecar
 
 
-def test_loading_weights_into_a_detector_is_refused_with_the_reason(detection_config,
-                                                                    tmp_path):
-    """Refused in the spec rather than at load time, so it fails before anything is built.
+def test_a_reloaded_detector_predicts_the_same_boxes(trained, detection_config,
+                                                     tmp_path):
+    """The claim that matters, and the reason loading adopts the anchors from the file.
 
-    The reason is the anchors: loading has to adopt the ones recorded beside the file, and
-    what happens when the specification also names some has not been decided.
+    Export, then load into an engine whose specification names **no** anchors at all, and
+    the predictions must be the ones the trained model made. Read with any other anchors
+    the same weights decode every box scaled by a fixed factor - plausible boxes, plausible
+    scores, wrong places - so comparing the boxes is what distinguishes "loaded" from
+    "loaded and silently wrong". Verified by scaling the adopted anchors by 1.2: the box
+    comparison fails on its own, with the anchor assertion above removed.
     """
+    written = trained.export_weights("d", tmp_path / "d.safetensors")
+    before = trained.predict("d", "validation")
+
+    detection_config["data"] = {
+        "train_path": trained.spec.data.train_path,
+        "validation_path": trained.spec.data.validation_path,
+        "classes": list(trained.spec.data.classes),
+    }
+    detection_config["models"][0] = {
+        **detection_config["models"][0], "weights": str(written), "fit": False,
+    }
+    reloaded = build_engine(from_dict(detection_config), device="cpu")
+    reloaded.fit()
+
+    assert reloaded.runs["d"].anchors == trained.runs["d"].anchors
+    assert reloaded.runs["d"].anchor_fit is None, "nothing should have been refitted"
+    assert reloaded.runs["d"].trained is False
+
+    after = reloaded.predict("d", "validation")
+    assert len(after) == len(before)
+    for one, other in zip(before, after, strict=True):
+        assert one["key"] == other["key"]
+        assert other["boxes"] == pytest.approx(one["boxes"], abs=1e-4)
+        assert other["scores"] == pytest.approx(one["scores"], abs=1e-5)
+        assert list(other["labels"]) == list(one["labels"])
+
+
+def test_weights_without_anchors_are_refused(trained, detection_config, tmp_path):
+    """A detector without its anchors cannot be used at all, and there is no sensible
+    default to fall back on - so a file that does not carry them is refused rather than
+    guessed at. The case this covers is weights converted from somewhere else."""
+    import json
+
+    written = trained.export_weights("d", tmp_path / "bare.safetensors")
+    sidecar = written.with_suffix(".json")
+    payload = json.loads(sidecar.read_text())
+    del payload["anchors"]
+    sidecar.write_text(json.dumps(payload))
+
+    detection_config["data"] = {
+        "train_path": trained.spec.data.train_path,
+        "validation_path": trained.spec.data.validation_path,
+        "classes": list(trained.spec.data.classes),
+    }
+    detection_config["models"][0] = {
+        **detection_config["models"][0], "weights": str(written), "fit": False,
+    }
+    engine = build_engine(from_dict(detection_config), device="cpu")
+    with pytest.raises(EngineError, match="carries no anchors"):
+        engine.fit()
+
+
+def test_weights_trained_on_differently_named_classes_are_refused(trained,
+                                                                  detection_config,
+                                                                  tmp_path):
+    """Same count, different meaning. This loads cleanly into torch and labels every box
+    wrongly, which is the detection counterpart of weights trained on another colormap:
+    the shapes agree and the answer is nonsense."""
+    from pyplatypus.weights import WeightsError
+
+    written = trained.export_weights("d", tmp_path / "d.safetensors")
+
+    detection_config["data"] = {
+        "train_path": trained.spec.data.train_path,
+        "validation_path": trained.spec.data.validation_path,
+        "classes": ["bar", "square"],          # the same two, swapped
+    }
+    detection_config["models"][0] = {
+        **detection_config["models"][0], "weights": str(written), "fit": False,
+    }
+    engine = build_engine(from_dict(detection_config), device="cpu")
+    with pytest.raises(WeightsError) as caught:
+        engine.fit()
+    # Named, with both orders shown: "a different model" alone would send someone looking
+    # at the architecture.
+    assert "classes: weights say ('square', 'bar')" in str(caught.value)
+    assert "the model says ('bar', 'square')" in str(caught.value)
+
+
+def test_naming_both_weights_and_anchors_is_refused(detection_config, tmp_path):
+    """Two claims about one model with one of them untrue. Refused while the spec is read,
+    so it costs nothing and cannot be reached by accident."""
     from pyplatypus import ConfigError
 
-    detection_config["models"][0]["weights"] = str(tmp_path / "whatever.safetensors")
-    with pytest.raises(ConfigError, match="anchors they were trained with"):
+    detection_config["models"][0] = {
+        **detection_config["models"][0],
+        "weights": str(tmp_path / "x.safetensors"),
+        "anchors": [[[0.3, 0.3], [0.2, 0.2]]] * 3,
+    }
+    with pytest.raises(ConfigError, match="both `weights` and `anchors`"):
         from_dict(detection_config)
+
 
