@@ -163,16 +163,23 @@ class AlbumentationsBoxAugmenter:
     """albumentations, for images and the boxes that label them.
 
     **Every geometric transform in albumentations 2.0.8 moves boxes with the pixels**, which
-    was measured rather than assumed: a bright square with the box labelling it, through 24
-    transform configurations, comparing the box that came back with the bounding box of the
-    bright pixels in the output. The worst disagreement was 1.0 pixel, from anti-aliasing at
-    an edge, for `Perspective`, `GridDistortion` and `CoarseDropout`. The flips, the
-    rotations, `Affine`, the crops and `D4` were exact.
+    was measured rather than assumed: a bright rectangle with the box labelling it, twenty
+    seeded draws per transform, comparing the box that came back with the bounding box of the
+    bright pixels in the output. Two groups, and the difference between them is real:
+
+    * **exact, 0.00 px** - the flips, `RandomRotate90`, `Transpose`, `D4`, a pure
+      translation, and the crops. These move pixels without resampling them.
+    * **within 1.00 px** - `Affine` with a rotation or a scale, `Rotate`, `Perspective`,
+      `GridDistortion`. These resample, and the two quantities stop being the same
+      measurement: the box bounds the warped *corners* while the pixels are what survived
+      interpolation above a threshold, and near a warped corner the object thins to a point.
+      So the test asserts that the box still **covers** the object rather than equals it.
 
     That measurement is a property of the library, so it lives in the tests - where a version
     bump re-runs it - rather than as a probe on every pipeline. What *is* probed here is the
-    cheap half: each step is tried once against a tiny image and box, so a transform that
-    cannot handle boxes at all is named now instead of forty minutes into training.
+    cheap half: each step is tried once against an image the size of the real one, so a
+    transform that cannot handle boxes at all is named now instead of forty minutes into
+    training.
 
     The probe cannot check correspondence for an intensity transform, and that is a limit
     worth stating rather than working around: noise or a brightness change destroys the
@@ -181,7 +188,8 @@ class AlbumentationsBoxAugmenter:
     """
 
     def __init__(self, steps: list[AugmentationStep], *, input_shape: tuple[int, int],
-                 min_visibility: float = DEFAULT_MIN_VISIBILITY):
+                 min_visibility: float = DEFAULT_MIN_VISIBILITY,
+                 seed: int | None = None):
         try:
             import albumentations
         except ImportError:  # pragma: no cover
@@ -203,7 +211,14 @@ class AlbumentationsBoxAugmenter:
             # to declare how boxes are carried, because the dataset always passes them.
             # Narrow enough a filter that a different warning still gets through.
             warnings.filterwarnings("ignore", message=".*no transform to process it.*")
-            self._pipeline = albumentations.Compose(built, bbox_params=self._params)
+            # `seed` reaches albumentations' own generator, which is the only thing that
+            # makes a pipeline reproducible: seeding numpy does not, and a test that
+            # seeded numpy and believed it was controlled failed in CI and passed
+            # locally. None leaves it unseeded, which is what training wants - the engine
+            # seeds torch, and a fixed augmentation sequence across epochs would mean
+            # every epoch saw the same distortions.
+            self._pipeline = albumentations.Compose(built, bbox_params=self._params,
+                                                     seed=seed)
         _refuse_transforms_without_boxes(albumentations, steps, built, self._params,
                                          input_shape)
 
@@ -290,14 +305,19 @@ def _refuse_transforms_without_boxes(albumentations, steps: list[AugmentationSte
 
 def build_box_augmenter(steps: list[AugmentationStep] | None, *,
                         input_shape: tuple[int, int],
-                        min_visibility: float = DEFAULT_MIN_VISIBILITY
-                        ) -> BoxAugmenter | None:
+                        min_visibility: float = DEFAULT_MIN_VISIBILITY,
+                        seed: int | None = None) -> BoxAugmenter | None:
     """None when there is nothing to do, which keeps the caller free of special cases.
 
     `input_shape` is required rather than defaulted because the probe is only honest at the
     size the transforms will really see - see `_refuse_transforms_without_boxes`.
+
+    `seed` is for tests, and it is not a spec field on purpose: pinning the augmentation
+    sequence would make every epoch see the same distortions, which is the opposite of what
+    augmentation is for. The specification's own `seed` covers weight initialisation and
+    the order examples arrive in, which is what reproducibility means here.
     """
     if not steps:
         return None
     return AlbumentationsBoxAugmenter(steps, input_shape=input_shape,
-                                      min_visibility=min_visibility)
+                                      min_visibility=min_visibility, seed=seed)

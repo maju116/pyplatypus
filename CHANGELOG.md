@@ -146,12 +146,14 @@ would serve nothing but the ceremony. It happens when the R side needs it.
    same way as for masks, so a detection spec and a segmentation spec name transforms
    identically
  - **Every geometric transform in albumentations 2.0.8 moves boxes with the pixels, which was
-   measured rather than assumed.** A bright rectangle with the box labelling it, through 24
-   transform configurations, comparing the box that came back with the bounding box of the
-   bright pixels in the output. The worst disagreement is 1.0 pixel - anti-aliasing at an
-   edge - for `Perspective`, `GridDistortion` and `CoarseDropout`; the flips, the rotations,
-   `Affine`, the crops and `D4` are exact. That is a property of the library, so it lives in
-   the tests where a version bump re-runs it
+   measured rather than assumed.** A bright rectangle with the box labelling it, twenty seeded
+   draws per transform, comparing the box that came back with the bounding box of the bright
+   pixels in the output. Eight are exact to 0.00 px - the flips, `RandomRotate90`,
+   `Transpose`, `D4`, a pure translation, the crops - and five land within 1.00 px: `Affine`
+   with a rotation or a scale, `Rotate`, `Perspective`, `GridDistortion`. For those five the
+   box bounds the warped corners while the pixels are what survived interpolation, so the
+   test asserts the box still **covers** the object rather than equals its extent. A property
+   of the library, so it lives in the tests where a version bump re-runs it
  - `min_visibility` on a detection model: how much of a box must survive a transform that
    removes part of the frame. A convention rather than a measurement, and the direction is
    what is defensible - a box keeping two pixels of a cell teaches the model that a two-pixel

@@ -31,13 +31,6 @@ def steps(*named):
             for name, params in named]
 
 
-def bright_square():
-    """A rectangle, not a square: a transposed axis is invisible on a square."""
-    image = np.zeros((SIZE, SIZE, 3), np.float32)
-    image[20:50, 30:70] = 1.0
-    return image, np.array([[30.0, 20.0, 70.0, 50.0]]), np.array([0])
-
-
 def measured(image):
     """Where the bright region is now, read off the pixels themselves."""
     grey = image.mean(axis=2)
@@ -45,54 +38,108 @@ def measured(image):
     if span < 1e-6:
         return None
     hot = grey > grey.min() + 0.5 * span
+    if not hot.any():
+        return None
     ys, xs = np.where(hot)
     return np.array([xs.min(), ys.min(), xs.max() + 1, ys.max() + 1], float)
 
 
-#: Every geometric transform in albumentations 2.0.8, with the worst disagreement measured
-#: between the box it returns and the bounding box of the pixels it moved. The non-zero
-#: ones are anti-aliasing at an edge, not a transform getting it wrong - which is why the
-#: tolerance is a pixel and a half rather than zero, and why it is per transform rather
-#: than one number for all of them: a regression in `HorizontalFlip` must not hide behind
-#: `Perspective`'s rounding.
-GEOMETRIC = [
-    ("HorizontalFlip", {}, 0.0),
-    ("VerticalFlip", {}, 0.0),
-    ("RandomRotate90", {}, 0.0),
-    ("Transpose", {}, 0.0),
-    ("D4", {}, 0.0),
-    ("Affine", {"translate_percent": 0.2}, 0.0),
-    ("Affine", {"rotate": 30}, 1.0),
-    ("Affine", {"scale": 1.4}, 1.0),
-    ("Perspective", {}, 1.5),
-    ("GridDistortion", {}, 1.5),
-    ("RandomCrop", {"height": 64, "width": 64}, 0.0),
-    ("CenterCrop", {"height": 64, "width": 64}, 0.0),
-    ("Rotate", {"limit": (30, 30)}, 1.0),
+def bright_square():
+    """A rectangle, not a square: a transposed axis is invisible on a square."""
+    image = np.zeros((SIZE, SIZE, 3), np.float32)
+    image[20:50, 30:70] = 1.0
+    return image, np.array([[30.0, 20.0, 70.0, 50.0]]), np.array([0])
+
+
+#: Transforms whose box lands exactly where the pixels land: measured 0.00 px of
+#: disagreement over twenty seeded draws each. Flips and quarter turns move pixels without
+#: resampling them, a pure translation is a shift, and a crop is a window.
+EXACT = [
+    ("HorizontalFlip", {}),
+    ("VerticalFlip", {}),
+    ("RandomRotate90", {}),
+    ("Transpose", {}),
+    ("D4", {}),
+    ("Affine", {"translate_percent": 0.2}),
+    ("RandomCrop", {"height": 64, "width": 64}),
+    ("CenterCrop", {"height": 64, "width": 64}),
 ]
 
+#: Transforms that resample, where the box is the bounding box of the warped *corners* and
+#: the bright pixels are what survived interpolation and a threshold. Those are not the
+#: same measurement: near a warped corner the object thins to a point and the last of it
+#: falls below any threshold. Measured worst disagreement over twenty seeded draws each:
+#: 1.00 px, in both directions, `GridDistortion` being the worst of them.
+WARPING = [
+    ("Affine", {"rotate": 30}),
+    ("Affine", {"scale": 1.4}),
+    ("Rotate", {"limit": (30, 30)}),
+    ("Perspective", {}),
+    ("GridDistortion", {}),
+]
 
-@pytest.mark.parametrize(("name", "params", "tolerance"), GEOMETRIC,
-                         ids=[f"{n}{tuple(p)}" if p else n for n, p, _ in GEOMETRIC])
-def test_a_geometric_transform_moves_the_box_with_the_pixels(name, params, tolerance):
-    """Run several times, because most of these choose their parameters at random.
+#: What the measurement above found, plus a little. Not a guess: at 1.0 the suite would sit
+#: exactly on the worst observed draw.
+WARP_TOLERANCE = 1.5
 
-    A single run of `Affine(rotate=30)` that happened to rotate by nothing would pass on a
-    pipeline that never moves a box. Eight runs is the habit this project arrived at after
-    a `p=0.5` probe passed every other time.
-    """
-    augmenter = build_box_augmenter(steps((name, params)), input_shape=(SIZE, SIZE), min_visibility=0.0)
+DRAWS = 20
 
-    for seed in range(8):
-        np.random.seed(seed)
+
+def ids_for(cases):
+    return [f"{n}{tuple(p)}" if p else n for n, p in cases]
+
+
+@pytest.mark.parametrize(("name", "params"), EXACT, ids=ids_for(EXACT))
+def test_an_exact_transform_puts_the_box_exactly_where_the_pixels_are(name, params):
+    for seed in range(DRAWS):
+        augmenter = build_box_augmenter(steps((name, params)), input_shape=(SIZE, SIZE),
+                                        min_visibility=0.0, seed=seed)
         image, boxes, labels = bright_square()
         out_image, out_boxes, out_labels = augmenter(image, boxes, labels)
         where = measured(out_image)
         if len(out_boxes) == 0 or where is None:
-            continue              # cropped out of frame entirely; nothing to compare
+            continue
         assert len(out_labels) == len(out_boxes)
-        assert out_boxes[0] == pytest.approx(where, abs=tolerance + 0.5), (
-            f"{name} returned {out_boxes[0]} for an object at {where}"
+        assert out_boxes[0] == pytest.approx(where, abs=0.5), (
+            f"{name} seed {seed} returned {out_boxes[0]} for an object at {where}"
+        )
+
+
+@pytest.mark.parametrize(("name", "params"), WARPING, ids=ids_for(WARPING))
+def test_a_warping_transform_still_bounds_the_object(name, params):
+    """Containment is the claim, not equality.
+
+    A resampling transform's box is the bounding box of the warped corners; the bright
+    pixels are what came through interpolation above a threshold. The first version of this
+    asserted equality, and `Perspective` failed it in CI by 2.6 px while passing locally -
+    because the draws were not actually seeded. numpy was, and albumentations 2.x draws from
+    its own generator, so "eight seeds" was eight uncontrolled runs. `Compose(seed=...)` is
+    what controls it, and with that the worst disagreement over twenty draws is 1.00 px.
+
+    What must hold is that the box **covers the object**: a box that no longer does is the
+    failure this whole file exists for, and it would train a model to find blood cells in
+    background.
+    """
+    for seed in range(DRAWS):
+        augmenter = build_box_augmenter(steps((name, params)), input_shape=(SIZE, SIZE),
+                                        min_visibility=0.0, seed=seed)
+        image, boxes, labels = bright_square()
+        out_image, out_boxes, _ = augmenter(image, boxes, labels)
+        where = measured(out_image)
+        if len(out_boxes) == 0 or where is None:
+            continue
+        got = out_boxes[0]
+        outside = max(got[0] - where[0], got[1] - where[1],
+                      where[2] - got[2], where[3] - got[3], 0.0)
+        slack = max(where[0] - got[0], where[1] - got[1],
+                    got[2] - where[2], got[3] - where[3], 0.0)
+        assert outside <= WARP_TOLERANCE, (
+            f"{name} seed {seed}: {outside:.2f} px of the object is outside the box "
+            f"{got} - the box no longer covers what it labels"
+        )
+        assert slack <= WARP_TOLERANCE, (
+            f"{name} seed {seed}: the box {got} is {slack:.2f} px larger than the object "
+            f"at {where}"
         )
 
 
