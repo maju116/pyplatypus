@@ -455,3 +455,116 @@ def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
     assert "input_shape: weights say (256, 256), the model says (160, 160)" in str(
         caught.value
     )
+
+
+# --- the colormap, which the module described and did not record -------------------------
+
+def _trained(tmp_path, colormap, name="m"):
+    """An engine with one model, trained for nothing, over masks of that colormap."""
+    import numpy as np
+    from PIL import Image
+
+    from pyplatypus import Engine, from_dict
+
+    for split in ("train", "valid"):
+        for n in range(2):
+            sample = tmp_path / split / f"s{n}"
+            (sample / "images").mkdir(parents=True, exist_ok=True)
+            (sample / "masks").mkdir(parents=True, exist_ok=True)
+            Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(
+                sample / "images" / "i.png")
+            mask = np.zeros((32, 32, 3), np.uint8)
+            mask[8:20, 8:20] = colormap[1]
+            Image.fromarray(mask).save(sample / "masks" / "m.png")
+
+    spec = from_dict({
+        "data": {"train_path": str(tmp_path / "train"),
+                 "validation_path": str(tmp_path / "valid"), "colormap": colormap},
+        "models": [{"name": name, "input_shape": [32, 32], "blocks": 2, "filters": 4,
+                    "epochs": 1, "batch_size": 2}],
+    })
+    engine = Engine(spec, device="cpu", check_masks=False)
+    engine.fit()
+    return engine
+
+
+def test_the_colormap_is_recorded_beside_the_weights(tmp_path):
+    """`pyplatypus.weights` has said since it was written that it cannot catch weights
+    trained on a different colormap with the same class count - "those load cleanly and
+    predict nonsense". It could not, because the colormap was recorded nowhere. The
+    detection side already compared its class names; this is the same check."""
+    engine = _trained(tmp_path / "a", [[0, 0, 0], [255, 0, 0]])
+    written = engine.export_weights("m", tmp_path / "red.safetensors")
+
+    sidecar = json.loads(written.with_suffix(".json").read_text())
+    assert sidecar["colormap"] == [[0, 0, 0], [255, 0, 0]]
+
+
+def test_weights_trained_on_another_colormap_are_refused(tmp_path):
+    """Same class count, different meaning. This is the case `load_state_dict` cannot see:
+    every shape agrees and every mask comes back confidently wrong."""
+    red = _trained(tmp_path / "a", [[0, 0, 0], [255, 0, 0]])
+    written = red.export_weights("m", tmp_path / "red.safetensors")
+
+    green = _trained(tmp_path / "b", [[0, 0, 0], [0, 255, 0]])
+    with pytest.raises(WeightsError) as caught:
+        green._load_weights(green.runs["m"].model, str(written), green.runs["m"].spec)
+    assert "colormap" in str(caught.value)
+
+
+def test_label_maps_are_compared_too(tmp_path):
+    """The other way of naming classes. A volume labels with integers, and weights trained
+    where 1 is liver load cleanly into a model where 1 is tumour."""
+    import numpy as np
+    from PIL import Image
+
+    from pyplatypus import Engine, from_dict
+
+    def built(labels, root):
+        for split in ("train", "valid"):
+            for n in range(2):
+                sample = root / split / f"s{n}"
+                (sample / "images").mkdir(parents=True, exist_ok=True)
+                (sample / "masks").mkdir(parents=True, exist_ok=True)
+                Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(
+                    sample / "images" / "i.png")
+                mask = np.zeros((32, 32), np.uint8)
+                mask[8:20, 8:20] = labels[1]
+                Image.fromarray(mask).save(sample / "masks" / "m.png")
+        spec = from_dict({
+            "data": {"train_path": str(root / "train"),
+                     "validation_path": str(root / "valid"), "labels": labels},
+            "models": [{"name": "m", "input_shape": [32, 32], "blocks": 2, "filters": 4,
+                        "channels": 1, "epochs": 1, "batch_size": 2}],
+        })
+        engine = Engine(spec, device="cpu", check_masks=False)
+        engine.fit()
+        return engine
+
+    one = built([0, 1], tmp_path / "one")
+    written = one.export_weights("m", tmp_path / "one.safetensors")
+    assert json.loads(written.with_suffix(".json").read_text())["labels"] == [0, 1]
+
+    other = built([0, 7], tmp_path / "other")
+    with pytest.raises(WeightsError, match="labels"):
+        other._load_weights(other.runs["m"].model, str(written), other.runs["m"].spec)
+
+
+def test_weights_published_before_this_still_load(tmp_path):
+    """`dsbowl-unet` was published with no colormap in its sidecar, and must keep working.
+    `_refuse_mismatch` skips a field the sidecar does not carry, so this is backward
+    compatible by construction rather than by a version check - but it is the kind of
+    thing worth pinning rather than reasoning about."""
+    engine = _trained(tmp_path / "a", [[0, 0, 0], [255, 0, 0]])
+    written = engine.export_weights("m", tmp_path / "old.safetensors")
+
+    sidecar = written.with_suffix(".json")
+    payload = json.loads(sidecar.read_text())
+    del payload["colormap"]
+    sidecar.write_text(json.dumps(payload))
+
+    other = _trained(tmp_path / "b", [[0, 0, 0], [0, 255, 0]])
+    # No complaint: the sidecar says nothing about the colormap, so there is nothing to
+    # disagree with. Silent, and better than refusing weights that predate the field.
+    assert other._load_weights(other.runs["m"].model, str(written),
+                               other.runs["m"].spec) is not None

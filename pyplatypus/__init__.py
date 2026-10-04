@@ -13,6 +13,7 @@ from pyplatypus.data.splits import split_dataset, split_samples
 from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
+from pyplatypus.runs import read_record, write_record
 from pyplatypus.spec import (
     DetectionSpec,
     PlatypusSpec,
@@ -30,7 +31,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.3.0a12"
+__version__ = "0.3.0a13"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -48,10 +49,12 @@ __all__ = [
     "from_dict",
     "from_yaml",
     "known_weights",
+    "read_record",
     "resolve_weights",
     "spec_schema",
     "split_dataset",
     "split_samples",
     "summarise_cases",
+    "write_record",
     "write_schema",
 ]

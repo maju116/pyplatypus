@@ -1,6 +1,66 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a13] - 2026-10-04
+
+### Fixed
+
+ - **The colormap was described and not recorded.** `pyplatypus.weights` has said since it was
+   written that it cannot catch weights trained on a different colormap with the same class
+   count - "those load cleanly and predict nonsense" - and it could not, because the colormap
+   went into no sidecar. It was not inherent: the detection side already compared its class
+   *names*, which is the same check. The colormap, or the labels for a label-map dataset, now
+   go beside the weights and are compared on load.
+
+   Weights published before this keep working, by construction rather than by a version check:
+   the comparison skips a field the sidecar does not carry, and `dsbowl-unet` carries none.
+   Pinned by a test rather than reasoned about.
+
+### Added
+
+ - **A run leaves a record.** The weights are not the whole of a trained model: a segmentation
+   model is meaningless without the colormap, and a detector without the anchors its boxes are
+   relative to - which, when they were fitted rather than named, existed only in memory and in
+   a weights sidecar somebody had to remember to export.
+
+   `fit()` now writes `<output_dir>/<model>/run.json`, **only when `output_dir` was given**.
+   `model_fields_set` answers that honestly: a field with a default cannot otherwise be told
+   apart from one the user set to that default, and writing files into somebody's working
+   directory because a default exists is not a thing to do by surprise.
+
+   The record is the **specification** plus what the run derived from it, rather than a
+   summary: a summary is for reading and a specification is for running again. For detection
+   that means the anchors, whether they were fitted, their coverage and the target survey; for
+   segmentation `derived` is empty, which is the honest answer rather than an omission - the
+   specification already carries the colormap, the input shape and the window.
+
+   The test that matters puts the specification and `derived.anchors` back together and checks
+   the engine used **those** anchors rather than fitting new ones.
+ - `shape_table()` and `DetectionEngine.box_shapes()`: every annotated box as a width and a
+   height with the class it belongs to, beside the anchors in use, in one call and in one set
+   of coordinates. What a picture of the anchor fit needs - a cloud of shapes coloured by class
+   says whether a class has anchors near it at all, which no summary statistic does.
+
+   `box_shapes()` and `shape_table()` share one implementation of the letterbox arithmetic,
+   deliberately: two copies is the duplication that reads as harmless and ends with a plot
+   showing boxes in different places from where the anchors were fitted to them - which looks
+   like a bad fit rather than like a bug. A test holds them to the same numbers.
+
+   `box_shapes()` keeps its old contract and does **not** require labels. The first version of
+   the shared helper read them unconditionally and broke every caller standing in for an
+   annotation with boxes and a frame.
+
+### Fixed
+
+ - `LossParts.as_dict` turned tensors that still tracked gradients into scalars, which torch
+   2.14 warns about. **Invisible in this package's own environment**: the venv here pins torch
+   2.7.1 for a Pascal card and does not warn, while `py_require()` in the R package resolves a
+   current torch and does - so the R test suite is what saw it. The same mistake had already
+   been made and fixed in `training/trainer.py`, whose comment says exactly this.
+
+   Not covered by a test, deliberately: the value is identical either way and the warning does
+   not fire on the torch installed here, so a test would pass with the fix removed.
+
 ## [0.3.0a12] - 2026-10-04
 
 Object detection, end to end: a specification with `task: detection` trains a YOLOv3 through

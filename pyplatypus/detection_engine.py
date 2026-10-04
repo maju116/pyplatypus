@@ -273,6 +273,35 @@ class DetectionEngine:
         flat = [pair for group in run.anchors for pair in group]
         return anchor_coverage(shapes, flat)
 
+    def box_shapes(self, model_name: str, split: str = "train") -> dict[str, Any]:
+        """The cloud of box shapes in a split, with the anchors in use beside it.
+
+        Everything a picture of the anchor fit needs, in one call and in one set of
+        coordinates: both are fractions of the model's input, computed by the same
+        function that fitted the anchors. The alternative - widths and heights from one
+        place and anchors from another - is how a plot comes to show boxes in different
+        places from where the anchors were fitted, which looks like a bad fit and is a bug.
+
+        Worth drawing for a split the anchors were *not* fitted on, for the same reason as
+        `anchor_coverage`: it is the only way to see a class the anchors have nothing near.
+        """
+        from pyplatypus.detection.anchors import shape_table
+
+        run = self._run(model_name)
+        self._needs_annotations(split)
+        dataset = self.dataset(run.spec, split, anchors=run.anchors)
+        table = shape_table(
+            dataset.annotations(), labels=list(self.spec.data.classes),
+            input_shape=(int(run.spec.input_shape[0]), int(run.spec.input_shape[1])),
+        )
+        return {
+            "boxes": table,
+            "anchors": [[list(pair) for pair in group] for group in run.anchors],
+            "anchors_were_fitted": run.anchor_fit is not None,
+            "input_shape": [int(run.spec.input_shape[0]), int(run.spec.input_shape[1])],
+            "classes": list(self.spec.data.classes),
+        }
+
     # ------------------------------------------------------------------ fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
         for model_spec in self.spec.models:
@@ -320,7 +349,34 @@ class DetectionEngine:
                 )
                 run.trained = True
 
+            self._record(run)
+
         return {name: run.history for name, run in self.runs.items()}
+
+    def _record(self, run: DetectorRun) -> None:
+        """What this run leaves behind, when `output_dir` was asked for.
+
+        The anchors are the point. When they were fitted rather than named, the
+        specification that produced this detector does not contain them, and the same
+        weights read with any others decode every box scaled by a fixed factor - so
+        without this the only copy is the weights sidecar, and only if somebody
+        remembered to export. `specification` plus `derived.anchors` re-runs it exactly.
+        """
+        from pyplatypus.runs import wants_a_record, write_record
+
+        if not wants_a_record(self.spec):
+            return
+        derived = {
+            "anchors": [[list(pair) for pair in group] for group in run.anchors],
+            "anchors_were_fitted": run.anchor_fit is not None,
+        }
+        if run.anchor_fit is not None:
+            derived["anchor_mean_iou"] = float(run.anchor_fit.mean_iou)
+            derived["anchor_boxes_used"] = int(run.anchor_fit.boxes_used)
+            derived["anchors_per_grid"] = run.spec.anchors_per_grid
+        if run.survey is not None:
+            derived["targets"] = run.survey.to_dict()
+        write_record(self.spec, run.name, derived=derived, history=run.history)
 
     def _survey(self, run: DetectorRun, *, verbose: bool) -> TargetSurvey:
         """What the target can hold, before an epoch is spent."""
