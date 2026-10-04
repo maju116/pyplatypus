@@ -20,7 +20,7 @@ models:
     input_shape: [416, 416]
     channels: 3
     # No anchors: fitted to these annotations, which on blood cells covers their boxes
-    # at a mean IoU of 0.92 against 0.67 for COCO's.
+    # at a mean IoU of 0.88 against 0.65 for COCO's, measured on BCCD's training boxes.
     anchors_per_grid: 3
     ignore_threshold: 0.5
     score_threshold: 0.01
