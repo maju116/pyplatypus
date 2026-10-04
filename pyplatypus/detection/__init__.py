@@ -12,6 +12,7 @@ from pyplatypus.detection.anchors import (
     box_shapes,
     fit_shapes,
     generate_anchors,
+    shape_table,
 )
 from pyplatypus.detection.annotations import (
     Annotation,
@@ -81,4 +82,5 @@ __all__ = [
     "read_annotations",
     "read_labelme",
     "read_voc",
+    "shape_table",
 ]

@@ -278,3 +278,70 @@ def test_the_anchors_it_produces_are_accepted_by_the_encoder():
     encoded = encode([[10, 10, 60, 60]], [0], anchors=fit.anchors, n_class=1)
     assert encoded.placed == 1
     assert encoded.targets[0].shape == (13, 13, 3, 6)
+
+
+# --- shapes with their classes -----------------------------------------------------------
+
+def test_shape_table_and_box_shapes_are_the_same_arithmetic(tmp_path):
+    """The reason they share an implementation. Two copies of the letterbox arithmetic is
+    the duplication that reads as harmless and ends with a plot showing boxes in different
+    places from where the anchors were fitted to them - which looks like a bad fit rather
+    than like a bug."""
+    from pyplatypus.detection import box_shapes, shape_table
+
+    annotations = [_annotation([(10, 20, 60, 80), (100, 30, 140, 70)], [0, 1], 200, 300),
+                   _annotation([(5, 5, 45, 25)], [1], 120, 160)]
+
+    plain = box_shapes(annotations, input_shape=(416, 416))
+    table = shape_table(annotations, labels=["a", "b"], input_shape=(416, 416))
+
+    assert table["width"] == pytest.approx(plain[:, 0].tolist())
+    assert table["height"] == pytest.approx(plain[:, 1].tolist())
+
+
+def test_shape_table_carries_the_class_of_every_box():
+    from pyplatypus.detection import shape_table
+
+    annotations = [_annotation([(10, 20, 60, 80), (100, 30, 140, 70)], [0, 1], 200, 300)]
+    table = shape_table(annotations, labels=["RBC", "WBC"], input_shape=(416, 416))
+
+    assert table["label"] == [0, 1]
+    assert table["name"] == ["RBC", "WBC"]
+    assert len(table["width"]) == len(table["name"]) == 2
+
+
+def test_shape_table_falls_back_to_the_index_when_no_names_are_given():
+    from pyplatypus.detection import shape_table
+
+    table = shape_table([_annotation([(1, 1, 20, 20)], [3], 100, 100)],
+                        input_shape=(416, 416))
+    assert table["name"] == ["3"]
+
+
+def test_shape_table_is_plain_lists():
+    """It crosses into R as a data frame, so nothing in it may need numpy to read."""
+    from pyplatypus.detection import shape_table
+
+    table = shape_table([_annotation([(1, 1, 20, 20)], [0], 100, 100)], labels=["a"])
+    for column in table.values():
+        assert isinstance(column, list)
+        assert not any(type(v).__module__ == "numpy" for v in column)
+
+
+def test_an_empty_set_of_annotations_gives_empty_columns():
+    from pyplatypus.detection import shape_table
+
+    table = shape_table([], labels=["a"])
+    assert table == {"width": [], "height": [], "label": [], "name": []}
+
+
+def _annotation(boxes, labels, height, width):
+    """The real thing, because `shape_table` reads `.labels` and a stand-in without them
+    is what broke `box_shapes` when the two first shared an implementation."""
+    from pathlib import Path
+
+    from pyplatypus.detection import Annotation
+
+    return Annotation(path=Path("x.xml"), width=width, height=height,
+                      boxes=np.asarray(boxes, dtype=float),
+                      labels=np.asarray(labels, dtype=int))

@@ -107,13 +107,27 @@ class Engine:
         )
 
     # ----------------------------------------------------------------- weights
-    @staticmethod
-    def _load_weights(model: torch.nn.Module, reference: str,
+    def _load_weights(self, model: torch.nn.Module, reference: str,
                       spec: SegmentationModel) -> dict | None:
-        """A registry name, a Hub reference, or a local path - see `pyplatypus.weights`."""
+        """A registry name, a Hub reference, or a local path - see `pyplatypus.weights`.
+
+        The colormap goes into the comparison, and it is the thing the model specification
+        cannot answer for itself: it lives on the data. Without it, weights trained to call
+        `(255, 0, 0)` class 1 load cleanly into a model whose class 1 is `(0, 255, 0)`, and
+        every mask comes back confidently wrong - which `pyplatypus.weights` has described
+        in prose since it was written while recording nothing that could catch it. The
+        detection side already compared its class *names*; this is the same check.
+        """
         from pyplatypus.weights import load_into
 
-        return load_into(model, reference, spec)
+        return load_into(model, reference, spec, extra=self._class_fingerprint())
+
+    def _class_fingerprint(self) -> dict:
+        """What the data says the classes are. One of `colormap` and `labels` is set."""
+        data = self.spec.data
+        if data.labels is not None:
+            return {"labels": list(data.labels)}
+        return {"colormap": [list(colour) for colour in data.colormap]}
 
     def export_weights(self, model_name: str, path: str | Path, **extra) -> Path:
         """Write one trained model's weights, ready to publish or to load again later.
@@ -129,7 +143,10 @@ class Engine:
         if run is None:
             known = ", ".join(self.runs) or "none"
             raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
-        return export_weights(run.model, run.spec, path, extra=extra or None)
+        # The colormap always, whatever else the caller adds: it is what makes the sidecar
+        # able to refuse weights that would load cleanly and mean something else.
+        return export_weights(run.model, run.spec, path,
+                              extra={**self._class_fingerprint(), **(extra or {})})
 
     # ------------------------------------------------------------------ checks
     def _refuse_masks_that_describe_nothing(self, model_spec: SegmentationModel) -> None:
@@ -232,8 +249,22 @@ class Engine:
                 )
                 run.trained = True
             self.runs[model_spec.name] = run
+            self._record(run)
 
         return {name: run.history for name, run in self.runs.items()}
+
+    def _record(self, run: ModelRun) -> None:
+        """What this run leaves behind, when `output_dir` was asked for.
+
+        Nothing is derived here that the specification does not already carry - the
+        colormap, the input shape and the window are all in it - so the record is the
+        specification plus the history. That is the honest shape for segmentation; the
+        detection engine has anchors to add.
+        """
+        from pyplatypus.runs import wants_a_record, write_record
+
+        if wants_a_record(self.spec):
+            write_record(self.spec, run.name, history=run.history)
 
     # --------------------------------------------------------------- evaluate
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:

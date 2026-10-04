@@ -74,15 +74,22 @@ class AnchorFit:
         return list(self.per_anchor)
 
 
-def box_shapes(annotations: Sequence[Any], *,
-               input_shape: tuple[int, int] = (416, 416),
-               letterbox: bool = True) -> np.ndarray:
-    """Every annotated box as a (width, height) fraction of the network's input.
+def _shapes_and_labels(annotations: Sequence[Any], input_shape: tuple[int, int],
+                       letterbox: bool, want_labels: bool
+                       ) -> tuple[np.ndarray, np.ndarray]:
+    """One implementation, because two would drift.
 
-    `letterbox=False` reproduces the old behaviour - dividing by the source image - and is
-    here only so the difference can be measured rather than argued about.
+    `box_shapes` and `shape_table` are two views of this. A second copy of the letterbox
+    arithmetic is the kind of duplication that reads as harmless and ends with a plot
+    showing boxes in different places from where the anchors were fitted to them - which
+    looks like a bad fit rather than like a bug.
+
+    `want_labels` rather than always reading them: `box_shapes` never needed a class and
+    requiring one now would tighten a contract for no reason - anything standing in for an
+    annotation with boxes and a frame would stop working, which is what happened when the
+    first version of this did read them unconditionally.
     """
-    rows = []
+    shapes, labels = [], []
     for annotation in annotations:
         boxes = np.asarray(annotation.boxes, dtype=float).reshape(-1, 4)
         if boxes.size == 0:
@@ -93,11 +100,51 @@ def box_shapes(annotations: Sequence[Any], *,
             width, height = input_shape[1], input_shape[0]
         else:
             width, height = annotation.width, annotation.height
-        rows.append(np.stack([(boxes[:, 2] - boxes[:, 0]) / width,
-                              (boxes[:, 3] - boxes[:, 1]) / height], axis=1))
-    if not rows:
-        return np.zeros((0, 2), dtype=float)
-    return np.concatenate(rows)
+        shapes.append(np.stack([(boxes[:, 2] - boxes[:, 0]) / width,
+                                (boxes[:, 3] - boxes[:, 1]) / height], axis=1))
+        if want_labels:
+            labels.append(np.asarray(annotation.labels, dtype=int).reshape(-1))
+    if not shapes:
+        return np.zeros((0, 2), dtype=float), np.zeros(0, dtype=int)
+    return (np.concatenate(shapes),
+            np.concatenate(labels) if labels else np.zeros(0, dtype=int))
+
+
+def box_shapes(annotations: Sequence[Any], *,
+               input_shape: tuple[int, int] = (416, 416),
+               letterbox: bool = True) -> np.ndarray:
+    """Every annotated box as a (width, height) fraction of the network's input.
+
+    `letterbox=False` reproduces the old behaviour - dividing by the source image - and is
+    here only so the difference can be measured rather than argued about.
+    """
+    return _shapes_and_labels(annotations, input_shape, letterbox,
+                              want_labels=False)[0]
+
+
+def shape_table(annotations: Sequence[Any], *, labels: Sequence[str] | None = None,
+                input_shape: tuple[int, int] = (416, 416),
+                letterbox: bool = True) -> dict[str, list]:
+    """The same shapes, with the class each box belongs to. One row per box.
+
+    What `box_shapes` drops, and what makes the picture worth looking at: a cloud of
+    widths and heights says how varied the objects are, and the same cloud coloured by
+    class says whether a class has anchors near it at all. On BCCD the three classes
+    occupy three distinct regions, which is why anchors fitted to all of them together
+    still cover each - and why COCO's, fitted to cars and people, cover none of them well.
+
+    Plain lists rather than arrays: this crosses into R as a data frame.
+    """
+    shapes, indices = _shapes_and_labels(annotations, input_shape, letterbox,
+                                         want_labels=True)
+    named = [labels[i] if labels is not None and 0 <= i < len(labels) else str(i)
+             for i in indices]
+    return {
+        "width": shapes[:, 0].tolist(),
+        "height": shapes[:, 1].tolist(),
+        "label": indices.tolist(),
+        "name": named,
+    }
 
 
 def fit_shapes(shapes, count: int, *, iterations: int = 100, seed: int = 0,

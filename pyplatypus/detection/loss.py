@@ -62,12 +62,25 @@ class LossParts:
     classes: torch.Tensor
 
     def as_dict(self) -> dict[str, float]:
+        """The five numbers, detached.
+
+        `detach()` before reading, which is not optional: torch 2.14 warns when a tensor
+        that still tracks gradients is turned into a scalar, and this runs once a batch -
+        so without it a run prints the same warning several thousand times and buries
+        anything worth reading.
+
+        **Invisible in this package's own environment**, which is the part worth keeping.
+        The venv here pins torch 2.7.1 for a Pascal card and does not warn; `py_require()`
+        in the R package resolves a current torch and does. So the warning was first seen
+        by the R test suite, and the same mistake had already been made and fixed in
+        `training/trainer.py` - the comment there says exactly this.
+        """
         return {
-            "loss": float(self.total),
-            "coordinates": float(self.coordinates),
-            "objectness": float(self.objectness),
-            "no_object": float(self.no_object),
-            "classes": float(self.classes),
+            "loss": self.total.detach().item(),
+            "coordinates": self.coordinates.detach().item(),
+            "objectness": self.objectness.detach().item(),
+            "no_object": self.no_object.detach().item(),
+            "classes": self.classes.detach().item(),
         }
 
 

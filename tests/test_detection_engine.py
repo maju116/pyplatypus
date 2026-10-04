@@ -453,6 +453,58 @@ def test_a_detector_trains_with_augmentation(detection_config):
     assert history.records[-1]["train_loss"] > 0
 
 
+# --- the picture of the anchor fit --------------------------------------------------------
+
+def test_box_shapes_returns_the_cloud_and_the_anchors_in_one_frame(trained,
+                                                                   detection_classes):
+    """Everything a plot of the anchor fit needs, in one call and one set of coordinates.
+    Widths and heights from one place and anchors from another is how a picture comes to
+    show boxes in different places from where the anchors were fitted to them."""
+    shapes = trained.box_shapes("d", "train")
+
+    assert shapes["classes"] == detection_classes
+    assert shapes["input_shape"] == [128, 128]
+    assert shapes["anchors_were_fitted"] is True
+    assert np.asarray(shapes["anchors"]).shape == (3, 2, 2)
+
+    boxes = shapes["boxes"]
+    assert len(boxes["width"]) == 16        # eight images, two boxes each
+    assert set(boxes["name"]) == set(detection_classes)
+    assert all(0 < w <= 1 for w in boxes["width"])
+    assert all(0 < h <= 1 for h in boxes["height"])
+
+
+def test_the_cloud_and_the_anchors_are_in_the_same_coordinates(trained):
+    """The property the whole thing rests on. Both are fractions of the model's input,
+    computed by the function that fitted the anchors - so an anchor sitting among its
+    boxes on the picture really is sitting among them."""
+    shapes = trained.box_shapes("d", "train")
+    cloud = np.stack([shapes["boxes"]["width"], shapes["boxes"]["height"]], axis=1)
+    anchors = np.asarray(shapes["anchors"]).reshape(-1, 2)
+
+    # Every anchor is within the cloud's range, because k-means puts centres among their
+    # points. If the two were in different coordinates this would fail by a wide margin.
+    assert anchors[:, 0].min() >= cloud[:, 0].min() * 0.5
+    assert anchors[:, 0].max() <= cloud[:, 0].max() * 2.0
+    assert anchors[:, 1].min() >= cloud[:, 1].min() * 0.5
+    assert anchors[:, 1].max() <= cloud[:, 1].max() * 2.0
+
+
+def test_box_shapes_refuses_a_split_with_no_annotations(trained, detection_config,
+                                                        detection_root, voc_sample):
+    """A cloud of boxes needs boxes."""
+    held_out = detection_root / "unlabelled"
+    for n in range(2):
+        sample = voc_sample(held_out, f"u_{n}", [(20, 24, 56, 60)], [0])
+        (sample / "annotations" / f"u_{n}.xml").unlink()
+    detection_config["data"]["test_path"] = str(held_out)
+
+    engine = build_engine(from_dict(detection_config), device="cpu")
+    engine.fit()
+    with pytest.raises(EngineError, match="no annotations"):
+        engine.box_shapes("d", "test")
+
+
 # --- weights -----------------------------------------------------------------------------
 
 def test_exported_weights_carry_the_anchors(trained, tmp_path):
