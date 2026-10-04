@@ -205,7 +205,7 @@ def _fill_empty_splits(assigned: dict[str, str], groups: Mapping[str, list[Sampl
 
 
 def write_splits(split: Split, out_dir: str | Path, *, column_sep: str = ";",
-                 relative: bool = True) -> dict[str, Path]:
+                 relative: bool = True, label_column: str = "masks") -> dict[str, Path]:
     """Write one CSV per split, in the layout `config_file` mode reads.
 
     Paths are written relative to the CSV when they can be, so the dataset and its split
@@ -224,7 +224,7 @@ def write_splits(split: Split, out_dir: str | Path, *, column_sep: str = ";",
         path = out / f"{name}.csv"
         with path.open("w", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["key", "group", "images", "masks"])
+            writer.writerow(["key", "group", "images", label_column])
             for sample in samples:
                 writer.writerow([
                     sample.key,
@@ -253,18 +253,27 @@ def split_dataset(root: str | Path, out_dir: str | Path, *,
                   column_sep: str = ";",
                   fractions: Sequence[float] | Mapping[str, float] = (0.7, 0.15, 0.15),
                   group_by: str | None = None, seed: int = 0,
-                  strict: bool = True, relative: bool = True) -> dict[str, object]:
+                  strict: bool = True, relative: bool = True,
+                  label_column: str = "masks") -> dict[str, object]:
     """Split one folder of data into three CSVs a specification can point at.
 
     The whole point of the function: a researcher has one directory and needs
     `train_path`, `validation_path` and `test_path`. Returns the paths it wrote plus the
     counts, so the caller can see what happened without opening the files.
+
+    `label_column` names the second column, and it has to match what the specification
+    will look for - `masks` for segmentation, `annotations` for detection. Not derived
+    from `subdirs`, although that would read well: someone whose directories are called
+    `img` and `lbl` has always got a `masks` column out of this, and deriving it would
+    quietly write a file their existing configuration could no longer read.
     """
     found = discover_samples(
         root, mode=DataMode(mode), subdirs=subdirs, column_sep=column_sep, strict=strict,
+        label_column=label_column,
     )
     split = split_samples(found.samples, fractions=fractions, group_by=group_by, seed=seed)
-    paths = write_splits(split, out_dir, column_sep=column_sep, relative=relative)
+    paths = write_splits(split, out_dir, column_sep=column_sep, relative=relative,
+                         label_column=label_column)
     return {
         "paths": {name: str(path) for name, path in paths.items()},
         "samples": split.counts,

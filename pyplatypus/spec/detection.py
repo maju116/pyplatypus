@@ -129,6 +129,10 @@ class DetectionData(DataSpec):
         return self
 
     @property
+    def label_column(self) -> str:
+        return "annotations"
+
+    @property
     def n_class(self) -> int:
         """How many classes there are. `classes` decides; nothing else."""
         return len(self.classes)
@@ -211,6 +215,63 @@ class DetectionModel(ModelSpec):
             "what is computed at all, this one decides where on the curve to stand."
         ),
     )
+
+    def weights_fingerprint(self) -> dict:
+        """`anchors_per_grid` rather than `blocks` and `filters`: it is what sets the
+        head's width, so weights with a different one cannot be loaded at all. `n_class`
+        sets it too and is not here, because the model does not hold it - the engine adds
+        it, from the data's `classes`."""
+        return {**super().weights_fingerprint(),
+                "anchors_per_grid": self.anchors_per_grid}
+
+    min_visibility: float = Field(
+        0.25,
+        ge=0,
+        le=1,
+        description=(
+            "How much of a box must survive an augmentation that removes part of the "
+            "frame, as a fraction of its original area, for the box to be kept. A "
+            "convention rather than a measurement; what is defensible is the direction. "
+            "A box keeping two pixels of a cell teaches the model that a two-pixel "
+            "fragment is a whole cell, which produces false positives everywhere, while "
+            "dropping a heavily truncated object only fails to teach it about that "
+            "object. Pascal VOC marks such objects `truncated` for the same reason.\n"
+            "Irrelevant unless a transform can lose part of the frame: flips and "
+            "rotations never do."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def not_fitting_needs_weights(self):
+        """Loading a detector is not loading a segmentation model, and the difference is
+        the anchors.
+
+        Named after the base's validator on purpose, which replaces it: `fit: false` would
+        otherwise be told "fit=false only makes sense together with weights", and adding
+        weights to satisfy that would arrive here. One dead end is better reached in one
+        step than in two.
+
+        Weights decode boxes *relative to the anchors they were trained with*. Read with
+        other anchors, the same weights produce boxes scaled by a fixed factor - plausible
+        boxes, plausible scores, wrong places, and nothing in any output says so. So
+        loading has to adopt the anchors recorded beside the file, and deciding what
+        happens when the specification also names some is a decision that has not been
+        taken. Until it is, this refuses rather than guessing.
+
+        `export_weights` works: writing records the anchors in the sidecar, which is what
+        makes the decision possible later.
+        """
+        if self.weights is None and self.fit:
+            return self
+        asked = "weights" if self.weights is not None else "fit=false"
+        raise ValueError(
+            f"{asked}: loading weights into a detector is not supported yet. A "
+            f"detector's weights only mean anything together with the anchors they were "
+            f"trained with - read with other anchors they give plausible boxes in the "
+            f"wrong places, silently - so loading has to adopt the anchors from the "
+            f"file, and that is not built. Training records them: "
+            f"DetectionEngine.export_weights writes the anchors into the sidecar."
+        )
 
     @model_validator(mode="after")
     def detection_is_two_dimensional(self):

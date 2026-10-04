@@ -244,6 +244,27 @@ class ReduceLrOnPlateau(_Callback):
     min_lr: float = Field(0.0, ge=0)
 
 
+class CosineAnnealing(_Callback):
+    """Decay the learning rate along a cosine, from its initial value to `min_lr`.
+
+    No `monitor`: it is a function of how far through the run you are, not of how the run
+    is going. That is the difference from `reduce_lr_on_plateau`, and a run may want both.
+    """
+
+    name: Literal["cosine_annealing"] = "cosine_annealing"
+    min_lr: float = Field(0.0, ge=0, description="The rate at the last epoch.")
+    epochs: int | None = Field(
+        None,
+        ge=1,
+        description=(
+            "How many epochs to spread the decay over. Unset means the model's `epochs`, "
+            "which is what you want: a cosine that ends where the run ends. Setting it "
+            "shorter parks the rate at `min_lr` for the remaining epochs, and longer "
+            "stops the run part way down the curve."
+        ),
+    )
+
+
 class CsvLogger(_Callback):
     name: Literal["csv_logger"] = "csv_logger"
     path: str
@@ -254,7 +275,8 @@ class TerminateOnNaN(_Callback):
 
 
 CallbackSpec = Annotated[
-    EarlyStopping | ModelCheckpoint | ReduceLrOnPlateau | CsvLogger | TerminateOnNaN,
+    EarlyStopping | ModelCheckpoint | ReduceLrOnPlateau | CosineAnnealing | CsvLogger
+    | TerminateOnNaN,
     Field(discriminator="name"),
 ]
 

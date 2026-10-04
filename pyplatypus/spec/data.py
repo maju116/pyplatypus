@@ -71,6 +71,16 @@ class DataSpec(SpecModel):
                 raise ValueError(f"window width must be positive, got {width}")
         return value
 
+    @property
+    def label_column(self) -> str:
+        """The CSV column holding whatever labels an image.
+
+        `config_file` mode has to call it something, and the two tasks label differently.
+        Derived rather than a field: one more name to get wrong, for a value that follows
+        from the task.
+        """
+        return "masks"
+
     def check_paths(self) -> list[str]:
         """Return a human-readable problem for every path that is not there."""
         problems = []

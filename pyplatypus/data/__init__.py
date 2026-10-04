@@ -1,6 +1,16 @@
-from pyplatypus.data.augmentation import Augmenter, build_augmenter
+from pyplatypus.data.augmentation import (
+    Augmenter,
+    BoxAugmenter,
+    build_augmenter,
+    build_box_augmenter,
+)
 from pyplatypus.data.channels import ChannelError, match_channels
 from pyplatypus.data.dataset import SegmentationDataset
+from pyplatypus.data.detection import (
+    DetectionDataset,
+    Example,
+    TargetSurvey,
+)
 from pyplatypus.data.dicom_series import (
     Series,
     describe_series,
@@ -27,13 +37,18 @@ from pyplatypus.data.splits import (
 
 __all__ = [
     "Augmenter",
+    "BoxAugmenter",
     "ChannelError",
+    "DetectionDataset",
     "Discovery",
+    "Example",
     "Sample",
     "SegmentationDataset",
     "Series",
     "Split",
+    "TargetSurvey",
     "build_augmenter",
+    "build_box_augmenter",
     "classes_to_onehot",
     "colours_to_classes",
     "describe_series",

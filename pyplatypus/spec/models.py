@@ -70,6 +70,22 @@ class ModelSpec(SpecModel):
         """Quantities a callback may watch, given what this model reports."""
         return {"train_loss", "val_loss"}
 
+    def weights_fingerprint(self) -> dict:
+        """What must match for a file of weights to belong to this model.
+
+        Asked of the spec rather than listed in `pyplatypus.weights`, because the answer
+        is architecture-specific: `blocks` and `filters` identify a U-shaped model and
+        mean nothing to a detector, whose head width is set by its anchor count instead.
+        A fixed list in the weights module would have to grow a branch per task and would
+        reach for a field that is not there.
+        """
+        return {
+            "architecture": getattr(self.architecture, "value", self.architecture),
+            "input_shape": list(self.input_shape),
+            "channels": self.channels,
+            "rank": self.rank,
+        }
+
     @model_validator(mode="after")
     def callbacks_watch_something_that_exists(self):
         """A callback watching 'val_dice' when no Dice metric was requested would wait
@@ -223,6 +239,10 @@ class SegmentationModel(ModelSpec):
                 f"{divisor}; input_shape={tuple(self.input_shape)} is not"
             )
         return self
+
+    def weights_fingerprint(self) -> dict:
+        return {**super().weights_fingerprint(),
+                "n_class": self.n_class, "blocks": self.blocks, "filters": self.filters}
 
     @property
     def monitorable(self) -> set[str]:

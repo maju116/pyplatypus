@@ -26,7 +26,7 @@ from pyplatypus.models.encoders import PretrainedEncoder
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.spec.spec import PlatypusSpec, SegmentationSpec
 from pyplatypus.training.torch_data import make_loader
-from pyplatypus.training.trainer import History, Trainer
+from pyplatypus.training.trainer import History, Trainer, seed_everything
 
 #: Unmatched fraction above which the colormap is probably wrong. Measured: correct masks
 #: give 0.00%, JPEG compression around a mask's edge gives 0.72%, a wrong foreground colour
@@ -72,6 +72,7 @@ class Engine:
         self.num_workers = num_workers
         self.check_masks = check_masks
         self.runs: dict[str, ModelRun] = {}
+        seed_everything(spec.seed)
 
         self._samples: dict[str, tuple[Sample, ...]] = {
             "train": discover(spec.data.train_path, spec.data, strict=strict_data).samples,
@@ -90,7 +91,9 @@ class Engine:
                 f"no '{split}' data in this spec; available: "
                 f"{', '.join(sorted(self._samples))}"
             )
-        augmenter = build_augmenter(model.augmentation, model.rank) if augmented else None
+        augmenter = build_augmenter(
+            model.augmentation, model.rank, tuple(model.input_shape)
+        ) if augmented else None
         return SegmentationDataset(
             self._samples[split], model, self.spec.data,
             augmenter=augmenter, only_images=only_images,

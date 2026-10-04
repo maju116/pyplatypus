@@ -251,10 +251,22 @@ def test_model_names_must_be_unique_at_either_task(detection_config):
         build({**detection_config, "models": twice})
 
 
-def test_not_fitting_needs_weights_at_either_task(detection_config):
-    with pytest.raises(ConfigError, match="fit=false"):
+def test_fit_false_reaches_the_dead_end_in_one_step(detection_config):
+    """The base's validator would say "fit=false only makes sense together with weights",
+    and adding weights to satisfy that would arrive at the refusal below. Detection
+    replaces it by name so there is one message, not a trail of two."""
+    with pytest.raises(ConfigError) as caught:
         build({**detection_config,
                "models": [{"name": "bccd", "input_shape": [416, 416], "fit": False}]})
+    assert "fit=false: loading weights into a detector" in str(caught.value)
+
+
+def test_segmentation_keeps_its_own_message(config):
+    """The override is on the detection model only, so replacing the validator by name
+    must not reach across."""
+    models = [{**config["models"][0], "fit": False}]
+    with pytest.raises(ConfigError, match="fit=false only makes sense"):
+        build({**config, "models": models})
 
 
 def test_a_callback_can_only_watch_the_loss(detection_config):

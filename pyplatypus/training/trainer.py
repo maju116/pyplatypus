@@ -49,6 +49,48 @@ class History:
         return {"records": self.records, "stop_reason": self.stop_reason}
 
 
+def seed_everything(seed: int | None) -> None:
+    """Make a run reproducible, as far as it can be made reproducible.
+
+    `seed` has been a field on the specification since the first release, described as
+    "set it if you want a reproducible run", and **nothing read it**. A flag that does
+    nothing is worse than a missing one: in R, `platypus_spec(seed = 1)` made a promise
+    and two runs of it disagreed. Found while wiring detection in, where the anchors are
+    fitted by k-means and the seed had to come from somewhere.
+
+    What this does not do is ask torch for deterministic algorithms. That makes some
+    convolutions much slower and makes others raise, and the result would be a seed that
+    sometimes refuses to run at all. Two runs at one seed on one machine agree; across
+    machines, or across a cuDNN version, they need not.
+    """
+    if seed is None:
+        return
+    import random
+
+    random.seed(seed)
+    np.random.seed(seed)
+    # Seeds every device, and the generator DataLoader derives its workers' seeds from,
+    # so augmentation in a worker process is reproducible too.
+    torch.manual_seed(seed)
+
+
+def format_logs(logs: dict[str, float]) -> str:
+    """One epoch's numbers, for a person watching.
+
+    `learning_rate` gets its own format because four decimal places made the whole point
+    of a schedule invisible: a cosine decaying 1e-4 to 1e-8 printed `learning_rate=0.0000`
+    from epoch 90 onwards, so a run with a schedule and a run without looked identical.
+    Found by watching one, which is the only way this kind of thing is found.
+    """
+    parts = []
+    for key, value in logs.items():
+        if key == "seconds":
+            continue
+        parts.append(f"{key}={value:.3g}" if key == "learning_rate"
+                     else f"{key}={value:.4f}")
+    return " ".join(parts)
+
+
 def pick_device(requested: str | None = None) -> torch.device:
     if requested:
         return torch.device(requested)
@@ -134,7 +176,8 @@ class Trainer:
     def fit(self, train_loader: DataLoader, validation_loader: DataLoader | None = None,
             *, epochs: int | None = None, verbose: bool = False) -> History:
         epochs = epochs if epochs is not None else self.spec.epochs
-        state = TrainingState(model=self.model, optimizer=self.optimizer)
+        state = TrainingState(model=self.model, optimizer=self.optimizer,
+                              total_epochs=epochs)
         history = History()
 
         for callback in self.callbacks:
@@ -155,8 +198,8 @@ class Trainer:
             history.records.append(record)
             state.history = history.records
             if verbose:
-                shown = " ".join(f"{k}={v:.4f}" for k, v in logs.items() if k != "seconds")
-                print(f"epoch {epoch:>3}  {shown}  ({logs['seconds']:.1f}s)")
+                print(f"epoch {epoch:>3}  {format_logs(logs)}  "
+                      f"({logs['seconds']:.1f}s)")
 
             if any(callback.on_epoch_end(state) for callback in self.callbacks):
                 history.stop_reason = state.stop_reason

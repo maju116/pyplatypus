@@ -403,3 +403,27 @@ def test_the_dsbowl_entry_says_what_it_cannot_do():
     description = REGISTRY["dsbowl-unet"].description
     assert "BBBC038" in description
     assert "instance" in description.lower()
+
+
+def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
+    """The exact wording of this line is in a released vignette.
+
+    The fingerprint moved onto the spec and started comparing `input_shape` as a list,
+    because that is what JSON returns - which quietly turned `(256, 256)` into
+    `[256, 256]` in the message, and the vignette into a document showing output the
+    package no longer produces. Nothing else would have noticed.
+    """
+    from pyplatypus.models import build_model
+    from pyplatypus.spec.models import SegmentationModel
+    from pyplatypus.weights import WeightsError, export_weights, load_into
+
+    trained = SegmentationModel(name="a", input_shape=(256, 256))
+    written = export_weights(build_model(trained), trained,
+                             tmp_path / "w.safetensors")
+
+    other = SegmentationModel(name="b", input_shape=(160, 160))
+    with pytest.raises(WeightsError) as caught:
+        load_into(build_model(other), str(written), other)
+    assert "input_shape: weights say (256, 256), the model says (160, 160)" in str(
+        caught.value
+    )

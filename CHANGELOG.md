@@ -3,9 +3,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-Detection work begins. Left unreleased on purpose: metrics alone are not something the R
-package can use, and releasing to satisfy a loop that exists so R can reach a feature would
-be ceremony. The release comes when there is a detector to score.
+Object detection, end to end: a specification with `task: detection` trains a YOLOv3 through
+the same engine as a segmentation one, scores it per class against `pycocotools`-agreeing
+average precision, and hands the boxes back in each image's own pixels. On BCCD over five
+seeds: `mAP@0.5` 0.8660 +/- 0.0159, `mAP@[.50:.95]` 0.5159 +/- 0.0199, mean overlap of
+matched boxes 0.8041 +/- 0.0026 - which brackets and exceeds what a hand-rolled version of
+the same recipe scored before any of this existed.
+
+**Still unreleased, and for the same reason as before rather than a new one.** The §4f loop
+exists so the R package can reach a feature; R has no detection surface yet, so a release
+would serve nothing but the ceremony. It happens when the R side needs it.
 
 ### Added
 
@@ -55,8 +62,161 @@ be ceremony. The release comes when there is a detector to score.
    with different anchor counts, duplicate class names, and `coordinates` set for LabelMe,
    which stores continuous pixel coordinates and has no convention to pick
 
+### Added — detection in the engine
+
+ - **`DetectionEngine`**, and `build_engine(spec)` which returns it or `Engine` according to
+   the task, so a caller holding a spec never has to ask. Two classes rather than one with a
+   branch in every method: past discovery the two tasks differ at every step - three target
+   tensors instead of one, a loss that is part of the architecture, and an evaluation that
+   cannot be accumulated per batch because average precision is a property of a whole split's
+   ranking
+ - `DetectionDataset` - one sample to one example, through the letterbox and the target
+   encoder. One sample is one example, with no tiling: cutting an image into a grid cuts boxes
+   in half, and half a box is not a smaller object
+ - `DetectionTrainer`, reporting the four parts of the loss separately for train and
+   validation. A YOLOv3 total means nothing alone - cross-entropy against a soft target bottoms
+   out at the target's own entropy, so the coordinate term has a floor above zero that depends
+   on the data. `coordinates 5.93 / objectness 0.001` is the difference between a model that has
+   learned what is where and one that has stalled, and the total cannot tell them apart
+ - **Anchors are fitted to the training annotations** when the spec does not give them, and
+   recorded on the run and in the weights sidecar. Not optional metadata: the same weights read
+   with other anchors decode every box scaled by a fixed factor, with plausible boxes, plausible
+   scores, wrong places, and nothing in any output to say so
+ - **The targets are surveyed before the first epoch**, and a dataset the encoder loses more
+   than 2% of warns. Two boxes of one shape whose centres land in one cell share a slot, so the
+   second is never shown to the model and never counted as missed. Measured on BCCD at a 416
+   input: 3 boxes of 2804
+ - `evaluate()` returns the detection columns - `map_50`, `map_50_95`, `mean_matched_iou` - and
+   **no overall precision or recall**. Averaging those over classes needs a weighting and every
+   weighting is a different claim: summed over BCCD's 4155 red cells, 372 white and 361
+   platelets, a single precision is a statement about red cells wearing the costume of a
+   statement about the model. They are in `evaluate_classes()`, per class
+ - `predict()` returns a **list, in each image's own pixels**. There is no array form - images
+   differ in size and so does the number of boxes found in each - and a box in a letterboxed
+   416x416 frame cannot be drawn on the photograph it came from. The same decision as
+   `space="source"` on the segmentation side, except that here there is no alternative
+ - `anchor_coverage()`, asked of whichever split you like. The useful question is about a split
+   the anchors were *not* fitted on: 0.92 on training and 0.70 on validation says the two hold
+   different objects, and no training curve shows that
+ - A **test split without annotations** can be predicted and refuses to be scored. Scoring it
+   against empty truth would report zero, which is a different statement from "there is nothing
+   to score against"
+ - `config_file` mode reads an **`annotations` column** for a detection spec - the second slot
+   is named after what labels an image, and `write_splits(label_column=...)` writes it
+
+### Added — a learning-rate schedule the specification can state
+
+ - **`cosine_annealing`**, a callback decaying the rate from its initial value to `min_lr`
+   along a cosine. No `monitor`: it is a function of how far through the run you are rather
+   than of how the run is going, which is the difference from `reduce_lr_on_plateau`, and a
+   run may legitimately want both.
+
+   It exists because wiring detection into the engine found that **the specification could
+   not express the run that produced this package's published detection number.** The
+   measured BCCD run decayed its rate; a spec could only hold it constant.
+
+   What the schedule is actually worth was then measured, and it is less than the gap it
+   was reached for: adding it moved BCCD's test `mAP@[.50:.95]` from 0.4700 to 0.4761 and
+   `mAP@0.5` from 0.8479 to 0.8496. **The first explanation of that gap was wrong**, and
+   the measurement refused it; the rest of it was augmentation, which the engine did not do
+   at all - the entry below. Attributing a gap to the plausible cause is the mistake this
+   project keeps catching, and this time it took two tries.
+
+   Both of those runs are single draws, so part of +0.0061 is the schedule and part is the
+   draw - and five seeds of the finished recipe later put the standard deviation of
+   `mAP@[.50:.95]` at 0.0199, which is three times that difference. The schedule is kept
+   because it is the recipe the measurement used and because the spec could not state it,
+   not because its effect was established. `DETECTION_RECON.md` §12 has the account.
+ - Checked against `torch.optim.lr_scheduler.CosineAnnealingLR` epoch for epoch, at four run
+   lengths and two floors. "The rate goes down" is not the claim worth testing: if this were
+   a schedule that merely resembled torch's, comparing a run through the specification with
+   the measured one would compare two experiments and blame the difference on the wrong
+   thing.
+ - Each parameter group decays **from its own initial rate**, so `encoder_learning_rate` is
+   not flattened at the first epoch - which would have been invisible, since the history
+   records one `learning_rate`, the first group's.
+ - `TrainingState` gained `total_epochs`. A schedule that is a function of progress needs
+   the horizon, and nothing else in the state implies it: `epoch` counts up and stops
+   wherever early stopping stops it.
+
+### Added — augmentation for boxes
+
+ - **`BoxAugmenter`** and `build_box_augmenter`: a spec's `augmentation` list now applies to
+   a detection run, with the boxes following the pixels. albumentations again, declared the
+   same way as for masks, so a detection spec and a segmentation spec name transforms
+   identically
+ - **Every geometric transform in albumentations 2.0.8 moves boxes with the pixels, which was
+   measured rather than assumed.** A bright rectangle with the box labelling it, through 24
+   transform configurations, comparing the box that came back with the bounding box of the
+   bright pixels in the output. The worst disagreement is 1.0 pixel - anti-aliasing at an
+   edge - for `Perspective`, `GridDistortion` and `CoarseDropout`; the flips, the rotations,
+   `Affine`, the crops and `D4` are exact. That is a property of the library, so it lives in
+   the tests where a version bump re-runs it
+ - `min_visibility` on a detection model: how much of a box must survive a transform that
+   removes part of the frame. A convention rather than a measurement, and the direction is
+   what is defensible - a box keeping two pixels of a cell teaches the model that a two-pixel
+   fragment is a whole cell, which produces false positives everywhere, while dropping a
+   heavily truncated object only fails to teach it about that object. Pascal VOC marks such
+   objects `truncated` for the same reason. Irrelevant unless a transform can lose part of
+   the frame, which flips and rotations never do
+ - Training is augmented and validation never is: measuring a model on distorted data
+   measures the distortion
+
+### Fixed
+
+ - **A probe that failed for its own reasons.** The check that names a transform which cannot
+   handle boxes ran against a fixed 32x32 image, so `RandomCrop(height=64, width=64)` - a
+   perfectly good transform - was refused with "crop size exceeds image dimensions". A probe
+   that fails for the wrong reason is indistinguishable from a real refusal, and this one
+   reported the user's transform as unsupported when it was the check that was too small.
+   Both probes now run at the model's own input size, which also keeps the refusal correct
+   for a crop genuinely larger than the input.
+
+   **The 3D volume probe had the same defect** and had had it since it was written: a fixed
+   4x8x8 volume refused any larger 3D crop. Found only because the box probe made the shape
+   of the mistake obvious.
+ - `albumentations` rejects bad parameters with a pydantic `ValueError`, not Python's
+   `TypeError`, so a misspelled argument escaped the handler that exists to name it and
+   arrived as schema prose. Both are caught now
+ - **A decaying learning rate was invisible in the output.** `learning_rate` was printed to
+   four decimal places like every other quantity, so a cosine going from 1e-4 to 1e-8 read
+   `learning_rate=0.0000` from epoch 90 on, and a run with a schedule looked identical to one
+   without. Found by watching a run and trying to confirm the rate was moving; no test would
+   have asked
+ - **`seed` did nothing.** The field has been on the specification since the first release,
+   described as "set it if you want a reproducible run", and no code read it - so in R,
+   `platypus_spec(seed = 1)` made a promise and two runs of it disagreed. Both engines now seed
+   `random`, numpy and torch at construction, which also seeds the generator `DataLoader`
+   derives its workers' seeds from, so augmentation in a worker process is reproducible too.
+   Found while wiring detection in, where the anchors are fitted by k-means and the seed had to
+   come from somewhere.
+
+   Asserted by training twice and comparing, and - the half that makes the first half mean
+   anything - by checking that two *unseeded* runs differ. Without that second test the first
+   would pass on a package that ignores `seed` entirely, which is the state it was in.
+
+   What it does not do is ask torch for deterministic algorithms: that makes some convolutions
+   much slower and makes others raise, so the result would be a seed that sometimes refuses to
+   run. Two runs at one seed on one machine agree; across machines or cuDNN versions they need
+   not
+
 ### Changed
 
+ - **`examples/detect_blood_cells.py` was rewritten onto the specification**, which is the test
+   of whether the specification earned its place. The first version assembled a detector by
+   hand out of `pyplatypus.detection`: a Dataset class, a training loop, a decode-and-score
+   function and twenty flags. What is left is the part that is genuinely about BCCD - where its
+   files are and what its canonical splits say - and the script writes out the YAML of the run
+   it just did, beside the results
+ - **Loading weights into a detector is refused, with the reason.** A detector's weights only
+   mean anything together with the anchors they were trained with, so loading has to adopt the
+   anchors recorded beside the file, and what happens when the specification also names some has
+   not been decided. Writing works and records them, which is what makes the decision possible
+   later
+ - `weights_fingerprint()` moved onto the spec, so what identifies a file of weights is an
+   architecture's own answer. `blocks` and `filters` identify a U-shaped model and mean nothing
+   to a detector, whose head width is set by its anchor count instead - a fixed list in
+   `pyplatypus.weights` had to reach for a field that is not there
  - A union tag no longer reads as a field. pydantic puts the matched tag at the head of every
    nested location, so a problem in a detection spec was reported at
    `detection.models[0].anchors`; it now says `models[0].anchors`. An enum used as a tag is

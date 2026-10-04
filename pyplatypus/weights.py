@@ -232,20 +232,19 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str) -> None:
     colormap with the same class count. Those load cleanly and predict nonsense.
     """
     problems = []
-    checks = (
-        ("architecture", getattr(spec.architecture, "value", spec.architecture)),
-        ("input_shape", tuple(spec.input_shape)),
-        ("channels", spec.channels),
-        ("n_class", spec.n_class),
-        ("blocks", spec.blocks),
-        ("filters", spec.filters),
-    )
-    for field, mine in checks:
+    for field, mine in spec.weights_fingerprint().items():
         theirs = sidecar.get(field)
         if theirs is None:
             continue
-        if isinstance(mine, tuple):
-            theirs = tuple(theirs)
+        if isinstance(mine, list):
+            # Compared as lists, because that is what JSON gives back, but rendered as
+            # tuples: a shape reads as (256, 256) in Python and in every message this
+            # package has ever printed, and a released vignette shows it that way.
+            theirs = list(theirs)
+            if theirs != mine:
+                problems.append(f"{field}: weights say {tuple(theirs)}, the model says "
+                                f"{tuple(mine)}")
+            continue
         if theirs != mine:
             problems.append(f"{field}: weights say {theirs}, the model says {mine}")
 
@@ -284,13 +283,7 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
     save_file(state, str(target))
 
     sidecar = {
-        "architecture": getattr(spec.architecture, "value", spec.architecture),
-        "input_shape": list(spec.input_shape),
-        "channels": spec.channels,
-        "n_class": spec.n_class,
-        "blocks": spec.blocks,
-        "filters": spec.filters,
-        "rank": spec.rank,
+        **spec.weights_fingerprint(),
         # Two different counts, named apart. `parameters` is what the comparison table reports;
         # a state dict also holds buffers - BatchNorm's running statistics - so summing it gives
         # a larger number. Having both under one name made the sidecar disagree with

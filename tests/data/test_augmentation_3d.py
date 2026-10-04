@@ -186,3 +186,26 @@ def test_validation_is_not_augmented(volume_root):
     validation = engine.dataset(spec.models[0], "validation")
     assert train.augmenter is not None
     assert validation.augmenter is None
+
+
+def test_a_crop_larger_than_the_probe_is_not_refused_for_the_wrong_reason():
+    """The probe used to be a fixed 4x8x8 volume, so a crop bigger than that was refused
+    with "crop size exceeds image dimensions" - the check failing for its own reasons
+    while reporting the user's transform as unsupported.
+
+    Found in the box probe, where the same fixed-size probe refused
+    `RandomCrop(height=64, width=64)`, and fixed in both: the probe is the size the
+    transforms will really see.
+    """
+    from pyplatypus.spec.components import AugmentationStep
+
+    crop = [AugmentationStep(name="RandomCrop3D",
+                             params={"size": (4, 16, 16), "p": 1.0})]
+    assert build_augmenter(crop, rank=3, input_shape=(8, 32, 32)) is not None
+
+    # The 2D counterpart of this is a refusal, because albumentations' 2D crops raise
+    # `CropSizeError` when asked for more than the image holds. Its 3D crop does not: a
+    # `RandomCrop3D(size=(4, 64, 64))` on a 32x32 volume returns a 32x32 one, measured,
+    # without a word. So there is no second half to this test, and a 3D spec asking for a
+    # patch larger than its input gets a quietly smaller patch - which is the library's
+    # behaviour and worth knowing rather than worth asserting.
