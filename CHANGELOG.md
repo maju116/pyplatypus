@@ -1,6 +1,29 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a15] - 2026-10-05
+
+### Fixed
+
+ - **0.3.0a14 reports itself as 0.3.0a13, and this release is that release with its version
+   corrected.** The version lives in two places - `pyproject.toml` and
+   `pyplatypus.__version__` - and 0.3.0a14 bumped only the first. Nothing failed: the wheel
+   built, the metadata was right, 942 tests passed and the release went out. The only visible
+   symptom was the R package refusing to believe the engine was the version it had pinned,
+   which is that check doing exactly what it is for.
+
+   It matters beyond cosmetics because `__version__` is what gets written down. `write_record()`
+   stamps it into every run record and `export_weights()` into every weights sidecar as
+   `trained_with`, so a wrong value is wrong provenance in files that outlive the release.
+   **Anything produced by 0.3.0a14 is labelled 0.3.0a13.**
+
+   `tests/test_version.py` now pins the two literals to each other, and to the installed
+   distribution's metadata when there is one. Every release from 0.3.0a11 to 0.3.0a13 happened
+   to keep them in step; nothing required it.
+
+   Use 0.3.0a15. 0.3.0a14 works - the only thing wrong with it is the number it gives for
+   itself - but a package that misreports its own version has no business being pinned.
+
 ## [0.3.0a14] - 2026-10-05
 
 ### Added
