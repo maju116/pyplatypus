@@ -3,6 +3,8 @@
 # Two models, one file, one run. This is the whole point of the YAML path - and the
 # identical spec can be built from arguments in R and behave the same way.
 
+task: semantic_segmentation
+
 data:
   train_path: examples/data/data_science_bowl/stage1_train
   validation_path: examples/data/data_science_bowl/stage1_validation

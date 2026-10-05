@@ -1,6 +1,51 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.4.0a1] - 2026-10-05
+
+**Breaking.** A minor bump rather than another alpha letter, because the configuration format
+changed and a number that hides that is a number doing nothing.
+
+### Changed
+
+ - **`task` is required.** It was defaulted to segmentation so that files written before
+   detection existed kept working. The default is gone: a configuration that does not say what
+   it is asking for means whatever version reads it, and more tasks are coming.
+
+   The default also sent the bill to the wrong person. A *detection* configuration missing its
+   `task` was validated as segmentation and reported `classes` and `anchors_per_grid` as **extra
+   fields**, never naming the tag - exactly the confusion a discriminator exists to prevent.
+
+ - **Both task names are spelled out**: `segmentation` is now `semantic_segmentation` and
+   `detection` is now `object_detection`.
+
+   `segmentation` stops naming one thing the moment instance segmentation exists, and a value
+   that has to be reinterpreted later is worse than a longer one now. These are also the two
+   words the 2022 package used for its own top-level configuration keys, so this is a return
+   rather than an invention.
+
+   **Both old values are recognised by name**, because they are the only strings an existing
+   file or an older script can contain:
+
+       task: segmentation  ->  "`task: segmentation` was renamed to `semantic_segmentation`."
+       task: detection     ->  "`task: detection` was renamed to `object_detection`."
+       (missing)           ->  "a configuration has to say what it is asking for: add `task`,
+                                one of 'semantic_segmentation', 'object_detection'."
+
+   Left to pydantic, each of these would have been an "input should be ..." list that the
+   reader has to decode. A rename the reader must deduce is a rename done to them.
+
+### Migrating
+
+Add one line to every configuration, and change it if it was already there:
+
+```yaml
+task: semantic_segmentation     # or object_detection
+```
+
+Nothing else moves. The R package builds `task` from its own constructors and sends it, so R
+code needs no change beyond pinning an engine of this version or later.
+
 ## [0.3.0a15] - 2026-10-05
 
 ### Fixed

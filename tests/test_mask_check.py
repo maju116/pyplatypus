@@ -37,6 +37,7 @@ def dataset_with_foreground(root, fraction, *, n=6, size=64, colour=(255, 255, 2
 
 def spec_for(root, colormap, **overrides):
     return from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root),
                  "colormap": colormap, "mode": "nested_dirs"},
         "models": [{"name": "m", "input_shape": [64, 64], "channels": 3,
@@ -100,6 +101,7 @@ def test_fit_refuses_a_colormap_that_matches_no_tissue(tmp_path):
 def test_the_refusal_names_a_label_when_labels_were_given(volume_root):
     """A label map is the other way in, and a class is named by its label there."""
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
                  "labels": [0, 1, 7], "mode": "nested_dirs"},
         "models": [{"name": "m", "input_shape": [8, 8, 4], "channels": 1, "n_class": 3,

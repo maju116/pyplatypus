@@ -37,6 +37,7 @@ def spec_for(root, **model):
              "metrics": [{"name": "dice"}]}
     block.update(model)
     return from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root),
                  "colormap": [[0, 0, 0], [255, 255, 255]], "shuffle": False},
         "models": [block],

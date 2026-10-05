@@ -154,6 +154,7 @@ def test_a_spec_that_asks_for_it_gets_it(tmp_path):
             Image.fromarray(mask).save(sample / "masks" / "m.png")
 
     spec = from_dict({
+        "task": "semantic_segmentation",
         "seed": 1,
         "data": {"train_path": str(tmp_path / "train"),
                  "validation_path": str(tmp_path / "valid"),

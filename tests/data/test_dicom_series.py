@@ -373,6 +373,7 @@ def test_a_series_per_case_trains_end_to_end(tmp_path):
                  str(sample / "masks" / "seg.nii.gz"))
 
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root),
                  "labels": [0, 1], "window": "soft_tissue", "shuffle": False},
         "models": [{"name": "unet3d", "input_shape": [32, 32, 4], "n_class": 2,

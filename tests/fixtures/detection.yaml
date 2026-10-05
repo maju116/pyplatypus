@@ -3,7 +3,7 @@
 #
 # Deliberately close to what the BCCD run used, because the point of the detection half
 # of the spec is that those settings had nowhere to live except command-line flags.
-task: detection
+task: object_detection
 
 data:
   train_path: PLACEHOLDER_TRAIN

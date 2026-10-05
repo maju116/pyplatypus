@@ -103,5 +103,5 @@ def test_a_detection_specs_dict_round_trips(detection_yaml_file):
     `task`, which the dict has to carry or the trip back would land on segmentation."""
     spec = from_yaml(detection_yaml_file)
     payload = spec.to_dict()
-    assert payload["task"] == "detection"
+    assert payload["task"] == "object_detection"
     assert from_dict(payload, check_paths=False) == spec

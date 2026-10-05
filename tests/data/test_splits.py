@@ -288,6 +288,7 @@ def test_a_split_can_be_trained_on_without_touching_anything_else(tmp_path):
                            fractions=(0.5, 0.5), seed=0)
 
     engine = Engine(from_dict({
+        "task": "semantic_segmentation",
         "data": {
             "train_path": report["paths"]["train"],
             "validation_path": report["paths"]["validation"],

@@ -48,7 +48,7 @@ def trained(tmp_path_factory, make_detection_split):
     make_detection_split(root / "valid", "valid", 4, seed=1)
 
     spec = from_dict({
-        "task": "detection", "seed": 1,
+        "task": "object_detection", "seed": 1,
         "data": {"train_path": str(root / "train"),
                  "validation_path": str(root / "valid"),
                  "classes": ["square", "bar"]},

@@ -1,5 +1,7 @@
 # What a user actually writes. Compare with the old package: no boolean soup for the
 # architecture, no net_h/net_w pair, losses and metrics carry an explicit name.
+task: semantic_segmentation
+
 data:
   train_path: PLACEHOLDER_TRAIN
   validation_path: PLACEHOLDER_VALID

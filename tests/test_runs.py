@@ -33,6 +33,7 @@ def tiny_segmentation(root, output_dir=None):
             Image.fromarray(mask).save(sample / "masks" / "m.png")
 
     config = {
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root / "train"), "validation_path": str(root / "valid"),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
         "models": [{"name": "u", "input_shape": [32, 32], "blocks": 2, "filters": 4,

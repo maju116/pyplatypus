@@ -86,7 +86,7 @@ library, `GaussNoise` as `KeyError: 'images'`. Every transform in a 3D specifica
 against a small probe volume while the pipeline is built, so an unsupported one is named before
 training starts, and `available_transforms(rank=3)` lists what is usable.
 
-**Object detection is built and not yet released.** `task: detection` in a specification
+**Object detection** is in: `task: object_detection` in a specification
 gives a YOLOv3 trained from the same pipeline - anchors fitted to your own boxes, Pascal VOC
 or LabelMe annotations, predictions back in each image's own pixels, and mean average
 precision per class that agrees with `pycocotools`. On BCCD, from nothing, over five seeds:
@@ -107,7 +107,7 @@ not a result, and the first draft of this work read several of them as one.
 
 ```python
 engine = build_engine(from_dict({
-    "task": "detection",
+    "task": "object_detection",
     "data": {"train_path": "images/", "validation_path": "images/",
              "classes": ["RBC", "WBC", "Platelets"]},
     "models": [{"name": "cells", "input_shape": [416, 416],

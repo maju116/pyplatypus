@@ -14,7 +14,7 @@ from typing import Any
 from pydantic import ValidationError
 
 #: pydantic renders an enum used as a union tag with `repr`, so a message about a
-#: mistyped `task` would offer "<Task.DETECTION: 'detection'>" as the thing to write.
+#: mistyped `task` would offer "<Task.OBJECT_DETECTION: 'detection'>" as the thing to write.
 #: The value is what a user types; the class is an implementation detail.
 _ENUM_REPR = re.compile(r"<[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9_]+: ('[^']*'|\d+)>")
 
