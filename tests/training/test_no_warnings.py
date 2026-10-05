@@ -16,7 +16,7 @@ from pyplatypus.training import Trainer, make_loader
 
 def test_a_training_epoch_emits_no_warnings(nested_root, binary_data):
     spec = SegmentationModel(
-        name="m", input_shape=(32, 32), channels=3, n_class=2, blocks=2, filters=4,
+        name="m", input_shape=(32, 32), channels=3, blocks=2, filters=4,
         batch_size=2, epochs=1, metrics=[DiceMetric()],
     )
     loader = make_loader(
@@ -25,7 +25,7 @@ def test_a_training_epoch_emits_no_warnings(nested_root, binary_data):
     )
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        Trainer(build_model(spec), spec, device="cpu").fit(loader, loader)
+        Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(loader, loader)
 
     noisy = [str(w.message) for w in caught if "requires_grad" in str(w.message)]
     assert noisy == [], f"training emitted {len(noisy)} gradient warnings: {noisy[:2]}"

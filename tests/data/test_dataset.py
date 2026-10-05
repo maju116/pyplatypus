@@ -7,7 +7,7 @@ from pyplatypus.spec.models import SegmentationModel
 
 
 def make_model(**overrides):
-    base = {"name": "m", "input_shape": (64, 64), "channels": 3, "n_class": 2, "blocks": 2}
+    base = {"name": "m", "input_shape": (64, 64), "channels": 3, "blocks": 2}
     return SegmentationModel(**{**base, **overrides})
 
 
@@ -98,7 +98,7 @@ def test_the_pipeline_serves_volumes(volume_root, volume_data):
     a 3D input_shape and the samples are NIfTI files with label maps for masks."""
     pytest.importorskip("nibabel")
     samples = discover(volume_root, volume_data).samples
-    model = make_model(input_shape=(8, 8, 4), n_class=2)
+    model = make_model(input_shape=(8, 8, 4))
     dataset = SegmentationDataset(samples, model, volume_data)
 
     image, mask = dataset[0]
@@ -113,7 +113,7 @@ def test_volume_patches_come_out_of_the_same_tiling(volume_root, volume_data):
     samples = discover(volume_root, volume_data).samples
     # (2, 2, 1) over an 8x8x4 volume gives four 4x4x4 patches. The depth is not cut because
     # four slices are already the smallest the network can pool twice.
-    model = make_model(input_shape=(4, 4, 4), n_class=2, splits=(2, 2, 1))
+    model = make_model(input_shape=(4, 4, 4), splits=(2, 2, 1))
     dataset = SegmentationDataset(samples, model, volume_data)
 
     assert len(dataset) == len(samples) * 4

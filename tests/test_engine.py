@@ -18,11 +18,11 @@ def two_model_config(nested_root):
             "shuffle": False,
         },
         "models": [
-            {"name": "unet", "input_shape": [32, 32], "n_class": 2, "blocks": 2,
+            {"name": "unet", "input_shape": [32, 32], "blocks": 2,
              "filters": 4, "batch_size": 2, "epochs": 2,
              "metrics": [{"name": "dice"}]},
             {"name": "linknet", "architecture": "linknet", "input_shape": [32, 32],
-             "n_class": 2, "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 2,
+             "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 2,
              "metrics": [{"name": "dice"}]},
         ],
     }
@@ -172,7 +172,7 @@ def test_a_3d_spec_trains(volume_root):
         "task": "semantic_segmentation",
         "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
                  "labels": [0, 1], "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "n_class": 2, "blocks": 2,
+        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "blocks": 2,
                     "filters": 4, "batch_size": 1, "epochs": 1, "channels": 1,
                     "metrics": [{"name": "dice"}]}],
     })

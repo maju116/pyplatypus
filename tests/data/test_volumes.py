@@ -387,7 +387,7 @@ def test_the_pipeline_resamples_both_image_and_mask_the_same_way(tmp_path):
         train_path=str(root), validation_path=str(root), labels=[0, 1],
         window="soft_tissue", target_spacing=(1.0, 1.0, 1.0),
     )
-    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, n_class=2,
+    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, 
                               blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
@@ -425,7 +425,7 @@ def test_without_a_target_spacing_the_two_fields_of_view_disagree(tmp_path):
 
     data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1],
                             window="soft_tissue")
-    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, n_class=2,
+    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, 
                               blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
@@ -450,7 +450,7 @@ def test_padding_a_label_map_adds_background_not_a_new_class(tmp_path):
 
     data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1],
                             window="soft_tissue", target_spacing=(1.0, 1.0, 1.0))
-    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, n_class=2,
+    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, 
                               blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 

@@ -376,7 +376,7 @@ def test_a_series_per_case_trains_end_to_end(tmp_path):
         "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root),
                  "labels": [0, 1], "window": "soft_tissue", "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [32, 32, 4], "n_class": 2,
+        "models": [{"name": "unet3d", "input_shape": [32, 32, 4], 
                     "channels": 1, "blocks": 2, "filters": 4, "batch_size": 1,
                     "epochs": 1, "metrics": [{"name": "dice"}]}],
     })
@@ -409,7 +409,7 @@ def test_several_volumes_per_sample_need_their_order_stated(tmp_path):
              str(sample / "masks" / "seg.nii.gz"))
 
     data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1])
-    model = SegmentationModel(name="m", input_shape=(8, 8, 4), channels=1, n_class=2,
+    model = SegmentationModel(name="m", input_shape=(8, 8, 4), channels=1, 
                               blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
     with pytest.raises(DataError, match="channels_from"):

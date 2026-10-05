@@ -156,7 +156,7 @@ def test_a_3d_model_trains_with_augmentation(volume_root):
         "task": "semantic_segmentation",
         "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
                  "labels": [0, 1], "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "n_class": 2, "channels": 1,
+        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "channels": 1,
                     "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
                     "metrics": [{"name": "dice"}],
                     "augmentation": [{"name": "HorizontalFlip"},
@@ -179,7 +179,7 @@ def test_validation_is_not_augmented(volume_root):
         "task": "semantic_segmentation",
         "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
                  "labels": [0, 1]},
-        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "n_class": 2, "channels": 1,
+        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "channels": 1,
                     "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
                     "augmentation": [{"name": "HorizontalFlip"}]}],
     })

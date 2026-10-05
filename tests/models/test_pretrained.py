@@ -20,7 +20,7 @@ timm = pytest.importorskip("timm", reason="the `encoders` extra is not installed
 
 
 def spec(**overrides):
-    base = {"name": "m", "input_shape": (64, 64), "channels": 3, "n_class": 2,
+    base = {"name": "m", "input_shape": (64, 64), "channels": 3, 
             "blocks": 4, "filters": 16}
     return SegmentationModel(**{**base, **overrides})
 
@@ -58,19 +58,19 @@ def test_a_backbone_that_offers_full_resolution_is_used_directly():
 
 
 def test_a_whole_model_builds_and_keeps_the_input_size():
-    model = build_model(spec(), encoder=encoder())
+    model = build_model(spec(), encoder=encoder(), n_class=2)
     assert model(torch.randn(1, 3, 64, 64)).shape == (1, 2, 64, 64)
 
 
 @pytest.mark.parametrize("architecture", ["u_net", "u_net_plus_plus", "res_u_net", "linknet"])
 def test_every_architecture_accepts_a_backbone(architecture):
     """The backbone replaces the contracting path; the decoder is still the spec's choice."""
-    model = build_model(spec(architecture=architecture), encoder=encoder())
+    model = build_model(spec(architecture=architecture), encoder=encoder(), n_class=2)
     assert model(torch.randn(1, 3, 64, 64)).shape == (1, 2, 64, 64)
 
 
 def test_gradients_reach_our_stage_as_well_as_the_backbone():
-    model = build_model(spec(), encoder=encoder())
+    model = build_model(spec(), encoder=encoder(), n_class=2)
     model(torch.randn(1, 3, 64, 64)).sum().backward()
     unused = [name for name, p in model.named_parameters() if p.grad is None]
     assert unused == []

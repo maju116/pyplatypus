@@ -123,11 +123,19 @@ class Engine:
         return load_into(model, reference, spec, extra=self._class_fingerprint())
 
     def _class_fingerprint(self) -> dict:
-        """What the data says the classes are. One of `colormap` and `labels` is set."""
+        """What the data says the classes are. One of `colormap` and `labels` is set.
+
+        `n_class` is here rather than on the model because the data decides it. It used to
+        be a model field, which made it a setting that could disagree with its own data and
+        needed a validator to say so; now there is nothing to disagree with. The count is
+        still compared when weights are loaded - it is simply contributed by the half of the
+        specification that knows it.
+        """
         data = self.spec.data
+        classes = {"n_class": data.n_class}
         if data.labels is not None:
-            return {"labels": list(data.labels)}
-        return {"colormap": [list(colour) for colour in data.colormap]}
+            return {**classes, "labels": list(data.labels)}
+        return {**classes, "colormap": [list(colour) for colour in data.colormap]}
 
     def export_weights(self, model_name: str, path: str | Path, **extra) -> Path:
         """Write one trained model's weights, ready to publish or to load again later.
@@ -182,7 +190,7 @@ class Engine:
             described = self._describe_classes(report.missing_classes)
             verb = "never appears" if len(report.missing_classes) == 1 else "never appear"
             raise EngineError(
-                f"model '{model_spec.name}' declares n_class={model_spec.n_class}, but "
+                f"the data declares n_class={self.spec.data.n_class}, but "
                 f"{described} {verb} in the training masks - checked "
                 f"{report.samples_checked} of {report.total_samples}, and "
                 f"{report.unmatched:.1%} of their voxels matched no entry.\n"
@@ -223,16 +231,58 @@ class Engine:
             return parts[0]
         return ", ".join(parts[:-1]) + " and " + parts[-1]
 
+
+    #: What a sidecar may fill in when the specification did not say. Deliberately not
+    #: `input_shape` or `channels`: the rank comes from `input_shape` and is needed while the
+    #: specification is validated - long before any weights exist - and the data pipeline
+    #: reads both before a network is built. Making them wait on a sidecar would mean a
+    #: specification that cannot be checked without a download, which is the air-gapped
+    #: hospital problem this project has carried since RECON.md.
+    ADOPTABLE = ("architecture", "blocks", "filters")
+
+    def _adopt_from_weights(self, model_spec):
+        """Fill the architecture the weights already describe, where the spec stayed silent.
+
+        A published file knows its own geometry - `dsbowl-unet` records u_net, 4 blocks, 16
+        filters - so requiring the caller to restate it means knowing the internals of
+        somebody else's model in order to use it, and being refused for guessing wrong.
+
+        `model_fields_set` is what makes this safe: it tells a value the user chose from a
+        default that happened to be there. Anything stated is left alone and still has to
+        agree, so this loosens what may be omitted and nothing about what is checked. The
+        detection side has adopted anchors this way since 0.3.0a12; this is the same move
+        applied to the rest of the fingerprint.
+        """
+        from pyplatypus.weights import describe, resolve_weights
+
+        try:
+            sidecar = describe(resolve_weights(model_spec.weights))
+        except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
+            return model_spec          # told with the message it has always given.
+        if not sidecar:
+            return model_spec
+
+        adopted = {field: sidecar[field] for field in self.ADOPTABLE
+                   if field in sidecar and field not in model_spec.model_fields_set}
+        if not adopted:
+            return model_spec
+        # Re-validated rather than copied, because the adopted values have to face the same
+        # checks a written one would: `blocks` decides what input sizes are divisible.
+        return type(model_spec).model_validate({**model_spec.model_dump(), **adopted})
+
     # -------------------------------------------------------------------- fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
         """Train every model the spec asks for, in order."""
         for model_spec in self.spec.models:
+            if model_spec.weights:
+                model_spec = self._adopt_from_weights(model_spec)
             if model_spec.fit:
                 self._refuse_masks_that_describe_nothing(model_spec)
             if verbose:
                 print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
 
-            network = build_model(model_spec, encoder=_encoder_for(model_spec))
+            network = build_model(model_spec, n_class=self.spec.data.n_class,
+                                  encoder=_encoder_for(model_spec))
             if model_spec.weights:
                 self._load_weights(network, model_spec.weights, model_spec)
 

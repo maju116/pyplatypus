@@ -23,7 +23,6 @@ models:
     architecture: u_net
     input_shape: [160, 160]
     channels: 3
-    n_class: 2
     blocks: 4
     filters: 16
     dropout: 0.1
@@ -62,7 +61,6 @@ models:
     architecture: linknet
     input_shape: [160, 160]
     channels: 3
-    n_class: 2
     blocks: 4
     filters: 16
     dropout: 0.1

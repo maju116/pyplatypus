@@ -111,7 +111,6 @@ class ModelSpec(SpecModel):
 class SegmentationModel(ModelSpec):
     architecture: Architecture = Architecture.U_NET
 
-    n_class: int = Field(2, ge=2)
 
     blocks: int = Field(4, ge=1, le=8)
     filters: int = Field(16, ge=1)
@@ -241,8 +240,11 @@ class SegmentationModel(ModelSpec):
         return self
 
     def weights_fingerprint(self) -> dict:
+        # Without `n_class`: the data decides how many classes there are, so the model has
+        # nothing to say about it. The engine contributes it through `_class_fingerprint`,
+        # along with the colormap or labels it came from.
         return {**super().weights_fingerprint(),
-                "n_class": self.n_class, "blocks": self.blocks, "filters": self.filters}
+                "blocks": self.blocks, "filters": self.filters}
 
     @property
     def monitorable(self) -> set[str]:

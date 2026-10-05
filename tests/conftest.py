@@ -30,7 +30,7 @@ def data_block(tmp_path):
 
 @pytest.fixture
 def model_block():
-    return {"name": "unet", "input_shape": [256, 256], "n_class": 2}
+    return {"name": "unet", "input_shape": [256, 256]}
 
 
 @pytest.fixture

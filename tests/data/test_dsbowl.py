@@ -52,14 +52,14 @@ def test_samples_carry_many_mask_files(train):
 def test_the_binary_colormap_actually_describes_this_dataset(train, data):
     """If this drifts from zero the masks are not what the colormap claims, which is the
     quietest possible way to train on nothing."""
-    model = SegmentationModel(name="unet", input_shape=(256, 256), n_class=2, blocks=4)
+    model = SegmentationModel(name="unet", input_shape=(256, 256), blocks=4)
     dataset = SegmentationDataset(train.samples, model, data)
     assert dataset.colormap_coverage(limit=40) == pytest.approx(0.0, abs=1e-6)
 
 
 def test_a_real_example_has_the_right_shape_and_content(train, data):
     model = SegmentationModel(name="unet", input_shape=(256, 256), channels=3,
-                              n_class=2, blocks=4)
+                              blocks=4)
     dataset = SegmentationDataset(train.samples, model, data)
     image, mask = dataset[0]
 
@@ -73,7 +73,7 @@ def test_a_real_example_has_the_right_shape_and_content(train, data):
 
 
 def test_nine_different_source_sizes_all_normalise(train, data):
-    model = SegmentationModel(name="unet", input_shape=(128, 128), n_class=2, blocks=4)
+    model = SegmentationModel(name="unet", input_shape=(128, 128), blocks=4)
     dataset = SegmentationDataset(train.samples, model, data)
     shapes = {dataset[i][0].shape for i in range(0, len(dataset), 37)}
     assert shapes == {(128, 128, 3)}
@@ -82,7 +82,7 @@ def test_nine_different_source_sizes_all_normalise(train, data):
 def test_tiling_a_real_image_round_trips(train, data):
     """Cut a source image into 6 tiles and put it back exactly - the capability the old
     package was missing on the way out."""
-    model = SegmentationModel(name="hd", input_shape=(256, 256), n_class=2, blocks=4,
+    model = SegmentationModel(name="hd", input_shape=(256, 256), blocks=4,
                               splits=(2, 3))
     dataset = SegmentationDataset(train.samples, model, data)
     assert len(dataset) == 536 * 6
@@ -106,7 +106,7 @@ def test_throughput_is_not_absurd(train, data):
     instead of reading it. The minimum is still a real measurement: a genuine regression
     makes every pass slow, and no amount of idle machine makes a slow reader fast.
     """
-    model = SegmentationModel(name="unet", input_shape=(256, 256), n_class=2, blocks=4)
+    model = SegmentationModel(name="unet", input_shape=(256, 256), blocks=4)
     dataset = SegmentationDataset(train.samples, model, data, cache_size=1)
 
     passes = []

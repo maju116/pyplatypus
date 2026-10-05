@@ -98,7 +98,7 @@ def build_dataset(root, **data_kwargs):
 
     data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1],
                             **data_kwargs)
-    model = SegmentationModel(name="m", input_shape=(16, 16, 8), channels=4, n_class=2,
+    model = SegmentationModel(name="m", input_shape=(16, 16, 8), channels=4, 
                               blocks=2)
     return SegmentationDataset(discover_samples(root).samples, model, data)
 
@@ -191,7 +191,7 @@ def test_a_multi_modal_spec_trains(tmp_path):
         "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
                  "channels_from": PATTERNS, "window": [250.0, 500.0],
                  "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [16, 16, 8], "n_class": 2,
+        "models": [{"name": "unet3d", "input_shape": [16, 16, 8], 
                     "channels": 4, "blocks": 2, "filters": 4, "batch_size": 1,
                     "epochs": 1, "metrics": [{"name": "dice"}]}],
     }), device="cpu")
@@ -226,7 +226,7 @@ def test_two_dimensional_channels_work_the_same_way(tmp_path):
     data = SegmentationData(train_path=str(root), validation_path=str(root),
                             colormap=[(0, 0, 0), (255, 255, 255)],
                             channels_from=[r"_red\.", r"_green\.", r"_nir\."])
-    model = SegmentationModel(name="m", input_shape=(16, 16), channels=3, n_class=2, blocks=2)
+    model = SegmentationModel(name="m", input_shape=(16, 16), channels=3, blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
     image, _ = dataset[0]

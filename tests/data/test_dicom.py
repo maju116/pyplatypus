@@ -207,7 +207,7 @@ def test_a_dicom_dataset_trains_end_to_end(tmp_path):
             "dicom_window": "soft_tissue",
         },
         "models": [{
-            "name": "ct", "input_shape": [32, 32], "channels": 1, "n_class": 2,
+            "name": "ct", "input_shape": [32, 32], "channels": 1, 
             "blocks": 2, "filters": 4, "epochs": 2, "batch_size": 2,
             "loss": {"name": "cce_dice"},
             "metrics": [{"name": "dice", "include_background": False}],
