@@ -32,7 +32,7 @@ def patients(tmp_path):
 
 
 def spec_for(root, **model):
-    block = {"name": "tiny", "input_shape": [32, 32], "n_class": 2, "blocks": 2,
+    block = {"name": "tiny", "input_shape": [32, 32], "blocks": 2,
              "filters": 4, "batch_size": 2, "epochs": 1,
              "metrics": [{"name": "dice"}]}
     block.update(model)

@@ -98,41 +98,62 @@ class SegmentationSpec(PlatypusSpec):
     data: SegmentationData
     models: list[SegmentationModel] = Field(min_length=1)
 
+    @model_validator(mode="before")
+    @classmethod
+    def channels_follow_the_data(cls, config):
+        """Fill `channels` from `channels_from` before the models are built.
+
+        Before rather than after, because a built model is frozen - and frozen is right: a
+        specification that rewrote itself during validation would be a different thing from
+        the one somebody wrote. This fills a blank in the configuration instead, which is
+        what a reader would have had to do by hand.
+        """
+        if not isinstance(config, dict):
+            return config
+        data = config.get("data")
+        if not isinstance(data, dict):
+            return config
+        patterns = data.get("channels_from")
+        if not patterns:
+            return config
+        models = config.get("models")
+        if not isinstance(models, list):
+            return config
+        config = {**config, "models": [
+            {**m, "channels": len(patterns)} if isinstance(m, dict) and "channels" not in m
+            else m
+            for m in models
+        ]}
+        return config
+
     @model_validator(mode="after")
     def channels_match_the_data(self):
-        """One pattern per channel, or the stack the data produces is not the one the model
-        declared - which fails deep inside torch with a shape mismatch instead of here."""
+        """One pattern per channel - **derived when the model stayed silent, checked when it
+        did not**.
+
+        `channels_from` names one file per channel, so it already says how many there are;
+        a model restating it could only ever disagree, and the disagreement surfaced deep
+        inside torch as a shape mismatch rather than here. Unlike `n_class` the field does
+        not simply go: without `channels_from` it is a real choice, because the same files
+        can be read as one channel or three.
+
+        So: silent means derived, stated means checked. `model_fields_set` is what tells
+        those apart - a `channels=3` the caller wrote and the default that was there anyway
+        are the same value and not the same claim.
+        """
         if self.data.channels_from is None:
             return self
         expected = len(self.data.channels_from)
         wrong = [
             f"{model.name} has channels={model.channels}"
             for model in self.models
-            if model.channels != expected
+            if "channels" in model.model_fields_set and model.channels != expected
         ]
         if wrong:
             raise ValueError(
                 f"channels_from lists {expected} channels, but " + "; ".join(wrong)
             )
         return self
-
-    @model_validator(mode="after")
-    def classes_match_the_data(self):
-        expected = self.data.n_class
-        wrong = [
-            f"{model.name} has n_class={model.n_class}"
-            for model in self.models
-            if model.n_class != expected
-        ]
-        if wrong:
-            # Named after whichever one is in use, because "the colormap defines 3 classes"
-            # is a confusing thing to be told about a spec that has no colormap.
-            source = "labels" if self.data.label_map else "colormap"
-            raise ValueError(
-                f"the {source} defines {expected} classes, but " + "; ".join(wrong)
-            )
-        return self
-
 
 class DetectionSpec(PlatypusSpec):
     task: Literal[Task.OBJECT_DETECTION]

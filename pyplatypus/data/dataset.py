@@ -315,7 +315,7 @@ class SegmentationDataset:
         image = to_float(image)
         if classes is None:
             return image, None
-        return image, classes_to_onehot(classes, self.model.n_class)
+        return image, classes_to_onehot(classes, self.data.n_class)
 
     def colormap_coverage(self, limit: int = 20) -> float:
         """Fraction of mask voxels matching no colour, or no label value.
@@ -359,7 +359,7 @@ class SegmentationDataset:
         seen: set[int] = set()
         mask_channels = 1 if self.data.label_map else 3
         total = len(self.samples)
-        wanted = set(range(self.model.n_class))
+        wanted = set(range(self.data.n_class))
         read = 0
         for index in _spread(total, min(limit, total)):
             # Stop once every declared class has turned up and enough files have been read

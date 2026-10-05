@@ -41,7 +41,7 @@ def spec_for(root, colormap, **overrides):
         "data": {"train_path": str(root), "validation_path": str(root),
                  "colormap": colormap, "mode": "nested_dirs"},
         "models": [{"name": "m", "input_shape": [64, 64], "channels": 3,
-                    "n_class": len(colormap), "blocks": 4, "filters": 8,
+                    "blocks": 4, "filters": 8,
                     "epochs": 1, "batch_size": 2, **overrides}],
     })
 
@@ -104,7 +104,7 @@ def test_the_refusal_names_a_label_when_labels_were_given(volume_root):
         "task": "semantic_segmentation",
         "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
                  "labels": [0, 1, 7], "mode": "nested_dirs"},
-        "models": [{"name": "m", "input_shape": [8, 8, 4], "channels": 1, "n_class": 3,
+        "models": [{"name": "m", "input_shape": [8, 8, 4], "channels": 1, 
                     "blocks": 1, "filters": 4, "epochs": 1, "batch_size": 1}],
     })
     with pytest.raises(EngineError, match=r"class 2 \(label 7\)"):
@@ -162,7 +162,7 @@ def test_a_prediction_only_run_is_not_refused(tmp_path):
 
     root = dataset_with_foreground(tmp_path / "noop", 0.05)
     wrong = spec_for(root, [[0, 0, 0], [128, 0, 0]])
-    weights = export_weights(build_model(wrong.models[0]), wrong.models[0],
+    weights = export_weights(build_model(wrong.models[0], n_class=2), wrong.models[0],
                              tmp_path / "w.safetensors")
 
     loading = spec_for(root, [[0, 0, 0], [128, 0, 0]],

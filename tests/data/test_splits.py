@@ -295,7 +295,7 @@ def test_a_split_can_be_trained_on_without_touching_anything_else(tmp_path):
             "mode": "config_file",
             "colormap": [[0, 0, 0], [255, 255, 255]],
         },
-        "models": [{"name": "tiny", "input_shape": [32, 32], "n_class": 2, "blocks": 2,
+        "models": [{"name": "tiny", "input_shape": [32, 32], "blocks": 2,
                     "filters": 4, "batch_size": 2, "epochs": 1,
                     "metrics": [{"name": "dice"}]}],
     }), device="cpu")

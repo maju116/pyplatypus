@@ -30,7 +30,7 @@ from pyplatypus.weights import (
 
 
 def model_spec(**overrides) -> SegmentationModel:
-    block = {"name": "m", "input_shape": (32, 32), "channels": 3, "n_class": 2,
+    block = {"name": "m", "input_shape": (32, 32), "channels": 3, 
              "blocks": 2, "filters": 4}
     block.update(overrides)
     return SegmentationModel(**block)
@@ -40,9 +40,12 @@ def model_spec(**overrides) -> SegmentationModel:
 def trained(tmp_path):
     """A model and its weights on disk, exported the way publishing would."""
     spec = model_spec()
-    model = build_model(spec)
+    model = build_model(spec, n_class=2)
+    # `n_class` reaches the sidecar through `extra`, because the data decides it and the
+    # model no longer carries it. The engine contributes it the same way, from the
+    # colormap or the labels - this is that, written out by hand.
     path = export_weights(model, spec, tmp_path / "run.safetensors",
-                          extra={"data": "synthetic", "licence": "MIT"})
+                          extra={"n_class": 2, "data": "synthetic", "licence": "MIT"})
     return spec, model, path
 
 
@@ -65,13 +68,13 @@ def test_export_writes_safetensors_and_a_sidecar(trained):
 
 def test_the_extension_is_added_if_it_is_missing(tmp_path):
     spec = model_spec()
-    path = export_weights(build_model(spec), spec, tmp_path / "weights")
+    path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "weights")
     assert path.suffix == ".safetensors"
 
 
 def test_exported_weights_load_back_into_the_same_model(trained):
     spec, model, path = trained
-    fresh = build_model(spec)
+    fresh = build_model(spec, n_class=2)
 
     before = {name: value.clone() for name, value in fresh.state_dict().items()}
     load_into(fresh, str(path), spec)
@@ -87,7 +90,7 @@ def test_exported_weights_load_back_into_the_same_model(trained):
 def test_a_round_trip_survives_a_prediction(trained):
     """Not only the numbers: the loaded model has to produce the same output."""
     spec, model, path = trained
-    fresh = build_model(spec)
+    fresh = build_model(spec, n_class=2)
     load_into(fresh, str(path), spec)
 
     batch = torch.rand(1, 3, 32, 32)
@@ -102,31 +105,33 @@ def test_weights_for_a_different_class_count_are_refused(trained):
     """The case that matters most: a mismatch the shapes would catch anyway is easy, but the
     sidecar is what catches the ones they would not."""
     _, _, path = trained
-    other = model_spec(n_class=4)
+    other = model_spec()
     with pytest.raises(WeightsError, match="n_class"):
-        load_into(build_model(other), str(path), other)
+        load_into(build_model(other, n_class=4), str(path), other,
+                  extra={"n_class": 4})
 
 
 def test_weights_for_a_different_architecture_are_refused(trained):
     _, _, path = trained
     other = model_spec(architecture="linknet")
     with pytest.raises(WeightsError, match="architecture"):
-        load_into(build_model(other), str(path), other)
+        load_into(build_model(other, n_class=2), str(path), other)
 
 
 def test_weights_for_a_different_width_are_refused(trained):
     _, _, path = trained
     other = model_spec(filters=8)
     with pytest.raises(WeightsError, match="filters"):
-        load_into(build_model(other), str(path), other)
+        load_into(build_model(other, n_class=2), str(path), other)
 
 
 def test_every_disagreement_is_listed_at_once(trained):
     """One run should say everything that is wrong, not the first thing."""
     _, _, path = trained
-    other = model_spec(n_class=3, filters=16)
+    other = model_spec(filters=16)
     with pytest.raises(WeightsError) as raised:
-        load_into(build_model(other), str(path), other)
+        load_into(build_model(other, n_class=3), str(path), other,
+                  extra={"n_class": 3})
     message = str(raised.value)
     assert "n_class" in message and "filters" in message
 
@@ -136,22 +141,22 @@ def test_weights_without_a_sidecar_still_load_if_they_fit(tmp_path):
     instead, which catches a shape mismatch and nothing subtler - and that is worth saying
     rather than refusing the file."""
     spec = model_spec()
-    model = build_model(spec)
+    model = build_model(spec, n_class=2)
     path = export_weights(model, spec, tmp_path / "bare.safetensors")
     path.with_suffix(".json").unlink()
 
-    fresh = build_model(spec)
+    fresh = build_model(spec, n_class=2)
     assert load_into(fresh, str(path), spec) is None
 
 
 def test_weights_that_do_not_fit_say_so_in_plain_words(tmp_path):
     spec = model_spec()
-    path = export_weights(build_model(spec), spec, tmp_path / "bare.safetensors")
+    path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "bare.safetensors")
     path.with_suffix(".json").unlink()          # no sidecar, so torch is the only check
 
     other = model_spec(filters=16)
     with pytest.raises(WeightsError, match="does not fit this model"):
-        load_into(build_model(other), str(path), other)
+        load_into(build_model(other, n_class=2), str(path), other)
 
 
 # ------------------------------------------------------------------ naming
@@ -253,7 +258,7 @@ def fake_hub(monkeypatch, tmp_path):
 def test_a_hub_reference_downloads_the_file_and_its_sidecar(fake_hub, tmp_path):
     served, asked = fake_hub
     spec = model_spec()
-    export_weights(build_model(spec), spec, served / "dsbowl-unet.safetensors",
+    export_weights(build_model(spec, n_class=2), spec, served / "dsbowl-unet.safetensors",
                    extra={"data": "BBBC038v1"})
 
     path = resolve_weights("hf://maju116/platypus-weights/dsbowl-unet.safetensors@a1b2c3d")
@@ -267,7 +272,7 @@ def test_a_hub_reference_downloads_the_file_and_its_sidecar(fake_hub, tmp_path):
 def test_a_repo_without_a_sidecar_is_not_an_error(fake_hub):
     served, _ = fake_hub
     spec = model_spec()
-    export_weights(build_model(spec), spec, served / "bare.safetensors")
+    export_weights(build_model(spec, n_class=2), spec, served / "bare.safetensors")
     (served / "bare.json").unlink()
 
     path = resolve_weights("hf://someone/else/bare.safetensors@deadbee")
@@ -278,7 +283,7 @@ def test_a_registry_name_resolves_through_the_hub(fake_hub, monkeypatch):
     """What a user will actually write. The entry carries the commit, so the name cannot drift."""
     served, asked = fake_hub
     spec = model_spec()
-    export_weights(build_model(spec), spec, served / "dsbowl-unet.safetensors")
+    export_weights(build_model(spec, n_class=2), spec, served / "dsbowl-unet.safetensors")
 
     monkeypatch.setitem(
         __import__("pyplatypus.weights", fromlist=["REGISTRY"]).REGISTRY,
@@ -304,13 +309,13 @@ def test_a_spec_can_name_local_weights_and_skip_training(tmp_path, nested_root):
     from pyplatypus import Engine
 
     spec = model_spec(input_shape=(32, 32), channels=3)
-    path = export_weights(build_model(spec), spec, tmp_path / "published.safetensors")
+    path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "published.safetensors")
 
     engine = Engine(from_dict({
         "task": "semantic_segmentation",
         "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, "n_class": 2,
+        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, 
                     "blocks": 2, "filters": 4, "batch_size": 2,
                     "weights": str(path), "fit": False}],
     }), device="cpu")
@@ -327,7 +332,7 @@ def test_the_engine_exports_what_it_trained(tmp_path, nested_root):
         "task": "semantic_segmentation",
         "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, "n_class": 2,
+        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, 
                     "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 1}],
     }), device="cpu")
     engine.fit()
@@ -346,7 +351,7 @@ def test_exporting_a_model_that_was_not_trained_lists_the_ones_there_are(nested_
         "task": "semantic_segmentation",
         "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, "n_class": 2,
+        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, 
                     "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 1}],
     }), device="cpu")
     engine.fit()
@@ -405,7 +410,7 @@ def test_a_local_file_still_works_without_huggingface_hub(monkeypatch, trained):
     monkeypatch.setattr(builtins, "__import__", without_hub)
 
     spec = model_spec()
-    fresh = build_model(spec)
+    fresh = build_model(spec, n_class=2)
     load_into(fresh, str(path), spec)
     for name, value in model.state_dict().items():
         assert torch.equal(value, fresh.state_dict()[name])
@@ -449,12 +454,12 @@ def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
     from pyplatypus.weights import WeightsError, export_weights, load_into
 
     trained = SegmentationModel(name="a", input_shape=(256, 256))
-    written = export_weights(build_model(trained), trained,
+    written = export_weights(build_model(trained, n_class=2), trained,
                              tmp_path / "w.safetensors")
 
     other = SegmentationModel(name="b", input_shape=(160, 160))
     with pytest.raises(WeightsError) as caught:
-        load_into(build_model(other), str(written), other)
+        load_into(build_model(other, n_class=2), str(written), other)
     assert "input_shape: weights say (256, 256), the model says (160, 160)" in str(
         caught.value
     )

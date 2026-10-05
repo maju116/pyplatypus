@@ -1,6 +1,54 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.0a1] - 2026-10-05
+
+**Breaking.** Three fields in a model block were assertions wearing the clothes of settings -
+each one restating a fact that lives somewhere else, able only to agree or to be wrong.
+
+### Removed
+
+ - **`n_class` is no longer a model field.** The number of classes comes from the data, from
+   `colormap` or `labels`, and always did. The proof that the field was wrong is what left with
+   it: a spec-level validator existed for the sole purpose of catching a model disagreeing with
+   its own data. There is nothing left to disagree.
+
+   The count still reaches the weights sidecar - contributed by the engine, from the half of
+   the specification that knows it - so weights trained for a different number of classes are
+   refused exactly as before.
+
+   `build_model(spec, n_class=...)` takes it as an argument now: a network's head is that wide,
+   so it has to be told, and saying so in the signature is honest.
+
+### Changed
+
+ - **`channels` is derived from `channels_from` when the model does not state it.** Unlike
+   `n_class` the field stays, because without `channels_from` it is a real choice - the same
+   files can be read as one channel or as three. Stated, it is still checked and still refused
+   when it disagrees; silent, it is filled in.
+
+ - **A weights file's own geometry is adopted.** `architecture`, `blocks` and `filters` - and
+   `anchors_per_grid` for a detector - are taken from the sidecar where the specification
+   stayed silent. Using somebody else's published model meant knowing its internals
+   (`dsbowl-unet` is four blocks of sixteen filters) and being refused for guessing. Detection
+   has adopted its anchors this way since 0.3.0a12; this is the same move applied to the rest
+   of the fingerprint.
+
+   `model_fields_set` is what makes it safe: a value you wrote and a default that happened to
+   be there are the same number and not the same claim. Anything stated is left alone and still
+   has to agree, so this loosens what may be omitted and nothing about what is checked.
+
+   **`input_shape` and `channels` are deliberately not adopted.** The rank comes from
+   `input_shape` and is needed while the specification is validated - before any sidecar can be
+   reached without a download - and the data pipeline reads both before a network exists. A
+   specification that cannot be checked offline is the air-gapped hospital problem this project
+   has carried since RECON.md. Pinned by a test, so it reads as a decision rather than a gap.
+
+### Migrating
+
+Delete `n_class` from every model block; nothing replaces it. If the count was right it was
+redundant, and if it was wrong the run was already being refused.
+
 ## [0.4.0a1] - 2026-10-05
 
 **Breaking.** A minor bump rather than another alpha letter, because the configuration format

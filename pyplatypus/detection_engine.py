@@ -310,6 +310,9 @@ class DetectionEngine:
                 print(f"\n=== {model_spec.name} "
                       f"({model_spec.architecture.value}) ===")
 
+            if model_spec.weights:
+                model_spec = self._adopt_from_weights(model_spec)
+
             network = build_yolo3(n_class=self.spec.data.n_class,
                                   anchors_per_grid=model_spec.anchors_per_grid,
                                   in_channels=model_spec.channels)
@@ -416,6 +419,34 @@ class DetectionEngine:
             "n_class": self.spec.data.n_class,
             "classes": list(self.spec.data.classes),
         })
+
+    #: `anchors_per_grid` decides the shape of every head, and a published detector knows
+    #: its own. Not `input_shape` or `channels`, for the reason the segmentation engine
+    #: gives: the rank is needed while the specification is validated, before a sidecar can
+    #: be reached without a download.
+    ADOPTABLE = ("architecture", "anchors_per_grid")
+
+    def _adopt_from_weights(self, model_spec: DetectionModel) -> DetectionModel:
+        """The counterpart of `_anchors_from` for the rest of what the file describes.
+
+        Anchors have travelled with detection weights since 0.3.0a12, for the reason that
+        without them the same weights decode every box scaled by a fixed factor. The head
+        geometry is the same kind of fact, and a caller should no more have to know a
+        published detector's `anchors_per_grid` than its anchors.
+        """
+        from pyplatypus.weights import describe, resolve_weights
+
+        try:
+            sidecar = describe(resolve_weights(model_spec.weights))
+        except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
+            return model_spec          # told with the message it has always given.
+        if not sidecar:
+            return model_spec
+        adopted = {field: sidecar[field] for field in self.ADOPTABLE
+                   if field in sidecar and field not in model_spec.model_fields_set}
+        if not adopted:
+            return model_spec
+        return type(model_spec).model_validate({**model_spec.model_dump(), **adopted})
 
     def _anchors_from(self, sidecar: dict | None, spec: DetectionModel) -> tuple:
         """The anchors the weights were trained with, or a refusal.

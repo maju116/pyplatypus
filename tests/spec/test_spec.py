@@ -24,15 +24,16 @@ def test_defaults_are_sensible(config):
 
 def test_n_class_comes_from_the_colormap(config):
     config["data"]["colormap"] = [[0, 0, 0], [255, 0, 0], [0, 255, 0]]
-    config["models"][0]["n_class"] = 3
     assert from_dict(config).data.n_class == 3
 
 
-def test_class_count_must_agree_with_colormap(config):
+def test_a_model_cannot_declare_a_class_count(config):
+    """It used to, and the spec needed a validator to catch it disagreeing with its own
+    data. The data decides how many classes there are; a model that also said so was a
+    second place for one fact to live, and the only thing it could add was a mismatch."""
     config["models"][0]["n_class"] = 5
-    with pytest.raises(ConfigError) as caught:
+    with pytest.raises(ConfigError, match="Extra inputs are not permitted"):
         from_dict(config)
-    assert "colormap defines 2 classes" in str(caught.value)
 
 
 def test_duplicate_model_names_rejected(config, model_block):
@@ -65,17 +66,9 @@ def test_labels_name_the_classes_for_volumes(config):
     """Volumes label with numbers, not colours, so the spec has to accept both ways."""
     config["data"].pop("colormap")
     config["data"]["labels"] = [0, 1, 4]
-    config["models"][0]["n_class"] = 3
     spec = from_dict(config, check_paths=False)
     assert spec.data.n_class == 3
     assert spec.data.label_map
-
-
-def test_the_class_count_mismatch_names_labels_when_labels_are_in_use(config):
-    config["data"].pop("colormap")
-    config["data"]["labels"] = [0, 1, 4]        # three classes, model still says two
-    with pytest.raises(ConfigError, match="the labels defines 3 classes"):
-        from_dict(config, check_paths=False)
 
 
 def test_a_colormap_still_means_pictures(config):

@@ -39,7 +39,7 @@ def engine_for(root, **data):
     spec = from_dict({
         "task": "semantic_segmentation",
         "data": block,
-        "models": [{"name": "m", "input_shape": [32, 32, 32], "n_class": 2, "channels": 1,
+        "models": [{"name": "m", "input_shape": [32, 32, 32], "channels": 1,
                     "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
                     "metrics": [{"name": "dice"}]}],
     })
@@ -122,7 +122,7 @@ def test_the_returned_mask_covers_the_anatomy_in_the_source_scan(tmp_path):
         "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
                  "window": "soft_tissue", "target_spacing": (1.0, 1.0, 1.0),
                  "shuffle": False},
-        "models": [{"name": "m", "input_shape": [48, 48, 48], "n_class": 2, "channels": 1,
+        "models": [{"name": "m", "input_shape": [48, 48, 48], "channels": 1,
                     "blocks": 2, "filters": 8, "batch_size": 2, "epochs": 20,
                     "loss": {"name": "dice"},
                     "metrics": [{"name": "dice", "include_background": False}]}],
@@ -169,7 +169,7 @@ def test_the_round_trip_keeps_a_mask_where_it_was(tmp_path):
         "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
                  "window": "soft_tissue", "target_spacing": (1.0, 1.0, 1.0),
                  "shuffle": False},
-        "models": [{"name": "m", "input_shape": [48, 48, 48], "n_class": 2, "channels": 1,
+        "models": [{"name": "m", "input_shape": [48, 48, 48], "channels": 1,
                     "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1}],
     })
     engine = Engine(spec, device="cpu")

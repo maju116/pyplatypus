@@ -35,7 +35,8 @@ class UShapedNet(nn.Module):
     Logits, always - the loss applies its own activation.
     """
 
-    def __init__(self, spec: SegmentationModel, encoder: Encoder | None = None):
+    def __init__(self, spec: SegmentationModel, *, n_class: int,
+                 encoder: Encoder | None = None):
         super().__init__()
         self.rank = check_rank(spec.rank)
         self.spec = spec
@@ -92,7 +93,7 @@ class UShapedNet(nn.Module):
         self.deep_supervision = spec.deep_supervision
         head_depths = range(1, depth + 1) if spec.deep_supervision else [depth]
         self.heads = nn.ModuleDict({
-            str(j): convolution(self.rank, widths[0], spec.n_class, kernel_size=1)
+            str(j): convolution(self.rank, widths[0], n_class, kernel_size=1)
             for j in head_depths
         })
 
@@ -142,6 +143,12 @@ class UShapedNet(nn.Module):
 
 
 
-def build_model(spec: SegmentationModel, encoder: Encoder | None = None) -> UShapedNet:
-    """The one entry point. Every architecture, every rank, one call."""
-    return UShapedNet(spec, encoder=encoder)
+def build_model(spec: SegmentationModel, *, n_class: int,
+                encoder: Encoder | None = None) -> UShapedNet:
+    """The one entry point. Every architecture, every rank, one call.
+
+    `n_class` is passed rather than read off the model, because the data decides how many
+    classes there are - the colormap or the label map - and a model that also declared it
+    was a second place for the same fact to live.
+    """
+    return UShapedNet(spec, n_class=n_class, encoder=encoder)
