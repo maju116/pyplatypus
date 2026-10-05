@@ -1,6 +1,41 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.3.0a14] - 2026-10-05
+
+### Added
+
+ - **`evaluate_images()`: one row per image for detection.** The counterpart of the
+   segmentation engine's per-case scores, and the question a table of averages cannot reach -
+   not how well on average, but *which* images it fails on. A mean over a split says 0.86; it
+   does not say the misses are concentrated in four frames where the stain is dark, and that
+   difference is usually about the data rather than the model.
+
+   Columns are `key`, `n_truth`, `n_predicted`, `matched`, `missed`, `spurious` and
+   `mean_matched_iou`. Sort by `missed` for the frames it cannot see, by `mean_matched_iou` for
+   the ones where it sees everything and places it badly - different problems, usually the data
+   and the anchors respectively.
+
+   **There is deliberately no average precision per image.** AP is the area under a
+   precision-recall curve and therefore a property of a ranking over a whole dataset; computed
+   on one image with three boxes it swings on a single box's rank and means nothing - the same
+   degeneracy as a per-case Dice on an empty truth mask. What is meaningful for one picture is
+   counting and overlap, so that is what the row carries.
+
+   **Counts are read at the specification's `operating_point`**, not over the whole ranking.
+   "How many were missed" is undefined at a threshold of zero, where every box the model dimly
+   considered counts as a prediction and `spurious` would count the tail that average precision
+   exists to integrate over.
+
+   `mean_matched_iou` is `None` rather than `0.0` when nothing matched: an image where the model
+   found nothing and one where it found badly-placed boxes are different failures, and a zero
+   merges them.
+
+   Matching reuses `match_detections`, the same function the dataset-wide report uses, so the
+   rows are a decomposition of the table rather than a second implementation - pinned by a test
+   that asserts they sum to it. The example prints the five worst frames and how many were
+   exactly right.
+
 ## [0.3.0a13] - 2026-10-04
 
 ### Fixed

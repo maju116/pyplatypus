@@ -346,6 +346,85 @@ def detection_report(predictions: Sequence[dict[str, Any]],
     )
 
 
+def image_report(predictions: Sequence[dict[str, Any]],
+                 truths: Sequence[dict[str, Any]], *,
+                 labels: Sequence[str] | None = None,
+                 iou_threshold: float = 0.5,
+                 score_threshold: float = 0.0,
+                 keys: Sequence[Any] | None = None) -> list[dict[str, Any]]:
+    """One row per image: what was found, what was missed, and how well it fits.
+
+    The detection counterpart of segmentation's per-case scores, and the answer to the
+    question a table of averages cannot reach - *which* images it fails on. A mean over a
+    split says a model is at 0.86; it does not say that the failures are the four frames
+    where the stain is dark.
+
+    **There is no average precision here, and that is the point.** AP is the area under a
+    precision-recall curve, which is a property of a ranking over a whole dataset. Computed
+    on one image with three boxes it is a number between 0 and 1 that moves wildly with a
+    single box's rank and means nothing - the same trap as a per-case Dice on an empty
+    mask. What is meaningful per image is counting and overlap, so that is what this
+    returns.
+
+    **Counts are read at `score_threshold`, and they have to be.** "How many did it miss"
+    is undefined over the whole ranking, where every box the model dimly considered counts
+    as a prediction. Pass the specification's `operating_point`, which is what it is for.
+
+    Matching is per class and uses `match_detections`, the same function the dataset-wide
+    report uses, so a row here and the table there cannot disagree about what matched. A
+    prediction of one class never claims a truth of another, and a truth already claimed by
+    a higher-scoring prediction cannot be claimed twice - so a duplicate box is spurious.
+
+    `mean_matched_iou` is `None` rather than 0.0 when nothing matched: an image where the
+    model found nothing and an image where it found badly-placed boxes are different
+    failures, and a zero would merge them.
+    """
+    if len(predictions) != len(truths):
+        raise DetectionError(
+            f"{len(predictions)} images of predictions against {len(truths)} of truth; "
+            f"they must line up, with an empty entry for an image that has neither"
+        )
+    if keys is not None and len(keys) != len(predictions):
+        raise DetectionError(
+            f"{len(keys)} keys for {len(predictions)} images; there must be one each"
+        )
+    if not 0 < iou_threshold <= 1:
+        raise DetectionError(
+            f"an IoU threshold must be above 0 and at most 1; got {iou_threshold}"
+        )
+
+    classes = _classes_present(predictions, truths, labels)
+    rows: list[dict[str, Any]] = []
+    for position, (predicted, truth) in enumerate(zip(predictions, truths, strict=True)):
+        n_truth = n_predicted = matched = 0
+        overlaps: list[float] = []
+        for index in classes:
+            boxes, scores = _of_class_predicted(predicted, index, score_threshold)
+            truth_boxes = _of_class_truth(truth, index)
+            n_truth += len(truth_boxes)
+            n_predicted += len(boxes)
+            if not len(boxes) or not len(truth_boxes):
+                continue
+            _, hit, at = match_detections(boxes, scores, truth_boxes,
+                                          iou_threshold=iou_threshold)
+            matched += int(hit.sum())
+            overlaps.extend(float(value) for value in at[hit])
+
+        key = keys[position] if keys is not None else (
+            predicted.get("key", truth.get("key", position))
+        )
+        rows.append({
+            "key": key,
+            "n_truth": n_truth,
+            "n_predicted": n_predicted,
+            "matched": matched,
+            "missed": n_truth - matched,
+            "spurious": n_predicted - matched,
+            "mean_matched_iou": float(np.mean(overlaps)) if overlaps else None,
+        })
+    return rows
+
+
 def _classes_present(predictions, truths, labels) -> list[int]:
     """Every class the data mentions, or every class the labels declare.
 
