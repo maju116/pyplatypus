@@ -46,8 +46,12 @@ class Task(str, Enum):
     it is two different intentions in one file.
     """
 
-    SEGMENTATION = "segmentation"
-    DETECTION = "detection"
+    #: Named in full because the field has to survive the tasks that are not here yet.
+    #: "segmentation" stops meaning one thing the day instance segmentation arrives, and a
+    #: value that has to be reinterpreted later is worse than a longer one now. These are
+    #: also the two words the 2022 package used for its top-level configuration keys.
+    SEMANTIC_SEGMENTATION = "semantic_segmentation"
+    OBJECT_DETECTION = "object_detection"
 
 
 class Architecture(str, Enum):

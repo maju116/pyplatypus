@@ -18,8 +18,8 @@ def test_the_top_level_is_a_choice_of_task():
     assert schema["discriminator"] == {
         "propertyName": "task",
         "mapping": {
-            "segmentation": "#/$defs/SegmentationSpec",
-            "detection": "#/$defs/DetectionSpec",
+            "semantic_segmentation": "#/$defs/SegmentationSpec",
+            "object_detection": "#/$defs/DetectionSpec",
         },
     }
     assert {ref["$ref"] for ref in schema["oneOf"]} == {

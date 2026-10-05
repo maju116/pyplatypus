@@ -106,7 +106,7 @@ def configuration(splits: dict[str, Path], arguments) -> dict:
     cheapest to demonstrate.
     """
     return {
-        "task": "detection",
+        "task": "object_detection",
         "seed": arguments.seed,
         "data": {
             "mode": "config_file",

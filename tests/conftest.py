@@ -35,7 +35,9 @@ def model_block():
 
 @pytest.fixture
 def config(data_block, model_block):
-    return {"data": data_block, "models": [model_block]}
+    # `task` is required of every configuration, so the shared fixture states it rather
+    # than relying on a default that no longer exists.
+    return {"task": "semantic_segmentation", "data": data_block, "models": [model_block]}
 
 
 @pytest.fixture
@@ -178,7 +180,7 @@ def detection_root(tmp_path):
 def detection_config(detection_root):
     """The smallest detection specification that trains: two epochs, two anchors."""
     return {
-        "task": "detection",
+        "task": "object_detection",
         "seed": 1,
         "data": {
             "train_path": str(detection_root / "train"),

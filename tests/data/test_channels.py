@@ -187,6 +187,7 @@ def test_a_multi_modal_spec_trains(tmp_path):
                    {"t1": 100 + index, "t1ce": 200, "t2": 300, "flair": 400})
 
     engine = Engine(from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
                  "channels_from": PATTERNS, "window": [250.0, 500.0],
                  "shuffle": False},

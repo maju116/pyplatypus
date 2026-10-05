@@ -37,6 +37,7 @@ def engine_for(root, **data):
              "window": "soft_tissue", "shuffle": False}
     block.update(data)
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": block,
         "models": [{"name": "m", "input_shape": [32, 32, 32], "n_class": 2, "channels": 1,
                     "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
@@ -117,6 +118,7 @@ def test_the_returned_mask_covers_the_anatomy_in_the_source_scan(tmp_path):
         write_case(root, name, (48, 48, 24), (1.0, 1.0, 2.0), block)
 
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
                  "window": "soft_tissue", "target_spacing": (1.0, 1.0, 1.0),
                  "shuffle": False},
@@ -163,6 +165,7 @@ def test_the_round_trip_keeps_a_mask_where_it_was(tmp_path):
     # trip legitimately loses it, which is what the first version of this test measured: 0.89,
     # and honest.
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
                  "window": "soft_tissue", "target_spacing": (1.0, 1.0, 1.0),
                  "shuffle": False},

@@ -200,6 +200,7 @@ def test_a_dicom_dataset_trains_end_to_end(tmp_path):
 
     dicom_dataset(tmp_path)
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {
             "train_path": str(tmp_path), "validation_path": str(tmp_path),
             "colormap": [[0, 0, 0], [255, 255, 255]],

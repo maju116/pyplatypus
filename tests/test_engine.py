@@ -10,6 +10,7 @@ from pyplatypus.engine import EngineError
 @pytest.fixture
 def two_model_config(nested_root):
     return {
+        "task": "semantic_segmentation",
         "data": {
             "train_path": str(nested_root),
             "validation_path": str(nested_root),
@@ -168,6 +169,7 @@ def test_a_3d_spec_trains(volume_root):
     """
     pytest.importorskip("nibabel")
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
                  "labels": [0, 1], "shuffle": False},
         "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "n_class": 2, "blocks": 2,

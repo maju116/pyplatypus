@@ -94,7 +94,7 @@ class PlatypusSpec(SpecModel):
 
 
 class SegmentationSpec(PlatypusSpec):
-    task: Literal[Task.SEGMENTATION] = Task.SEGMENTATION
+    task: Literal[Task.SEMANTIC_SEGMENTATION] = Task.SEMANTIC_SEGMENTATION
     data: SegmentationData
     models: list[SegmentationModel] = Field(min_length=1)
 
@@ -135,7 +135,7 @@ class SegmentationSpec(PlatypusSpec):
 
 
 class DetectionSpec(PlatypusSpec):
-    task: Literal[Task.DETECTION]
+    task: Literal[Task.OBJECT_DETECTION]
     data: DetectionData
     models: list[DetectionModel] = Field(min_length=1)
 

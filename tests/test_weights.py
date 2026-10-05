@@ -307,6 +307,7 @@ def test_a_spec_can_name_local_weights_and_skip_training(tmp_path, nested_root):
     path = export_weights(build_model(spec), spec, tmp_path / "published.safetensors")
 
     engine = Engine(from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
         "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, "n_class": 2,
@@ -323,6 +324,7 @@ def test_the_engine_exports_what_it_trained(tmp_path, nested_root):
     from pyplatypus import Engine
 
     engine = Engine(from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
         "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, "n_class": 2,
@@ -341,6 +343,7 @@ def test_exporting_a_model_that_was_not_trained_lists_the_ones_there_are(nested_
     from pyplatypus.engine import EngineError
 
     engine = Engine(from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
                  "colormap": [[0, 0, 0], [255, 255, 255]]},
         "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, "n_class": 2,
@@ -478,6 +481,7 @@ def _trained(tmp_path, colormap, name="m"):
             Image.fromarray(mask).save(sample / "masks" / "m.png")
 
     spec = from_dict({
+        "task": "semantic_segmentation",
         "data": {"train_path": str(tmp_path / "train"),
                  "validation_path": str(tmp_path / "valid"), "colormap": colormap},
         "models": [{"name": name, "input_shape": [32, 32], "blocks": 2, "filters": 4,
@@ -532,6 +536,7 @@ def test_label_maps_are_compared_too(tmp_path):
                 mask[8:20, 8:20] = labels[1]
                 Image.fromarray(mask).save(sample / "masks" / "m.png")
         spec = from_dict({
+        "task": "semantic_segmentation",
             "data": {"train_path": str(root / "train"),
                      "validation_path": str(root / "valid"), "labels": labels},
             "models": [{"name": "m", "input_shape": [32, 32], "blocks": 2, "filters": 4,

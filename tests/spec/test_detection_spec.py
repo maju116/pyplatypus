@@ -33,7 +33,7 @@ def detection_data():
 
 @pytest.fixture
 def detection_config(detection_data):
-    return {"task": "detection", "data": detection_data,
+    return {"task": "object_detection", "data": detection_data,
             "models": [{"name": "bccd", "input_shape": [416, 416]}]}
 
 
@@ -48,14 +48,14 @@ def test_a_configuration_without_a_task_is_a_segmentation_one(config):
     there are released versions of the R package that send no `task` at all."""
     spec = build(config)
     assert isinstance(spec, SegmentationSpec)
-    assert spec.task is Task.SEGMENTATION
-    assert spec.to_dict()["task"] == "segmentation"
+    assert spec.task is Task.SEMANTIC_SEGMENTATION
+    assert spec.to_dict()["task"] == "semantic_segmentation"
 
 
 def test_the_task_selects_the_detection_shape(detection_config):
     spec = build(detection_config)
     assert isinstance(spec, DetectionSpec)
-    assert spec.task is Task.DETECTION
+    assert spec.task is Task.OBJECT_DETECTION
     assert isinstance(spec.data, DetectionData)
     assert isinstance(spec.models[0], DetectionModel)
 
@@ -64,7 +64,7 @@ def test_an_unknown_task_lists_the_two_that_exist(detection_config):
     with pytest.raises(ConfigError) as caught:
         build({**detection_config, "task": "detction"})
     message = str(caught.value)
-    assert "'segmentation', 'detection'" in message
+    assert "'semantic_segmentation', 'object_detection'" in message
     # pydantic renders an enum tag with repr; the value is what a user types, and the
     # class name is an implementation detail that would read as the thing to write.
     assert "Task." not in message
@@ -100,7 +100,7 @@ def test_the_base_class_cannot_be_built_directly(config):
     from pyplatypus.spec.spec import PlatypusSpec
 
     with pytest.raises(ValueError, match="shared base"):
-        PlatypusSpec(task="segmentation", **config)
+        PlatypusSpec(**config)
 
 
 # --- what detection needs that segmentation does not ------------------------------------
@@ -115,7 +115,7 @@ def test_one_class_is_allowed_because_there_is_no_background(detection_data):
     """A segmentation colormap needs at least two entries, one of them the background. A
     region of an image holding no object is not a box, so a single-class detector is an
     ordinary thing to want."""
-    spec = build({"task": "detection", "data": {**detection_data, "classes": ["cell"]},
+    spec = build({"task": "object_detection", "data": {**detection_data, "classes": ["cell"]},
                   "models": [{"name": "one", "input_shape": [416, 416]}]})
     assert spec.n_class == 1
 

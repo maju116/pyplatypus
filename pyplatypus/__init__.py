@@ -31,7 +31,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.3.0a15"
+__version__ = "0.4.0a1"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
