@@ -166,7 +166,24 @@ def report(engine, split: str) -> dict:
               f"{row['n_predicted']:>7} {_f(row['precision'], 3):>7} "
               f"{_f(row['recall'], 3):>7}")
     print()
-    return {"model": model, "per_class": per_class}
+
+    # Which frames, not just how well on average. A mean over a split says 0.86; it does
+    # not say that the misses are concentrated in a handful of images - and if they are,
+    # that is usually something about the data rather than the model. This runs the model
+    # over the split a second time, which on BCCD's 72 test images is seconds; on a large
+    # split it is a forward pass to budget for.
+    images = engine.evaluate_images("bccd", split)
+    worst = sorted(images, key=lambda row: (-row["missed"], row["mean_matched_iou"] or 0))
+    print(f"  worst {min(5, len(worst))} images by boxes missed")
+    print(f"  {'image':28} {'truth':>6} {'found':>6} {'missed':>7} {'extra':>6} {'IoU':>6}")
+    for row in worst[:5]:
+        print(f"  {str(row['key'])[:28]:28} {row['n_truth']:>6} {row['matched']:>6} "
+              f"{row['missed']:>7} {row['spurious']:>6} "
+              f"{_f(row['mean_matched_iou'], 3):>6}")
+    clean = sum(1 for row in images if not row["missed"] and not row["spurious"])
+    print(f"  {clean} of {len(images)} images exactly right\n")
+
+    return {"model": model, "per_class": per_class, "per_image": images}
 
 
 def _f(value, places: int) -> str:

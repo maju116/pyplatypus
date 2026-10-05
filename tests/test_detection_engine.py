@@ -221,6 +221,55 @@ def test_one_row_per_class(trained, detection_classes):
     assert sum(row["n_truth"] for row in rows) == 8
 
 
+def test_one_row_per_image_keyed_by_the_sample(trained):
+    """The question a table of averages cannot answer: *which* images it fails on."""
+    rows = trained.evaluate_images("d", "validation")
+    assert len(rows) == trained.split_sizes()["validation"]
+
+    keys = [row["key"] for row in rows]
+    assert len(set(keys)) == len(keys)          # a row you can find again
+    assert sum(row["n_truth"] for row in rows) == 8   # the split's own count
+
+    for row in rows:
+        assert row["missed"] == row["n_truth"] - row["matched"]
+        assert row["spurious"] == row["n_predicted"] - row["matched"]
+
+
+def test_no_average_precision_per_image(trained):
+    """AP is the area under a precision-recall curve, so it is a property of a ranking
+    over a dataset. On one image with three boxes it moves on a single box's rank and
+    means nothing - the same trap as a per-case Dice on an empty mask."""
+    row = trained.evaluate_images("d", "validation")[0]
+    assert "average_precision" not in row and "map_50" not in row
+    assert "mean_matched_iou" in row
+
+
+def test_the_per_image_counts_decompose_the_table(trained):
+    """Read at the same threshold, the rows and the per-class table must agree about how
+    many boxes there were. If they ever disagree, someone chasing a dataset-wide number
+    through the per-image rows is chasing a difference in the code."""
+    rows = trained.evaluate_images("d", "validation")
+    per_class = trained.evaluate_classes("d", "validation")
+    assert sum(r["n_truth"] for r in rows) == sum(c["n_truth"] for c in per_class)
+    assert sum(r["n_predicted"] for r in rows) == sum(c["n_predicted"] for c in per_class)
+
+
+def test_the_default_threshold_is_the_operating_point(trained):
+    """Counts need a confidence. The default is the one the specification names, and a
+    looser threshold can only add predictions."""
+    default = trained.evaluate_images("d", "validation")
+    loose = trained.evaluate_images("d", "validation", score_threshold=0.0)
+    assert sum(r["n_predicted"] for r in loose) >= sum(r["n_predicted"] for r in default)
+
+
+def test_per_image_scoring_refuses_a_split_without_annotations(trained, monkeypatch):
+    """A zero in a table reads as a result; "there is nothing to compare against" is a
+    different statement and has to be said out loud."""
+    monkeypatch.setattr(trained, "labelled", {"train"})
+    with pytest.raises(EngineError, match="no annotations"):
+        trained.evaluate_images("d", "validation")
+
+
 def test_one_report_serves_both_tables(trained, monkeypatch):
     """`evaluate` and `evaluate_classes` are views over `report`, so a caller that wants
     both runs the model over the split once. Counted rather than assumed, because the

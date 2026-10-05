@@ -39,6 +39,7 @@ from pyplatypus.detection.metrics import (
     COCO_THRESHOLDS,
     DetectionMetrics,
     detection_report,
+    image_report,
 )
 from pyplatypus.detection.yolo3 import build_yolo3
 from pyplatypus.engine import EngineError
@@ -514,6 +515,44 @@ class DetectionEngine:
         about red cells.
         """
         return self.report(model_name, split).per_class()
+
+    def evaluate_images(self, model_name: str, split: str = "validation",
+                        score_threshold: float | None = None
+                        ) -> list[dict[str, Any]]:
+        """One row per image instead of one row per model or per class.
+
+        The question a table of averages cannot answer: *which* images it fails on. The
+        counterpart of the segmentation engine's per-case scores, and the second question
+        anyone asks after seeing a mean.
+
+        **No average precision per image.** AP is the area under a precision-recall curve
+        and therefore a property of a ranking over a dataset; on one image with three boxes
+        it swings on a single box's rank and says nothing. The columns are counts and
+        overlap, which do mean something for one picture.
+
+        **Counts are read at the specification's `operating_point`** unless another
+        `score_threshold` is given, because "how many were missed" is undefined over the
+        whole ranking - at a threshold of zero every box the model dimly considered is a
+        prediction, and `spurious` would count the tail that average precision exists to
+        integrate over rather than anything a user would see.
+
+        Sort by `missed` to find the frames it cannot see, or by `mean_matched_iou` to find
+        the ones where it sees everything and places it badly. Those are different
+        problems: the first is usually the data, the second is usually the anchors.
+        """
+        run = self._run(model_name)
+        self._needs_annotations(split, model_name=run.name)
+        predictions = self.predict(model_name, split)
+        dataset = self.dataset(run.spec, split, anchors=run.anchors)
+        truths = [dataset.annotation(index).as_truth() for index in range(len(dataset))]
+        point = (run.spec.operating_point if score_threshold is None
+                 else float(score_threshold))
+        return image_report(
+            predictions, truths,
+            labels=list(self.spec.data.classes),
+            score_threshold=point,
+            keys=[sample.key for sample in dataset.samples],
+        )
 
     def split_sizes(self) -> dict[str, int]:
         """How many images each split holds, and in which order they were found."""
