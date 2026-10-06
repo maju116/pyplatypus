@@ -211,6 +211,58 @@ def test_anchors_given_in_pixels_are_refused_with_the_division_named():
                anchors=(((116, 90),), ((30, 61),), ((10, 13),)), n_class=1)
 
 
+def test_anchors_as_an_array_encode_exactly_as_the_grouped_tuple_does():
+    """An ndarray is the natural type for anchors and used to raise numpy's ambiguous-truth
+    error from inside the one guard meant to produce a clear message. Asserted on the
+    arrays themselves rather than on their shapes: the two routes must agree element for
+    element, since a transposed or reordered group would keep every shape intact."""
+    grouped = (((0.05, 0.06), (0.1, 0.1), (0.2, 0.15)),
+               ((0.3, 0.25), (0.4, 0.3), (0.5, 0.45)),
+               ((0.6, 0.55), (0.7, 0.65), (0.8, 0.75)))
+    boxes, labels = [[10, 10, 90, 80], [200, 150, 320, 290]], [0, 2]
+
+    from_tuple = encode(boxes, labels, anchors=grouped, n_class=3)
+    from_array = encode(boxes, labels, anchors=np.asarray(grouped, dtype=float), n_class=3)
+
+    assert from_array.placed == from_tuple.placed == 2
+    for one, other in zip(from_tuple.targets, from_array.targets, strict=True):
+        np.testing.assert_array_equal(one, other)
+
+
+def test_an_empty_array_of_anchors_is_refused_by_name_and_not_by_numpy():
+    """The regression this file exists for: `if not anchors` raised `ValueError: The truth
+    value of an empty array is ambiguous` - from the guard whose whole purpose is to say
+    what is wrong with empty anchors."""
+    with pytest.raises(DetectionError, match="anchors is empty"):
+        encode([[10, 10, 50, 50]], [0], anchors=np.zeros((0, 3, 2)), n_class=1)
+
+
+def test_flattened_anchors_are_refused_and_the_message_names_the_grouped_attribute():
+    """`AnchorFit.flat` is this shape and is what someone reaches for after fitting
+    anchors. It cannot say how the anchors divide between the output grids, and dividing by
+    three would be right for YOLOv3 and wrong for a model with two heads."""
+    flat = np.asarray([(0.05, 0.06), (0.1, 0.1), (0.2, 0.15),
+                       (0.3, 0.25), (0.4, 0.3), (0.5, 0.45),
+                       (0.6, 0.55), (0.7, 0.65), (0.8, 0.75)], dtype=float)
+    with pytest.raises(DetectionError, match=r"`\.anchors` rather than `\.flat`"):
+        encode([[10, 10, 50, 50]], [0], anchors=flat, n_class=1)
+
+
+def test_an_anchor_fit_offers_both_and_only_the_grouped_one_is_accepted():
+    """Pins the pairing that caused this: the attribute that works and the attribute that
+    is refused both exist on the same object."""
+    from pyplatypus.detection.anchors import fit_shapes
+    shapes = np.array([[0.05, 0.05], [0.1, 0.12], [0.3, 0.28], [0.5, 0.45],
+                       [0.6, 0.7], [0.8, 0.75], [0.15, 0.2], [0.35, 0.4], [0.7, 0.6]])
+    fitted, mean_iou, _, _ = fit_shapes(shapes, 9, seed=0)
+    assert mean_iou > 0  # the fit is real, so the anchors below are too
+    grouped = tuple(tuple(map(tuple, fitted[i * 3:(i + 1) * 3])) for i in range(3))
+
+    encode([[10, 10, 50, 50]], [0], anchors=grouped, n_class=1)
+    with pytest.raises(DetectionError, match=r"flat \(9, 2\) array"):
+        encode([[10, 10, 50, 50]], [0], anchors=np.asarray(fitted, dtype=float), n_class=1)
+
+
 def test_unequal_anchor_counts_are_refused_because_the_head_cannot_have_two_widths():
     with pytest.raises(DetectionError, match="same number of anchors"):
         encode([[10, 10, 50, 50]], [0],
