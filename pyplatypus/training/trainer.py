@@ -115,14 +115,22 @@ class Trainer:
         )
         self.callbacks = callbacks if callbacks is not None else build_callbacks(spec.callbacks)
         self._frozen: bool | None = None
+        self._wants_distance = getattr(self.loss_fn, "needs_distance", False)
 
-    def _loss_and_final(self, batch_x: torch.Tensor, batch_y: torch.Tensor):
+    def _loss_and_final(self, batch_x: torch.Tensor, batch_y: torch.Tensor,
+                        distance: torch.Tensor | None = None):
         out = self.model(batch_x)
+        # The flag, not the value: a loss that does not want a distance map must not be
+        # handed one, and eight of the nine take two arguments. Read with a default
+        # because `loss_fn` need only be callable - the NaN test substitutes a bare
+        # function - and something that does not say it wants a distance map does not.
+        call = ((lambda o: self.loss_fn(o, batch_y, distance))
+                if self._wants_distance
+                else (lambda o: self.loss_fn(o, batch_y)))
         if isinstance(out, tuple):
             # Deep supervision: every depth is trained, the deepest is reported.
-            loss = torch.stack([self.loss_fn(o, batch_y) for o in out]).mean()
-            return loss, out[-1]
-        return self.loss_fn(out, batch_y), out
+            return torch.stack([call(o) for o in out]).mean(), out[-1]
+        return call(out), out
 
     def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str
                    ) -> dict[str, float]:
@@ -137,12 +145,18 @@ class Trainer:
         batches = 0
 
         with torch.set_grad_enabled(train):
-            for batch_x, batch_y in loader:
+            for batch in loader:
+                # Two items or three: the third is the signed distance map, which the
+                # loader produces only when the loss asked for it. Unpacked by length
+                # rather than by a flag, so a loader and a trainer cannot disagree.
+                batch_x, batch_y = batch[0], batch[1]
+                distance = batch[2].to(self.device, non_blocking=True) \
+                    if len(batch) > 2 else None
                 batch_x = batch_x.to(self.device, non_blocking=True)
                 batch_y = batch_y.to(self.device, non_blocking=True)
                 if train:
                     self.optimizer.zero_grad(set_to_none=True)
-                loss, final = self._loss_and_final(batch_x, batch_y)
+                loss, final = self._loss_and_final(batch_x, batch_y, distance)
                 if train:
                     loss.backward()
                     self.optimizer.step()
@@ -241,9 +255,12 @@ class Trainer:
         order: list[str] = []
         position = 0
 
-        for batch_x, batch_y in loader:
-            batch_x = batch_x.to(self.device, non_blocking=True)
-            batch_y = batch_y.to(self.device, non_blocking=True)
+        # By length, as `_run_epoch` does: a loader built elsewhere may carry a distance
+        # map this does not need, and crashing on an extra item nobody reads would be a
+        # poor way to say so.
+        for batch in loader:
+            batch_x = batch[0].to(self.device, non_blocking=True)
+            batch_y = batch[1].to(self.device, non_blocking=True)
             out = self.model(batch_x)
             if isinstance(out, tuple):
                 out = out[-1]

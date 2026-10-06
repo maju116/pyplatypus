@@ -95,6 +95,45 @@ def labels_to_classes(mask: np.ndarray, labels: list[int], *, tolerance: float =
     return classes, float(1.0 - matched.mean())
 
 
+def signed_distance(onehot: np.ndarray, spacing: tuple[float, ...] | None = None
+                    ) -> np.ndarray:
+    """Distance to the nearest boundary, negative inside each class and positive outside.
+
+    One map per class, same shape as the mask it came from, for a loss that needs to know
+    *how far* a prediction is wrong rather than only that it is. Dice counts a voxel the
+    same wherever it sits, which is why a model can reach 0.88 on it while reporting
+    volumes a fifth too large - the overshoot is all at the boundary, and the boundary is
+    most of a small lesion.
+
+    **`spacing` makes it millimetres rather than voxels**, and giving it is the difference
+    between a loss that means the same thing on two scanners and one that does not: a slice
+    2.5 mm thick and one 1 mm thick put the same anatomy at different voxel distances.
+    Unset, the axes are treated as equal, which is what a 2D image with no physical scale
+    wants.
+
+    A class that is absent from a mask has no boundary, so its map is left at zero: there
+    is nothing to be near or far from, and any other filling would be a number the loss
+    would then act on.
+    """
+    from scipy.ndimage import distance_transform_edt
+
+    array = np.asarray(onehot)
+    if array.ndim < 2:
+        raise MaskError(
+            f"expected a one-hot mask with a class axis last; got shape {array.shape}"
+        )
+    out = np.zeros(array.shape, dtype=np.float32)
+    for index in range(array.shape[-1]):
+        inside = array[..., index] > 0.5
+        if not inside.any() or inside.all():
+            continue
+        out[..., index] = (
+            distance_transform_edt(~inside, sampling=spacing)
+            - distance_transform_edt(inside, sampling=spacing)
+        )
+    return out
+
+
 def classes_to_onehot(classes: np.ndarray, n_class: int) -> np.ndarray:
     """Class indices to a channels-last one-hot array."""
     highest = int(classes.max(initial=0))
