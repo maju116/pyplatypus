@@ -679,3 +679,92 @@ def test_naming_both_weights_and_anchors_is_refused(detection_config, tmp_path):
         from_dict(detection_config)
 
 
+
+
+# --- crops -------------------------------------------------------------------------------
+
+def test_the_source_image_is_the_native_one_and_read_is_the_letterboxed_one(trained):
+    """The two sizes have to differ for anything below to mean anything: the fixture's
+    images are 128x160 and the model sees 128x128, so a crop taken from the wrong one is
+    0.8 of the size it should be."""
+    dataset = trained.dataset(trained.spec.models[0], "validation",
+                              anchors=trained.runs["d"].anchors)
+    assert dataset.source_image(0).shape[:2] == (128, 160)
+    assert dataset.read(0).image.shape[:2] == (128, 128)
+
+
+def test_a_crop_is_cut_from_the_source_image_not_the_network_input(trained):
+    """The decisive assertion, and it is about size rather than content because the
+    content of a prediction is whatever the model said.
+
+    A box comes back in source pixels, so its crop must be as wide as the box is there.
+    Cropping from the letterboxed 128x128 would have scaled every box by 128/160 first,
+    making each crop four fifths of the right size - a difference no shape check on the
+    crop alone would notice, since both are rectangles of plausible dimensions.
+    """
+    records = trained.crops("d", "validation", score_threshold=0.0)
+    total = sum(len(r["crops"]) for r in records)
+    assert total > 0, "nothing was detected, so this test would compare nothing"
+
+    for record in records:
+        for crop, (x1, y1, x2, y2) in zip(record["crops"], record["boxes"], strict=True):
+            wide = min(160, int(np.ceil(x2))) - max(0, int(np.floor(x1)))
+            tall = min(128, int(np.ceil(y2))) - max(0, int(np.floor(y1)))
+            assert crop.shape[:2] == (tall, wide)
+
+
+def test_crops_are_filtered_at_the_operating_point_not_the_score_threshold(trained):
+    """`score_threshold` is near zero so that average precision integrates the whole
+    ranking. Cropping that would hand a classifier the tail AP exists to measure over."""
+    everything = trained.predict("d", "validation")
+    cropped = trained.crops("d", "validation")
+
+    at_zero = sum(len(r["boxes"]) for r in everything)
+    at_point = sum(len(r["boxes"]) for r in cropped)
+    assert at_point < at_zero
+
+    point = trained.spec.models[0].operating_point
+    for record in cropped:
+        assert (record["scores"] >= point).all()
+
+
+def test_every_record_names_the_image_and_keeps_its_columns_aligned(trained):
+    records = trained.crops("d", "validation", score_threshold=0.0)
+    keys = {sample.key for sample in trained._samples["validation"]}
+    assert {r["key"] for r in records} == keys
+
+    for record in records:
+        n = len(record["crops"])
+        assert len(record["boxes"]) == n
+        assert len(record["scores"]) == n
+        assert len(record["labels"]) == n
+        assert len(record["names"]) == n
+
+
+def test_size_brings_every_crop_in_a_split_to_one_shape(trained):
+    """What a classifier needs: one batch, one shape, built by the caller."""
+    records = trained.crops("d", "validation", score_threshold=0.0, size=(32, 32))
+    crops = [c for r in records for c in r["crops"]]
+    assert crops, "nothing was detected"
+    assert all(c.shape[:2] == (32, 32) for c in crops)
+    assert np.stack(crops).shape == (len(crops), 32, 32, 3)
+
+
+def test_a_prediction_off_the_frame_is_dropped_and_counted(trained):
+    """Found by writing the test above rather than by reasoning about it.
+
+    At a low threshold an undertrained detector returns boxes the inverse letterbox maps
+    to no extent at all - `(0.0, 0.0, 32.2, 0.0)` was the first one. That is not a bug in
+    `predict`: a model may say an object is off the frame and `predict` reports what it
+    said. So `crops` clips and drops, exactly as `DetectionDataset.read` does to truths,
+    and `dropped` says how many rather than the arrays quietly disagreeing with each other.
+    """
+    records = trained.crops("d", "validation", score_threshold=0.0)
+    assert all("dropped" in r for r in records)
+    assert sum(r["dropped"] for r in records) > 0, (
+        "no box was off the frame, so this test is not exercising the path it is about"
+    )
+    for record in records:
+        assert len(record["crops"]) == len(record["boxes"])
+        for x1, y1, x2, y2 in record["boxes"]:
+            assert x2 - x1 >= 1 and y2 - y1 >= 1

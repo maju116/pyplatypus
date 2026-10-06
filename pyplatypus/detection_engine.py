@@ -525,6 +525,77 @@ class DetectionEngine:
             })
         return out
 
+    def crops(self, model_name: str, split: str = "test", *,
+              score_threshold: float | None = None, context: float = 0.0,
+              size: tuple[int, int] | None = None, fit: str = "letterbox",
+              fill: float = 0.5) -> list[dict[str, Any]]:
+        """Every detection cut out of the image it was found in.
+
+        The pipeline this is for is a detector followed by a classifier it does not
+        contain: find the objects with three classes, crop them, hand the crops to
+        something that knows eighty. It is the second thing people ask for after boxes,
+        and doing it by hand means re-reading every image and getting the rounding right.
+
+        **Filtered at `operating_point`, not at `score_threshold`.** The specification's
+        `score_threshold` is deliberately near zero so that average precision integrates
+        the whole ranking - on BCCD that is hundreds of boxes an image, almost all of them
+        the tail that AP exists to measure over. Cropping them would hand a classifier
+        mostly noise. `operating_point` is where someone stands when they act on a
+        prediction, which is what cropping is.
+
+        One record per image rather than one flat list, because a crop without its source
+        is not traceable: `key` says which image, and `boxes` are the coordinates it came
+        from, in that image's own pixels.
+
+        Args:
+            model_name: which trained detector.
+            split: which split's images to read.
+            score_threshold: override the confidence to crop at.
+            context: expand each box by this fraction of its size per side, 0 by default.
+            size: bring every crop to `(height, width)`, or None to keep each as cut.
+            fit: `"letterbox"` to preserve aspect, `"stretch"` to resize both axes.
+            fill: padding value for `"letterbox"`.
+
+        Returns:
+            One dict per image with `key`, `crops`, `boxes`, `scores`, `labels`, `names`.
+        """
+        from pyplatypus.detection.boxes import clip_boxes, crop_boxes, drop_degenerate
+
+        run = self._run(model_name)
+        cut = run.spec.operating_point if score_threshold is None else float(score_threshold)
+        dataset = self.dataset(run.spec, split, anchors=run.anchors,
+                               only_images=split not in self.labelled)
+
+        # One pass over the sample list rather than a scan per image: a split with a
+        # thousand images would otherwise be a million comparisons to find each one.
+        by_key = {sample.key: i for i, sample in enumerate(dataset.samples)}
+
+        out = []
+        for found in self.predict(model_name, split):
+            image = dataset.source_image(by_key[found["key"]])
+            keep = np.flatnonzero(found["scores"] >= cut)
+
+            # Clipped and then dropped, which is what `DetectionDataset.read` already does
+            # to the truths it reads. A model is free to predict a box off the frame and
+            # `predict` does not clip, so at a low threshold some come back with no overlap
+            # at all - a zero-extent box at the edge once the letterbox is undone. There is
+            # nothing to crop there, and `dropped` says how many rather than the count
+            # quietly not matching the boxes.
+            boxes = clip_boxes(found["boxes"][keep], image.shape[:2])
+            boxes, kept_index, dropped = drop_degenerate(boxes, keep)
+
+            out.append({
+                "key": found["key"],
+                "crops": crop_boxes(image, boxes, context=context, size=size, fit=fit,
+                                    fill=fill),
+                "boxes": boxes,
+                "scores": found["scores"][kept_index],
+                "labels": found["labels"][kept_index],
+                "names": [found["names"][i] for i in kept_index],
+                "dropped": dropped,
+            })
+        return out
+
     # ------------------------------------------------------------------ evaluate
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
         """One row per model: the comparison table, with detection's columns.
