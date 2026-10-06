@@ -25,12 +25,56 @@ from pyplatypus.spec.common import WINDOWS, DataMode, SpecModel
 Colour = Annotated[tuple[int, int, int], Field(description="RGB, each channel 0-255.")]
 
 
+class SplitSpec(SpecModel):
+    """How to divide one folder, when there is only one folder.
+
+    The alternative to naming `validation_path`: a researcher with a single directory
+    should not have to run a splitting tool and then point three paths at its output,
+    and nothing about that round trip was ever checked.
+
+    Nothing is written. `split_samples` partitions the samples that were already
+    discovered, so a specification stays a description and gains no side effect on disk.
+    `split_dataset()` is still the tool when you want the CSVs to keep, to hand to a
+    colleague or to cite.
+    """
+
+    #: Two or three: train, validation, and optionally test. Enforced by the splitting
+    #: module rather than restated here - one rule, one place.
+    fractions: tuple[float, ...]
+
+    #: **Required, and may be null.** A regular expression read against the sample key;
+    #: everything sharing a group lands in exactly one split. Usually a patient, sometimes
+    #: a study, a scanner or a site - whatever must not straddle the division.
+    #:
+    #: Required rather than optional because the mistake it prevents is invisible. Slices
+    #: of one patient in training and validation at once make validation measure memory
+    #: instead of generalisation, and Dice comes out several points too high with nothing
+    #: in the output to say so. An omitted field would be that choice made silently; `null`
+    #: is the same choice made on purpose, which is all this asks for.
+    group_by: str | None
+
+    #: The split is deterministic given the samples, the fractions, the pattern and this.
+    #: A split that moves between runs makes two results incomparable and the reason for a
+    #: difference impossible to find.
+    seed: int = 0
+
+    @model_validator(mode="after")
+    def fractions_are_two_or_three(self):
+        from pyplatypus.data.splits import _fractions
+
+        _fractions(self.fractions)      # raises with the message that module already gives
+        return self
+
+
 class DataSpec(SpecModel):
     """The part of "where is the data" that does not depend on what is being learned."""
 
     train_path: str
-    validation_path: str
+    #: Optional only in the sense that `split` is the other way to get one. Exactly one of
+    #: the two, because two sources for the validation set are two places to change it.
+    validation_path: str | None = None
     test_path: str | None = None
+    split: SplitSpec | None = None
 
     mode: DataMode = DataMode.NESTED_DIRS
     subdirs: tuple[str, str] = Field(
@@ -71,6 +115,28 @@ class DataSpec(SpecModel):
                 raise ValueError(f"window width must be positive, got {width}")
         return value
 
+    @model_validator(mode="after")
+    def one_way_of_getting_a_validation_set(self):
+        """Exactly one of `validation_path` and `split`.
+
+        Not neither: a run with nothing to validate against reports a number that describes
+        the training data, which is the most dangerous number this package could make easy
+        to produce. Not both, for the reason `colormap` and `labels` are not both - two
+        sources for one thing are two places to change it and one gets forgotten.
+        """
+        if (self.validation_path is None) == (self.split is None):
+            raise ValueError(
+                "a run needs something to validate against: give `validation_path`, or "
+                "`split` to divide `train_path` itself - and `split.group_by` keeps a "
+                "patient out of both halves, which dividing by file does not"
+            )
+        if self.split is not None and self.test_path is not None:
+            raise ValueError(
+                "`test_path` and `split` both say where the test set comes from; give the "
+                "third fraction to `split.fractions` instead, or drop it"
+            )
+        return self
+
     @property
     def label_column(self) -> str:
         """The CSV column holding whatever labels an image.
@@ -84,7 +150,11 @@ class DataSpec(SpecModel):
     def check_paths(self) -> list[str]:
         """Return a human-readable problem for every path that is not there."""
         problems = []
-        wanted = [("train_path", self.train_path), ("validation_path", self.validation_path)]
+        wanted = [("train_path", self.train_path)]
+        # Absent when `split` divides the training folder instead, which the validator
+        # above has already established is one or the other.
+        if self.validation_path is not None:
+            wanted.append(("validation_path", self.validation_path))
         if self.test_path is not None:
             wanted.append(("test_path", self.test_path))
         for field, value in wanted:

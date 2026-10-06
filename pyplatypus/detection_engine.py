@@ -144,16 +144,27 @@ class DetectionEngine:
         self.runs: dict[str, DetectorRun] = {}
         seed_everything(spec.seed)
 
-        self._samples: dict[str, tuple[Sample, ...]] = {
-            "train": discover(spec.data.train_path, spec.data, strict=strict_data).samples,
-            "validation": discover(spec.data.validation_path, spec.data,
-                                   strict=strict_data).samples,
-        }
         #: Splits whose annotations are there. Training and validation must have them;
         #: a test split may or may not, and which it is decides what can be asked of it.
         self.labelled = {"train", "validation"}
-        if spec.data.test_path:
-            self._samples["test"] = self._discover_test(strict=strict_data)
+
+        if spec.data.split is not None:
+            from pyplatypus.engine import split_from_train
+
+            self._samples = split_from_train(spec.data, discover, strict=strict_data)
+            # A test set cut from the training folder came from annotated data, so unlike a
+            # separate `test_path` it can be scored rather than only predicted on.
+            if "test" in self._samples:
+                self.labelled.add("test")
+        else:
+            self._samples: dict[str, tuple[Sample, ...]] = {
+                "train": discover(spec.data.train_path, spec.data,
+                                  strict=strict_data).samples,
+                "validation": discover(spec.data.validation_path, spec.data,
+                                       strict=strict_data).samples,
+            }
+            if spec.data.test_path:
+                self._samples["test"] = self._discover_test(strict=strict_data)
 
     def _discover_test(self, *, strict: bool) -> tuple[Sample, ...]:
         """The test split, with its annotations if it has any.
