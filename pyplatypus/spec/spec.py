@@ -127,6 +127,33 @@ class SegmentationSpec(PlatypusSpec):
         return config
 
     @model_validator(mode="after")
+    def nothing_watches_a_validation_number_that_will_not_arrive(self):
+        """A callback cannot wait for `val_loss` in a run that has no validation set.
+
+        The model knows which quantities it reports and the data knows whether any of them
+        will be measured on a second split; neither alone can answer this, which is why it
+        is here rather than beside `callbacks_watch_something_that_exists`. Without it the
+        run trains to the last epoch while early stopping waits for a number that never
+        comes, and model checkpointing writes nothing - silently, both of them.
+        """
+        if self.data.validation:
+            return self
+        offenders = [
+            f"{model.name}: {callback.name} watches '{callback.monitor}'"
+            for model in self.models
+            for callback in model.callbacks
+            if getattr(callback, "monitor", None) is not None
+            and str(callback.monitor).startswith("val_")
+        ]
+        if offenders:
+            listed = "\n  - ".join(offenders)
+            raise ValueError(
+                f"`validation: false` means no `val_` number is ever produced, and these "
+                f"would wait for one:\n  - {listed}\nWatch the training quantity instead, "
+                f"or give the run a validation set."
+            )
+        return self
+    @model_validator(mode="after")
     def channels_match_the_data(self):
         """One pattern per channel - **derived when the model stayed silent, checked when it
         did not**.

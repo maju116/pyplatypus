@@ -74,6 +74,23 @@ class DataSpec(SpecModel):
     #: the two, because two sources for the validation set are two places to change it.
     validation_path: str | None = None
     test_path: str | None = None
+    validation: bool = Field(
+        True,
+        description=(
+            "Whether this run validates at all. `false` is the third and last way of "
+            "answering the question `validation_path` and `split` answer, and it has to be "
+            "written down.\n\n"
+            "A final fit on every case you have, once the hyperparameters are settled, is a "
+            "legitimate thing to want - and until now it meant inventing a split and "
+            "ignoring the number it produced. What is *not* legitimate is arriving here by "
+            "omission: a specification with neither a path nor a split is still an error, "
+            "because 'I have no validation set' and 'I forgot' look identical and only one "
+            "of them is a decision.\n\n"
+            "With `false`, giving `validation_path` or `split` as well is refused: they say "
+            "where the validation set comes from and this says there is not one."
+        ),
+    )
+
     split: SplitSpec | None = None
 
     mode: DataMode = DataMode.NESTED_DIRS
@@ -117,18 +134,32 @@ class DataSpec(SpecModel):
 
     @model_validator(mode="after")
     def one_way_of_getting_a_validation_set(self):
-        """Exactly one of `validation_path` and `split`.
+        """Exactly one of `validation_path`, `split`, and `validation: false`.
 
-        Not neither: a run with nothing to validate against reports a number that describes
-        the training data, which is the most dangerous number this package could make easy
-        to produce. Not both, for the reason `colormap` and `labels` are not both - two
+        Not neither: a run with nothing to validate against reports a number that
+        describes the training data, which is the most dangerous number this package
+        could make easy to produce. That stays true, which is why the third option is a
+        field someone has to write rather than silence being allowed to mean it.
+
+        Not two of them, for the reason `colormap` and `labels` are not both: two
         sources for one thing are two places to change it and one gets forgotten.
         """
-        if (self.validation_path is None) == (self.split is None):
+        if not self.validation:
+            named = [n for n, v in (("validation_path", self.validation_path),
+                                    ("split", self.split)) if v is not None]
+            if named:
+                joined = " and ".join("`" + n + "`" for n in named)
+                raise ValueError(
+                    f"`validation: false` says this run has no validation set, and "
+                    f"{joined} says where it comes from. Drop one: they cannot both be true."
+                )
+        elif (self.validation_path is None) == (self.split is None):
             raise ValueError(
                 "a run needs something to validate against: give `validation_path`, or "
                 "`split` to divide `train_path` itself - and `split.group_by` keeps a "
-                "patient out of both halves, which dividing by file does not"
+                "patient out of both halves, which dividing by file does not. To train on "
+                "everything and validate on nothing, say `validation: false` - it is a "
+                "decision and has to be written down rather than arrived at by omission"
             )
         if self.split is not None and self.test_path is not None:
             raise ValueError(

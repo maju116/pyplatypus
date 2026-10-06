@@ -77,7 +77,9 @@ class Engine:
 
         #: Splits whose masks are there. Training and validation must have them; a test
         #: split may or may not, and which it is decides what can be asked of it.
-        self.labelled = {"train", "validation"}
+        self.labelled = {"train"}
+        if spec.data.validation:
+            self.labelled.add("validation")
 
         if spec.data.split is not None:
             self._samples = split_from_train(spec.data, discover, strict=strict_data)
@@ -89,9 +91,14 @@ class Engine:
             self._samples: dict[str, tuple[Sample, ...]] = {
                 "train": discover(spec.data.train_path, spec.data,
                                   strict=strict_data).samples,
-                "validation": discover(spec.data.validation_path, spec.data,
-                                       strict=strict_data).samples,
             }
+            # Absent rather than empty when there is no validation. An empty split would
+            # make every count read zero and every mean read nan, which is a number for
+            # something that was never asked for; a missing key makes `evaluate` say so.
+            if spec.data.validation:
+                self._samples["validation"] = discover(
+                    spec.data.validation_path, spec.data, strict=strict_data
+                ).samples
             if spec.data.test_path:
                 self._samples["test"] = self._discover_test(strict=strict_data)
 
@@ -152,11 +159,7 @@ class Engine:
         dataset that would read masks and fail on the first item. The engine knew: it had
         just discovered the split without them.
         """
-        if split not in self._samples:
-            raise EngineError(
-                f"no '{split}' data in this spec; available: "
-                f"{', '.join(sorted(self._samples))}"
-            )
+        self._require_split(split)
         if only_images is None:
             only_images = split not in self.labelled
         augmenter = build_augmenter(
@@ -371,7 +374,12 @@ class Engine:
                 run.history = trainer.fit(
                     self.loader(model_spec, "train", augmented=True,
                                 shuffle=self.spec.data.shuffle),
-                    self.loader(model_spec, "validation"),
+                    # None when the run says it has no validation set. `fit` already took
+                    # an optional loader, so nothing below this had to learn about it - the
+                    # history simply has no `val_` columns, which is the honest shape for a
+                    # run that measured nothing.
+                    self.loader(model_spec, "validation")
+                    if "validation" in self._samples else None,
                     verbose=verbose,
                 )
                 run.trained = True
@@ -401,11 +409,35 @@ class Engine:
         layer - which is what it used to do - or, worse, report a number. A zero in a table
         is read as a result.
         """
+        # Order matters: a split that was never created is a different thing from one that
+        # exists without masks, and "no masks" sends someone looking for files when what
+        # they wrote was `validation: false`.
+        self._require_split(split)
         if split not in self.labelled:
             raise EngineError(
                 f"the '{split}' split has no masks, so there is nothing to score against. "
                 f"predict('{split}') works on it, and save_masks() writes what it predicts."
             )
+
+    def _require_split(self, split: str) -> None:
+        """Say what is missing, here, rather than letting a KeyError say it two layers down.
+
+        `validation: false` is the common way to arrive: the default argument of `evaluate`
+        and friends is `"validation"`, so a run that deliberately has none meets it at the
+        first thing anyone calls after `fit`.
+        """
+        if split in self._samples:
+            return
+        if split == "validation" and not self.spec.data.validation:
+            raise EngineError(
+                "this run was specified with `validation: false`, so there is no validation "
+                "split to score. Name another split, or give `validation_path` or `split` "
+                "and fit again."
+            )
+        raise EngineError(
+            f"no '{split}' data in this spec; available: "
+            f"{', '.join(sorted(self._samples))}"
+        )
 
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
         """One row per model: the comparison table the whole multi-model idea is for."""

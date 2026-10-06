@@ -146,7 +146,9 @@ class DetectionEngine:
 
         #: Splits whose annotations are there. Training and validation must have them;
         #: a test split may or may not, and which it is decides what can be asked of it.
-        self.labelled = {"train", "validation"}
+        self.labelled = {"train"}
+        if spec.data.validation:
+            self.labelled.add("validation")
 
         if spec.data.split is not None:
             from pyplatypus.engine import split_from_train
@@ -160,9 +162,13 @@ class DetectionEngine:
             self._samples: dict[str, tuple[Sample, ...]] = {
                 "train": discover(spec.data.train_path, spec.data,
                                   strict=strict_data).samples,
-                "validation": discover(spec.data.validation_path, spec.data,
-                                       strict=strict_data).samples,
             }
+            # Absent rather than empty: an empty split makes every count read zero and
+            # every average read nan, which is a number for something never asked for.
+            if spec.data.validation:
+                self._samples["validation"] = discover(
+                    spec.data.validation_path, spec.data, strict=strict_data
+                ).samples
             if spec.data.test_path:
                 self._samples["test"] = self._discover_test(strict=strict_data)
 
@@ -217,6 +223,12 @@ class DetectionEngine:
     def dataset(self, model: DetectionModel, split: str, *, anchors=None,
                 only_images: bool = False, augmented: bool = False) -> DetectionDataset:
         if split not in self._samples:
+            if split == "validation" and not self.spec.data.validation:
+                raise EngineError(
+                    "this run was specified with `validation: false`, so there is no "
+                    "validation split to score. Name another split, or give "
+                    "`validation_path` or `split` and fit again."
+                )
             raise EngineError(
                 f"no '{split}' data in this spec; available: "
                 f"{', '.join(sorted(self._samples))}"
@@ -359,7 +371,10 @@ class DetectionEngine:
                     # on distorted data measures the distortion.
                     self.loader(model_spec, "train", anchors=anchors, augmented=True,
                                 shuffle=self.spec.data.shuffle),
-                    self.loader(model_spec, "validation", anchors=anchors),
+                    # None when the run says it has no validation set; `fit` has always
+                    # taken an optional loader, so the history simply has no `val_` columns.
+                    self.loader(model_spec, "validation", anchors=anchors)
+                    if "validation" in self._samples else None,
                     verbose=verbose,
                 )
                 run.trained = True
@@ -717,6 +732,20 @@ class DetectionEngine:
         different statement from "there is nothing to score against" - and a zero in a
         table is read as a result.
         """
+        # Order matters: a split that was never created is a different thing from one that
+        # exists without annotations, and "no annotations" sends somebody looking for files
+        # when what they wrote was `validation: false`.
+        if split not in self._samples:
+            if split == "validation" and not self.spec.data.validation:
+                raise EngineError(
+                    "this run was specified with `validation: false`, so there is no "
+                    "validation split to score. Name another split, or give "
+                    "`validation_path` or `split` and fit again."
+                )
+            raise EngineError(
+                f"no '{split}' data in this spec; available: "
+                f"{', '.join(sorted(self._samples))}"
+            )
         if split not in self.labelled:
             raise EngineError(
                 f"the '{split}' split has no annotations, so there is nothing to compare "
