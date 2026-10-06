@@ -1,6 +1,35 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.0a4] - 2026-10-06
+
+### Fixed
+
+ - **Anchors may be a grouped array, and the flattened form is refused by name.**
+   `_flatten_anchors` opened with `if not anchors:`, which an ndarray answers with
+   `ValueError: the truth value of an array is ambiguous` - so the guard whose only job is
+   to explain empty anchors reported numpy's complaint about emptiness instead, and a
+   grouped `(3, n, 2)` array, the natural type, could not be passed at all.
+
+   Two things made it reachable rather than theoretical: `encode` and `decode` are public,
+   and the package offers the wrong-typed value under an inviting name - `AnchorFit.flat`
+   is an `(N, 2)` array and is what one reaches for after fitting anchors.
+
+   ```
+   grouped tuple / list / (3, n, 2) ndarray   accepted, identical output
+   empty list / empty ndarray                 "anchors is empty; YOLOv3 needs one group ..."
+   AnchorFit.flat / a list of N pairs         refused, naming `.anchors` not `.flat`
+   ```
+
+   A flat `(N, 2)` array is refused rather than divided by three. It has thrown away how
+   the anchors split between the output grids, which is half of what the function returns,
+   and three equal groups is right for YOLOv3 and wrong for a two-head model; an anchor
+   assigned to the wrong stride shows up in no metric.
+
+   The R surface already refused a flat matrix by name, so this brings the engine up to the
+   standard the visible half already set. Found while reading the issue tracker, where a
+   2022 report of the same mistake in R - `the condition has length > 1` - was being closed.
+
 ## [0.5.0a3] - 2026-10-06
 
 ### Added

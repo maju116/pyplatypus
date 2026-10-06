@@ -232,16 +232,26 @@ def _flatten_anchors(anchors) -> tuple[np.ndarray, int]:
 
     Flattened in the given order, so index `grid * per_grid + slot` identifies one anchor
     - which is how a single best-match index says both which head and which slot.
+
+    Grouped sequences and grouped arrays are both accepted, and the flattened form is
+    refused by name - see `_refuse_flattened`.
+
+    Nothing here may test `anchors` for truth. An ndarray answers `if not anchors` with
+    `ValueError: the truth value of an array is ambiguous`, so the guard below used to
+    report numpy's complaint about emptiness in place of its own message about empty
+    anchors - the one case it exists to explain.
     """
-    if not anchors:
+    groups = list(anchors)
+    if not groups:
         raise DetectionError("anchors is empty; YOLOv3 needs one group per output grid")
-    counts = {len(group) for group in anchors}
+    _refuse_flattened(anchors)
+    counts = {len(group) for group in groups}
     if len(counts) != 1:
         raise DetectionError(
             f"every grid needs the same number of anchors, because the head's width is "
-            f"anchors_per_grid * (n_class + 5); got {[len(g) for g in anchors]}"
+            f"anchors_per_grid * (n_class + 5); got {[len(g) for g in groups]}"
         )
-    flat = np.asarray([pair for group in anchors for pair in group], dtype=float)
+    flat = np.asarray([pair for group in groups for pair in group], dtype=float)
     if flat.ndim != 2 or flat.shape[1] != 2:
         raise DetectionError(
             f"each anchor is a (width, height) pair as a fraction of the input; got an "
@@ -255,6 +265,30 @@ def _flatten_anchors(anchors) -> tuple[np.ndarray, int]:
             "as pixels at 416 and must be divided by it: (116, 90) / 416."
         )
     return flat, counts.pop()
+
+
+def _refuse_flattened(anchors) -> None:
+    """Refuse an (N, 2) array of pairs, which is the flattened form rather than the grouped.
+
+    `AnchorFit.flat` is exactly this shape and is the obvious thing to hand `encode` after
+    fitting anchors, so the mistake is one the package invites. A flat array has thrown
+    away how the anchors divide between the output grids, which is half of what this
+    function returns; dividing by three would be right for YOLOv3 and wrong for any model
+    with a different number of heads, and guessing it is how an anchor ends up assigned to
+    the wrong stride with nothing to show it.
+    """
+    try:
+        array = np.asarray(anchors, dtype=float)
+    except (TypeError, ValueError):
+        return  # ragged or not numeric; the per-group checks say so more precisely
+    if array.ndim == 2 and array.shape[1] == 2:
+        raise DetectionError(
+            f"anchors came as a flat {array.shape} array of (width, height) pairs, but they "
+            f"are grouped one group per output grid. A flat array cannot say how they "
+            f"divide between the grids. If this is an AnchorFit, pass `.anchors` rather "
+            f"than `.flat`; otherwise group them, e.g. "
+            f"(((0.03, 0.03), ...), ((0.08, 0.07), ...), ((0.28, 0.21), ...))."
+        )
 
 
 def _sigmoid(x):
