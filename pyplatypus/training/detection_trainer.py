@@ -55,6 +55,7 @@ class DetectionTrainer:
             anchors=anchors, n_class=n_class,
             input_shape=(int(spec.input_shape[0]), int(spec.input_shape[1])),
             ignore_threshold=spec.ignore_threshold,
+            box_loss=spec.box_loss,
         )
         self.optimizer = build_optimizer(
             spec.optimizer, parameter_groups(self.model, None, None)

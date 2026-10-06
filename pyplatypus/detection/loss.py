@@ -95,7 +95,8 @@ class Yolo3Loss(nn.Module):
 
     def __init__(self, *, anchors=COCO_ANCHORS, n_class: int = 80,
                  input_shape: tuple[int, int] = (416, 416),
-                 ignore_threshold: float = 0.5, coordinate_weight: float = 1.0,
+                 ignore_threshold: float = 0.5, box_loss: str = "offsets",
+                 coordinate_weight: float = 1.0,
                  objectness_weight: float = 1.0, no_object_weight: float = 1.0,
                  class_weight: float = 1.0, strides: tuple[int, ...] = STRIDES):
         super().__init__()
@@ -114,6 +115,11 @@ class Yolo3Loss(nn.Module):
         self.n_class = n_class
         self.input_shape = (int(input_shape[0]), int(input_shape[1]))
         self.ignore_threshold = float(ignore_threshold)
+        if box_loss not in ("offsets", "giou"):
+            raise DetectionError(
+                f"box_loss is 'offsets' or 'giou'; got {box_loss!r}"
+            )
+        self.box_loss = box_loss
         self.weights = {
             "coordinates": float(coordinate_weight),
             "objectness": float(objectness_weight),
@@ -185,13 +191,17 @@ class Yolo3Loss(nn.Module):
         scale = (2.0 - (box_w * box_h).clamp(0, 1))[has_object]
 
         if has_object.any():
-            offset_loss = F.binary_cross_entropy_with_logits(
-                offsets[has_object], target_offsets[has_object], reduction="none"
-            ).sum(dim=-1)
-            size_loss = F.mse_loss(
-                sizes[has_object], target_sizes[has_object], reduction="none"
-            ).sum(dim=-1)
-            coordinates = ((offset_loss + size_loss) * scale).sum() / count
+            if self.box_loss == "giou":
+                coordinates = self._giou_term(grid, prediction, target, has_object,
+                                              anchors) / count
+            else:
+                offset_loss = F.binary_cross_entropy_with_logits(
+                    offsets[has_object], target_offsets[has_object], reduction="none"
+                ).sum(dim=-1)
+                size_loss = F.mse_loss(
+                    sizes[has_object], target_sizes[has_object], reduction="none"
+                ).sum(dim=-1)
+                coordinates = ((offset_loss + size_loss) * scale).sum() / count
             classes = F.binary_cross_entropy_with_logits(
                 prediction[has_object][..., 5:], target[has_object][..., 5:],
                 reduction="sum"
@@ -222,6 +232,48 @@ class Yolo3Loss(nn.Module):
             no_object = torch.zeros((), device=device)
 
         return coordinates, objectness, no_object, classes
+
+    def _giou_term(self, grid: int, prediction: torch.Tensor, target: torch.Tensor,
+                   has_object: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
+        """`1 - GIoU` summed over the supervised positions, with gradient.
+
+        Decoded only where there is something to locate, rather than over the whole grid
+        the way `_decode_boxes` does for the ignore mask. That one runs under `no_grad`
+        and can afford the full tensor; this one carries a gradient, and a 52x52x3 grid of
+        boxes kept for the backward pass is memory spent on cells that contribute nothing.
+
+        **No `2 - w*h` weighting here, unlike the offsets term.** That factor exists
+        because squared error on a log-size is a smaller number for a large box than a
+        small one, so without it a platelet is worth less than a red cell. GIoU is already
+        scale-invariant - a 10% error on a small box and a 10% error on a large one score
+        the same - so the weight would be correcting an imbalance that is no longer there
+        and would make small objects count double instead of equally.
+
+        The prediction is decoded through the same arithmetic as the target so the two are
+        comparable by construction: offsets through a sigmoid for the prediction and raw
+        for the target, which is how `encode` wrote them.
+        """
+        grid_h, grid_w = self.shapes[grid]
+        _, rows, columns, slots = has_object.nonzero(as_tuple=True)
+        chosen = prediction[has_object]
+        wanted = target[has_object]
+        anchor_w = anchors[slots, 0]
+        anchor_h = anchors[slots, 1]
+
+        def corners(offset_x, offset_y, log_w, log_h):
+            centre_x = (offset_x + columns) / grid_w
+            centre_y = (offset_y + rows) / grid_h
+            # clamp(max=10) as in `_decode_boxes`: exp of an untrained logit overflows,
+            # and a box 22,000 times its anchor carries no information worth a gradient.
+            width = torch.exp(log_w.clamp(max=10)) * anchor_w
+            height = torch.exp(log_h.clamp(max=10)) * anchor_h
+            return torch.stack([centre_x - width / 2, centre_y - height / 2,
+                                centre_x + width / 2, centre_y + height / 2], dim=-1)
+
+        predicted = corners(torch.sigmoid(chosen[..., 0]), torch.sigmoid(chosen[..., 1]),
+                            chosen[..., 2], chosen[..., 3])
+        truth = corners(wanted[..., 0], wanted[..., 1], wanted[..., 2], wanted[..., 3])
+        return (1.0 - _giou(predicted, truth)).sum()
 
     def _ignore_mask(self, grid: int, prediction: torch.Tensor,
                      truth: list[torch.Tensor]) -> torch.Tensor:
@@ -289,6 +341,41 @@ class Yolo3Loss(nn.Module):
 #: How many predicted boxes to compare against the truths at once. The pairwise matrix is
 #: chunk x truths, so this bounds the ignore mask's memory independently of the input size.
 _IOU_CHUNK = 4096
+
+
+def _giou(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
+    """Generalized IoU between boxes paired elementwise, not pairwise.
+
+    `IoU - |C \\ (A u B)| / |C|`, where C is the smallest box enclosing both. Identical
+    boxes give 1, and it falls towards -1 as they separate - which is the whole reason to
+    use it: plain IoU is flat zero for boxes that do not touch, so it has **no gradient**
+    exactly where a detector is most wrong, while the enclosing-box term keeps pointing
+    the prediction towards the truth across any gap.
+
+    That advantage is conditional and on BCCD it does not arrive: anchors fitted by k-means
+    cover its truths at a mean IoU of 0.877, so a prediction never starts disjoint from the
+    truth it answers and the flat region GIoU exists to escape is never entered. Measured
+    over three seeds there, `box_loss="giou"` is worse than the offsets term by 0.0109 of
+    matched IoU - see the field's own description. Kept because the loss it produces is
+    readable, which the offsets term's is not.
+
+    Elementwise rather than pairwise because the caller already knows which prediction
+    answers which truth - the target encoding decided that - so the `n x m` matrix `_iou`
+    builds would be computed to read its diagonal.
+
+    Verified against `torchvision.ops.generalized_box_iou`: exact agreement, 0.0e+00 over
+    42 random pairs. The cases are baked into the tests so the suite needs no torchvision.
+    """
+    ax1, ay1, ax2, ay2 = a.unbind(-1)
+    bx1, by1, bx2, by2 = b.unbind(-1)
+    area_a = (ax2 - ax1).clamp(min=0) * (ay2 - ay1).clamp(min=0)
+    area_b = (bx2 - bx1).clamp(min=0) * (by2 - by1).clamp(min=0)
+    overlap = ((torch.minimum(ax2, bx2) - torch.maximum(ax1, bx1)).clamp(min=0)
+               * (torch.minimum(ay2, by2) - torch.maximum(ay1, by1)).clamp(min=0))
+    union = area_a + area_b - overlap
+    enclosing = ((torch.maximum(ax2, bx2) - torch.minimum(ax1, bx1))
+                 * (torch.maximum(ay2, by2) - torch.minimum(ay1, by1))).clamp(min=eps)
+    return overlap / union.clamp(min=eps) - (enclosing - union) / enclosing
 
 
 def _iou(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:

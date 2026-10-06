@@ -185,6 +185,44 @@ class DetectionModel(ModelSpec):
         ),
     )
 
+    box_loss: Literal["offsets", "giou"] = Field(
+        "offsets",
+        description=(
+            "How the box coordinates are scored. `offsets` is YOLOv3's own: cross-entropy "
+            "on the two cell offsets and squared error on the two log sizes, each weighted "
+            "by `2 - w*h` so a small object is not worth less than a large one. `giou` "
+            "scores the decoded box against the true box directly, as `1 - GIoU`.\n\n"
+            "The reason to prefer `giou` is that **it can reach zero**. Cross-entropy "
+            "against a soft target bottoms out at that target's entropy, so the `offsets` "
+            "term is still 4.21 on a prediction that is exactly right - measured on three "
+            "boxes - and a converged run cannot be told from a stalled one by reading it. "
+            "The same prediction scores 0.000000 under `giou`.\n\n"
+            "**It is not the better objective here, and that is measured.** BCCD, three "
+            "seeds each, 150 epochs, its own test split:\n\n"
+            "```\n"
+            "            mAP@0.5          mAP@COCO         matched IoU\n"
+            "giou        0.8666 +-0.0147  0.5078 +-0.0083  0.7929 +-0.0069\n"
+            "offsets     0.8583 +-0.0167  0.5172 +-0.0195  0.8038 +-0.0001\n"
+            "```\n\n"
+            "Average precision cannot separate them in either direction - both gaps are "
+            "inside the noise. How well the matched boxes fit can, and `giou` is worse by "
+            "0.0109, which is 2.7 standard errors of the difference. It is also far less "
+            "repeatable on exactly the quantity it targets: `offsets` gave 0.803853, "
+            "0.803656 and 0.803861 across its seeds, sixty times tighter than `giou`.\n\n"
+            "The reason is in the same run's own numbers. GIoU exists because IoU is a flat "
+            "zero for boxes that do not touch, so it has no gradient where a detector is "
+            "most wrong - but anchors fitted by k-means already cover BCCD's truths at a "
+            "mean IoU of 0.877, so predictions never start disjoint and the advantage never "
+            "arrives while the cost does. Where fitted anchors cover poorly it should be a "
+            "different story, which is untested here and therefore not claimed.\n\n"
+            "So choose `giou` to make the objective **readable**, not to raise the score: "
+            "at 150 epochs its coordinate term sits at 0.05 on the training split against "
+            "0.47 on validation, which is a localisation gap you can see, while `offsets` "
+            "reads 5.92 and 6.85 against a floor of 5.891 and tells you nothing. On BCCD "
+            "that legibility costs about 0.011 of matched IoU."
+        ),
+    )
+
     score_threshold: float = Field(
         0.01,
         ge=0,

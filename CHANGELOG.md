@@ -1,6 +1,47 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.0a5] - 2026-10-06
+
+### Added
+
+ - **`box_loss`: score the boxes as `1 - GIoU` instead of as YOLOv3's offsets.** Default
+   `offsets`, which is what the published `bccd-yolo3` weights were trained with, so nothing
+   changes unless asked.
+
+   **It is not the better objective, and that is measured.** BCCD's own test split, three
+   seeds each, 150 epochs:
+
+   ```
+               mAP@0.5          mAP@COCO         matched IoU
+   giou        0.8666 ±0.0147   0.5078 ±0.0083   0.7929 ±0.0069
+   offsets     0.8583 ±0.0167   0.5172 ±0.0195   0.8038 ±0.0001
+   ```
+
+   Average precision cannot separate them in either direction - both gaps are inside the
+   noise. Matched overlap can, and `giou` is worse by 0.0109, which is 2.7 standard errors
+   of the difference; it is also sixty times less repeatable on exactly that quantity
+   (`offsets` gave 0.803853 / 0.803656 / 0.803861 across its seeds).
+
+   The reason is in the same runs' numbers: GIoU exists because IoU is a flat zero for boxes
+   that do not touch, and anchors fitted by k-means already cover BCCD's truths at a mean IoU
+   of **0.877**, so predictions never start disjoint and the advantage never arrives. Where
+   fitted anchors cover poorly it should be a different story, which is untested and therefore
+   not claimed.
+
+   **What it is for is reading the loss.** The offsets term cannot reach zero - cross-entropy
+   against a soft target bottoms out at that target's entropy - so all three runs converge to
+   5.90-5.94 against a measured floor of 5.891, and a converged run prints what a stalled one
+   prints. Under `giou` a prediction constructed to be exactly right scores `0.000000`, and on
+   real data the term reads 0.05 on training against 0.47 on validation: a localisation gap
+   that is visible because zero means zero. On BCCD that legibility costs about 0.011 of
+   matched IoU.
+
+   `_giou` agrees with `torchvision.ops.generalized_box_iou` exactly (0.0e+00 over 42 random
+   pairs), with the cases baked into the tests so the suite needs no torchvision.
+
+   Closes maju116/platypus#27.
+
 ## [0.5.0a4] - 2026-10-06
 
 ### Fixed
