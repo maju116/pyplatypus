@@ -42,7 +42,7 @@ from pyplatypus.detection.metrics import (
     image_report,
 )
 from pyplatypus.detection.yolo3 import build_yolo3
-from pyplatypus.engine import EngineError
+from pyplatypus.engine import EngineBase, EngineError
 from pyplatypus.spec.detection import DetectionModel
 from pyplatypus.spec.spec import DetectionSpec, PlatypusSpec, SegmentationSpec
 from pyplatypus.training.detection_trainer import DetectionTrainer
@@ -127,7 +127,10 @@ class DetectorRun:
         return sum(p.numel() for p in self.model.parameters())
 
 
-class DetectionEngine:
+class DetectionEngine(EngineBase):
+    #: What a labelled split carries here, for the one message that names it.
+    labels_are = "annotations"
+
     def __init__(self, spec: DetectionSpec, *, device: str | None = None,
                  num_workers: int = 0, strict_data: bool = True,
                  accumulate: int = 1):
@@ -144,63 +147,11 @@ class DetectionEngine:
         self.runs: dict[str, DetectorRun] = {}
         seed_everything(spec.seed)
 
-        #: Splits whose annotations are there. Training and validation must have them;
-        #: a test split may or may not, and which it is decides what can be asked of it.
-        self.labelled = {"train"}
-        if spec.data.validation:
-            self.labelled.add("validation")
+        self._samples: dict[str, tuple[Sample, ...]]
+        self._discover_splits(discover, strict=strict_data)
 
-        if spec.data.split is not None:
-            from pyplatypus.engine import split_from_train
 
-            self._samples = split_from_train(spec.data, discover, strict=strict_data)
-            # A test set cut from the training folder came from annotated data, so unlike a
-            # separate `test_path` it can be scored rather than only predicted on.
-            if "test" in self._samples:
-                self.labelled.add("test")
-        else:
-            self._samples: dict[str, tuple[Sample, ...]] = {
-                "train": discover(spec.data.train_path, spec.data,
-                                  strict=strict_data).samples,
-            }
-            # Absent rather than empty: an empty split makes every count read zero and
-            # every average read nan, which is a number for something never asked for.
-            if spec.data.validation:
-                self._samples["validation"] = discover(
-                    spec.data.validation_path, spec.data, strict=strict_data
-                ).samples
-            if spec.data.test_path:
-                self._samples["test"] = self._discover_test(strict=strict_data)
-
-    def _discover_test(self, *, strict: bool) -> tuple[Sample, ...]:
-        """The test split, with its annotations if it has any.
-
-        Unlike segmentation, a detection test split is often labelled - BCCD's is, which is
-        what makes its published numbers comparable - so annotations are asked for first and
-        their absence is not an error. The split is then recorded as unlabelled: `predict`
-        works on it and `evaluate` refuses it by name, rather than scoring it against empty
-        truth and reporting zero.
-
-        **"No annotations" and "some annotations" are not the same thing.** Falling back
-        whenever labelled discovery failed would turn a test split with two missing files
-        into an unlabelled one - throwing away the seventy that are there and reporting
-        nothing. So the fallback happens only when the split carries no annotations at all;
-        an incomplete one raises, which is what `strict` is for.
-        """
-        from pyplatypus.errors import ConfigError
-
-        try:
-            samples = discover(self.spec.data.test_path, self.spec.data,
-                               strict=strict).samples
-        except ConfigError:
-            if self._test_has_any_annotations():
-                raise
-            return discover(self.spec.data.test_path, self.spec.data,
-                            only_images=True, strict=strict).samples
-        self.labelled.add("test")
-        return samples
-
-    def _test_has_any_annotations(self) -> bool:
+    def _has_any_labels(self) -> bool:
         """Whether the test split carries annotations for anything, without reading them."""
         from pyplatypus.spec.common import DataMode
 
@@ -726,31 +677,11 @@ class DetectionEngine:
 
     # ------------------------------------------------------------------ odds and ends
     def _needs_annotations(self, split: str, model_name: str = "<model>") -> None:
-        """Refuse a question about boxes that are not there.
-
-        Scoring an unlabelled split against empty truth would report zero, which is a
-        different statement from "there is nothing to score against" - and a zero in a
-        table is read as a result.
-        """
-        # Order matters: a split that was never created is a different thing from one that
-        # exists without annotations, and "no annotations" sends somebody looking for files
-        # when what they wrote was `validation: false`.
-        if split not in self._samples:
-            if split == "validation" and not self.spec.data.validation:
-                raise EngineError(
-                    "this run was specified with `validation: false`, so there is no "
-                    "validation split to score. Name another split, or give "
-                    "`validation_path` or `split` and fit again."
-                )
-            raise EngineError(
-                f"no '{split}' data in this spec; available: "
-                f"{', '.join(sorted(self._samples))}"
-            )
-        if split not in self.labelled:
-            raise EngineError(
-                f"the '{split}' split has no annotations, so there is nothing to compare "
-                f"against. predict('{model_name}', '{split}') works on it."
-            )
+        """What this engine calls a labelled split, and what to do instead."""
+        self._needs_labels(
+            split,
+            f"predict('{model_name}', '{split}') works on it.",
+        )
 
     def _run(self, model_name: str) -> DetectorRun:
         run = self.runs.get(model_name)

@@ -1,6 +1,39 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.6.0a3] - 2026-10-07
+
+### Changed
+
+ - **`EngineBase`: the half of the two engines that is the same work.** Closes
+   maju116/pyplatypus#100, which asked for the split into a segmentation and a detection
+   engine plus a gate for future ones plus shared methods in a base. The first two shipped
+   earlier - two classes, and `task` as a required discriminated union, which turned out to
+   belong in the specification rather than in a class hierarchy. This is the third.
+
+   **The width was measured rather than chosen.** Across the two engines twelve method
+   names are shared and only two were the same work: `__init__` at 0.70 similarity and
+   `_discover_test` at 0.65, the latter differing in nothing but its docstring and the name
+   of one hook. `predict` is 0.05 similar and equal in length by coincidence. So the base
+   holds split discovery, the test-split fallback, and the two refusals that go with them -
+   and nothing else, because pulling up `predict` or `dataset` would produce a method that
+   is mostly a branch on its caller.
+
+   The argument was never tidiness. These two had already diverged twice: detection recorded
+   which splits carry annotations while segmentation threw the same fact away, and the guard
+   order that let "no masks" stand in for "no split" was wrong in both. The second time, the
+   same conditional was written twice on one night.
+
+   ```
+   Engine            22 -> 20 methods      __init__ similarity 0.70 -> 0.61
+   DetectionEngine   28 -> 27 methods      the discovery block: ~25 lines -> 2, in both
+   ```
+
+   A subclass provides `_has_any_labels()` - masks and annotations are found in different
+   ways - and `labels_are`, the one word the shared refusal has to name. `tests/test_engine_base.py`
+   asks the same question of each and compares the answers, which is the test that was
+   missing; reverting the base's own logic breaks three of them across two files.
+
 ## [0.6.0a2] - 2026-10-07
 
 ### Added
