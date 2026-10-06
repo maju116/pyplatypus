@@ -25,6 +25,7 @@ from pyplatypus.detection.boxes import (
     Letterbox,
     box_areas,
     clip_boxes,
+    crop_boxes,
     drop_degenerate,
     non_max_suppression,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "box_shapes",
     "build_yolo3",
     "clip_boxes",
+    "crop_boxes",
     "decode",
     "describe_annotations",
     "detection_report",

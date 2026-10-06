@@ -1,6 +1,49 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.0a6] - 2026-10-06
+
+### Added
+
+ - **`crop_boxes()` and `DetectionEngine.crops()`: every detection cut out of the image it
+   was found in.** The pipeline is a detector followed by a classifier it does not
+   contain - find objects with three classes, crop them, hand the crops to something that
+   knows eighty. `predict` returns boxes in each image's own pixels precisely so they can
+   be used on the photograph they came from; this is what uses them.
+
+   ```python
+   for found in engine.crops("bccd", "test", size=(224, 224)):
+       batch = np.stack(found["crops"])      # one shape, ready for a classifier
+   ```
+
+   Five decisions, each of which taken the other way quietly changes what a downstream
+   model sees:
+
+   - **Cut from the source image, not the network input.** `DetectionDataset.source_image`
+     re-reads at native size through the same reader and the same options as `read()`, so
+     a crop and a prediction cannot disagree about channels or the DICOM window. Cropping
+     from the letterboxed frame would cut a downscaled object and then scale it back up.
+   - **Rounded outward**, so the crop contains the whole box. Rounding to nearest loses up
+     to a pixel per side, a twelfth of a 26-pixel platelet.
+   - **`context` expands by a fraction of the box's own size**, default 0, so one value
+     suits a platelet and a white cell and nothing is expanded silently.
+   - **`size` letterboxes rather than stretches.** Resizing a tall box to a square changes
+     the aspect of every non-square object; `fit="stretch"` exists and must be asked for.
+   - **Always a list**, even when `size` makes the shapes equal. A return type that depends
+     on an argument makes every caller branch, and `np.stack(crops)` is the batch.
+
+   `crops()` filters at `operating_point` rather than `score_threshold`, which is near zero
+   so that average precision can integrate the whole ranking - cropping that would hand a
+   classifier the tail AP exists to measure over.
+
+   It also clips and `drop_degenerate`s first, reporting `dropped`. That was found by the
+   tests rather than reasoned about: a model may predict a box off the frame and `predict`
+   reports what it said, so at a low threshold some arrive with no extent at all once the
+   letterbox is undone. The same two steps `DetectionDataset.read` already applies to
+   truths.
+
+   Closes maju116/platypus#95.
+
 ## [0.5.0a5] - 2026-10-06
 
 ### Added

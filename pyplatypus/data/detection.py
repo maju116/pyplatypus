@@ -142,6 +142,23 @@ class DetectionDataset:
         return read_voc(path, classes, coordinates=self.data.voc_coordinates,
                         strict_labels=self.data.strict_labels)
 
+    def source_image(self, index: int) -> np.ndarray:
+        """One sample's image at its native size, before any letterbox.
+
+        `read()` letterboxes and keeps only the result, which is right for the network and
+        wrong for anything that works in the photograph's own pixels - cropping a detection
+        out of the 416x416 version would cut a downscaled object and then scale it back up,
+        two resizes where none is needed.
+
+        Separate from `read()` but through the same reader and the same options, so a crop
+        and a prediction cannot disagree about channels or the DICOM window. Reading an
+        image twice through two paths is how a mask once ended up beside the tissue it
+        labelled.
+        """
+        sample = self.samples[index]
+        return to_float(read_image(sample.images[0], channels=self.model.channels,
+                                   dicom_window=self.data.window))
+
     def read(self, index: int) -> Example:
         """One sample, letterboxed, with everything evaluation will need.
 

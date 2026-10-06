@@ -144,6 +144,107 @@ def _boxes(boxes) -> np.ndarray:
     return array
 
 
+def crop_boxes(image, boxes, *, context: float = 0.0,
+               size: tuple[int, int] | None = None, fit: str = "letterbox",
+               fill: float = 0.5) -> list[np.ndarray]:
+    """One sub-image per box: detect, cut out, hand to something else.
+
+    The pipeline this exists for is detection followed by a classifier the detector does
+    not have - a model that finds objects in 3 classes, cropped and passed to one that
+    knows 80. `predict` returns boxes in each image's own pixels precisely so that they
+    can be used on the photograph they came from, and this is what uses them.
+
+    **Always a list, even when `size` makes every crop the same shape.** A return type
+    that depends on an argument makes every caller branch; `np.stack(crops)` is the batch
+    and is one line. Boxes also differ in number per image, so a stack is not the general
+    case anyway.
+
+    Four decisions, each of which taken the other way quietly changes what a downstream
+    model sees:
+
+    - **Rounded outward** - the left and top floored, the right and bottom ceiled - so the
+      crop contains the whole box. Rounding to nearest loses up to a pixel on each side,
+      which on a 26-pixel platelet is a twelfth of it.
+    - **`context` expands the box by a fraction of its own size** before cropping, and
+      defaults to 0. A detector's box is tight by construction, and a classifier trained
+      on photographs of whole objects does worse on something cut exactly at the edge -
+      but expanding by default would mean every crop containing things nobody asked for.
+      Scaled by the box, not in pixels, so one value suits a platelet and a white cell.
+    - **`fit="letterbox"` when `size` is given**, not a stretch. Resizing a tall box to a
+      square changes the aspect of every non-square object, and a classifier then sees a
+      shape that does not occur in nature. `fit="stretch"` is there for models trained
+      that way, which is many of them, and has to be asked for.
+    - **A box with no overlap at all is an error**, named by index, because an empty array
+      is not a thing to hand a classifier. Note that this is *not* a claim that such a box
+      is impossible: a model is free to predict one off the frame and `predict` does not
+      clip, so at a low confidence threshold some come back with no overlap once the
+      letterbox is undone. `DetectionEngine.crops` therefore clips and `drop_degenerate`s
+      first - the same two steps `DetectionDataset.read` already applies to the truths -
+      and that is the fix for anyone meeting this with predictions of their own.
+
+    Args:
+        image: `height x width x channels` or `height x width`, channels last.
+        boxes: `(n, 4)` corner boxes `(x1, y1, x2, y2)` in this image's pixels.
+        context: expand each box by this fraction of its width and height per side.
+        size: `(height, width)` every crop is brought to, or None to keep each as cut.
+        fit: `"letterbox"` to preserve aspect by padding, `"stretch"` to resize both axes.
+        fill: the padding value for `"letterbox"`, in the image's own units.
+
+    Returns:
+        One array per box, in the order given.
+    """
+    from pyplatypus.data.images import resize_image
+
+    array = np.asarray(image)
+    if array.ndim == 2:
+        array = array[..., None]
+    if array.ndim != 3:
+        raise DetectionError(
+            f"an image must be 2 or 3 dimensional, channels last; got shape {array.shape}"
+        )
+    if fit not in ("letterbox", "stretch"):
+        raise DetectionError(f"fit is 'letterbox' or 'stretch'; got {fit!r}")
+    if context < 0:
+        raise DetectionError(f"context cannot be negative; got {context}")
+
+    wanted = _boxes(boxes)
+    height, width = array.shape[0], array.shape[1]
+
+    out = []
+    for index, (x1, y1, x2, y2) in enumerate(wanted):
+        if context:
+            grow_x = (x2 - x1) * context
+            grow_y = (y2 - y1) * context
+            x1, x2 = x1 - grow_x, x2 + grow_x
+            y1, y2 = y1 - grow_y, y2 + grow_y
+
+        left = max(0, int(np.floor(x1)))
+        top = max(0, int(np.floor(y1)))
+        right = min(width, int(np.ceil(x2)))
+        bottom = min(height, int(np.ceil(y2)))
+
+        if right <= left or bottom <= top:
+            raise DetectionError(
+                f"box {index} is {(float(x1), float(y1), float(x2), float(y2))}, which "
+                f"leaves nothing inside an image of {(height, width)}. An empty crop is "
+                f"not a thing to hand a classifier, so this is refused rather than "
+                f"returned. A *predicted* box can legitimately be off the frame - a model "
+                f"is free to say so - which is why `DetectionEngine.crops` clips and then "
+                f"`drop_degenerate`s before calling this, and why doing the same is the "
+                f"fix if these are predictions."
+            )
+
+        crop = array[top:bottom, left:right]
+        if size is not None:
+            target = (int(size[0]), int(size[1]))
+            if fit == "letterbox":
+                crop = Letterbox.fit(crop.shape[:2], target).apply_to_image(crop, fill=fill)
+            else:
+                crop = resize_image(crop, target)
+        out.append(crop)
+    return out
+
+
 def clip_boxes(boxes, shape: tuple[int, int]) -> np.ndarray:
     """Boxes trimmed to an image's bounds."""
     array = _boxes(boxes).copy()
