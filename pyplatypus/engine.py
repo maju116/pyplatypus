@@ -40,6 +40,134 @@ class EngineError(PlatypusError):
     kind = "engine_error"
 
 
+class EngineBase:
+    """What both engines do with a specification before either becomes itself.
+
+    A narrow base, and the width was measured rather than chosen. Across the two engines
+    twelve method names are shared, and only two of them are the same work: `__init__` at
+    0.70 similarity and `_discover_test` at 0.65, the latter differing in nothing but its
+    docstring and the name of one hook. Everything else is lower - `predict` is 0.05 and
+    equal in length by coincidence - so pulling more up would produce methods that are
+    mostly a branch on which subclass is calling them.
+
+    The argument for doing even this much is not tidiness. These two have already diverged
+    twice: detection recorded which splits carry annotations while segmentation threw the
+    same fact away, and the guard order that made "no masks" mask "no split" was wrong in
+    both and had to be fixed in both. The second time, the fix was written twice on the
+    same night.
+
+    It lives in this module because `EngineError` and `split_from_train` already do, and
+    both engines already import from here. A third file for three shared things would be a
+    third place to look.
+
+    A subclass provides `_has_any_labels()`, which is the one question `_discover_test`
+    cannot answer for itself: masks and annotations are found in different ways.
+    """
+
+    #: What a labelled split carries, for the one message that has to name it.
+    labels_are = "labels"
+
+    def _discover_splits(self, discover, *, strict: bool) -> None:
+        """`self._samples` and `self.labelled`, from the data block alone.
+
+        Training is always there. Validation is there unless the run said it has none, and
+        **absent rather than empty** in that case: an empty split makes every count read
+        zero and every average read nan, which is a number for something nobody asked for.
+        A test split may or may not carry labels, and `_discover_test` decides which.
+        """
+        data = self.spec.data
+
+        self.labelled = {"train"}
+        if data.validation:
+            self.labelled.add("validation")
+
+        if data.split is not None:
+            self._samples = split_from_train(data, discover, strict=strict)
+            # A split cut out of the training folder came from labelled data, so unlike a
+            # separate `test_path` its test fraction can be scored and not only predicted on.
+            if "test" in self._samples:
+                self.labelled.add("test")
+            return
+
+        self._samples = {
+            "train": discover(data.train_path, data, strict=strict).samples,
+        }
+        if data.validation:
+            self._samples["validation"] = discover(
+                data.validation_path, data, strict=strict
+            ).samples
+        if data.test_path:
+            self._samples["test"] = self._discover_test(discover, strict=strict)
+
+    def _discover_test(self, discover, *, strict: bool) -> tuple[Sample, ...]:
+        """The test split, with its labels if it has any.
+
+        Labels are asked for first and their absence is not an error - a test set of images
+        alone is an ordinary thing to have, and `predict` is what it is for. The split is
+        then recorded as unlabelled, so `evaluate` refuses it by name rather than scoring
+        it against nothing.
+
+        **"None" and "some" are not the same thing.** Falling back whenever labelled
+        discovery failed would turn a test split with two missing files into an unlabelled
+        one, throwing away the seventy that are there and reporting nothing. So the fallback
+        happens only when the split carries no labels at all; an incomplete one raises,
+        which is what `strict` is for. Met on the detection side first.
+        """
+        from pyplatypus.errors import ConfigError
+
+        data = self.spec.data
+        try:
+            samples = discover(data.test_path, data, strict=strict).samples
+        except ConfigError:
+            if self._has_any_labels():
+                raise
+            return discover(data.test_path, data, only_images=True,
+                            strict=strict).samples
+        self.labelled.add("test")
+        return samples
+
+    def _has_any_labels(self) -> bool:  # pragma: no cover - a subclass answers this
+        """Whether the test split carries labels for anything, without reading them."""
+        raise NotImplementedError
+
+    def _require_split(self, split: str) -> None:
+        """Say what is missing, here, rather than letting a KeyError say it two layers down.
+
+        `validation: false` is the common way to arrive: `evaluate` and its neighbours
+        default to `"validation"`, so a run that deliberately has none meets this at the
+        first thing anyone calls after `fit`.
+        """
+        if split in self._samples:
+            return
+        if split == "validation" and not self.spec.data.validation:
+            raise EngineError(
+                "this run was specified with `validation: false`, so there is no validation "
+                "split to score. Name another split, or give `validation_path` or `split` "
+                "and fit again."
+            )
+        raise EngineError(
+            f"no '{split}' data in this spec; available: "
+            f"{', '.join(sorted(self._samples))}"
+        )
+
+    def _needs_labels(self, split: str, suggestion: str) -> None:
+        """Refuse a question about labels that are not there.
+
+        Scoring an unlabelled split would either fail deep in the mask layer - which is what
+        it used to do - or, worse, report a number. A zero in a table is read as a result.
+
+        Order matters: a split that was never created is a different thing from one that
+        exists without labels, and "no labels" sends somebody looking for files when what
+        they wrote was `validation: false`.
+        """
+        self._require_split(split)
+        if split not in self.labelled:
+            raise EngineError(
+                f"the '{split}' split has no {self.labels_are}, so there is nothing to "
+                f"score against. {suggestion}"
+            )
+
+
 @dataclass
 class ModelRun:
     """Everything one model left behind."""
@@ -56,7 +184,10 @@ class ModelRun:
         return sum(p.numel() for p in self.model.parameters())
 
 
-class Engine:
+class Engine(EngineBase):
+    #: What a labelled split carries here, for the one message that names it.
+    labels_are = "masks"
+
     def __init__(self, spec: PlatypusSpec, *, device: str | None = None,
                  num_workers: int = 0, strict_data: bool = True,
                  check_masks: bool = True):
@@ -75,63 +206,11 @@ class Engine:
         self.runs: dict[str, ModelRun] = {}
         seed_everything(spec.seed)
 
-        #: Splits whose masks are there. Training and validation must have them; a test
-        #: split may or may not, and which it is decides what can be asked of it.
-        self.labelled = {"train"}
-        if spec.data.validation:
-            self.labelled.add("validation")
+        self._samples: dict[str, tuple[Sample, ...]]
+        self._discover_splits(discover, strict=strict_data)
 
-        if spec.data.split is not None:
-            self._samples = split_from_train(spec.data, discover, strict=strict_data)
-            # A test set cut out of the training folder came from data that has masks, so
-            # unlike a separate `test_path` it can be scored rather than only predicted on.
-            if "test" in self._samples:
-                self.labelled.add("test")
-        else:
-            self._samples: dict[str, tuple[Sample, ...]] = {
-                "train": discover(spec.data.train_path, spec.data,
-                                  strict=strict_data).samples,
-            }
-            # Absent rather than empty when there is no validation. An empty split would
-            # make every count read zero and every mean read nan, which is a number for
-            # something that was never asked for; a missing key makes `evaluate` say so.
-            if spec.data.validation:
-                self._samples["validation"] = discover(
-                    spec.data.validation_path, spec.data, strict=strict_data
-                ).samples
-            if spec.data.test_path:
-                self._samples["test"] = self._discover_test(strict=strict_data)
 
-    # ------------------------------------------------------------------ data
-    def _discover_test(self, *, strict: bool) -> tuple[Sample, ...]:
-        """The test split, with its masks if it has any.
-
-        Masks are asked for first and their absence is not an error - a test set of images
-        alone is an ordinary thing to have, and `predict` is what it is for. The split is
-        then recorded as unlabelled, so `evaluate` refuses it by name rather than scoring
-        it against nothing.
-
-        **"No masks" and "some masks" are not the same thing.** Falling back whenever
-        labelled discovery failed would turn a test split with two missing files into an
-        unlabelled one, throwing away the seventy that are there and reporting nothing. So
-        the fallback happens only when the split carries no masks at all; an incomplete one
-        raises, which is what `strict` is for. Taken from the detection side, which met
-        this first.
-        """
-        from pyplatypus.errors import ConfigError
-
-        try:
-            samples = discover(self.spec.data.test_path, self.spec.data,
-                               strict=strict).samples
-        except ConfigError:
-            if self._test_has_any_masks():
-                raise
-            return discover(self.spec.data.test_path, self.spec.data,
-                            only_images=True, strict=strict).samples
-        self.labelled.add("test")
-        return samples
-
-    def _test_has_any_masks(self) -> bool:
+    def _has_any_labels(self) -> bool:
         """Whether the test split carries masks for anything, without reading them."""
         from pyplatypus.spec.common import DataMode
 
@@ -403,41 +482,12 @@ class Engine:
 
     # --------------------------------------------------------------- evaluate
     def _needs_masks(self, split: str) -> None:
-        """Refuse a question about masks that are not there.
-
-        Scoring an unlabelled split against nothing would either fail deep in the mask
-        layer - which is what it used to do - or, worse, report a number. A zero in a table
-        is read as a result.
-        """
-        # Order matters: a split that was never created is a different thing from one that
-        # exists without masks, and "no masks" sends someone looking for files when what
-        # they wrote was `validation: false`.
-        self._require_split(split)
-        if split not in self.labelled:
-            raise EngineError(
-                f"the '{split}' split has no masks, so there is nothing to score against. "
-                f"predict('{split}') works on it, and save_masks() writes what it predicts."
-            )
-
-    def _require_split(self, split: str) -> None:
-        """Say what is missing, here, rather than letting a KeyError say it two layers down.
-
-        `validation: false` is the common way to arrive: the default argument of `evaluate`
-        and friends is `"validation"`, so a run that deliberately has none meets it at the
-        first thing anyone calls after `fit`.
-        """
-        if split in self._samples:
-            return
-        if split == "validation" and not self.spec.data.validation:
-            raise EngineError(
-                "this run was specified with `validation: false`, so there is no validation "
-                "split to score. Name another split, or give `validation_path` or `split` "
-                "and fit again."
-            )
-        raise EngineError(
-            f"no '{split}' data in this spec; available: "
-            f"{', '.join(sorted(self._samples))}"
+        """What this engine calls a labelled split, and what to do instead."""
+        self._needs_labels(
+            split,
+            f"predict('{split}') works on it, and save_masks() writes what it predicts.",
         )
+
 
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
         """One row per model: the comparison table the whole multi-model idea is for."""
