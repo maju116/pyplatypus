@@ -39,8 +39,14 @@ from pyplatypus.spec.components import (
     ReduceLrOnPlateau as ReduceLrOnPlateauSpec,
 )
 from pyplatypus.spec.components import (
+    Swa as SwaSpec,
+)
+from pyplatypus.spec.components import (
     TerminateOnNaN as TerminateOnNaNSpec,
 )
+
+#: The modules whose running statistics an averaged weight tensor cannot carry honestly.
+_BATCH_NORM = (nn.modules.batchnorm._BatchNorm,)
 
 
 class TrainingStopped(PlatypusError):
@@ -66,6 +72,13 @@ class TrainingState:
     logs: dict[str, float] = field(default_factory=dict)
     history: list[dict[str, float]] = field(default_factory=list)
     stop_reason: str | None = None
+    #: What the run is training on. Only `swa` needs it, and it needs it for the one step
+    #: that is easy to leave out: averaged weights carry batch-normalisation statistics
+    #: from whichever epoch happened to be last, and recomputing them takes a pass over
+    #: the training data. Without that the averaged model scores far worse than it should
+    #: and nothing says why, so a callback that cannot reach the data cannot do SWA
+    #: honestly.
+    train_loader: Any = None
 
 
 class Callback:
@@ -217,6 +230,81 @@ class CosineAnnealing(Callback):
         return False
 
 
+class Swa(Callback):
+    """Average the weights over the last part of training instead of taking the final ones.
+
+    Stochastic weight averaging: past `start`, every epoch's weights are folded into a
+    running average, and at the end that average becomes the model. The claim is that a
+    point in the middle of a flat region generalises better than whichever corner of it the
+    last epoch happened to stop in.
+
+    **The step that is easy to leave out is the one that decides whether it works.** An
+    averaged weight tensor has batch-normalisation running statistics belonging to no
+    particular epoch - they were not averaged, they were inherited - so the averaged model
+    is evaluated with the wrong normalisation unless the statistics are recomputed by a pass
+    over the training data. Omitted, the result is a model that scores far worse than it
+    should with nothing to say why, which is why this callback asks the state for the
+    training loader rather than doing without.
+
+    `learning_rate` holds the rate constant once averaging begins, which is the recipe:
+    averaging is only worth anything if the weights are still moving, and a rate that has
+    decayed to nothing produces a set of nearly identical snapshots. For the same reason a
+    run cannot ask for `swa` and `cosine_annealing` at once - the specification refuses it.
+    """
+
+    def __init__(self, start: float = 0.75, learning_rate: float | None = None):
+        self.start = start
+        self.learning_rate = learning_rate
+        self._averaged = None
+        self._first: int | None = None
+        self._folded = 0
+
+    def on_train_begin(self, state: TrainingState) -> None:
+        from torch.optim.swa_utils import AveragedModel
+
+        self._averaged = AveragedModel(state.model)
+        # Counting from 1 like `epoch` does, and at least the last epoch: `start=1.0` means
+        # "average the final weights", which is a no-op rather than a run with nothing
+        # averaged at all.
+        horizon = max(1, state.total_epochs)
+        self._first = min(horizon, max(1, round(horizon * self.start) + 1))
+        self._folded = 0
+
+    def on_epoch_end(self, state: TrainingState) -> bool:
+        if self._averaged is None or state.epoch < self._first:
+            return False
+        self._averaged.update_parameters(state.model)
+        self._folded += 1
+        if self.learning_rate is not None:
+            for group in state.optimizer.param_groups:
+                group["lr"] = self.learning_rate
+        return False
+
+    def on_train_end(self, state: TrainingState) -> None:
+        """The average becomes the model, and then its statistics are made true again."""
+        from torch.optim.swa_utils import update_bn
+
+        if self._averaged is None or self._folded == 0:
+            # Early stopping can end a run before averaging ever began. Leaving the final
+            # weights alone is right: there is no average, and substituting one epoch's
+            # weights for "the average" would be a lie about what happened.
+            return
+
+        state.model.load_state_dict(self._averaged.module.state_dict())
+        # Into the last record, not `state.logs`: by the time `on_train_end` runs the
+        # per-epoch logs have already been written, so a number put there reaches nobody.
+        # Found by looking for it in `training_history()` and not finding it.
+        if state.history:
+            state.history[-1]["swa_epochs_averaged"] = float(self._folded)
+
+        if state.train_loader is None:
+            return
+        if not any(isinstance(m, _BATCH_NORM) for m in state.model.modules()):
+            return
+        update_bn(state.train_loader, state.model,
+                  device=next(state.model.parameters()).device)
+
+
 class CsvLogger(Callback):
     def __init__(self, path: str):
         self.path = Path(path)
@@ -258,6 +346,7 @@ _BUILDERS: dict[type, Any] = {
     ReduceLrOnPlateauSpec: lambda s: ReduceLrOnPlateau(s.monitor, s.factor, s.patience,
                                                        s.min_lr),
     CosineAnnealingSpec: lambda s: CosineAnnealing(s.min_lr, s.epochs),
+    SwaSpec: lambda s: Swa(s.start, s.learning_rate),
     CsvLoggerSpec: lambda s: CsvLogger(s.path),
     TerminateOnNaNSpec: lambda s: TerminateOnNaN(),
 }

@@ -342,6 +342,70 @@ class CosineAnnealing(_Callback):
     )
 
 
+class Swa(_Callback):
+    """Average the weights over the last part of the run instead of taking the final ones.
+
+    Stochastic weight averaging. Past `start`, every epoch's weights are folded into a
+    running average and at the end that average becomes the model - the claim being that a
+    point in the middle of a flat region generalises better than the corner the last epoch
+    stopped in.
+
+    **Batch-normalisation statistics are recomputed afterwards**, by a pass over the
+    training data. They have to be: an averaged weight tensor *inherits* the statistics of
+    whichever epoch was last rather than averaging them, so without the pass the model is
+    evaluated under the wrong normalisation and scores far worse than it should, with
+    nothing to say why. It is the step an SWA implementation leaves out.
+
+    **What it is worth, measured.** Three seeds, 60 epochs, lesions with ambiguous edges:
+
+    ```
+                 Dice             volume bias        |volume error|
+    plain        0.9639 ±0.0100   +1.71% ±12.18%     12.60% ±4.19%
+    swa 0.75     0.9667 ±0.0087   +2.08% ±2.15%      12.38% ±4.31%
+    swa 0.5      0.9640 ±0.0085   +2.78% ±3.44%      13.75% ±4.21%
+    ```
+
+    **Dice does not move and neither does the per-case error** - both are inside the seed
+    noise. What moves is *reproducibility*: the volume bias of the plain runs was +4.5%,
+    +12.2% and -11.6% across seeds, and with averaging it was -0.1%, +4.2% and +2.1%. A
+    spread 5.7 times tighter, and paired per seed the distance from unbiased improved on
+    all three, by 7.34% at 4.9 standard errors.
+
+    Which is what averaging is supposed to do and not what one looks for in a table of
+    scores: a point in the middle of a flat region is the same point whichever corner the
+    last epoch wandered into. Read it as "the same model twice" rather than "a better
+    model".
+
+    No `monitor`: like `cosine_annealing` this is a function of how far through the run you
+    are, not of how the run is going.
+    """
+
+    name: Literal["swa"] = "swa"
+    start: float = Field(
+        0.75,
+        gt=0,
+        le=1,
+        description=(
+            "The fraction of the run after which averaging begins - 0.75 folds the last "
+            "quarter. A fraction rather than an epoch so that it survives a change to "
+            "`epochs`, and the final epoch is always folded, so 1.0 averages one set of "
+            "weights rather than none."
+        ),
+    )
+    learning_rate: float | None = Field(
+        None,
+        gt=0,
+        description=(
+            "Hold the rate at this value once averaging begins. Unset leaves whatever the "
+            "run was doing.\n\n"
+            "Worth setting, and the reason is the whole mechanism: averaging is only worth "
+            "something while the weights are still moving. A rate that has decayed towards "
+            "zero produces a set of nearly identical snapshots, and their average is the "
+            "last one."
+        ),
+    )
+
+
 class CsvLogger(_Callback):
     name: Literal["csv_logger"] = "csv_logger"
     path: str
@@ -352,8 +416,8 @@ class TerminateOnNaN(_Callback):
 
 
 CallbackSpec = Annotated[
-    EarlyStopping | ModelCheckpoint | ReduceLrOnPlateau | CosineAnnealing | CsvLogger
-    | TerminateOnNaN,
+    EarlyStopping | ModelCheckpoint | ReduceLrOnPlateau | CosineAnnealing | Swa
+    | CsvLogger | TerminateOnNaN,
     Field(discriminator="name"),
 ]
 

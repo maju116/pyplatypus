@@ -87,6 +87,31 @@ class ModelSpec(SpecModel):
         }
 
     @model_validator(mode="after")
+    def swa_and_a_decaying_rate_cancel_each_other(self):
+        """`swa` with `cosine_annealing` averages a set of nearly identical snapshots.
+
+        Averaging is only worth something while the weights are still moving, and a cosine
+        that has decayed towards its floor by the time averaging starts has stopped them -
+        so the average is the last epoch and the callback did nothing. That is the worst
+        kind of combination: both halves are configured, neither complains, and the result
+        is indistinguishable from not having asked.
+
+        `swa.learning_rate` is the other half of the recipe and is what a run should use
+        instead; `reduce_lr_on_plateau` is not refused, because it lowers the rate on
+        evidence rather than on schedule and may never fire at all.
+        """
+        names = {callback.name for callback in self.callbacks}
+        if "swa" in names and "cosine_annealing" in names:
+            raise ValueError(
+                "`swa` and `cosine_annealing` undo each other: averaging needs the weights "
+                "to still be moving, and a cosine has decayed to its floor by the time "
+                "averaging begins, so the average is just the last epoch. Set "
+                "`swa.learning_rate` to hold the rate while it averages, or drop one of "
+                "the two."
+            )
+        return self
+
+    @model_validator(mode="after")
     def callbacks_watch_something_that_exists(self):
         """A callback watching 'val_dice' when no Dice metric was requested would wait
         forever for a number that never arrives. The old package could not catch this
