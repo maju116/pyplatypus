@@ -121,6 +121,7 @@ def configuration(splits: dict[str, Path], arguments) -> dict:
             "architecture": "yolo3",
             "input_shape": [arguments.size, arguments.size],
             "anchors_per_grid": arguments.anchors_per_grid,
+            "box_loss": arguments.box_loss,
             "epochs": arguments.epochs,
             "batch_size": arguments.batch,
             "score_threshold": arguments.objectness,
@@ -207,6 +208,10 @@ def main() -> None:
                              "statistics are noisier than a true batch of 8.")
     parser.add_argument("--rate", type=float, default=1e-4)
     parser.add_argument("--anchors-per-grid", type=int, default=3)
+    parser.add_argument("--box-loss", choices=("offsets", "giou"), default="offsets",
+                        help="how the box coordinates are scored. 'offsets' is YOLOv3's "
+                             "own and is what the published weights were trained with; "
+                             "'giou' scores the decoded box directly and can reach zero")
     parser.add_argument("--objectness", type=float, default=0.01,
                         help="kept low: average precision integrates the whole ranking")
     parser.add_argument("--operating-point", type=float, default=0.5,
