@@ -25,6 +25,28 @@ updates:
       # touch a Pascal card.
       #
       # The main dependency, plain `torch>=2.7`, has no upper bound to update anyway.
+      #
+      # This `ignore` covers version updates and deliberately not security advisories, so
+      # torch advisories keep arriving against uv.lock - four did on 2026-10-06
+      # (CVE-2025-2999/3000/3001/3730). They were dismissed as "vulnerable code is not
+      # used", and the next batch should be judged the same way rather than acted on:
+      #
+      #   * uv.lock is a development artifact. It is absent from the published
+      #     distribution - checked against the sdist of 0.5.0a3: 140 files, no uv.lock -
+      #     so no user, no CI job and no reticulate environment ever reads it.
+      #   * The installed requirement is `torch>=2.7` with no ceiling. Measured the same
+      #     day: `pyplatypus` and `pyplatypus[hub,encoders]` both resolve to torch 2.14.1,
+      #     and only `pyplatypus[pascal]` comes back 2.7.1. uv holds one version per
+      #     package across every extra, so this one optional extra sets the whole lock.
+      #   * The conflict is permanent, not a backlog. Those four are first patched in
+      #     2.8.0, 2.9.1, 2.10.0 and 2.13.0, so clearing them needs torch >= 2.13 in the
+      #     lock - which is exactly the hardware `pascal` exists to keep working.
+      #
+      # What a torch advisory does require is checking whether the named function is
+      # reachable from this package. For those four - ctc_loss, lstm_cell, jit.script,
+      # unpack_sequence - the answer was no occurrences anywhere, and no recurrent layer of
+      # any kind. An advisory in a function pyplatypus does call is a different matter and
+      # the lock is the least of it, since users are on whatever torch resolves today.
       - dependency-name: torch
   - package-ecosystem: github-actions
     directory: /
