@@ -1,6 +1,46 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.6.0a2] - 2026-10-07
+
+### Added
+
+ - **`validation: false`: train on everything and measure nothing, said out loud.** The
+   third and last way of answering the question `validation_path` and `split` answer.
+
+   ```yaml
+   data:
+     train_path: images/
+     validation: false
+   ```
+
+   A final fit on every case you have, once the hyperparameters are settled, is a legitimate
+   thing to want - and until now it meant inventing a split and ignoring the number it
+   produced. Closes maju116/pyplatypus#44, whose third case was exactly this.
+
+   **Silence is still an error.** A specification with neither a path nor a split is refused
+   as before, and the message now names this option: "I have no validation set" and "I
+   forgot" look identical, and only one of them is a decision. Giving `validation: false`
+   *and* a path or a split is refused too - they say where the validation set comes from and
+   this says there is not one.
+
+   The validation split is then **absent rather than empty**. An empty one makes every count
+   read zero and every average read nan, which is a number for something nobody asked for;
+   a missing split makes `evaluate` say so.
+
+ - **A callback cannot wait for a number that will never arrive.** Early stopping on
+   `val_loss` in a run with no validation trains to the last epoch while waiting, and
+   checkpointing writes nothing - both silently. Refused where the model and the data are
+   both visible, since neither alone can answer it.
+
+### Fixed
+
+ - **"no masks" and "no split" are different things, and the messages had them confused.**
+   `evaluate()` defaults to `"validation"`, so a run specified with `validation: false` met
+   *"the 'validation' split has no masks, so there is nothing to score against"* - true of
+   nothing, and it sends somebody looking for files they never wrote. Both engines now ask
+   whether the split exists before asking whether it is labelled.
+
 ## [0.6.0a1] - 2026-10-06
 
 A minor bump rather than another alpha letter: the data path grew a third item and the
