@@ -18,6 +18,14 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+      # First, because it is the cheapest and the one nothing else can see. A dependabot
+      # PR moves a pin in pyproject.toml and leaves uv.lock alone, so `main` ends up
+      # holding a lock that contradicts its own pin - and every other check here passes
+      # anyway, because `uv run --only-group` resolves the pin rather than reading the
+      # lock. That drift happened three times before this step existed and each time the
+      # remedy was somebody remembering to relock.
+      - run: uv lock --check
+
       # --only-group installs ruff alone, at the version pyproject.toml pins, so CI and
       # a contributor's machine cannot disagree about which rules apply.
       - run: uv run --only-group lint ruff check pyplatypus tests
