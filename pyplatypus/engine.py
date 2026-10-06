@@ -74,20 +74,25 @@ class Engine:
         self.runs: dict[str, ModelRun] = {}
         seed_everything(spec.seed)
 
-        self._samples: dict[str, tuple[Sample, ...]] = {
-            "train": discover(spec.data.train_path, spec.data, strict=strict_data).samples,
-            "validation": discover(spec.data.validation_path, spec.data,
-                                   strict=strict_data).samples,
-        }
         #: Splits whose masks are there. Training and validation must have them; a test
-        #: split may or may not, and which it is decides what can be asked of it. The
-        #: detection engine has recorded this since detection existed; this side discovered
-        #: the same fact and threw it away, so `evaluate("test")` on an unlabelled split
-        #: failed with `MaskError: no masks to unite` from two layers down instead of
-        #: saying there was nothing to compare against.
+        #: split may or may not, and which it is decides what can be asked of it.
         self.labelled = {"train", "validation"}
-        if spec.data.test_path:
-            self._samples["test"] = self._discover_test(strict=strict_data)
+
+        if spec.data.split is not None:
+            self._samples = split_from_train(spec.data, discover, strict=strict_data)
+            # A test set cut out of the training folder came from data that has masks, so
+            # unlike a separate `test_path` it can be scored rather than only predicted on.
+            if "test" in self._samples:
+                self.labelled.add("test")
+        else:
+            self._samples: dict[str, tuple[Sample, ...]] = {
+                "train": discover(spec.data.train_path, spec.data,
+                                  strict=strict_data).samples,
+                "validation": discover(spec.data.validation_path, spec.data,
+                                       strict=strict_data).samples,
+            }
+            if spec.data.test_path:
+                self._samples["test"] = self._discover_test(strict=strict_data)
 
     # ------------------------------------------------------------------ data
     def _discover_test(self, *, strict: bool) -> tuple[Sample, ...]:
@@ -628,3 +633,30 @@ def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             f"worst_{label}": worst[label],
         })
     return out
+
+
+def split_from_train(data, discover, *, strict: bool) -> dict[str, tuple]:
+    """Divide the training folder, when `split` says to instead of naming more paths.
+
+    Only the split case: the three-paths case stays with each engine, because what a test
+    split means differs between them - segmentation asks for masks, detection asks for
+    annotations and tolerates their absence.
+
+    Divided in memory. `split_dataset()` remains the tool when the CSVs are the point -
+    something to keep, to hand to a colleague, to cite - but a specification should not
+    leave files behind as a side effect of being read.
+
+    No check for an empty split here. `split_samples` guarantees at least one sample in
+    every split it is asked for, and refuses when there are fewer groups than splits or
+    when train or validation is given a zero share - measured, not assumed. A guard
+    restating that would be a second place for one rule and could never fire.
+    """
+    from pyplatypus.data.splits import split_samples
+
+    found = discover(data.train_path, data, strict=strict).samples
+    divided = split_samples(found, fractions=data.split.fractions,
+                            group_by=data.split.group_by, seed=data.split.seed)
+    samples = {"train": divided.train, "validation": divided.validation}
+    if divided.test:
+        samples["test"] = divided.test
+    return samples

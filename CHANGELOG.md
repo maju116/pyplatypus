@@ -1,6 +1,46 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.0a3] - 2026-10-06
+
+### Added
+
+ - **`split`: divide the training folder instead of naming three paths.** A researcher with
+   one directory had to run a splitting tool, point three paths at its output, and remember
+   to switch mode - and when they did not, the refusal said only `validation_path: Field
+   required`, which is true and names nothing they could do about it.
+
+   ```yaml
+   data:
+     train_path: images/
+     split:
+       fractions: [0.8, 0.2]          # two, or three to cut a test set as well
+       group_by: "^(patient\\d+)_"     # required key, may be null
+   ```
+
+   Exactly one of `split` and `validation_path`, for the reason `colormap` and `labels` are
+   exactly one: two sources for one thing are two places to change it.
+
+   **`group_by` is required and may be `null`.** Everything sharing a group lands in a
+   single split - usually a patient. It is required rather than optional because the
+   mistake it prevents leaves no trace: slices of one patient in training and validation at
+   once make validation measure memory rather than generalisation, and the score comes out
+   several points too high with nothing in the output to say so. An omitted key would be
+   that choice made silently; `null` is the same choice made on purpose. `splits.py` has
+   refused a pattern that *matches* nothing since it was written, for the same reason; this
+   extends it to never having asked.
+
+   **Nothing is written.** `split_samples` partitions what was already discovered.
+   `split_dataset()` is still the tool when the CSV files are the point - to keep, to hand
+   to a colleague, to cite - but being read should not leave files behind.
+
+   **A test set cut this way is scoreable**, because it came from annotated data. Unlike a
+   separate `test_path`, which may be images alone and is recorded as unlabelled, the third
+   fraction can be evaluated and not only predicted on.
+
+   The two-or-three rule is not restated in the spec: it calls `_fractions` from the
+   splitting module, which already had it.
+
 ## [0.5.0a2] - 2026-10-06
 
 ### Fixed
