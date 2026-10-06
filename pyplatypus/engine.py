@@ -79,18 +79,80 @@ class Engine:
             "validation": discover(spec.data.validation_path, spec.data,
                                    strict=strict_data).samples,
         }
+        #: Splits whose masks are there. Training and validation must have them; a test
+        #: split may or may not, and which it is decides what can be asked of it. The
+        #: detection engine has recorded this since detection existed; this side discovered
+        #: the same fact and threw it away, so `evaluate("test")` on an unlabelled split
+        #: failed with `MaskError: no masks to unite` from two layers down instead of
+        #: saying there was nothing to compare against.
+        self.labelled = {"train", "validation"}
         if spec.data.test_path:
-            self._samples["test"] = discover(spec.data.test_path, spec.data,
-                                             only_images=True, strict=strict_data).samples
+            self._samples["test"] = self._discover_test(strict=strict_data)
 
     # ------------------------------------------------------------------ data
+    def _discover_test(self, *, strict: bool) -> tuple[Sample, ...]:
+        """The test split, with its masks if it has any.
+
+        Masks are asked for first and their absence is not an error - a test set of images
+        alone is an ordinary thing to have, and `predict` is what it is for. The split is
+        then recorded as unlabelled, so `evaluate` refuses it by name rather than scoring
+        it against nothing.
+
+        **"No masks" and "some masks" are not the same thing.** Falling back whenever
+        labelled discovery failed would turn a test split with two missing files into an
+        unlabelled one, throwing away the seventy that are there and reporting nothing. So
+        the fallback happens only when the split carries no masks at all; an incomplete one
+        raises, which is what `strict` is for. Taken from the detection side, which met
+        this first.
+        """
+        from pyplatypus.errors import ConfigError
+
+        try:
+            samples = discover(self.spec.data.test_path, self.spec.data,
+                               strict=strict).samples
+        except ConfigError:
+            if self._test_has_any_masks():
+                raise
+            return discover(self.spec.data.test_path, self.spec.data,
+                            only_images=True, strict=strict).samples
+        self.labelled.add("test")
+        return samples
+
+    def _test_has_any_masks(self) -> bool:
+        """Whether the test split carries masks for anything, without reading them."""
+        from pyplatypus.spec.common import DataMode
+
+        path = Path(self.spec.data.test_path)
+        if self.spec.data.mode is DataMode.CONFIG_FILE:
+            if not path.is_file():
+                return False
+            header = path.read_text().splitlines()[:1]
+            if not header:
+                return False
+            return self.spec.data.label_column in [
+                name.strip() for name in header[0].split(",")
+            ]
+        if not path.is_dir():
+            return False
+        wanted = self.spec.data.subdirs[1]
+        return any((entry / wanted).is_dir() and any((entry / wanted).iterdir())
+                   for entry in path.iterdir() if entry.is_dir())
+
     def dataset(self, model: SegmentationModel, split: str, *, augmented: bool = False,
-                only_images: bool = False) -> SegmentationDataset:
+                only_images: bool | None = None) -> SegmentationDataset:
+        """`only_images` defaults to what the split actually has rather than to False.
+
+        It used to default to False, so asking for a test split of images alone built a
+        dataset that would read masks and fail on the first item. The engine knew: it had
+        just discovered the split without them.
+        """
         if split not in self._samples:
             raise EngineError(
                 f"no '{split}' data in this spec; available: "
                 f"{', '.join(sorted(self._samples))}"
             )
+        if only_images is None:
+            only_images = split not in self.labelled
         augmenter = build_augmenter(
             model.augmentation, model.rank, tuple(model.input_shape)
         ) if augmented else None
@@ -317,10 +379,24 @@ class Engine:
             write_record(self.spec, run.name, history=run.history)
 
     # --------------------------------------------------------------- evaluate
+    def _needs_masks(self, split: str) -> None:
+        """Refuse a question about masks that are not there.
+
+        Scoring an unlabelled split against nothing would either fail deep in the mask
+        layer - which is what it used to do - or, worse, report a number. A zero in a table
+        is read as a result.
+        """
+        if split not in self.labelled:
+            raise EngineError(
+                f"the '{split}' split has no masks, so there is nothing to score against. "
+                f"predict('{split}') works on it, and save_masks() writes what it predicts."
+            )
+
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
         """One row per model: the comparison table the whole multi-model idea is for."""
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
+        self._needs_masks(split)
 
         table = []
         for run in self.runs.values():
@@ -357,6 +433,7 @@ class Engine:
                 f"'{model_name}' has no metrics, so there is nothing to report per case. "
                 "Add at least one, for example metrics: [{name: dice}]."
             )
+        self._needs_masks(split)
 
         dataset = self.dataset(run.spec, split)
         tiles = dataset.tiles_per_sample

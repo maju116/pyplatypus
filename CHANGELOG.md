@@ -1,6 +1,33 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.5.0a2] - 2026-10-06
+
+### Fixed
+
+ - **Segmentation now records which splits carry masks, as detection always has.** It
+   discovered the fact and threw it away: a test split was always found with
+   `only_images=True`, so two things were wrong at once and in opposite directions.
+
+   A test folder of images alone built a dataset that would try to read masks and fail on
+   the first item with `MaskError: no masks to unite` - true, two layers below the question
+   that was asked, and about the wrong thing. `evaluate("test")` now refuses by name: *"the
+   'test' split has no masks, so there is nothing to score against. predict('test') works on
+   it."*
+
+   And a test folder that **did** carry masks was never recognised as scoreable, because
+   discovery never asked for them. `evaluate("test")` on a complete test set now simply
+   works, where before it failed exactly as it did on an empty one.
+
+   `dataset(..., only_images=...)` defaults to what the split actually has rather than to
+   `False`. Passing it explicitly still overrides.
+
+   **"No masks" and "some masks" stay different.** Falling back whenever labelled discovery
+   failed would turn a split with two missing files into an unlabelled one, discarding the
+   seventy that are there and reporting nothing - so the fallback happens only when the
+   split carries no masks at all, and an incomplete one raises. Taken from the detection
+   side, which met this first.
+
 ## [0.5.0a1] - 2026-10-05
 
 **Breaking.** Three fields in a model block were assertions wearing the clothes of settings -
