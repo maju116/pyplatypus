@@ -1,6 +1,55 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.6.0a4] - 2026-10-07
+
+### Added
+
+ - **`swa`: average the weights over the last part of the run.** Closes
+   maju116/pyplatypus#25.
+
+   ```yaml
+   callbacks:
+     - name: swa
+       start: 0.75          # the fraction of the run after which averaging begins
+       learning_rate: 1e-3  # held while it averages
+   ```
+
+   **What it is worth, and it is not what a table of scores shows.** Three seeds, 60
+   epochs, lesions with ambiguous edges:
+
+   ```
+                Dice             volume bias        |volume error|
+   plain        0.9639 ±0.0100   +1.71% ±12.18%     12.60% ±4.19%
+   swa 0.75     0.9667 ±0.0087   +2.08% ±2.15%      12.38% ±4.31%
+   swa 0.5      0.9640 ±0.0085   +2.78% ±3.44%      13.75% ±4.21%
+   ```
+
+   Dice does not move and neither does the per-case error - both inside the seed noise.
+   What moves is **reproducibility**: the volume bias of the plain runs was +4.5%, +12.2%
+   and -11.6% across seeds, and with averaging -0.1%, +4.2% and +2.1%. A spread **5.7
+   times tighter**, and paired per seed the distance from unbiased improved on all three,
+   by 7.34% at 4.9 standard errors. Which is what averaging is for: a point in the middle
+   of a flat region is the same point whichever corner the last epoch wandered into.
+
+   **Batch-normalisation statistics are recomputed** by a pass over the training data, and
+   that is the step this feature mostly consists of. An averaged weight tensor *inherits*
+   the statistics of whichever epoch was last rather than averaging them, so without the
+   pass the model is evaluated under the wrong normalisation and scores far worse than it
+   should with nothing to say why. `TrainingState` gained `train_loader` for it - a
+   callback that cannot reach the data cannot do SWA honestly.
+
+   **`swa` with `cosine_annealing` is refused.** Averaging needs the weights to still be
+   moving; a cosine has decayed to its floor by the time averaging begins, so the average
+   is just the last epoch and the callback did nothing - configured, silent, and
+   indistinguishable from not having asked. `swa.learning_rate` is the other half of the
+   recipe. `reduce_lr_on_plateau` is not refused: it lowers the rate on evidence rather
+   than on schedule and may never fire.
+
+   Nothing is replaced when a run ends before averaging began - early stopping can do that,
+   and substituting one epoch's weights for "the average" would be a lie about what
+   happened.
+
 ## [0.6.0a3] - 2026-10-07
 
 ### Changed

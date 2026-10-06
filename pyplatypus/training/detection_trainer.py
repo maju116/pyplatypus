@@ -112,6 +112,7 @@ class DetectionTrainer:
             *, epochs: int | None = None, verbose: bool = False) -> History:
         epochs = epochs if epochs is not None else self.spec.epochs
         state = TrainingState(model=self.model, optimizer=self.optimizer,
+                              train_loader=train_loader,
                               total_epochs=epochs)
         history = History()
 
