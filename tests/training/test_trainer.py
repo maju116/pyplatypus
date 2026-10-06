@@ -118,3 +118,34 @@ def test_predict_refuses_a_partial_grid(loaders):
     loader = make_loader(loaders(spec).dataset.base, batch_size=5, drop_last=True)
     with pytest.raises(ValueError, match="whole number of images"):
         trainer.predict(loader)
+
+
+# --- the distance map's route through the data path ----------------------------------------
+
+def test_the_loader_carries_a_distance_map_only_when_the_loss_asks(config, nested_root):
+    """Two items in the batch or three, and the loader decides from the specification.
+
+    The transform costs more than an epoch of a small 3D model, so everyone paying for it
+    would be the wrong default; and a loader that always produced it would make the
+    trainer's unpacking a lie.
+    """
+    from pyplatypus import build_engine
+    from pyplatypus.spec.loader import from_dict
+
+    config["data"]["train_path"] = str(nested_root)
+    config["data"]["validation_path"] = str(nested_root)
+
+    config["models"][0]["loss"] = {"name": "dice"}
+    engine = build_engine(from_dict(config), device="cpu")
+    plain = next(iter(engine.loader(engine.spec.models[0], "train")))
+    assert len(plain) == 2
+
+    config["models"][0]["loss"] = {"name": "boundary", "region": {"name": "dice"}}
+    engine = build_engine(from_dict(config), device="cpu")
+    batch = next(iter(engine.loader(engine.spec.models[0], "train")))
+    assert len(batch) == 3
+    _, mask, distance = batch
+    assert distance.shape == mask.shape
+    # Negative somewhere and positive somewhere: a map that is all one sign is a mask with
+    # no boundary, and this fixture has one.
+    assert float(distance.min()) < 0 < float(distance.max())

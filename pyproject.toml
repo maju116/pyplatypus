@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.5.0a6"
+version = "0.6.0a1"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,6 +43,10 @@ dependencies = [
     # it is loaded, so a weights file would be a program somebody else wrote. Tiny.
     "safetensors>=0.4",
     "albumentations>=1.4",
+    # The signed distance transform the `boundary` loss is built on. Present anyway -
+    # albumentations requires it - but a package whose code imports scipy should say so
+    # rather than rely on somebody else's dependency list not changing.
+    "scipy>=1.10",
     # No upper bound on purpose. torch 2.8+ ships CUDA 13 builds, which dropped the
     # Maxwell, Pascal and Volta generations - a GTX 10-series card needs a CUDA 12.x
     # build and therefore torch 2.7.x. That is a property of somebody's hardware, not of

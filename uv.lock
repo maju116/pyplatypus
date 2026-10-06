@@ -1648,7 +1648,7 @@ wheels = [
 
 [[package]]
 name = "pyplatypus"
-version = "0.5.0a6"
+version = "0.6.0a1"
 source = { editable = "." }
 dependencies = [
     { name = "albumentations" },
@@ -1661,6 +1661,9 @@ dependencies = [
     { name = "pydicom" },
     { name = "pyyaml" },
     { name = "safetensors" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "torch" },
 ]
 
@@ -1700,6 +1703,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "safetensors", specifier = ">=0.4" },
+    { name = "scipy", specifier = ">=1.10" },
     { name = "timm", marker = "extra == 'encoders'", specifier = ">=1.0" },
     { name = "torch", specifier = ">=2.7" },
     { name = "torch", marker = "extra == 'pascal'", specifier = ">=2.7,<2.8" },

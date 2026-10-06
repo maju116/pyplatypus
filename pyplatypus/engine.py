@@ -23,6 +23,7 @@ from pyplatypus.data.splits import group_of
 from pyplatypus.errors import PlatypusError
 from pyplatypus.models import build_model
 from pyplatypus.models.encoders import PretrainedEncoder
+from pyplatypus.objectives.losses import loss_needs_distance
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.spec.spec import PlatypusSpec, SegmentationSpec
 from pyplatypus.training.torch_data import make_loader
@@ -167,10 +168,19 @@ class Engine:
         )
 
     def loader(self, model: SegmentationModel, split: str, *, augmented: bool = False,
-               shuffle: bool = False, only_images: bool = False):
+               shuffle: bool = False, only_images: bool = False, for_loss: bool = True):
+        # `boundary` needs the signed distance map of its target and nothing else does, so
+        # the loader computes it only when the loss asks - the transform costs more than an
+        # epoch of a small 3D model and nobody else should pay for it. Read from the spec
+        # rather than from the trainer's loss object, because the loader is built first.
+        #
+        # `for_loss=False` is for the paths that score or predict rather than optimise:
+        # they never call the loss, so a map built for them would be pure waste - 700 ms a
+        # sample at 128^3, on work that does not read it.
         return make_loader(
             self.dataset(model, split, augmented=augmented, only_images=only_images),
             batch_size=model.batch_size, shuffle=shuffle, num_workers=self.num_workers,
+            with_distance=for_loss and loss_needs_distance(model.loss),
         )
 
     # ----------------------------------------------------------------- weights
@@ -448,7 +458,7 @@ class Engine:
             for _ in range(tiles)
         ]
         # Never shuffled: the case names line up with the order examples arrive in.
-        loader = self.loader(run.spec, split, shuffle=False)
+        loader = self.loader(run.spec, split, shuffle=False, for_loss=False)
         rows = run.trainer.score_cases(loader, cases)
         key = "group" if group_by else "case"
         return [{key: row.pop("case"), **row} for row in rows]
@@ -480,7 +490,8 @@ class Engine:
             raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
         only_images = split == "test" and "test" in self._samples
         # Never shuffle: stitching depends on tiles arriving in the order they were cut.
-        loader = self.loader(run.spec, split, shuffle=False, only_images=only_images)
+        loader = self.loader(run.spec, split, shuffle=False,
+                             only_images=only_images, for_loss=False)
         predictions = run.trainer.predict(loader)
 
         if space == "model":

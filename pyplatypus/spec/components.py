@@ -91,8 +91,85 @@ class LovaszLoss(_Loss):
     per_image: bool = False
 
 
-LossSpec = Annotated[
+#: Everything but `boundary`, which takes one of these as its region term. Spelled out
+#: rather than recursive: a boundary loss inside a boundary loss would add two surface
+#: terms with no region term holding either of them down, which is the one combination
+#: that cannot work.
+RegionLossSpec = Annotated[
     IouLoss | DiceLoss | CceLoss | CceDiceLoss | FocalLoss | TverskyLoss | FocalTverskyLoss | ComboLoss | LovaszLoss,
+    Field(discriminator="name"),
+]
+
+
+class BoundaryLoss(_Loss):
+    """A region loss plus a term that knows how far a wrong voxel is from the truth.
+
+    Dice and IoU count a voxel the same wherever it sits, which is why a model can reach
+    0.88 on Dice while its volumes run a fifth too large: the overshoot is all at the
+    boundary, and for a small lesion the boundary is most of the object. This adds
+    `mean(phi * p)`, where `phi` is the signed distance to the truth's boundary.
+
+    ```yaml
+    loss:
+      name: boundary
+      region: {name: focal, gamma: 2.0}
+      alpha: 0.5
+    ```
+
+    `alpha` weights the region term, `1 - alpha` the surface term. It cannot be 1, which
+    would leave the surface term doing nothing and the name lying, and it cannot be 0: the
+    surface term alone has no notion of how much of the object was found and is minimised
+    by a confident prediction deep inside a shrunken one.
+
+    **What it buys and what it costs, measured.** Against Dice alone on lesions with
+    ambiguous edges, three seeds, at the default `alpha`: the systematic volume bias goes
+    from -5.18% to -0.06%, and the per-case absolute volume error goes the wrong way, from
+    16.90% to 22.17%. Dice itself falls by 0.011. So it trades *accuracy per case* for
+    *being unbiased over a series* - and which of those you want is the question being
+    asked. "Is there a lesion" wants the overlap; "has it grown since March" wants a volume
+    that is not systematically wrong, and no single number answers both.
+
+    The bias improvement is suggestive rather than established on three seeds, because the
+    baseline's own bias wanders by ±3.11%. The costs are established.
+
+    **It also costs time.** The signed distance transform runs per sample in the loader's
+    workers - measured at 5.3 ms for a 256x256 image, 23.4 ms for a 64x64x32 volume and
+    709.8 ms at 128^3 - so on large volumes give the loader workers, or the transform
+    becomes the training.
+    """
+
+    name: Literal["boundary"] = "boundary"
+    region: RegionLossSpec = Field(
+        default_factory=lambda: DiceLoss(),
+        description="The overlap term this is added to. Dice unless you say otherwise.",
+    )
+    alpha: float = Field(
+        0.9,
+        gt=0,
+        lt=1,
+        description=(
+            "How much of the objective is the region term, `1 - alpha` the surface term.\n\n"
+            "**0.9 because 0.5 was measured and is unusable.** Three seeds on lesions with "
+            "ambiguous edges, 60 epochs:\n\n"
+            "```\n"
+            "                 Dice             volume bias       volume |error|\n"
+            "dice alone       0.9525 ±0.0027   -5.18% ±3.11%     16.90% ±0.90%\n"
+            "boundary a=0.5   0.9164 ±0.0240  +32.22% ±28.28%    42.95% ±19.12%\n"
+            "boundary a=0.9   0.9411 ±0.0093   -0.06% ±4.15%     22.17% ±2.88%\n"
+            "```\n\n"
+            "At 0.5 the surface term has half the objective while the prediction is still "
+            "random, which is where it is known to be unstable - the seed spread is six "
+            "times the baseline's and every number is worse. Kervadec schedules this "
+            "downwards from near 1 rather than fixing it; 0.9 is the closest a single "
+            "number comes, and the spec deliberately has no schedule to hide behind.\n\n"
+            "Excludes both ends: at 1 the surface term is absent and the name is a lie, "
+            "and at 0 nothing measures how much of the object was found."
+        ),
+    )
+
+
+LossSpec = Annotated[
+    IouLoss | DiceLoss | CceLoss | CceDiceLoss | FocalLoss | TverskyLoss | FocalTverskyLoss | ComboLoss | LovaszLoss | BoundaryLoss,
     Field(discriminator="name"),
 ]
 

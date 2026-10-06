@@ -1,6 +1,70 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.6.0a1] - 2026-10-06
+
+A minor bump rather than another alpha letter: the data path grew a third item and the
+loss interface grew a flag, both of which a custom loss or loader would notice.
+
+### Added
+
+ - **`boundary`: a loss that knows how far a wrong voxel is from the truth.** Dice and IoU
+   count a voxel the same wherever it sits, which is why a model can reach 0.88 on Dice
+   while its volumes run a fifth too large - the overshoot is all at the boundary, and for
+   a small lesion the boundary is most of the object.
+
+   ```yaml
+   loss:
+     name: boundary
+     region: {name: focal, gamma: 2.0}    # or dice, iou, tversky, ...
+     alpha: 0.9
+   ```
+
+   `mean(phi * p)` added to a region loss, where `phi` is the signed distance to the
+   truth's boundary - negative inside, positive outside. Closes maju116/platypus#37, which
+   asked for focal combined with a distance metric; `region` is how any of the nine is
+   combined with it rather than one hard-coded pair.
+
+   **What it buys and costs, measured.** Three seeds, 60 epochs, lesions with ambiguous
+   edges, against Dice alone:
+
+   ```
+                    Dice             volume bias       volume |error|
+   dice alone       0.9525 ±0.0027   -5.18% ±3.11%     16.90% ±0.90%
+   boundary a=0.9   0.9411 ±0.0093   -0.06% ±4.15%     22.17% ±2.88%
+   ```
+
+   It trades accuracy per case for being unbiased over a series. "Is there a lesion" wants
+   the overlap; "has it grown since March" wants a volume that is not systematically wrong,
+   and no single number answers both. The bias improvement is suggestive on three seeds
+   (the baseline's own bias wanders ±3.11%); the costs are established.
+
+   **`alpha` defaults to 0.9, not 0.5, because 0.5 was measured and is unusable**: at that
+   weight the surface term has half the objective while the prediction is still random, and
+   three seeds gave a volume error spread of ±28.28% with every number worse than the
+   baseline. Kervadec schedules it downwards from near 1; 0.9 is the closest a single
+   number comes.
+
+### Changed
+
+ - **The data path can carry a signed distance map, and the loss decides.** A loss sets
+   `needs_distance`, `loss_needs_distance(spec)` answers it from the specification, the
+   loader computes the transform **in its workers** and the batch arrives with three items
+   instead of two.
+
+   In the loss it would have dominated training: one transform costs 5.3 ms at 256x256,
+   23.4 ms at 64x64x32 and 709.8 ms at 128^3, against an epoch of about half a second for
+   a small 3D model. The paths that score or predict rather than optimise never call the
+   loss, so they ask for two items and pay nothing.
+
+   It is recomputed every epoch rather than cached: augmentation moves the mask, and a map
+   cached against a sample index would describe a shape that is no longer there - silently,
+   since nothing ever looks at it.
+
+ - **`scipy` is a direct dependency.** It was always installed, because albumentations
+   requires it, but a package whose code imports scipy should say so rather than rely on
+   somebody else's dependency list not changing.
+
 ## [0.5.0a6] - 2026-10-06
 
 ### Added
