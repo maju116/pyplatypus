@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>detectionengine.evaluate – pyplatypus</title>
+<title>code_of_conduct – pyplatypus</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -26,66 +26,31 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-/* CSS for syntax highlighting */
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-  { counter-reset: source-line 0; }
-pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-  }
-pre.numberSource { margin-left: 3em;  padding-left: 4px; }
-div.sourceCode
-  {   }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
 </style>
 
 
-<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="../site_libs/quarto-nav/headroom.min.js"></script>
-<script src="../site_libs/clipboard/clipboard.min.js"></script>
-<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="../site_libs/quarto-search/fuse.min.js"></script>
-<script src="../site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="../">
-<link href="../assets/hexsticker.png" rel="icon" type="image/png">
-<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="../site_libs/quarto-html/popper.min.js"></script>
-<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="../site_libs/quarto-html/anchor.min.js"></script>
-<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
-<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-dark-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./assets/hexsticker.png" rel="icon" type="image/png">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -124,7 +89,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="../index.html">
+    <a class="navbar-brand" href="./index.html">
     <span class="navbar-title">pyplatypus</span>
     </a>
   </div>
@@ -150,7 +115,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict.html">Predicting and scoring</a></li><li class="breadcrumb-item"><a href="../reference/DetectionEngine.evaluate.html">DetectionEngine.evaluate</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./CHANGELOG.html">About</a></li><li class="breadcrumb-item"><a href="./CODE_OF_CONDUCT.html">Code of conduct</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -164,7 +129,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <ul class="list-unstyled mt-1">
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../index.html" class="sidebar-item-text sidebar-link">
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Home</span></a>
   </div>
 </li>
@@ -179,7 +144,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/index.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Overview</span></a>
   </div>
 </li>
@@ -194,49 +159,49 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/from_dict.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/from_dict.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">from_dict</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/from_yaml.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/from_yaml.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">from_yaml</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">SegmentationSpec</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionSpec</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusSpec</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Task.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Task.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Task</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/spec_schema.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/spec_schema.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">spec_schema</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/write_schema.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/write_schema.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">write_schema</span></a>
   </div>
 </li>
@@ -253,7 +218,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/available_transforms.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/available_transforms.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">available_transforms</span></a>
   </div>
 </li>
@@ -270,37 +235,37 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/split_dataset.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/split_dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">split_dataset</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/split_samples.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/split_samples.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">split_samples</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.dataset</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.loader</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.dataset</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.loader</span></a>
   </div>
 </li>
@@ -317,37 +282,37 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/build_engine.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/build_engine.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">build_engine</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.fit</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.fit</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.fit_anchors</span></a>
   </div>
 </li>
@@ -355,112 +320,112 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </li>
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true">
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false">
  <span class="menu-text">Predicting and scoring</span></a>
-          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="true" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth2 show">  
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.predict</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.evaluate</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.evaluate_cases</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">summarise_cases</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.best_model</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.predict</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link active">
+  <a href="./reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.evaluate</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.evaluate_classes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.evaluate_images</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.best_model</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.crops</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionReport</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.report</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.anchor_coverage</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.box_shapes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.split_sizes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.model_names</span></a>
   </div>
 </li>
@@ -477,31 +442,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/available_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/available_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">available_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">resolve_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/export_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/export_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">export_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.export_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.export_weights</span></a>
   </div>
 </li>
@@ -518,13 +483,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-8" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/write_record.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/write_record.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">write_record</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/read_record.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/read_record.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">read_record</span></a>
   </div>
 </li>
@@ -541,19 +506,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-9" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusError</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/ConfigError.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/ConfigError.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">ConfigError</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/WeightsError.html" class="sidebar-item-text sidebar-link">
+  <a href="./reference/WeightsError.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">WeightsError</span></a>
   </div>
 </li>
@@ -572,13 +537,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../CHANGELOG.html" class="sidebar-item-text sidebar-link">
+  <a href="./CHANGELOG.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Changelog</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
+  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">Code of conduct</span></a>
   </div>
 </li>
@@ -600,93 +565,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#pyplatypus.DetectionEngine.evaluate" id="toc-pyplatypus.DetectionEngine.evaluate" class="nav-link active" data-scroll-target="#pyplatypus.DetectionEngine.evaluate">DetectionEngine.evaluate</a>
-  <ul class="collapse">
-  <li><a href="#parameters" id="toc-parameters" class="nav-link" data-scroll-target="#parameters">Parameters</a></li>
-  <li><a href="#returns" id="toc-returns" class="nav-link" data-scroll-target="#returns">Returns</a></li>
-  </ul></li>
+  <li><a href="#contributor-code-of-conduct" id="toc-contributor-code-of-conduct" class="nav-link active" data-scroll-target="#contributor-code-of-conduct">Contributor Code of Conduct</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict.html">Predicting and scoring</a></li><li class="breadcrumb-item"><a href="../reference/DetectionEngine.evaluate.html">DetectionEngine.evaluate</a></li></ol></nav></header>
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./CHANGELOG.html">About</a></li><li class="breadcrumb-item"><a href="./CODE_OF_CONDUCT.html">Code of conduct</a></li></ol></nav></header>
 
 
 
 
-<section id="pyplatypus.DetectionEngine.evaluate" class="level1">
-<h1>DetectionEngine.evaluate</h1>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.evaluate(split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>One row per model: the comparison table, with detection’s columns.</p>
-<p>Different columns from the segmentation table, because they answer a different question. <code>mean_matched_iou</code> is the one worth keeping beside the averages: the gap between mAP@0.5 and mAP@[.50:.95] is localisation, and this is that gap as a single number - how well the boxes that matched actually fit, rather than merely that they cleared a threshold.</p>
-<p><strong>No precision or recall here</strong>, although <code>operating_point</code> says where to read them. Averaging them over classes needs a weighting and every choice of weighting is a different claim: summed over BCCD’s 4155 red cells, 372 white and 361 platelets, a single precision is a statement about red cells wearing the costume of a statement about the model. They are in <code>evaluate_classes</code>, per class, which is the only form in which they mean anything. <code>DetectionMetrics.as_rows</code> made the same decision - its “all” row leaves both as None.</p>
-<section id="parameters" class="level2 doc-section doc-section-parameters">
-<h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Type</th>
-<th>Description</th>
-<th>Default</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>split</td>
-<td>str</td>
-<td>Which data to score on.</td>
-<td><code>'validation'</code></td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="returns" class="level2 doc-section doc-section-returns">
-<h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 7%">
-<col style="width: 23%">
-<col style="width: 69%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td></td>
-<td>list[dict[str, Any]]</td>
-<td>One row per model: <code>map_50</code>, <code>map_50_95</code>, <code>mean_matched_iou</code> and the counts.</td>
-</tr>
-<tr class="even">
-<td></td>
-<td>list[dict[str, Any]]</td>
-<td><strong>No overall precision or recall</strong>, deliberately: averaging them over classes</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td>list[dict[str, Any]]</td>
-<td>needs a weighting, and over BCCD’s 4,155 red cells against 372 white one</td>
-</tr>
-<tr class="even">
-<td></td>
-<td>list[dict[str, Any]]</td>
-<td>precision is a statement about red cells wearing the costume of a statement</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td>list[dict[str, Any]]</td>
-<td>about the model.</td>
-</tr>
-</tbody>
-</table>
+<section id="contributor-code-of-conduct" class="level1">
+<h1>Contributor Code of Conduct</h1>
+<p>As contributors and maintainers of this project, we pledge to respect all people who contribute through reporting issues, posting feature requests, updating documentation, submitting pull requests or patches, and other activities.</p>
+<p>We are committed to making participation in this project a harassment-free experience for everyone, regardless of level of experience, gender, gender identity and expression, sexual orientation, disability, personal appearance, body size, race, ethnicity, age, or religion.</p>
+<p>Examples of unacceptable behavior by participants include the use of sexual language or imagery, derogatory comments or personal attacks, trolling, public or private harassment, insults, or other unprofessional conduct.</p>
+<p>Project maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct. Project maintainers who do not follow the Code of Conduct may be removed from the project team.</p>
+<p>Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting one or more of the project maintainers.</p>
+<p>This Code of Conduct is adapted from the <a href="http://contributor-covenant.org">Contributor Covenant</a>, version 1.0.0, available at https://www.contributor-covenant.org/version/1/0/0/code-of-conduct.html</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->
