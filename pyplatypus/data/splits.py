@@ -120,7 +120,7 @@ def split_samples(
     group_by: str | None = None,
     seed: int = 0,
 ) -> Split:
-    """Divide samples between the splits, keeping every group whole.
+    r"""Divide samples between the splits, keeping every group whole.
 
     Deterministic: the same samples, fractions, pattern and seed give the same split on
     any machine. That is not a nicety - a split that moves between runs makes two results
@@ -129,6 +129,53 @@ def split_samples(
     Groups are shuffled, then handed out one at a time to whichever split is furthest
     below its target share *in samples*. Assigning by group count instead would drift
     badly whenever groups differ in size, which for patients they always do.
+
+    Args:
+        samples: What was discovered. Nothing is read from disk here - this partitions a
+            list, so a specification with a `split` block gains no side effect on disk.
+        fractions: Two or three, summing to one: train, validation, and optionally test.
+            A mapping names them instead, for a split that is not in that order.
+        group_by: A regular expression read against each sample's key; everything sharing
+            a group lands in exactly one split. `None` means every sample is its own
+            group, which is right only when the samples are genuinely independent - slices
+            of one patient are not.
+        seed: Which shuffle. The split is otherwise deterministic.
+
+    Returns:
+        A `Split`, with `train`, `validation` and `test` tuples and the group each sample
+        was assigned to.
+
+    Raises:
+        SplitError: If the fractions are not two or three, if `group_by` matches no sample
+            key - a pattern that matches nothing is a mistake, not an empty result - or if
+            there are fewer groups than splits to fill.
+
+    >>> from pyplatypus.data.paths import Sample
+    >>> import pathlib
+    >>> samples = [
+    ...     Sample(key=f"patient{p:02d}_slice{s}", images=(pathlib.Path("x.png"),))
+    ...     for p in range(1, 5)
+    ...     for s in range(3)
+    ... ]
+    >>> len(samples)
+    12
+    >>> split = split_samples(samples, fractions=(0.5, 0.5), group_by=r"^(patient\d+)_")
+    >>> len(split.train) + len(split.validation)
+    12
+
+    A patient is never on both sides, which is the whole point:
+
+    >>> def patients(part):
+    ...     return {key.split("_")[0] for key in (sample.key for sample in part)}
+    >>> patients(split.train) & patients(split.validation)
+    set()
+
+    Without `group_by`, every slice is its own group and the same patient lands in both -
+    which makes validation measure memory rather than generalisation:
+
+    >>> loose = split_samples(samples, fractions=(0.5, 0.5))
+    >>> bool(patients(loose.train) & patients(loose.validation))
+    True
     """
     if not samples:
         raise ConfigError("there are no samples to split")
@@ -271,7 +318,7 @@ def split_dataset(
     relative: bool = True,
     label_column: str = "masks",
 ) -> dict[str, object]:
-    """Split one folder of data into three CSVs a specification can point at.
+    r"""Split one folder of data into three CSVs a specification can point at.
 
     The whole point of the function: a researcher has one directory and needs
     `train_path`, `validation_path` and `test_path`. Returns the paths it wrote plus the
@@ -282,6 +329,68 @@ def split_dataset(
     from `subdirs`, although that would read well: someone whose directories are called
     `img` and `lbl` has always got a `masks` column out of this, and deriving it would
     quietly write a file their existing configuration could no longer read.
+
+    The other way to divide one folder is the specification's own `split` block, which
+    partitions the samples in memory and writes nothing. Use this one when the CSVs are
+    the point - to keep, to hand to a colleague, or to cite in a paper.
+
+    Args:
+        root: The folder holding the data.
+        out_dir: Where the three CSVs go.
+        mode: `nested_dirs` for one directory per sample, `config_file` for a CSV.
+        subdirs: For `nested_dirs`, the image and label subdirectories.
+        column_sep: What separates several paths **inside one cell** - a sample with one
+            mask file per object, or one file per channel. Not the CSV's own delimiter,
+            which is a comma: that is the distinction this argument's name does not make.
+        fractions: Two or three, as for `split_samples`.
+        group_by: A pattern picking the group out of each sample's key - a patient,
+            usually. As for `split_samples`, and for the same reason.
+        seed: Which shuffle.
+        strict: Whether a sample that cannot be read is an error rather than a skip.
+        relative: Write paths relative to `out_dir`, so the CSVs survive being moved
+            together with the data.
+        label_column: The name of the second column.
+
+    Returns:
+        `paths` - the CSV written for each split that got any; `samples` and `groups` -
+        how many of each went where, test included and zero when there are two fractions;
+        and `skipped`, which is not zero when `strict` is False and something could not be
+        read.
+
+    >>> import pathlib, tempfile
+    >>> root = pathlib.Path(tempfile.mkdtemp())
+    >>> for patient in range(1, 5):
+    ...     for slice_no in range(2):
+    ...         case = root / f"patient{patient:02d}_slice{slice_no}"
+    ...         (case / "images").mkdir(parents=True)
+    ...         (case / "masks").mkdir(parents=True)
+    ...         _ = (case / "images" / "scan.png").write_bytes(b"")
+    ...         _ = (case / "masks" / "mask.png").write_bytes(b"")
+    >>> out = split_dataset(
+    ...     root,
+    ...     root / "splits",
+    ...     fractions=(0.5, 0.5),
+    ...     group_by=r"^(patient\d+)_",
+    ... )
+    >>> sorted(out)
+    ['groups', 'paths', 'samples', 'skipped']
+    >>> out["samples"]
+    {'train': 4, 'validation': 4, 'test': 0}
+
+    Two groups each side, because a patient is never divided:
+
+    >>> out["groups"]
+    {'train': 2, 'validation': 2, 'test': 0}
+
+    And the CSVs are what a specification points at. Note the header: the file is
+    comma-separated and carries the key and the group it was assigned, while `column_sep`
+    separates several paths within a single cell.
+
+    >>> written = pathlib.Path(out["paths"]["train"]).read_text().splitlines()
+    >>> written[0]
+    'key,group,images,masks'
+    >>> len(written) - 1
+    4
     """
     found = discover_samples(
         root,

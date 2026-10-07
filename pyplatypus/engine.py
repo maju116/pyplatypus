@@ -247,6 +247,16 @@ class Engine(EngineBase):
         It used to default to False, so asking for a test split of images alone built a
         dataset that would read masks and fail on the first item. The engine knew: it had
         just discovered the split without them.
+
+        Args:
+            model: Which model's settings to read.
+            split: Which data.
+            augmented: Apply the model's augmentation. Training only.
+            only_images: Read images alone. Defaults to what the split actually has.
+
+        Returns:
+            A `SegmentationDataset`. `inspect_masks()` on it is what `fit` calls to refuse
+            a colormap matching none of the labelled tissue.
         """
         self._require_split(split)
         if only_images is None:
@@ -274,6 +284,26 @@ class Engine(EngineBase):
         only_images: bool = False,
         for_loss: bool = True,
     ):
+        """A torch DataLoader over one split, wrapping `dataset`.
+
+        Args:
+            model: Which model's settings to read - `input_shape`, `batch_size` and the
+                augmentation all come from here.
+            split: `"train"`, `"validation"` or `"test"`.
+            augmented: Apply the model's augmentation. Training only: validation is read
+                the same way every epoch, or two epochs measure different things.
+            shuffle: Shuffle between epochs. Training only, for the same reason.
+            only_images: Read images alone, with no targets.
+            for_loss: Whether these batches are going to the loss. When they are and the
+                loss is `boundary`, each batch carries a third item - the signed distance
+                map - computed in the loader's workers rather than in the loss, because
+                the transform costs more than an epoch of a small 3D model and the paths
+                that only score or predict should not pay for it.
+
+        Returns:
+            A `torch.utils.data.DataLoader`. Batches hold two items, or three when the
+            loss asks for a distance map.
+        """
         # `boundary` needs the signed distance map of its target and nothing else does, so
         # the loader computes it only when the loss asks - the transform costs more than an
         # epoch of a small 3D model and nobody else should pay for it. Read from the spec
@@ -329,6 +359,14 @@ class Engine(EngineBase):
         `extra` joins the sidecar, which is where the data they were trained on and its licence
         belong - a weights file whose provenance is only in somebody's memory cannot be used by
         anybody else.
+
+        Args:
+            model_name: Which model's weights to write.
+            path: Where to write. The sidecar goes beside it.
+            **extra: Anything else to record in the sidecar.
+
+        Returns:
+            The path written.
         """
         from pyplatypus.weights import export_weights
 
@@ -460,7 +498,21 @@ class Engine(EngineBase):
 
     # -------------------------------------------------------------------- fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
-        """Train every model the spec asks for, in order."""
+        """Train every model the spec asks for, in order.
+
+        Args:
+            verbose: Print each model's name and its per-epoch numbers as they arrive.
+
+        Returns:
+            One `History` per model, by name. The same objects stay on the engine, so
+            `evaluate`, `predict` and `export_weights` work afterwards.
+
+        Raises:
+            EngineError: If a split a model needs is missing, or carries no masks while
+            something is about to score against it. `check_masks` is what refuses a
+            declared class appearing in no mask: a target channel that is zero everywhere
+            has no gradient towards it, so the model is never shown what to find.
+        """
         for model_spec in self.spec.models:
             if model_spec.weights:
                 model_spec = self._adopt_from_weights(model_spec)
@@ -522,7 +574,20 @@ class Engine(EngineBase):
         )
 
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
-        """One row per model: the comparison table the whole multi-model idea is for."""
+        """One row per model: the comparison table the whole multi-model idea is for.
+
+        Args:
+            split: Which data to score on.
+
+        Returns:
+            One row per model: what it is, how long it trained, its loss and its metrics.
+            The `loss` column is comparable only between models trained on the same
+            objective, which is why `loss_function` sits beside it.
+
+        Raises:
+            EngineError: If the split carries no masks - and the message says `predict`
+            works on it, because that is the question asked next.
+        """
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
         self._needs_masks(split)
@@ -555,6 +620,17 @@ class Engine(EngineBase):
         which is the question a clinician asks first and the one a single mean cannot
         answer. With `group_by`, each row also carries the group - the patient, usually -
         so the rows can be summarised per patient rather than per slice.
+
+        Args:
+            model: Which model, by name. Defaults to the first.
+            split: Which data to score on.
+            group_by: A pattern picking a group out of each case's name. With it the rows
+                are patients rather than slices: a patient's slices are pooled into one
+                score, the way a volume would be.
+
+        Returns:
+            One row per case, or per group. `summarise_cases` turns them into the
+            distribution - and its minimum is the number worth reading.
         """
         run = self.runs.get(model_name)
         if run is None:
@@ -597,6 +673,22 @@ class Engine(EngineBase):
           over that scan, written beside it, or measured in millilitres of its voxels. Sources
           differ in size, so this cannot be stacked, and pretending otherwise by silently
           resizing is how a mask ends up describing the wrong anatomy.
+
+        Args:
+            split: Which data to predict on.
+            model: Which model, by name. Defaults to the first.
+            space: `"model"` returns one stacked array on the network's own grid.
+                `"source"` maps each prediction back onto the grid of the scan it came
+                from, undoing the resampling and the crop, and returns a **list** - scans
+                differ in size, a stacked array needs one shape, and quietly resizing them
+                to match is how a mask ends up describing anatomy it was not computed from.
+
+        Returns:
+            An array for `space="model"`, a list for `space="source"`.
+
+        Two losses in source space: interpolation softens a boundary, and where the forward
+        crop cut anatomy away the inverse pads with background - which means *not examined*
+        rather than *nothing there*.
         """
         if space not in ("model", "source"):
             raise EngineError(f"space is 'model' or 'source', got '{space}'")
@@ -692,6 +784,16 @@ class Engine(EngineBase):
         losses are two different scales: a Focal-Tversky of 0.05 is not better than a
         CCE-Dice of 0.14, it is not even the same question. Metrics are comparable
         because they measure the mask, not the objective.
+
+        Args:
+            key: Which column to rank on.
+            split: Which data to rank on.
+
+        Returns:
+            The winning model's name.
+
+        Raises:
+            EngineError: If there is no such column; the message lists the ones there are.
         """
         table = self.evaluate(split)
         if key == "loss":
@@ -745,6 +847,45 @@ def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     Standard deviation is the sample one (n-1), and is None for a single case, because the
     spread of one number is not zero, it is unknown.
+
+    Args:
+        rows: One dict per case, as `Engine.evaluate_cases` returns - a `case` column
+            naming it, or `group` when the rows were pooled by `group_by`, and a float
+            column per metric. Columns that are not floats are passed over.
+
+    Returns:
+        One dict per metric, with `metric`, `n`, `mean`, `sd`, `median`, `min`, `max`
+        and `worst_case` - or `worst_group` when the rows were grouped, because naming
+        it `worst_case` there would describe the wrong thing.
+
+    Raises:
+        EngineError: If there are no rows, or no column is a float - "nothing to
+        summarise" and "nothing here is a number" are different problems.
+
+    >>> rows = [
+    ...     {"case": "patient01", "dice": 0.91},
+    ...     {"case": "patient02", "dice": 0.88},
+    ...     {"case": "patient03", "dice": 0.11},
+    ... ]
+    >>> summary = summarise_cases(rows)[0]
+    >>> summary["metric"], summary["n"]
+    ('dice', 3)
+    >>> round(summary["mean"], 3), summary["min"], summary["worst_case"]
+    (0.633, 0.11, 'patient03')
+
+    The mean is 0.63 and one case sits at 0.11, which is the argument for reporting the
+    minimum: over a hundred cases the mean hides it completely.
+
+    Grouped rows are named for what they are:
+
+    >>> grouped = [{"group": "p01", "dice": 0.9}, {"group": "p02", "dice": 0.4}]
+    >>> sorted(summarise_cases(grouped)[0])[-1]
+    'worst_group'
+
+    The spread of one number is unknown rather than zero:
+
+    >>> summarise_cases([{"case": "only", "dice": 0.9}])[0]["sd"] is None
+    True
     """
     if not rows:
         raise EngineError("there are no case scores to summarise")

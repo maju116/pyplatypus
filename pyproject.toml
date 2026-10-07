@@ -102,11 +102,24 @@ build-backend = "setuptools.build_meta"
 include = ["pyplatypus*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# `pyplatypus` is here so the doctests run beside the tests. It must be a testpath rather
+# than an argument in `addopts`: an argument there *replaces* the testpaths, which took the
+# suite from 1249 tests to 10 doctests and still printed "passed".
+testpaths = ["tests", "pyplatypus"]
 # Makes `tests` an importable package root, so a test can pull a shared helper out of
 # tests/conftest.py. Without it that import works locally, where `python -m pytest` puts
 # the working directory on sys.path, and fails everywhere else - which is how CI found it.
 pythonpath = ["."]
+# Doctests in the package are the examples the documentation shows, so they have to run.
+# ELLIPSIS lets an error message be matched by its opening words rather than restated in
+# full - a message is prose and will be improved. IGNORE_EXCEPTION_DETAIL matches the
+# exception type without its text, for the same reason.
+doctest_optionflags = ["ELLIPSIS", "IGNORE_EXCEPTION_DETAIL", "NORMALIZE_WHITESPACE"]
+# The examples in the docstrings are the examples the documentation shows, so they run with
+# the suite rather than being read by nobody. They earned this on the first afternoon: five
+# claims written straight into `Args` and `Returns` were false - the wrong key name, the
+# wrong return shape, the wrong CSV header - and every one would have shipped as prose.
+addopts = "--doctest-modules"
 
 [tool.ruff]
 line-length = 100

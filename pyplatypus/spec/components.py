@@ -755,6 +755,27 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
 
     Empty when albumentations is missing, in which case name checking is skipped and the
     backend reports the problem later - better than refusing a spec the user cannot fix.
+
+    Args:
+        rank: 2 for images, 3 for volumes.
+
+    Returns:
+        The names, as albumentations spells them. Ten of them are not transforms at
+        all - `Compose`, `OneOf` and the other composition classes, plus `BboxParams`
+        and `KeypointParams` - because the list is filtered by the shape of the name
+        rather than by type. A known defect, queued.
+
+    >>> names = available_transforms()
+    >>> "HorizontalFlip" in names, "GaussNoise" in names
+    (True, True)
+
+    At rank 3 the list is shorter, and it is found by trying rather than read from
+    anywhere: support for volumes is uneven and a transform that cannot take one
+    raises from inside the library.
+
+    >>> volumes = available_transforms(rank=3)
+    >>> len(volumes) < len(names), "GaussNoise" in volumes
+    (True, False)
     """
     try:
         import albumentations

@@ -37,6 +37,23 @@ def write_record(
     fitted anchors, the target survey. For a segmentation run it is usually empty, and that
     is the honest answer rather than an omission: the specification already carries the
     colormap, the input shape and the window, so re-running it reproduces the model.
+
+    Args:
+        spec: The specification the run was built from. It is written out whole, so the
+            record is enough to reproduce the run without the file it came from.
+        name: The model's name, which is also the directory the record goes in.
+        derived: What the run worked out for itself, if anything.
+        history: The per-epoch numbers, as the trainer produced them.
+
+    Returns:
+        The path written: `<output_dir>/<name>/run.json`.
+
+    The record stamps `pyplatypus.__version__`, which is why that literal and the one in
+    `pyproject.toml` are held together by a test: a release reporting the wrong version
+    writes wrong provenance into every file it produces, and those files outlive it.
+
+    No doctest: this writes a directory and wants a whole specification to do it, and the
+    engine's own tests cover it with one.
     """
     from pyplatypus import __version__
 
@@ -60,7 +77,22 @@ def write_record(
 
 
 def read_record(path: str | Path) -> dict[str, Any]:
-    """A record back off disk. Plain data; `from_dict(record["specification"])` runs it."""
+    """A record back off disk. Plain data; `from_dict(record["specification"])` runs it.
+
+    Args:
+        path: The `run.json` to read.
+
+    Returns:
+        The record as plain data: `specification`, `pyplatypus`, `history`, and `derived`
+        if the run had any. Nothing is reconstructed into objects, because the record is a
+        description of what happened and not a live thing.
+
+    >>> import json, pathlib, tempfile
+    >>> path = pathlib.Path(tempfile.mkdtemp()) / "run.json"
+    >>> _ = path.write_text(json.dumps({"pyplatypus": "0.7.0a1", "history": []}))
+    >>> read_record(path)["pyplatypus"]
+    '0.7.0a1'
+    """
     return json.loads(Path(path).read_text())
 
 

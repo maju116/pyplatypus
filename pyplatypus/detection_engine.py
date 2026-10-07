@@ -189,6 +189,25 @@ class DetectionEngine(EngineBase):
         only_images: bool = False,
         augmented: bool = False,
     ) -> DetectionDataset:
+        """The dataset for one split: images letterboxed to `input_shape`, boxes encoded.
+
+        Args:
+            model: Which model's settings to read.
+            split: `"train"`, `"validation"` or `"test"`.
+            anchors: Anchors to encode the targets against. Unset means the model's own -
+                either the ones it declares or the ones fitted for it, and the encoding is
+                meaningless against any others.
+            only_images: Read images alone, with no boxes. What a split with no annotations
+                gets, so `predict` works on it while `evaluate` refuses it by name.
+            augmented: Apply the model's augmentation. Every geometric transform in
+                albumentations moves the boxes with the pixels, measured over 24
+                configurations, worst disagreement one pixel from anti-aliasing.
+
+        Returns:
+            A `DetectionDataset`, whose `source_image(index)` also reads an image at its
+            native size through the same reader - which is what `crops` cuts from, since
+            cropping the letterboxed frame would cut a downscaled object.
+        """
         if split not in self._samples:
             if split == "validation" and not self.spec.data.validation:
                 raise EngineError(
@@ -226,6 +245,18 @@ class DetectionEngine(EngineBase):
         shuffle: bool = False,
         augmented: bool = False,
     ):
+        """A torch DataLoader over one split, wrapping `dataset`.
+
+        Args:
+            model: Which model's settings to read.
+            split: `"train"`, `"validation"` or `"test"`.
+            anchors: As for `dataset`.
+            shuffle: Shuffle between epochs. Training only.
+            augmented: Apply the model's augmentation. Training only.
+
+        Returns:
+            A `torch.utils.data.DataLoader` yielding images and encoded targets.
+        """
         return make_detection_loader(
             self.dataset(model, split, anchors=anchors, augmented=augmented),
             batch_size=model.batch_size,
@@ -253,6 +284,16 @@ class DetectionEngine(EngineBase):
         (0.04, 0.04) sit the same distance apart as (0.50, 0.50) and (0.52, 0.52), while
         their overlaps are 0.25 and 0.93 - so the distance is 1 - IoU, which is what the
         anchors are for.
+
+        Args:
+            model: Which model's boxes to fit against.
+
+        Returns:
+            An `AnchorFit`, or None when the model already declares anchors - the
+            difference between "fitted these" and "nothing to do".
+
+        Fitting is worth about 0.23 of mean overlap on BCCD: COCO's nine anchors cover its
+        boxes at 0.6473, fitted ones at 0.8751 to 0.8802 across three seeds.
         """
         if model.anchors_as_tuples is not None:
             return None
@@ -271,6 +312,16 @@ class DetectionEngine(EngineBase):
         Worth asking of a split the anchors were *not* fitted on: anchors that cover the
         training boxes at 0.92 and the validation boxes at 0.70 say the two splits hold
         different objects, which no training curve shows.
+
+        Args:
+            model_name: Which detector. Defaults to the first.
+            split: Which split's boxes to measure against.
+
+        Returns:
+            The mean IoU between each box and its best anchor. Measured on a split the
+            anchors were *not* fitted on, this says whether they generalise; it was 0.877
+            in every one of six BCCD runs, which is also why GIoU could not help there -
+            a prediction never starts disjoint from the truth it answers.
         """
         run = self._run(model_name)
         self._needs_annotations(split)
@@ -293,6 +344,16 @@ class DetectionEngine(EngineBase):
 
         Worth drawing for a split the anchors were *not* fitted on, for the same reason as
         `anchor_coverage`: it is the only way to see a class the anchors have nothing near.
+
+        Args:
+            model_name: Which detector. Defaults to the first.
+            split: Which split's boxes to return.
+
+        Returns:
+            Every box's width and height, normalised by the **letterboxed** input rather
+            than by the source image - which is the convention the anchors use, and getting
+            it wrong is how a coverage figure of 0.67 was quoted for two years against a
+            true 0.65.
         """
         from pyplatypus.detection.anchors import shape_table
 
@@ -314,6 +375,27 @@ class DetectionEngine(EngineBase):
 
     # ------------------------------------------------------------------ fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
+        """Train every model in the specification, in turn, against the same data.
+
+        Anchors are fitted first for any model that does not declare them, because the
+        targets cannot be encoded without them. A model naming `weights` adopts the
+        architecture, the class names and **the anchors** from the file: weights mean
+        nothing without the anchors they were trained with, so a specification naming both
+        is refused rather than warned about.
+
+        Args:
+            verbose: Print each model's name and per-epoch numbers as they arrive. The
+                learning rate is printed with enough digits to see a schedule moving - at
+                four decimal places a cosine decaying to 1e-8 read `learning_rate=0.0000`
+                from epoch 90 and a scheduled run looked identical to an unscheduled one.
+
+        Returns:
+            One `History` per model, by name, and the same objects are kept on the engine
+            so `evaluate`, `predict` and `export_weights` can be called afterwards.
+
+        Raises:
+            EngineError: If a split a model needs is missing or carries no annotations.
+        """
         for model_spec in self.spec.models:
             if verbose:
                 print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
@@ -527,6 +609,16 @@ class DetectionEngine(EngineBase):
         image, and a box in a letterboxed 416x416 frame cannot be drawn on the photograph
         it came from without undoing the letterbox, which is a step nobody should have to
         remember.
+
+        Args:
+            split: Which data to predict on.
+            model_name: Which detector. Defaults to the first.
+
+        Returns:
+            A **list**, one entry per image, each holding boxes in that image's own pixels
+            with the inverse letterbox already applied. No array form: images differ in
+            size, so does the number of boxes, and a box in a letterboxed frame cannot be
+            drawn on the photograph it came from.
         """
         run = self._run(model_name)
         dataset = self.dataset(
@@ -598,6 +690,24 @@ class DetectionEngine(EngineBase):
 
         Returns:
             One dict per image with `key`, `crops`, `boxes`, `scores`, `labels`, `names`.
+
+        Args:
+            split: Which data to cut from.
+            model_name: Which detector. Defaults to the first.
+            context: Extra margin, as a fraction of the box rather than in pixels, so one
+                value suits a platelet and a white cell.
+            size: Resize every crop to this. Letterboxed rather than stretched, because a
+                stretch changes the aspect of every non-square object and has to be asked
+                for.
+
+        Returns:
+            One record per image, each with the crops and the boxes they came from, plus
+            `dropped` - boxes the inverse letterbox mapped to no extent at all, which a
+            model may legitimately produce by saying an object is off the frame.
+
+        Read at `operating_point`, not at `score_threshold`: that one sits near zero so
+        average precision can integrate the whole ranking, and cropping it would hand a
+        classifier the tail.
         """
         from pyplatypus.detection.boxes import clip_boxes, crop_boxes, drop_degenerate
 
@@ -657,6 +767,16 @@ class DetectionEngine(EngineBase):
         of a statement about the model. They are in `evaluate_classes`, per class, which
         is the only form in which they mean anything. `DetectionMetrics.as_rows` made the
         same decision - its "all" row leaves both as None.
+
+        Args:
+            split: Which data to score on.
+
+        Returns:
+            One row per model: `map_50`, `map_50_95`, `mean_matched_iou` and the counts.
+            **No overall precision or recall**, deliberately: averaging them over classes
+            needs a weighting, and over BCCD's 4,155 red cells against 372 white one
+            precision is a statement about red cells wearing the costume of a statement
+            about the model.
         """
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
@@ -668,6 +788,16 @@ class DetectionEngine(EngineBase):
         The row that matters on an unbalanced dataset, which is most of them: BCCD has
         4155 red cells against 372 white and 361 platelets, so a single number is a number
         about red cells.
+
+        Args:
+            model_name: Which detector. Defaults to the first.
+            split: Which data to score on.
+
+        Returns:
+            One row per class: average precision at IoU 0.5, the mean overlap of the boxes
+            that matched, how many truth boxes there were, and precision and recall at the
+            model's `operating_point`. The row that matters on unbalanced data, which is
+            most detection data.
         """
         return self.report(model_name, split).per_class()
 
@@ -694,6 +824,24 @@ class DetectionEngine(EngineBase):
         Sort by `missed` to find the frames it cannot see, or by `mean_matched_iou` to find
         the ones where it sees everything and places it badly. Those are different
         problems: the first is usually the data, the second is usually the anchors.
+
+        Args:
+            model_name: Which detector. Defaults to the first.
+            split: Which data to score on.
+
+        Returns:
+            One row per image: `key`, `n_truth`, `n_predicted`, `matched`, `missed`,
+            `spurious` and `mean_matched_iou`. Order by `missed` for the frames it cannot
+            see and by `mean_matched_iou` for the ones where it finds everything and places
+            it badly - usually the data and the anchors respectively.
+
+        `mean_matched_iou` is None when nothing matched, not 0: found nothing and found
+        badly are different failures, and that distinction crosses the bridge into R, so a
+        test pins it rather than trusting it.
+
+        There is no average precision per image, deliberately. It is the area under a
+        precision-recall curve, so it is a property of a ranking over a dataset; on one
+        picture with three boxes it moves on a single box's rank.
         """
         run = self._run(model_name)
         self._needs_annotations(split, model_name=run.name)
@@ -710,7 +858,13 @@ class DetectionEngine(EngineBase):
         )
 
     def split_sizes(self) -> dict[str, int]:
-        """How many images each split holds, and in which order they were found."""
+        """How many images each split holds, and in which order they were found.
+
+        Returns:
+            How many samples each split holds, and whether each carries annotations - which
+            is what decides whether it can be scored at all. A split of images alone is
+            accepted and `predict` works on it; `evaluate` refuses it by name.
+        """
         return {name: len(samples) for name, samples in self._samples.items()}
 
     def report(self, model_name: str, split: str = "validation") -> DetectionReport:
@@ -721,6 +875,19 @@ class DetectionEngine(EngineBase):
         over the split twice. No caching: a cache would be stale the moment the model
         trained another epoch, and the honest alternative is to hand back the thing and
         let the caller hold it.
+
+        Args:
+            model_name: Which detector. Defaults to the first.
+
+        Returns:
+            A `DetectionReport`: the anchors, their coverage, the target survey - how many
+            boxes were placed, how many could not be, how many were dropped - and the split
+            sizes. What to read before trusting a score, because a box that cannot be
+            placed is a box the model is never asked to find.
+
+        BCCD carries one annotation of zero extent in each split, which comes out one pixel
+        across under Pascal VOC's inclusive convention, so `dropped` is 1 and has been all
+        along.
         """
         half, coco, point = self._reports(model_name, split)
         return DetectionReport(
@@ -779,6 +946,12 @@ class DetectionEngine(EngineBase):
         return run
 
     def model_names(self) -> list[str]:
+        """The models that have been fitted or loaded, in the order they were.
+
+        Returns:
+            Their names - the keys every other method takes as `model_name`. Empty before
+            `fit` has run, which is the difference between a specification and a run.
+        """
         return list(self.runs)
 
     def export_weights(self, model_name: str, path: str | Path, **extra) -> Path:
@@ -788,6 +961,14 @@ class DetectionEngine(EngineBase):
         anchors decode every box scaled by a fixed factor, and nothing about the output
         says so - the boxes are plausible, the scores are plausible, and they are in the
         wrong places.
+
+        Args:
+            model_name: Which detector's weights to write.
+            path: Where to write. The sidecar goes beside it.
+            **extra: Anything else to record.
+
+        Returns:
+            The path written.
         """
         from pyplatypus.weights import export_weights
 
@@ -800,6 +981,25 @@ class DetectionEngine(EngineBase):
         return export_weights(run.model, run.spec, path, extra=payload)
 
     def best_model(self, key: str = "map_50", split: str = "validation") -> str:
+        """Which model scored highest on one column.
+
+        Args:
+            key: The column to rank on. `map_50` by default - but on a small dataset read
+                `mean_matched_iou` first: measured over five seeds on BCCD, average
+                precision has a standard deviation of 0.0159 while matched overlap has
+                0.0026, six times steadier. How well the boxes fit is reproducible there
+                and how many are found is not, because a borderline cell changing rank
+                moves average precision and leaves the overlap alone.
+            split: Which data to rank on.
+
+        Returns:
+            The winning model's name.
+
+        Raises:
+            EngineError: If no such column exists - the message lists the ones that do - or
+                if the column is undefined for any model, which happens when a class has no
+                truth boxes in that split and so has no average precision to average.
+        """
         table = self.evaluate(split)
         if key not in table[0]:
             available = ", ".join(k for k, v in table[0].items() if isinstance(v, (int, float)))
@@ -818,6 +1018,22 @@ def build_engine(spec: PlatypusSpec, **kwargs):
 
     Here rather than in `engine.py` to keep the import one way round: detection imports
     `EngineError` from there and nothing comes back.
+
+    Args:
+        spec: Any specification. Its `task` decides which engine is returned.
+        **kwargs: Passed to the engine's constructor.
+
+    Returns:
+        An `Engine` for a segmentation specification, a `DetectionEngine` for a
+        detection one. Both discover their splits and refuse a missing or unlabelled
+        one by name, because that half is shared.
+
+    Raises:
+        EngineError: For a specification whose task has no engine - which today means
+        one built by hand rather than through `from_dict`, since the discriminator
+        would not let an unknown task through.
+
+    No doctest: building an engine reads the data, so this wants a dataset on disk.
     """
     from pyplatypus.engine import Engine
 

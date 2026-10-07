@@ -90,6 +90,22 @@ def available_weights() -> dict[str, str]:
 
     Named to match `available_weights()` in the R package and `available_transforms()`
     here: everything a user can be offered a list of answers to the same verb.
+
+    Read the descriptions rather than only the names. What a model cannot do decides
+    whether it answers your question: the nuclei weights are semantic, so touching nuclei
+    come back as one region and a count taken from them would be wrong.
+
+    Returns:
+        Registry name to description. A registry name carries a pinned commit, so it means
+        one set of numbers today and the same set next year.
+
+    >>> listing = available_weights()
+    >>> sorted(listing)
+    ['bccd-yolo3', 'dsbowl-unet']
+    >>> "BBBC038v1" in listing["dsbowl-unet"]
+    True
+    >>> listing["dsbowl-unet"].startswith("U-Net, 256x256")
+    True
     """
     return {name: entry.description for name, entry in REGISTRY.items()}
 
@@ -101,6 +117,25 @@ def resolve_weights(reference: str) -> Path:
     says otherwise - which is outside any virtual environment, so the file survives an
     environment being rebuilt. Asking twice costs nothing: the cache is addressed by content
     and a pinned commit needs no network call once it is there.
+
+    Args:
+        reference: One of three forms - a registry name such as `dsbowl-unet`, an explicit
+            `hf://owner/repo/file.safetensors@commit`, or a path to a local file. The
+            `hf://` form **requires** the commit: `main` is not a version, and weights that
+            change under a stable name are the worst kind of irreproducibility, because the
+            code is identical and the result is not.
+
+    Returns:
+        A path to a local file, downloading it first if it is not already in the cache.
+
+    Raises:
+        WeightsError: If the name is not in the registry, the `hf://` form has no commit,
+            a local path does not exist, or `huggingface_hub` is needed and absent - which
+            it is unless `pyplatypus[hub]` is installed.
+
+    There is no doctest here on purpose: every branch of this either reaches the network or
+    wants a file that exists, and an example that cannot run is a claim nobody checks.
+    `available_weights()` is the one to call to see what the names are.
     """
     if reference.startswith("hf://"):
         return _from_hub(reference)
@@ -287,6 +322,27 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
     The sidecar is not optional here. Weights without a record of what they are for are the
     thing this module exists to prevent, and the moment to write it is while the information
     is still at hand.
+
+    Args:
+        model: The trained network.
+        spec: The model's specification, which is what the sidecar records.
+        path: Where to write. The sidecar goes beside it.
+        extra: Anything else worth recording - for a detector, the anchors, which are
+            not optional metadata: the same weights read with different anchors decode
+            every box scaled by a fixed factor, and nothing in the output says so.
+
+    Returns:
+        The path written.
+
+    The sidecar records the architecture, the shape, the channels, the classes, the
+    blocks, the filters and `trained_with` - the engine version that produced the file.
+    Loading refuses a model the weights do not belong to *before* touching torch,
+    because a wrong channel count fails in `load_state_dict` anyway while weights
+    trained on a different colormap with the same class count load cleanly and predict
+    nonsense.
+
+    safetensors rather than a pickle, which would make a weights file a program somebody
+    else wrote.
     """
     try:
         from safetensors.torch import save_file

@@ -31,6 +31,53 @@ def from_dict(
     validated as segmentation and reported `classes` and `anchors_per_grid` as **extra
     fields**, never naming the tag - precisely the confusion a discriminator exists to
     prevent.
+
+    Args:
+        config: The configuration, with `task`, `data` and `models` at the top level. The
+            keys are the ones written in the YAML, because this is what reads the YAML.
+        source: A name for the configuration in error messages - a file path, usually.
+            `from_yaml` passes the path; pass something when the dict came from somewhere
+            a reader could go and look.
+        check_paths: Whether the paths in `data` must exist. True wherever a run is about
+            to happen, so a typo is caught before anything is read; False to validate the
+            shape of a configuration on a machine that does not hold the data - a test, a
+            schema check, or a specification being written.
+
+    Returns:
+        A `SegmentationSpec` or a `DetectionSpec`, whichever `task` names. Both are
+        `PlatypusSpec`, so anything needing only a name, a seed or a rank takes either.
+
+    Raises:
+        ConfigError: With **every** problem listed rather than the first. A configuration
+            with four mistakes should take one run to fix, not four.
+
+    >>> spec = from_dict(
+    ...     {
+    ...         "task": "semantic_segmentation",
+    ...         "data": {
+    ...             "train_path": "train/",
+    ...             "validation_path": "valid/",
+    ...             "colormap": [[0, 0, 0], [255, 255, 255]],
+    ...         },
+    ...         "models": [
+    ...             {"name": "unet", "architecture": "u_net", "input_shape": [256, 256]}
+    ...         ],
+    ...     },
+    ...     check_paths=False,
+    ... )
+    >>> spec.task.value, spec.rank, len(spec.models)
+    ('semantic_segmentation', 2, 1)
+
+    Defaults come from the engine, so a short configuration is a complete one:
+
+    >>> spec.models[0].blocks, spec.models[0].filters, spec.models[0].loss.name
+    (4, 16, 'cce')
+
+    A missing `task` is refused by name rather than guessed at:
+
+    >>> from_dict({"data": {}, "models": []}, check_paths=False)
+    Traceback (most recent call last):
+    pyplatypus.errors.ConfigError: ...
     """
     if not isinstance(config, dict):
         raise ConfigError(
@@ -63,6 +110,34 @@ def from_dict(
 
 
 def from_yaml(path: str | Path, *, check_paths: bool = True) -> PlatypusSpec:
+    """Read a YAML file into a spec: the same object `from_dict` builds, by the same rules.
+
+    One pipeline, two ways in. A specification written by hand and one read from a file are
+    the same thing, and `as_dict()` turns it back - which is how a worked example can write
+    out the YAML of the run it has just done, beside the results.
+
+    Args:
+        path: The file to read.
+        check_paths: As for `from_dict`.
+
+    Returns:
+        A `SegmentationSpec` or a `DetectionSpec`, whichever `task` names.
+
+    Raises:
+        ConfigError: If the file is missing, is not valid YAML, is empty, or describes a
+            configuration with problems. Each is said with the path, so the reader knows
+            which file to open.
+
+    >>> import pathlib, tempfile
+    >>> lines = [
+    ...     'task: semantic_segmentation',\n    ...     'data:',\n    ...     '  train_path: train/',\n    ...     '  validation_path: valid/',\n    ...     '  colormap: [[0, 0, 0], [255, 255, 255]]',\n    ...     'models:',\n    ...     '  - name: unet',\n    ...     '    architecture: u_net',\n    ...     '    input_shape: [256, 256]',
+    ... ]
+    >>> path = pathlib.Path(tempfile.mkdtemp()) / "run.yaml"
+    >>> _ = path.write_text("\\n".join(lines))
+    >>> spec = from_yaml(path, check_paths=False)
+    >>> spec.models[0].name, spec.models[0].input_shape
+    ('unet', (256, 256))
+    """
     path = Path(path)
     if not path.exists():
         raise ConfigError(f"configuration file '{path}' does not exist")
