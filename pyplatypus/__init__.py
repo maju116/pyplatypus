@@ -14,6 +14,7 @@ from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.runs import read_record, write_record
+from pyplatypus.style import drawing_style
 from pyplatypus.spec import (
     DetectionSpec,
     PlatypusSpec,
@@ -48,6 +49,7 @@ __all__ = [
     "available_transforms",
     "available_weights",
     "build_engine",
+    "drawing_style",
     "export_weights",
     "from_dict",
     "from_yaml",
