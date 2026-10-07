@@ -28,9 +28,16 @@ jobs:
 
       # --only-group installs ruff alone, at the version pyproject.toml pins, so CI and
       # a contributor's machine cannot disagree about which rules apply.
-      - run: uv run --only-group lint ruff check pyplatypus tests
-      - run: uv run --only-group lint ruff format --check --diff pyplatypus tests
-        continue-on-error: true   # formatting is not enforced yet, only reported
+      #
+      # Both cover every tracked Python file - the package, the tests and the examples.
+      # The examples are what a reader copies, so they are held to the same rules as the
+      # code they demonstrate.
+      #
+      # The format step ran under `continue-on-error` for months, reporting 98 files on
+      # every run and gating nothing, which is a step nobody reads. The whole tree was
+      # formatted in one commit instead, so from here a diff is a decision somebody made.
+      - run: uv run --only-group lint ruff check pyplatypus tests examples
+      - run: uv run --only-group lint ruff format --check --diff pyplatypus tests examples
 
   test:
     needs: lint
