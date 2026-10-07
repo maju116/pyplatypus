@@ -67,6 +67,7 @@ def test_drawing_style_carries_every_decision():
     assert carried == {
         "agreement_colours": style.AGREEMENT_COLOURS,
         "box_colours": style.BOX_COLOURS,
+        "class_colours": style.CLASS_COLOURS,
         "overlay_alpha": style.OVERLAY_ALPHA,
         "box_label_format": style.BOX_LABEL_FORMAT,
         "box_min_score": style.BOX_MIN_SCORE,

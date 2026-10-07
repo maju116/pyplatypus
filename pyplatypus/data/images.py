@@ -36,14 +36,41 @@ def read_image(
 ) -> np.ndarray:
     """Read one image or volume as a channels-last array.
 
-    Scaled to 0-1 for anything read in real units (DICOM, NIfTI) and left at 0-255 for
-    ordinary pictures, which `to_float` divides later.
+    The reader every other part of this package uses, which is the reason it is public: a
+    picture drawn from a differently resized copy is a picture of something the model never
+    saw, and the disagreements it shows may be the resizing rather than the model. Boxes
+    come back from `predict` in the source image's own pixels, so drawing them needs the
+    image at `size=None`.
 
-    `nearest` must be used for masks: interpolating a mask invents colours that match no
-    class, which then silently become background.
+    Scaled to 0-1 for anything read in real units (DICOM, NIfTI) and left at 0-255 for
+    ordinary pictures, which `to_float` divides later. Both are drawable: the plotting
+    functions decide by the range rather than by the dtype.
 
     DICOM is detected by content rather than by extension, because exports out of an
-    archive frequently carry no extension or one the archive invented.
+    archive frequently carry no extension or one the archive invented. A directory of
+    slices is read as one volume, so a CSV may name a series directory in the column that
+    names a file.
+
+    Args:
+        path: a file, or a directory holding one DICOM series.
+        channels: how many channels to return - 1, 3 or 4 for ordinary pictures.
+        size: resize to this shape, or `None` for the file's own. Give it in the order every
+            shape in this package uses, `(height, width)` and `(height, width, depth)`.
+        nearest: nearest-neighbour rather than interpolation. **Required for masks**:
+            interpolating a mask invents colours that match no class, which then become
+            background without a word.
+        dicom_window: the window to apply to data in real units, `"auto"` to take the one
+            the file records, or `(centre, width)`. Ignored for ordinary pictures.
+
+    Returns:
+        A channels-last array: `(height, width, channels)` for an image and
+        `(height, width, depth, channels)` for a volume.
+
+    Raises:
+        ImageError: for a channel count an ordinary picture cannot have.
+
+    No example: it reads a file, so there is nothing to show without one on disk. The data
+    science bowl article draws what it returns.
     """
     from pyplatypus.data.dicom import looks_like_dicom, read_dicom
     from pyplatypus.data.dicom_series import looks_like_dicom_series, read_dicom_series

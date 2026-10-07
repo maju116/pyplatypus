@@ -159,11 +159,13 @@ def test_the_about_section_is_in_the_agreed_order_and_every_page_exists(_generat
 
 
 # The reference groups, in the order both sites show them. Each package carries the subset it
-# has: `Setting up` is the reticulate bridge and exists only in R, `Looking at the results` is
-# plotting which this package deliberately does not carry, `Masks and volumes` has no public
-# counterpart here - measured, `__all__` holds 24 names and not one is a mask, volume or
-# colormap utility - and `Records` and `When something is wrong` are this package's, because R
-# has no record reader and documents no condition classes.
+# has: `Setting up` is the reticulate bridge and exists only in R, `Masks and volumes` has no
+# public counterpart here - measured again after the drawing functions landed, `__all__` holds
+# 32 names and the only two with "mask" in them are `overlay_mask` and `plot_masks`, which
+# draw rather than read or unite, and sit with R's in `Looking at the results` - and `Records`
+# and `When something is wrong` are this package's, because R has no record reader and no
+# documented condition classes. `Looking at the results` was R's alone until 0.8.0a1, when
+# the engine learnt to draw, and is in both now.
 #
 # **Asserting the two lists are equal would be asserting something false**, which the project
 # notes did for a while: "the same eight groups" was written down and five of eight titles

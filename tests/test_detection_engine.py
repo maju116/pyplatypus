@@ -348,6 +348,31 @@ def test_predict_returns_one_entry_per_image_with_names(trained):
     assert all(name in ("square", "bar") for name in first["names"])
 
 
+def test_a_prediction_can_be_drawn_without_being_rearranged_first(trained):
+    """The join between `predict` and `plot_boxes`, on a real record rather than a made one.
+
+    Both halves were green and the join was wrong: `predict` puts class indices under
+    `labels` and names under `names`, the figure read `labels`, and every box of every real
+    prediction was labelled with an integer. Nothing either side could have caught, which
+    is the recurring shape here - a feature is not shipped until something uses it the way
+    a user reaches it.
+
+    So the assertion is that the record goes straight in: no renaming, no unpacking, and
+    the text on the picture is a class name.
+    """
+    from pyplatypus import plot_boxes, read_image
+
+    predictions = trained.predict("d", "validation")
+    dataset = trained.dataset(trained.runs["d"].spec, "validation")
+    # At the file's own size, because the boxes come back in the source image's pixels.
+    images = np.stack([read_image(dataset.samples[0].images[0], size=None)])
+
+    figure = plot_boxes(images, predictions[:1], min_score=0.0)
+    drawn = [text.get_text() for text in figure.axes[0].texts]
+    assert drawn, "the detector found nothing at all, so this proves nothing"
+    assert all(text.split()[0] in ("square", "bar") for text in drawn), drawn
+
+
 def test_predictions_come_back_in_the_source_images_own_pixels(trained, monkeypatch):
     """The correspondence test, and the only one here that could fail while every shape
     stays right.
