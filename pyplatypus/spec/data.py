@@ -38,25 +38,37 @@ class SplitSpec(SpecModel):
     colleague or to cite.
     """
 
-    #: Two or three: train, validation, and optionally test. Enforced by the splitting
-    #: module rather than restated here - one rule, one place.
-    fractions: tuple[float, ...]
+    fractions: tuple[float, ...] = Field(
+        description=(
+            "Two or three: train, validation, and optionally test. The length rule is "
+            "enforced by the splitting module rather than restated here - one rule, one "
+            "place. A third fraction is scoreable, because it comes from annotated data."
+        ),
+    )
 
-    #: **Required, and may be null.** A regular expression read against the sample key;
-    #: everything sharing a group lands in exactly one split. Usually a patient, sometimes
-    #: a study, a scanner or a site - whatever must not straddle the division.
-    #:
-    #: Required rather than optional because the mistake it prevents is invisible. Slices
-    #: of one patient in training and validation at once make validation measure memory
-    #: instead of generalisation, and Dice comes out several points too high with nothing
-    #: in the output to say so. An omitted field would be that choice made silently; `null`
-    #: is the same choice made on purpose, which is all this asks for.
-    group_by: str | None
+    group_by: str | None = Field(
+        description=(
+            "**Required, and may be null.** A regular expression read against the sample "
+            "key; everything sharing a group lands in exactly one split. Usually a patient, "
+            "sometimes a study, a scanner or a site - whatever must not straddle the "
+            "division.\n\n"
+            "Required rather than optional because the mistake it prevents is invisible. "
+            "Slices of one patient in training and validation at once make validation "
+            "measure memory instead of generalisation, and Dice comes out several points too "
+            "high with nothing in the output to say so. An omitted field would be that "
+            "choice made silently; `null` is the same choice made on purpose, which is all "
+            "this asks for."
+        ),
+    )
 
-    #: The split is deterministic given the samples, the fractions, the pattern and this.
-    #: A split that moves between runs makes two results incomparable and the reason for a
-    #: difference impossible to find.
-    seed: int = 0
+    seed: int = Field(
+        0,
+        description=(
+            "The split is deterministic given the samples, the fractions, the pattern and "
+            "this. A split that moves between runs makes two results incomparable and the "
+            "reason for a difference impossible to find."
+        ),
+    )
 
     @model_validator(mode="after")
     def fractions_are_two_or_three(self):
@@ -69,11 +81,30 @@ class SplitSpec(SpecModel):
 class DataSpec(SpecModel):
     """The part of "where is the data" that does not depend on what is being learned."""
 
-    train_path: str
-    #: Optional only in the sense that `split` is the other way to get one. Exactly one of
-    #: the two, because two sources for the validation set are two places to change it.
-    validation_path: str | None = None
-    test_path: str | None = None
+    train_path: str = Field(
+        description=(
+            "Where the training data is. For `nested_dirs`, a directory of sample "
+            "directories; for `config_file`, a CSV naming the files. With a `split`, this is "
+            "the only path given and the divisions are cut from it."
+        ),
+    )
+    validation_path: str | None = Field(
+        None,
+        description=(
+            "Optional only in the sense that `split` is the other way to get one, and "
+            "`validation: false` the third. Exactly one of them, because two sources for the "
+            "validation set are two places to change it."
+        ),
+    )
+    test_path: str | None = Field(
+        None,
+        description=(
+            "A third set, scored only when asked. Whether it can be scored at all depends on "
+            "whether it carries labels: a folder of images alone is accepted and `predict` "
+            "works on it, while `evaluate` refuses it by name rather than failing two layers "
+            "down on the first missing mask."
+        ),
+    )
     validation: bool = Field(
         True,
         description=(
@@ -91,9 +122,24 @@ class DataSpec(SpecModel):
         ),
     )
 
-    split: SplitSpec | None = None
+    split: SplitSpec | None = Field(
+        None,
+        description=(
+            "Divide `train_path` instead of naming a second folder. Nothing is written: the "
+            "samples that were already discovered are partitioned, so a specification stays "
+            "a description and leaves no files behind. `split_dataset()` is the tool when the "
+            "CSVs are the point - to keep, to hand to a colleague, or to cite."
+        ),
+    )
 
-    mode: DataMode = DataMode.NESTED_DIRS
+    mode: DataMode = Field(
+        DataMode.NESTED_DIRS,
+        description=(
+            "How the files are arranged: `nested_dirs` for one directory per sample, "
+            "`config_file` for a CSV whose columns name the files. The CSV form is what to "
+            "use when the data cannot be moved or copied into a layout."
+        ),
+    )
     subdirs: tuple[str, str] = Field(
         description=(
             "For `nested_dirs`, the two subdirectories of each sample: the images, and "
@@ -101,8 +147,20 @@ class DataSpec(SpecModel):
             "detection. No default here; each task has its own."
         ),
     )
-    column_sep: str = ";"
-    shuffle: bool = True
+    column_sep: str = Field(
+        ";",
+        description=(
+            "For `config_file`, what separates several paths inside one cell - a sample with "
+            "one mask file per object, as Data Science Bowl has, or one file per channel."
+        ),
+    )
+    shuffle: bool = Field(
+        True,
+        description=(
+            "Shuffle the training data between epochs. Only the training data: validation is "
+            "read in order so that two epochs measure the same thing in the same way."
+        ),
+    )
     window: str | tuple[float, float] = Field(
         "auto",
         validation_alias=AliasChoices("window", "dicom_window"),
@@ -203,7 +261,14 @@ class DataSpec(SpecModel):
 
 
 class SegmentationData(DataSpec):
-    subdirs: tuple[str, str] = ("images", "masks")
+    subdirs: tuple[str, str] = Field(
+        ("images", "masks"),
+        description=(
+            "For `nested_dirs`, the two subdirectories of each sample directory: the images "
+            "and their masks. A sample may hold several mask files - one per object, as Data "
+            "Science Bowl does - and they are united into one mask when read."
+        ),
+    )
 
     colormap: list[Colour] | None = Field(
         None,

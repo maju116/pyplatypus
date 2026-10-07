@@ -31,41 +31,106 @@ from pyplatypus.spec.common import SpecModel
 # lets the same implementation serve 2D and 3D untouched (PLAN.md, rule 3).
 
 
+# `smooth` means the same thing in every loss that has it, so one home. `alpha` does not -
+# it is a class weight in focal, the weight on false negatives in Tversky, the mix in combo
+# and the surface term's share in boundary - so each of those says its own thing. A field is
+# identified by (model, name), never by name.
+_SMOOTH = (
+    "Added to both numerator and denominator so a class absent from an image gives a finite "
+    "number instead of 0/0. Leave it alone unless you know why you are moving it: raising it "
+    "makes an empty class look better than it is."
+)
+_LOSS_NAME = (
+    "Which loss, and it decides which other keys this block accepts: `tversky` takes "
+    "`alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is "
+    "refused by name rather than ignored."
+)
+_OPTIMIZER_NAME = (
+    "Which optimiser, and it decides which other keys this block accepts - `sgd` takes "
+    "`momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and "
+    "`weight_decay` are accepted by all of them."
+)
+
+
 class _Loss(SpecModel):
     pass
 
 
 class IouLoss(_Loss):
-    name: Literal["iou"] = "iou"
-    smooth: float = Field(1.0, gt=0)
+    name: Literal["iou"] = Field("iou", description=_LOSS_NAME)
+    smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
 class DiceLoss(_Loss):
-    name: Literal["dice"] = "dice"
-    smooth: float = Field(1.0, gt=0)
+    name: Literal["dice"] = Field("dice", description=_LOSS_NAME)
+    smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
 class CceLoss(_Loss):
-    name: Literal["cce"] = "cce"
-    label_smoothing: float = Field(0.0, ge=0, lt=1)
+    name: Literal["cce"] = Field("cce", description=_LOSS_NAME)
+    label_smoothing: float = Field(
+        0.0,
+        ge=0,
+        lt=1,
+        description=(
+            "Train towards 1 - this value instead of towards 1, so the model is not pushed "
+            "to be certain. Worth having where the labels themselves are uncertain, which on "
+            "a hand-drawn boundary they are."
+        ),
+    )
 
 
 class CceDiceLoss(_Loss):
-    name: Literal["cce_dice"] = "cce_dice"
-    cce_weight: float = Field(0.5, ge=0, le=1)
-    smooth: float = Field(1.0, gt=0)
+    name: Literal["cce_dice"] = Field("cce_dice", description=_LOSS_NAME)
+    cce_weight: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description=(
+            "How much of the objective is cross-entropy; the rest is Dice. Cross-entropy "
+            "cares about every pixel and Dice about the overlap, so raising this helps a "
+            "class that covers very little of the image and lowering it favours the shape."
+        ),
+    )
+    smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
 class FocalLoss(_Loss):
-    name: Literal["focal"] = "focal"
-    gamma: float = Field(2.0, ge=0)
-    alpha: float | None = Field(None, ge=0, le=1)
+    name: Literal["focal"] = Field("focal", description=_LOSS_NAME)
+    gamma: float = Field(
+        2.0,
+        ge=0,
+        description=(
+            "How hard to discount the pixels already classified well, so the gradient comes "
+            "from the ones that are not. 0 is plain cross-entropy; 2 is the usual value."
+        ),
+    )
+    alpha: float | None = Field(
+        None,
+        ge=0,
+        le=1,
+        description=(
+            "Weight on the positive class, between 0 and 1. Unset means no weighting, which "
+            "is not the same as 0.5: at 0.5 both classes are halved and the gradients are "
+            "smaller, which looks like a learning-rate change."
+        ),
+    )
 
 
 class TverskyLoss(_Loss):
-    name: Literal["tversky"] = "tversky"
-    alpha: float = Field(0.5, ge=0, le=1)
-    smooth: float = Field(1.0, gt=0)
+    name: Literal["tversky"] = Field("tversky", description=_LOSS_NAME)
+    alpha: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description=(
+            "Weight on false negatives; raising it buys recall at the cost of precision, "
+            "which is the trade a screening task usually wants. The weight on false "
+            "positives is 1 - alpha and is not a separate key, so the two cannot disagree. "
+            "At alpha 0.5 this is Dice exactly, but only when `smooth` is 0."
+        ),
+    )
+    smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
     @property
     def beta(self) -> float:
@@ -74,21 +139,60 @@ class TverskyLoss(_Loss):
 
 
 class FocalTverskyLoss(_Loss):
-    name: Literal["focal_tversky"] = "focal_tversky"
-    alpha: float = Field(0.5, ge=0, le=1)
-    gamma: float = Field(1.0, gt=0)
-    smooth: float = Field(1.0, gt=0)
+    name: Literal["focal_tversky"] = Field("focal_tversky", description=_LOSS_NAME)
+    alpha: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description=(
+            "Weight on false negatives, as in `tversky`, with false positives taking 1 - alpha."
+        ),
+    )
+    gamma: float = Field(
+        1.0,
+        gt=0,
+        description=(
+            "Exponent on the Tversky index, which is where this differs from `tversky`: "
+            "above 1 it concentrates the gradient on the cases scoring badly. Note 1 is the "
+            "default and means plain Tversky, not 'off'."
+        ),
+    )
+    smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
 class ComboLoss(_Loss):
-    name: Literal["combo"] = "combo"
-    alpha: float = Field(0.5, ge=0, le=1)
-    ce_ratio: float = Field(0.5, ge=0, le=1)
+    name: Literal["combo"] = Field("combo", description=_LOSS_NAME)
+    alpha: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description=(
+            "How much of the objective is the weighted cross-entropy term; the rest is Dice."
+        ),
+    )
+    ce_ratio: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description=(
+            "Within the cross-entropy term, how much weight goes on the positive class. "
+            "This is the key that makes `combo` worth choosing over `cce_dice`: it lets the "
+            "two halves of the objective disagree about which class matters."
+        ),
+    )
 
 
 class LovaszLoss(_Loss):
-    name: Literal["lovasz"] = "lovasz"
-    per_image: bool = False
+    name: Literal["lovasz"] = Field("lovasz", description=_LOSS_NAME)
+    per_image: bool = Field(
+        False,
+        description=(
+            "Compute the loss for each image and average, rather than over the whole batch "
+            "at once. Per image is the honest thing when images differ in how much of them "
+            "is foreground, because otherwise a large object in one image dominates the "
+            "batch; it is also noisier."
+        ),
+    )
 
 
 #: Everything but `boundary`, which takes one of these as its region term. Spelled out
@@ -146,7 +250,7 @@ class BoundaryLoss(_Loss):
     becomes the training.
     """
 
-    name: Literal["boundary"] = "boundary"
+    name: Literal["boundary"] = Field("boundary", description=_LOSS_NAME)
     region: RegionLossSpec = Field(
         default_factory=lambda: DiceLoss(),
         description="The overlap term this is added to. Dice unless you say otherwise.",
@@ -217,17 +321,33 @@ class _Overlap(_Metric):
     )
 
 
+_METRIC_NAME = (
+    "Which metric. These are computed on the mask rather than on the objective, so they "
+    "stay comparable between models trained on different losses."
+)
+
+
 class IouMetric(_Overlap):
-    name: Literal["iou"] = "iou"
+    name: Literal["iou"] = Field("iou", description=_METRIC_NAME)
 
 
 class DiceMetric(_Overlap):
-    name: Literal["dice"] = "dice"
+    name: Literal["dice"] = Field("dice", description=_METRIC_NAME)
 
 
 class TverskyMetric(_Overlap):
-    name: Literal["tversky"] = "tversky"
-    alpha: float = Field(0.5, ge=0, le=1)
+    name: Literal["tversky"] = Field("tversky", description=_METRIC_NAME)
+    alpha: float = Field(
+        0.5,
+        ge=0,
+        le=1,
+        description=(
+            "Weight on false negatives, with 1 - alpha on false positives - the same meaning "
+            "as in the Tversky loss. At 0.5 this is Dice, so it is worth moving or not "
+            "reporting at all: a Tversky metric at 0.5 beside a Dice metric is one number "
+            "twice."
+        ),
+    )
 
 
 MetricSpec = Annotated[IouMetric | DiceMetric | TverskyMetric, Field(discriminator="name")]
@@ -236,31 +356,92 @@ MetricSpec = Annotated[IouMetric | DiceMetric | TverskyMetric, Field(discriminat
 # torch's set, not TensorFlow's. Ftrl is gone because torch has no Ftrl.
 
 
+# Descriptions shared between optimisers. `beta_1`, `beta_2` and `eps` mean the same thing
+# wherever they appear, so the sentence has one home and each field points at it rather
+# than repeating it four times.
+_BETA_1 = (
+    "Decay for the running average of the gradient. Lower reacts to the last few batches, "
+    "higher smooths over more of them; 0.9 is the usual value and rarely worth moving."
+)
+_BETA_2 = (
+    "Decay for the running average of the squared gradient, which is what scales each "
+    "parameter's step. Lowering it below about 0.99 makes training noticeably noisier."
+)
+_EPS = (
+    "Added to the denominator so a parameter whose gradient has been zero for a while "
+    "does not take an enormous step. It is a guard, not a knob."
+)
+_MOMENTUM = (
+    "Carry a fraction of the previous step into this one. 0 is plain gradient descent; "
+    "0.9 is the usual choice and is what makes SGD competitive with the adaptive methods."
+)
+
+
 class _Optimizer(SpecModel):
-    learning_rate: float = Field(1e-3, gt=0)
-    weight_decay: float = Field(0.0, ge=0)
+    learning_rate: float = Field(
+        1e-3,
+        gt=0,
+        description=(
+            "How big a step to take. The one setting worth trying first when a run will not "
+            "learn: too high and the loss moves without improving, too low and it improves "
+            "too slowly to tell from not improving at all. Each parameter group decays from "
+            "its own rate, so an `encoder_learning_rate` is not flattened by a schedule."
+        ),
+    )
+    weight_decay: float = Field(
+        0.0,
+        ge=0,
+        description=(
+            "Pull weights towards zero at every step, which is L2 regularisation. Off by "
+            "default because it interacts with the loss and is not free: on a small dataset "
+            "it can cost more than the overfitting it prevents."
+        ),
+    )
 
 
 class Adam(_Optimizer):
-    name: Literal["adam"] = "adam"
-    beta_1: float = Field(0.9, ge=0, lt=1)
-    beta_2: float = Field(0.999, ge=0, lt=1)
-    eps: float = Field(1e-8, gt=0)
-    amsgrad: bool = False
+    name: Literal["adam"] = Field("adam", description=_OPTIMIZER_NAME)
+    beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
+    beta_2: float = Field(0.999, ge=0, lt=1, description=_BETA_2)
+    eps: float = Field(1e-8, gt=0, description=_EPS)
+    amsgrad: bool = Field(
+        False,
+        description=(
+            "Keep the largest squared-gradient average seen so far rather than the current "
+            "one, so the step size never grows back. It fixes a convergence case in Adam's "
+            "proof and usually changes nothing in practice; worth trying if a run plateaus "
+            "and then gets worse."
+        ),
+    )
 
 
 class AdamW(_Optimizer):
-    name: Literal["adamw"] = "adamw"
-    beta_1: float = Field(0.9, ge=0, lt=1)
-    beta_2: float = Field(0.999, ge=0, lt=1)
-    eps: float = Field(1e-8, gt=0)
-    weight_decay: float = Field(1e-2, ge=0)
+    name: Literal["adamw"] = Field("adamw", description=_OPTIMIZER_NAME)
+    beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
+    beta_2: float = Field(0.999, ge=0, lt=1, description=_BETA_2)
+    eps: float = Field(1e-8, gt=0, description=_EPS)
+    weight_decay: float = Field(
+        1e-2,
+        ge=0,
+        description=(
+            "As for the other optimisers, but applied to the weights directly rather than "
+            "through the gradient - which is the whole difference between AdamW and Adam, "
+            "and why the default here is 0.01 rather than 0."
+        ),
+    )
 
 
 class Sgd(_Optimizer):
-    name: Literal["sgd"] = "sgd"
-    momentum: float = Field(0.0, ge=0)
-    nesterov: bool = False
+    name: Literal["sgd"] = Field("sgd", description=_OPTIMIZER_NAME)
+    momentum: float = Field(0.0, ge=0, description=_MOMENTUM)
+    nesterov: bool = Field(
+        False,
+        description=(
+            "Look ahead to where momentum is about to carry the weights before measuring the "
+            "gradient. Needs `momentum` above 0, and giving it without momentum is refused "
+            "rather than ignored."
+        ),
+    )
 
     @model_validator(mode="after")
     def nesterov_needs_momentum(self):
@@ -270,36 +451,69 @@ class Sgd(_Optimizer):
 
 
 class RmsProp(_Optimizer):
-    name: Literal["rmsprop"] = "rmsprop"
-    alpha: float = Field(0.99, ge=0, lt=1)
-    momentum: float = Field(0.0, ge=0)
-    eps: float = Field(1e-8, gt=0)
+    name: Literal["rmsprop"] = Field("rmsprop", description=_OPTIMIZER_NAME)
+    alpha: float = Field(
+        0.99,
+        ge=0,
+        lt=1,
+        description=(
+            "Decay for the running average of the squared gradient - RmsProp's name for what "
+            "Adam calls `beta_2`, and it does the same work."
+        ),
+    )
+    momentum: float = Field(0.0, ge=0, description=_MOMENTUM)
+    eps: float = Field(1e-8, gt=0, description=_EPS)
 
 
 class Adagrad(_Optimizer):
-    name: Literal["adagrad"] = "adagrad"
-    lr_decay: float = Field(0.0, ge=0)
-    eps: float = Field(1e-10, gt=0)
+    name: Literal["adagrad"] = Field("adagrad", description=_OPTIMIZER_NAME)
+    lr_decay: float = Field(
+        0.0,
+        ge=0,
+        description=(
+            "Shrink the rate further as training goes on, on top of the shrinking Adagrad "
+            "already does by accumulating every squared gradient it has seen. Adagrad's step "
+            "only ever gets smaller, which is why long runs with it can stop learning."
+        ),
+    )
+    eps: float = Field(1e-10, gt=0, description=_EPS)
 
 
 class Adadelta(_Optimizer):
-    name: Literal["adadelta"] = "adadelta"
-    rho: float = Field(0.9, ge=0, lt=1)
-    eps: float = Field(1e-6, gt=0)
+    name: Literal["adadelta"] = Field("adadelta", description=_OPTIMIZER_NAME)
+    rho: float = Field(
+        0.9,
+        ge=0,
+        lt=1,
+        description=(
+            "How long a window of squared gradients to remember. Adadelta exists to avoid "
+            "Adagrad's ever-shrinking step, and this is the parameter that does it."
+        ),
+    )
+    eps: float = Field(1e-6, gt=0, description=_EPS)
 
 
 class Adamax(_Optimizer):
-    name: Literal["adamax"] = "adamax"
-    beta_1: float = Field(0.9, ge=0, lt=1)
-    beta_2: float = Field(0.999, ge=0, lt=1)
-    eps: float = Field(1e-8, gt=0)
+    name: Literal["adamax"] = Field("adamax", description=_OPTIMIZER_NAME)
+    beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
+    beta_2: float = Field(
+        0.999,
+        ge=0,
+        lt=1,
+        description=(
+            "As for Adam, except Adamax tracks the largest gradient seen rather than the "
+            "average of their squares, which makes it the steadier of the two when a few "
+            "batches carry very large gradients."
+        ),
+    )
+    eps: float = Field(1e-8, gt=0, description=_EPS)
 
 
 class NAdam(_Optimizer):
-    name: Literal["nadam"] = "nadam"
-    beta_1: float = Field(0.9, ge=0, lt=1)
-    beta_2: float = Field(0.999, ge=0, lt=1)
-    eps: float = Field(1e-8, gt=0)
+    name: Literal["nadam"] = Field("nadam", description=_OPTIMIZER_NAME)
+    beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
+    beta_2: float = Field(0.999, ge=0, lt=1, description=_BETA_2)
+    eps: float = Field(1e-8, gt=0, description=_EPS)
 
 
 OptimizerSpec = Annotated[
@@ -315,27 +529,83 @@ class _Callback(SpecModel):
     pass
 
 
+_CALLBACK_NAME = (
+    "Which callback, and it decides which other keys this block accepts. Giving a key the "
+    "chosen callback does not have is refused by name rather than ignored."
+)
+_MONITOR = (
+    "What to watch: `val_loss`, `train_loss`, or `val_` followed by a metric the model asks "
+    "for, such as `val_dice`. Whether the number should rise or fall is worked out from its "
+    "name - anything ending in `loss` is minimised. Watching something no metric will "
+    "produce is refused when the specification is built, and so is watching `val_*` in a "
+    "run with `validation: false`, rather than waiting for a number that never arrives."
+)
+_PATIENCE = "Epochs to wait, with no improvement, before acting."
+
+
 class EarlyStopping(_Callback):
-    name: Literal["early_stopping"] = "early_stopping"
-    monitor: str = "val_loss"
-    patience: int = Field(10, ge=1)
-    min_delta: float = Field(0.0, ge=0)
-    restore_best: bool = True
+    name: Literal["early_stopping"] = Field("early_stopping", description=_CALLBACK_NAME)
+    monitor: str = Field("val_loss", description=_MONITOR)
+    patience: int = Field(10, ge=1, description=_PATIENCE)
+    min_delta: float = Field(
+        0.0,
+        ge=0,
+        description=(
+            "Improvement smaller than this does not count as improvement. Useful where the "
+            "watched number wanders: without it, noise alone keeps resetting the patience."
+        ),
+    )
+    restore_best: bool = Field(
+        True,
+        description=(
+            "Put the best weights back when training stops, rather than keeping the last - "
+            "which are by definition the ones that were not improving. Note that `swa` "
+            "replaces nothing if a run stops before averaging began."
+        ),
+    )
 
 
 class ModelCheckpoint(_Callback):
-    name: Literal["model_checkpoint"] = "model_checkpoint"
-    path: str
-    monitor: str = "val_loss"
-    save_best_only: bool = True
+    name: Literal["model_checkpoint"] = Field("model_checkpoint", description=_CALLBACK_NAME)
+    path: str = Field(
+        description=(
+            "Where to write the checkpoint. One file, overwritten - this is the run's safety "
+            "net, not a history; `export_weights()` is what produces a file to publish, with "
+            "a sidecar recording what it is."
+        ),
+    )
+    monitor: str = Field("val_loss", description=_MONITOR)
+    save_best_only: bool = Field(
+        True,
+        description=(
+            "Write only when the watched number improves. With `false` every epoch is "
+            "written, which is what to use when a run may be interrupted rather than when "
+            "the best epoch is wanted."
+        ),
+    )
 
 
 class ReduceLrOnPlateau(_Callback):
-    name: Literal["reduce_lr_on_plateau"] = "reduce_lr_on_plateau"
-    monitor: str = "val_loss"
-    factor: float = Field(0.1, gt=0, lt=1)
-    patience: int = Field(5, ge=1)
-    min_lr: float = Field(0.0, ge=0)
+    name: Literal["reduce_lr_on_plateau"] = Field(
+        "reduce_lr_on_plateau", description=_CALLBACK_NAME
+    )
+    monitor: str = Field("val_loss", description=_MONITOR)
+    factor: float = Field(
+        0.1,
+        gt=0,
+        lt=1,
+        description="Multiply the learning rate by this when the watched number stops moving.",
+    )
+    patience: int = Field(5, ge=1, description=_PATIENCE)
+    min_lr: float = Field(
+        0.0,
+        ge=0,
+        description=(
+            "The floor the rate will not go below. Unlike `cosine_annealing`, this one acts "
+            "on evidence rather than on a schedule, so it may never fire at all - which is "
+            "why it is not refused alongside `swa` and a cosine is."
+        ),
+    )
 
 
 class CosineAnnealing(_Callback):
@@ -345,8 +615,17 @@ class CosineAnnealing(_Callback):
     is going. That is the difference from `reduce_lr_on_plateau`, and a run may want both.
     """
 
-    name: Literal["cosine_annealing"] = "cosine_annealing"
-    min_lr: float = Field(0.0, ge=0, description="The rate at the last epoch.")
+    name: Literal["cosine_annealing"] = Field("cosine_annealing", description=_CALLBACK_NAME)
+    min_lr: float = Field(
+        0.0,
+        ge=0,
+        description=(
+            "The rate at the last epoch, which the cosine decays to from the optimiser's own "
+            "learning_rate. Each parameter group decays from its own initial rate, so an "
+            "encoder_learning_rate is not flattened at the first epoch - that would have been "
+            "invisible, since the history records one learning_rate, the first group's."
+        ),
+    )
     epochs: int | None = Field(
         None,
         ge=1,
@@ -397,7 +676,7 @@ class Swa(_Callback):
     are, not of how the run is going.
     """
 
-    name: Literal["swa"] = "swa"
+    name: Literal["swa"] = Field("swa", description=_CALLBACK_NAME)
     start: float = Field(
         0.75,
         gt=0,
@@ -424,12 +703,18 @@ class Swa(_Callback):
 
 
 class CsvLogger(_Callback):
-    name: Literal["csv_logger"] = "csv_logger"
-    path: str
+    name: Literal["csv_logger"] = Field("csv_logger", description=_CALLBACK_NAME)
+    path: str = Field(
+        description=(
+            "Where to append one row per epoch. The same numbers `training_history()` "
+            "returns, written as they arrive - so a run that is interrupted still leaves its "
+            "history behind."
+        ),
+    )
 
 
 class TerminateOnNaN(_Callback):
-    name: Literal["terminate_on_nan"] = "terminate_on_nan"
+    name: Literal["terminate_on_nan"] = Field("terminate_on_nan", description=_CALLBACK_NAME)
 
 
 CallbackSpec = Annotated[
@@ -522,8 +807,24 @@ def _transforms_volumes(albumentations, name: str) -> bool:
 
 
 class AugmentationStep(SpecModel):
-    name: str
-    params: dict[str, Any] = Field(default_factory=dict)
+    name: str = Field(
+        description=(
+            "An albumentations transform, by its own class name - `HorizontalFlip`, "
+            "`RandomBrightnessContrast`. Checked against what the installed albumentations "
+            "offers, and `available_transforms()` lists them; at rank 3 the list is shorter, "
+            "because support for volumes is uneven."
+        ),
+    )
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Arguments passed to that transform, exactly as albumentations names them - so "
+            "`p` is the probability of applying it, defaulting to the transform's own. Not "
+            "validated here: they are albumentations' to accept, and each step is probed at "
+            "the model's input size when the pipeline is built, so a bad argument is named "
+            "there rather than guessed at here."
+        ),
+    )
 
     @field_validator("name")
     @classmethod

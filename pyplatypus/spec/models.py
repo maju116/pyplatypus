@@ -45,14 +45,64 @@ class ModelSpec(SpecModel):
     name: str = Field(min_length=1, description="Unique within a spec; names the outputs.")
 
     input_shape: SpatialShape
-    channels: int = Field(3, ge=1)
+    channels: int = Field(
+        3,
+        ge=1,
+        description=(
+            "How many channels the network takes: 3 for colour, 1 for greyscale, and one per "
+            "sequence for multi-modal data such as the four MRI sequences in BraTS. Derived "
+            "rather than declared when `channels_from` names the files, because then the data "
+            "decides. Not adopted from a weights file - the data pipeline needs it before a "
+            "network exists, and a specification has to be checkable offline."
+        ),
+    )
 
-    optimizer: OptimizerSpec = Field(default_factory=Adam)
-    callbacks: list[CallbackSpec] = Field(default_factory=list)
-    augmentation: list[AugmentationStep] | None = None
+    optimizer: OptimizerSpec = Field(
+        default_factory=Adam,
+        description=(
+            "How the weights are updated. `name` selects which one and decides which other "
+            "keys this block accepts."
+        ),
+    )
+    callbacks: list[CallbackSpec] = Field(
+        default_factory=list,
+        description=(
+            "Things that happen between epochs: stopping early, writing checkpoints, moving "
+            "the learning rate, averaging the weights. A callback watching a number no metric "
+            "will produce is refused when the specification is built rather than waited on "
+            "forever, and so is one watching `val_*` in a run with no validation set."
+        ),
+    )
+    augmentation: list[AugmentationStep] | None = Field(
+        None,
+        description=(
+            "albumentations transforms, applied to the training data only - never to "
+            "validation, where the point is to measure the same thing every epoch. Each step "
+            "is probed at the model's own input size while the pipeline is built, because "
+            "support for volumes is uneven and a transform that cannot take one raises from "
+            "inside the library."
+        ),
+    )
 
-    epochs: int = Field(10, ge=1)
-    batch_size: int = Field(8, ge=1)
+    epochs: int = Field(
+        10,
+        ge=1,
+        description=(
+            "How many passes over the training data. The default is deliberately small: it "
+            "is enough to see that a run works and not enough to mistake for a result. With "
+            "`cosine_annealing` this is also the length the schedule is spread over."
+        ),
+    )
+    batch_size: int = Field(
+        8,
+        ge=1,
+        description=(
+            "How many samples go through the network at once. Limited by memory rather than "
+            "by the problem, and it is the first thing to lower when a 3D run will not fit. "
+            "It interacts with `batch_normalization`: statistics taken over very few samples "
+            "are noisy."
+        ),
+    )
 
     weights: str | None = Field(
         None,
@@ -134,23 +184,122 @@ class ModelSpec(SpecModel):
 
 
 class SegmentationModel(ModelSpec):
-    architecture: Architecture = Architecture.U_NET
+    architecture: Architecture = Field(
+        Architecture.U_NET,
+        description=(
+            "Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, "
+            "the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 "
+            "between images within any one of them, and 0.0012 from re-running one of them "
+            "with another seed. On that problem the architecture is not where the result "
+            "comes from. Adopted from the weights file when `weights` names one."
+        ),
+    )
 
-    blocks: int = Field(4, ge=1, le=8)
-    filters: int = Field(16, ge=1)
-    block_width: int = Field(2, ge=1, le=4, description="Convolutions per block.")
-    dropout: float = Field(0.0, ge=0, lt=1)
+    blocks: int = Field(
+        4,
+        ge=1,
+        le=8,
+        description=(
+            "How many times the resolution is halved, so how much context the deepest layer "
+            "sees. `input_shape` must divide by 2^blocks. Adopted from the weights file when "
+            "`weights` is given and this is not; with an `encoder`, the backbone's own depth "
+            "is the ceiling."
+        ),
+    )
+    filters: int = Field(
+        16,
+        ge=1,
+        description=(
+            "Filters in the first block, doubled at every level, so this sets the model's "
+            "size more than anything else does. Adopted from the weights file when `weights` "
+            "is given and this is not."
+        ),
+    )
+    block_width: int = Field(
+        2,
+        ge=1,
+        le=4,
+        description=(
+            "Convolutions per block, at every level. 2 is what every U-Net paper uses and "
+            "what the published weights were trained with; raising it adds depth without "
+            "adding levels, which is the lever to reach for when the objects are small "
+            "enough that halving the resolution again would lose them."
+        ),
+    )
+    dropout: float = Field(
+        0.0,
+        ge=0,
+        lt=1,
+        description=(
+            "Drop this fraction during training. 0 switches it off, which is the default "
+            "because these models are small enough that batch normalisation usually carries "
+            "the regularisation on its own."
+        ),
+    )
 
-    batch_normalization: bool = True
-    separable_conv: bool = False
-    spatial_dropout: bool = True
+    batch_normalization: bool = Field(
+        True,
+        description=(
+            "Normalise between convolutions. On by default, and worth knowing about when "
+            "weights are averaged: `swa` has to recompute these statistics over the training "
+            "data, because an averaged weight tensor inherits them from whichever epoch was "
+            "last rather than averaging them."
+        ),
+    )
+    separable_conv: bool = Field(
+        False,
+        description=(
+            "Depthwise-separable convolutions: far fewer parameters for the same shape, and "
+            "a little slower to converge."
+        ),
+    )
+    spatial_dropout: bool = Field(
+        True,
+        description=(
+            "Drop whole feature maps rather than individual activations. The right kind for "
+            "images, because neighbouring pixels in one map are correlated and dropping them "
+            "one at a time removes less than it appears to. Has no effect unless `dropout` is "
+            "above 0."
+        ),
+    )
     upsample: bool = Field(False, description="Upsample+conv instead of transposed convolution.")
-    deep_supervision: bool = False
-    activation: Activation = Activation.RELU
-    initialiser: Initialiser = Initialiser.HE_NORMAL
+    deep_supervision: bool = Field(
+        False,
+        description=(
+            "Train every decoder depth rather than only the last, each at input resolution. "
+            "`u_net_plus_plus` only, since it is the architecture with intermediate outputs "
+            "to supervise."
+        ),
+    )
+    activation: Activation = Field(
+        Activation.RELU,
+        description="The non-linearity between convolutions, the same one throughout.",
+    )
+    initialiser: Initialiser = Field(
+        Initialiser.HE_NORMAL,
+        description=(
+            "How the weights start. The `he_*` family is scaled for ReLU-like activations "
+            "and `glorot_*` for symmetric ones, so this and `activation` are a pair."
+        ),
+    )
 
-    loss: LossSpec = Field(default_factory=CceLoss)
-    metrics: list[MetricSpec] = Field(default_factory=lambda: [IouMetric()])
+    loss: LossSpec = Field(
+        default_factory=CceLoss,
+        description=(
+            "The objective trained against. The `loss` column of a score table is comparable "
+            "only between models trained on the same one - a Focal-Tversky of 0.05 is not "
+            "better than a cross-entropy of 0.14, it is not the same question - which is why "
+            "the table carries the loss's name beside it."
+        ),
+    )
+    metrics: list[MetricSpec] = Field(
+        default_factory=lambda: [IouMetric()],
+        description=(
+            "What to report beside the loss, computed on the mask rather than on the "
+            "objective, so these stay comparable across models. A callback watching "
+            "`val_<metric>` is refused when nothing here will produce it."
+        ),
+    )
     splits: tuple[int, ...] | None = Field(
         None,
         description=(

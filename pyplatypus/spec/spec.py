@@ -35,10 +35,26 @@ class PlatypusSpec(SpecModel):
     or a rank can take a `PlatypusSpec` and not care.
     """
 
-    task: Task
+    task: Task = Field(
+        description=(
+            "What kind of problem this is: `semantic_segmentation` or `object_detection`. "
+            "Required, and it decides the shape of everything below - `data` and `models` "
+            "are validated against the task's own types, so a detection configuration "
+            "without this was read as segmentation and complained about `anchors_per_grid` "
+            "as an extra field instead of naming the tag. Both words are spelled out because "
+            "`segmentation` stops naming one thing the moment instance segmentation exists."
+        ),
+    )
 
     seed: int | None = Field(None, description="Set it if you want a reproducible run.")
-    output_dir: str = "platypus_output"
+    output_dir: str = Field(
+        "platypus_output",
+        description=(
+            "Where a run record is written, and where `fit()` puts anything it is asked to "
+            "save. Nothing is written unless something asks to write: naming this does not "
+            "by itself create a directory."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -94,9 +110,23 @@ class PlatypusSpec(SpecModel):
 
 
 class SegmentationSpec(PlatypusSpec):
-    task: Literal[Task.SEMANTIC_SEGMENTATION] = Task.SEMANTIC_SEGMENTATION
-    data: SegmentationData
-    models: list[SegmentationModel] = Field(min_length=1)
+    task: Literal[Task.SEMANTIC_SEGMENTATION] = Field(
+        Task.SEMANTIC_SEGMENTATION,
+        description="Fixed for this specification: `semantic_segmentation`.",
+    )
+    data: SegmentationData = Field(
+        description="Where the images and their masks are, and how to read them."
+    )
+    models: list[SegmentationModel] = Field(
+        min_length=1,
+        description=(
+            "One or more models, trained in turn against the same data. Names must be "
+            "unique: a run is recorded under its model's name, so two models called the same "
+            "thing would overwrite one record and report it as two. Several entries of the "
+            "same architecture with different settings is the ordinary case - that is how a "
+            "comparison is written."
+        ),
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -187,9 +217,19 @@ class SegmentationSpec(PlatypusSpec):
 
 
 class DetectionSpec(PlatypusSpec):
-    task: Literal[Task.OBJECT_DETECTION]
-    data: DetectionData
-    models: list[DetectionModel] = Field(min_length=1)
+    task: Literal[Task.OBJECT_DETECTION] = Field(
+        description="Fixed for this specification: `object_detection`.",
+    )
+    data: DetectionData = Field(
+        description="Where the images and their annotations are, and how to read them."
+    )
+    models: list[DetectionModel] = Field(
+        min_length=1,
+        description=(
+            "One or more detectors, trained in turn against the same data. Names must be "
+            "unique, for the same reason as in a segmentation specification."
+        ),
+    )
 
 
 #: Validate through this, never through one class, so `task` picks the shape.

@@ -67,7 +67,14 @@ class DetectionData(DataSpec):
     holds no object is simply not a box.
     """
 
-    subdirs: tuple[str, str] = ("images", "annotations")
+    subdirs: tuple[str, str] = Field(
+        ("images", "annotations"),
+        description=(
+            "For `nested_dirs`, the two subdirectories of each sample directory: the images "
+            "and the files holding their boxes. Which format those files are in is said by "
+            "`annotation_format`, never guessed from the extension."
+        ),
+    )
 
     classes: list[str] = Field(
         min_length=1,
@@ -151,7 +158,17 @@ class DetectionModel(ModelSpec):
     history rather than a design - one source cannot disagree with itself.
     """
 
-    architecture: DetectionArchitecture = DetectionArchitecture.YOLO3
+    architecture: DetectionArchitecture = Field(
+        DetectionArchitecture.YOLO3,
+        description=(
+            "Which detector. YOLOv3 is the only one, and it is 2D: boxes in a volume are a "
+            "different problem with different annotations, so a detection specification at "
+            "rank 3 is refused while the specification is read rather than failing later. "
+            "Adopted from the weights file when `weights` names one, together with the "
+            "anchors - weights mean nothing without the anchors they were trained with, so "
+            "a specification naming both is refused."
+        ),
+    )
 
     anchors: list[AnchorGroup] | None = Field(
         None,
