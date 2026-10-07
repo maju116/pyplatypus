@@ -208,7 +208,7 @@ def test_plot_anchors_draws_every_group_and_the_boxes_under_them():
     )
     axis = figure.axes[0]
 
-    assert len(axis.collections) == 3, "one for the boxes and one per anchor group"
+    assert len(axis.collections) == 2, "one for the boxes, one for every anchor"
     # Linear by default, which is what R does. The log scale is worth having and is the
     # caller's: a default that differed between the two packages would make the same call
     # draw two different pictures, which is the whole thing `style.py` exists to stop.
@@ -258,8 +258,7 @@ def test_an_engine_is_the_second_way_in_and_the_classes_are_separated():
     assert [collection.get_label() for collection in axis.collections] == [
         "RBC",
         "WBC",
-        "grid 1",
-        "grid 2",
+        "anchors",
     ]
     # What the figure says about itself, so a reader knows whether the anchors were fitted
     # or declared, and in which coordinates the clouds are.
