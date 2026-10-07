@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/maju116/platypus/master/man/figures/hexsticker_platypus.png" align="right" alt="" width="130" />
+<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/hexsticker_platypus.png" align="right" alt="" width="130" />
 
 # pyplatypus
 
@@ -84,6 +84,14 @@ masks = engine.predict(engine.best_model("dice"), split="test")
 `examples/data_science_bowl.yaml` trains a U-Net and a LinkNet on the 2018 Data Science
 Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch at
 160×160.
+
+<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/README-masks.png" alt="" width="100%" />
+
+Green is what was found, red what was missed, yellow what was invented - nearly all of the red
+here is a thin rim around nuclei that were located correctly, so the model draws them slightly
+too small. **The drawing is the R package's**, because this one carries no plotting: matplotlib
+is not a dependency of an engine, and `plot_masks()` on the other side takes exactly what
+`predict()` returns. The masks in it came from this pipeline.
 
 ## The same thing from a file
 
@@ -223,6 +231,14 @@ The anchors come out of the sidecar beside the file and are adopted, because a d
 weights mean nothing without them - read with any others they give plausible boxes in the
 wrong places. A specification that names its own anchors alongside `weights` is refused
 rather than quietly overruled.
+
+<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/README-boxes.png" alt="" width="100%" />
+
+One frame of BCCD's held-out split, drawn by `bccd-yolo3` - published with these packages, so
+the picture costs a download rather than an afternoon. Both rare classes are there, the white
+cell at 1.00 and the platelet at 0.77. Drawn by the R package's `plot_boxes()`, from what
+`predict()` returns here.
+
 
 ## A backbone instead of the built-in encoder
 
