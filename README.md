@@ -1,6 +1,6 @@
 # pyplatypus
 
-<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/hexsticker_platypus.png" align="right" alt="" width="130" />
+<img src="https://raw.githubusercontent.com/maju116/pyplatypus/main/assets/hexsticker.png" align="right" alt="" width="130" />
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
@@ -85,13 +85,18 @@ masks = engine.predict(engine.best_model("dice"), split="test")
 Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch at
 160×160.
 
-<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/README-masks.png" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/maju116/pyplatypus/main/assets/README-masks.png" alt="" width="100%" />
 
-Green is what was found, red what was missed, yellow what was invented - nearly all of the red
-here is a thin rim around nuclei that were located correctly, so the model draws them slightly
-too small. **The drawing is the R package's**, because this one carries no plotting: matplotlib
-is not a dependency of an engine, and `plot_masks()` on the other side takes exactly what
-`predict()` returns. The masks in it came from this pipeline.
+Four of the 134 images `dsbowl-unet` was held out from, drawn by `plot_masks()` here - the
+best, two from the middle of the ranking and the worst, so the picture covers the
+distribution the model card reports rather than its top. Green is what was found, red what
+was missed, yellow what was invented.
+
+The bottom row is the card's worst case at 0.724 and it shows what that number is: tiny dark
+nuclei in a brightfield image, where the model finds specks. Dice for the whole split comes
+back as 0.9205, which is the card's own figure to four decimals - `tools/readme_figures.py`
+remakes the seeded split the weights were measured on and refuses to draw if the cases the
+card names are not in it.
 
 ## The same thing from a file
 
@@ -232,12 +237,17 @@ weights mean nothing without them - read with any others they give plausible box
 wrong places. A specification that names its own anchors alongside `weights` is refused
 rather than quietly overruled.
 
-<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/README-boxes.png" alt="" width="100%" />
+<img src="https://raw.githubusercontent.com/maju116/pyplatypus/main/assets/README-boxes.png" alt="" width="100%" />
 
 One frame of BCCD's held-out split, drawn by `bccd-yolo3` - published with these packages, so
-the picture costs a download rather than an afternoon. Both rare classes are there, the white
-cell at 1.00 and the platelet at 0.77. Drawn by the R package's `plot_boxes()`, from what
-`predict()` returns here.
+the picture costs a download rather than an afternoon. The frame is chosen by reading the
+annotations rather than by eye, because a picture of red cells alone shows a third of what the
+detector does: both rare classes are here, the white cell at 1.00 and the platelet at 0.77.
+Eleven red cells are drawn at a threshold of 0.5 where seventeen are annotated.
+
+`plot_boxes()` takes what `predict()` returns with nothing rearranged in between. The R
+package draws the same frame, from the same weights, through ggplot2 rather than matplotlib,
+and finds the same eleven boxes at the same scores.
 
 
 ## A backbone instead of the built-in encoder
