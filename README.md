@@ -4,14 +4,110 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **0.3.0a13 — an alpha.** This replaces the 2022 TensorFlow package with a PyTorch one.
-> The API will still move and the R surface does not exist yet, so pin the exact version
-> if you build on it.
+> **An alpha.** This replaces the 2022 TensorFlow package with a PyTorch one, and the API
+> still moves, so pin the exact version if you build on it. The
+> [changelog](CHANGELOG.md) says what each release changed; no version number is repeated
+> here, because the one that was went four releases stale.
 >
-> Everything on PyPI so far is a pre-release, so `pip install pyplatypus` resolves to this
-> one. `pip install pyplatypus==0.1.0rc2` gets the old TensorFlow package.
+> Everything on PyPI so far is a pre-release, so `pip install pyplatypus` resolves to the
+> newest. `pip install pyplatypus==0.1.0rc2` gets the old TensorFlow package.
 
-## What works today
+Most people should reach this through **[platypus](https://github.com/maju116/platypus)**,
+the R package: it installs this one, calls it, and is where the worked examples and the
+plotting live. Use it directly if you are writing Python.
+
+The two have [one documentation site each](https://maju116.github.io/pyplatypus/), built
+the same way, with the same sections in the same order - and
+[one configuration format](https://maju116.github.io/pyplatypus/config.html), because it is
+the same file read by the same models whichever language asked.
+
+## Installing
+
+Python ≥ 3.10, and torch ≥ 2.7.
+
+**To fetch published weights by name**, install the `hub` extra:
+
+```bash
+pip install "pyplatypus[hub]"
+```
+
+It is not in the base install because most runs never fetch weights and an air-gapped one cannot.
+Local weights files and everything else work without it.
+
+**For a pretrained encoder**, install the `encoders` extra, which brings timm:
+
+```bash
+pip install "pyplatypus[encoders]"
+```
+
+On a Pascal-generation GPU ask for both extras together — `pyplatypus[encoders,pascal]`. timm
+pulls in torchvision, torchvision pins its torch version by equality, and asking for timm alone
+resolved torch to a CUDA 13 build whose kernels start at `sm_75`; a GTX 1070 is `sm_61`, so the
+GPU disappears and the error blames the driver. The two extras together resolve to torch 2.7.1
+and torchvision 0.22.1.
+
+**If your GPU is a GTX 10-series (Pascal) or older**, install the `pascal` extra:
+
+```bash
+pip install "pyplatypus[pascal]"
+```
+
+torch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and
+Volta generations outright - no driver update brings them back. The last torch built
+against CUDA 12 is 2.7.x, which the extra pins. On anything from Turing (RTX 20-series)
+onwards, ignore this.
+
+## A worked example
+
+```bash
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[dev]"
+.venv/bin/python -m pytest
+
+# The linter is pinned in pyproject.toml and installed on its own, so it agrees with CI
+# and does not drag torch along to read text files.
+uv run --only-group lint ruff check pyplatypus tests
+```
+
+```python
+from pyplatypus import build_engine, from_yaml
+
+engine = build_engine(from_yaml("examples/data_science_bowl.yaml"))
+engine.fit(verbose=True)
+
+for row in engine.evaluate():
+    print(row)
+
+masks = engine.predict(engine.best_model("dice"), split="test")
+```
+
+`examples/data_science_bowl.yaml` trains a U-Net and a LinkNet on the 2018 Data Science
+Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch at
+160×160.
+
+## The same thing from a file
+
+The point of a specification holding several models is that the comparison costs one command. Run
+`examples/compare_dsbowl_architectures.py` and all four architectures train on the same split with
+the same augmentation:
+
+| model | parameters | s/epoch | epochs | Dice mean | sd | median | min |
+|---|---|---|---|---|---|---|---|
+| U-Net | 1,942,594 | 15.5 | 60 | 0.9217 | 0.054 | 0.9353 | 0.7227 |
+| U-Net++ | 2,263,730 | 18.8 | 44 | 0.9212 | 0.055 | 0.9323 | 0.7459 |
+| LinkNet | 1,746,754 | 14.0 | 60 | 0.9203 | 0.053 | 0.9293 | 0.7205 |
+| Res-U-Net | 2,029,682 | 14.2 | 55 | 0.9187 | 0.058 | 0.9293 | 0.6706 |
+
+Which is worth reading for what it says rather than for the winner. **The spread across the four
+is 0.0030, and the spread across images within any one of them is 0.054** — the architectures are
+eighteen times closer to each other than the images are. Re-running the same U-Net with a
+different seed moves the number by 0.0012, which is 40% of the whole spread.
+
+On this problem the architecture is not where the result comes from, and a table like this is how
+you find that out in an hour instead of a fortnight. That is also why only one set of weights is
+published: four names that mean the same thing would be four promises nobody needed.
+
+## What is in it
 
 Semantic segmentation in 2D, end to end:
 
@@ -81,15 +177,21 @@ Semantic segmentation in 2D, end to end:
   worth, and what it is not, is below.
 
 Augmentation works in 3D, with a caveat the package handles rather than hides: albumentations
-supports volumes unevenly - 97 of its transforms take one and the rest raise from inside the
+supports volumes unevenly - 87 of its transforms take one here and the rest raise from inside the
 library, `GaussNoise` as `KeyError: 'images'`. Every transform in a 3D specification is tried
 against a small probe volume while the pipeline is built, so an unsupported one is named before
 training starts, and `available_transforms(rank=3)` lists what is usable.
 
-**Object detection** is in: `task: object_detection` in a specification
-gives a YOLOv3 trained from the same pipeline - anchors fitted to your own boxes, Pascal VOC
-or LabelMe annotations, predictions back in each image's own pixels, and mean average
-precision per class that agrees with `pycocotools`. On BCCD, from nothing, over five seeds:
+Resampling is opt-in rather than automatic: it changes the voxel grid the model sees, which
+is a decision to take deliberately. Without `target_spacing` the old behaviour stands and
+volumes are resized to `input_shape`.
+
+## Boxes instead of masks
+
+`task: object_detection` in a specification gives a YOLOv3 trained from the same pipeline -
+anchors fitted to your own boxes, Pascal VOC or LabelMe annotations, predictions back in each
+image's own pixels, and mean average precision per class that agrees with `pycocotools`. On
+BCCD, from nothing, over five seeds:
 
     mAP@0.5                    0.8660 +/- 0.0159
     mAP@[.50:.95]              0.5159 +/- 0.0199
@@ -122,65 +224,7 @@ weights mean nothing without them - read with any others they give plausible box
 wrong places. A specification that names its own anchors alongside `weights` is refused
 rather than quietly overruled.
 
-None of this is in the version on PyPI, so `pip install pyplatypus` does not have it yet.
-
-Ensembling remains out of scope.
-
-Resampling is opt-in rather than automatic: it changes the voxel grid the model sees, which
-is a decision to take deliberately. Without `target_spacing` the old behaviour stands and
-volumes are resized to `input_shape`.
-
-## Try it
-
-```bash
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[dev]"
-.venv/bin/python -m pytest
-
-# The linter is pinned in pyproject.toml and installed on its own, so it agrees with CI
-# and does not drag torch along to read text files.
-uv run --only-group lint ruff check pyplatypus tests
-```
-
-```python
-from pyplatypus import Engine, from_yaml
-
-engine = Engine(from_yaml("examples/data_science_bowl.yaml"))
-engine.fit(verbose=True)
-
-for row in engine.evaluate():
-    print(row)
-
-masks = engine.predict(engine.best_model("dice"), split="test")
-```
-
-`examples/data_science_bowl.yaml` trains a U-Net and a LinkNet on the 2018 Data Science
-Bowl and prints a comparison. On a GTX 1070 that is about 11 seconds per epoch at
-160×160.
-
-## Many models, one table
-
-The point of a specification holding several models is that the comparison costs one command. Run
-`examples/compare_dsbowl_architectures.py` and all four architectures train on the same split with
-the same augmentation:
-
-| model | parameters | s/epoch | epochs | Dice mean | sd | median | min |
-|---|---|---|---|---|---|---|---|
-| U-Net | 1,942,594 | 15.5 | 60 | 0.9217 | 0.054 | 0.9353 | 0.7227 |
-| U-Net++ | 2,263,730 | 18.8 | 44 | 0.9212 | 0.055 | 0.9323 | 0.7459 |
-| LinkNet | 1,746,754 | 14.0 | 60 | 0.9203 | 0.053 | 0.9293 | 0.7205 |
-| Res-U-Net | 2,029,682 | 14.2 | 55 | 0.9187 | 0.058 | 0.9293 | 0.6706 |
-
-Which is worth reading for what it says rather than for the winner. **The spread across the four
-is 0.0030, and the spread across images within any one of them is 0.054** — the architectures are
-eighteen times closer to each other than the images are. Re-running the same U-Net with a
-different seed moves the number by 0.0012, which is 40% of the whole spread.
-
-On this problem the architecture is not where the result comes from, and a table like this is how
-you find that out in an hour instead of a fortnight. That is also why only one set of weights is
-published: four names that mean the same thing would be four promises nobody needed.
-
-## What a pretrained encoder is worth
+## A backbone instead of the built-in encoder
 
 `encoder` and `pretrained` are two flags, not one, and the reason is that the second is the only
 one that reaches the network:
@@ -236,41 +280,46 @@ Reproduce with `examples/compare_pretrained_encoders.py`. Raw logs and per-seed 
 `measurements/`. The SIIM-ACR images came from a Kaggle competition, so no weights trained on
 them are published; BBBC038v1 is CC0 and Kvasir-SEG is CC BY 4.0.
 
-## Requirements
+## Learning it
 
-Python ≥ 3.10, and torch ≥ 2.7.
+The [documentation site](https://maju116.github.io/pyplatypus/) carries three things, and
+which one you want depends on the question:
 
-**To fetch published weights by name**, install the `hub` extra:
+- **[Writing a configuration](https://maju116.github.io/pyplatypus/guide.html)** walks from
+  one model to several - the required fields, comparing variants in one run, dividing a
+  folder by patient, detection, published weights, and what is checked when.
+- **[Every configuration field](https://maju116.github.io/pyplatypus/config.html)** is
+  generated from the schema the models produce, so it cannot describe a field this package
+  does not have. Point your editor at it and it will check a file as you type:
 
-```bash
-pip install "pyplatypus[hub]"
-```
+  ```yaml
+  # yaml-language-server: $schema=https://maju116.github.io/pyplatypus/schema/spec.schema.json
+  ```
 
-It is not in the base install because most runs never fetch weights and an air-gapped one cannot.
-Local weights files and everything else work without it.
+- **The reference** is generated from the docstrings, and the `>>>` examples in them are run
+  by `pytest --doctest-modules` - so the site cannot show an example that does not work.
 
-**For a pretrained encoder**, install the `encoders` extra, which brings timm:
+`examples/` holds the four programs the measurements on this page came from, which is the
+other way to read it: every table here is reproducible by running one of them.
 
-```bash
-pip install "pyplatypus[encoders]"
-```
+The R package's [vignettes](https://maju116.github.io/platypus/) are worked examples on real
+datasets - blood cells, nuclei, volumes - and the pipeline underneath is this one, so they
+are worth reading even if you never write R.
 
-On a Pascal-generation GPU ask for both extras together — `pyplatypus[encoders,pascal]`. timm
-pulls in torchvision, torchvision pins its torch version by equality, and asking for timm alone
-resolved torch to a CUDA 13 build whose kernels start at `sm_75`; a GTX 1070 is `sm_61`, so the
-GPU disappears and the error blames the driver. The two extras together resolve to torch 2.7.1
-and torchvision 0.22.1.
+## What is not in it yet
 
-**If your GPU is a GTX 10-series (Pascal) or older**, install the `pascal` extra:
+Ensembling remains out of scope.
 
-```bash
-pip install "pyplatypus[pascal]"
-```
+Multilabel segmentation - a voxel belonging to two classes at once - is not here either, and
+it is structural rather than a missing flag: the output is a softmax over channels and both
+mask representations encode one class per voxel. `MULTILABEL_RECON.md` measures what it would
+take and
+[pyplatypus#91](https://github.com/maju116/pyplatypus/issues/91) is where the first decision
+sits.
 
-torch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and
-Volta generations outright - no driver update brings them back. The last torch built
-against CUDA 12 is 2.7.x, which the extra pins. On anything from Turing (RTX 20-series)
-onwards, ignore this.
+Classification has no task of its own. `DetectionEngine.crops()` cuts detected objects out of
+their images at a fixed size, which is the half of it this package is the right place for; the
+classifier is yours.
 
 ## Licence
 
