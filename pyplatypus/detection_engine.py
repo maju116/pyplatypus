@@ -997,8 +997,8 @@ class DetectionEngine(EngineBase):
 
         Raises:
             EngineError: If no such column exists - the message lists the ones that do - or
-                if the column is undefined for any model, which happens when a class has no
-                truth boxes in that split and so has no average precision to average.
+                    if the column is undefined for any model, which happens when a class has no
+                    truth boxes in that split and so has no average precision to average.
         """
         table = self.evaluate(split)
         if key not in table[0]:
@@ -1030,8 +1030,8 @@ def build_engine(spec: PlatypusSpec, **kwargs):
 
     Raises:
         EngineError: For a specification whose task has no engine - which today means
-        one built by hand rather than through `from_dict`, since the discriminator
-        would not let an unknown task through.
+            one built by hand rather than through `from_dict`, since the discriminator
+            would not let an unknown task through.
 
     No doctest: building an engine reads the data, so this wants a dataset on disk.
     """

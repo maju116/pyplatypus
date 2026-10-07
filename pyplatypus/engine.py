@@ -509,9 +509,9 @@ class Engine(EngineBase):
 
         Raises:
             EngineError: If a split a model needs is missing, or carries no masks while
-            something is about to score against it. `check_masks` is what refuses a
-            declared class appearing in no mask: a target channel that is zero everywhere
-            has no gradient towards it, so the model is never shown what to find.
+                something is about to score against it. `check_masks` is what refuses a
+                declared class appearing in no mask: a target channel that is zero everywhere
+                has no gradient towards it, so the model is never shown what to find.
         """
         for model_spec in self.spec.models:
             if model_spec.weights:
@@ -586,7 +586,7 @@ class Engine(EngineBase):
 
         Raises:
             EngineError: If the split carries no masks - and the message says `predict`
-            works on it, because that is the question asked next.
+                works on it, because that is the question asked next.
         """
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
@@ -622,7 +622,7 @@ class Engine(EngineBase):
         so the rows can be summarised per patient rather than per slice.
 
         Args:
-            model: Which model, by name. Defaults to the first.
+            model_name: Which model, by name. Defaults to the first.
             split: Which data to score on.
             group_by: A pattern picking a group out of each case's name. With it the rows
                 are patients rather than slices: a patient's slices are pooled into one
@@ -676,7 +676,7 @@ class Engine(EngineBase):
 
         Args:
             split: Which data to predict on.
-            model: Which model, by name. Defaults to the first.
+            model_name: Which model, by name. Defaults to the first.
             space: `"model"` returns one stacked array on the network's own grid.
                 `"source"` maps each prediction back onto the grid of the scan it came
                 from, undoing the resampling and the crop, and returns a **list** - scans
@@ -860,7 +860,7 @@ def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     Raises:
         EngineError: If there are no rows, or no column is a float - "nothing to
-        summarise" and "nothing here is a number" are different problems.
+            summarise" and "nothing here is a number" are different problems.
 
     >>> rows = [
     ...     {"case": "patient01", "dice": 0.91},

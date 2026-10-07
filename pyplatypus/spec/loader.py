@@ -49,7 +49,7 @@ def from_dict(
 
     Raises:
         ConfigError: With **every** problem listed rather than the first. A configuration
-            with four mistakes should take one run to fix, not four.
+                with four mistakes should take one run to fix, not four.
 
     >>> spec = from_dict(
     ...     {
@@ -125,8 +125,8 @@ def from_yaml(path: str | Path, *, check_paths: bool = True) -> PlatypusSpec:
 
     Raises:
         ConfigError: If the file is missing, is not valid YAML, is empty, or describes a
-            configuration with problems. Each is said with the path, so the reader knows
-            which file to open.
+                configuration with problems. Each is said with the path, so the reader knows
+                which file to open.
 
     >>> import pathlib, tempfile
     >>> lines = [

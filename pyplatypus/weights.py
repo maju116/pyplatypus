@@ -130,8 +130,8 @@ def resolve_weights(reference: str) -> Path:
 
     Raises:
         WeightsError: If the name is not in the registry, the `hf://` form has no commit,
-            a local path does not exist, or `huggingface_hub` is needed and absent - which
-            it is unless `pyplatypus[hub]` is installed.
+                a local path does not exist, or `huggingface_hub` is needed and absent - which
+                it is unless `pyplatypus[hub]` is installed.
 
     There is no doctest here on purpose: every branch of this either reaches the network or
     wants a file that exists, and an example that cannot run is a claim nobody checks.

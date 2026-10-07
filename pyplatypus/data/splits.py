@@ -147,8 +147,8 @@ def split_samples(
 
     Raises:
         SplitError: If the fractions are not two or three, if `group_by` matches no sample
-            key - a pattern that matches nothing is a mistake, not an empty result - or if
-            there are fewer groups than splits to fill.
+                key - a pattern that matches nothing is a mistake, not an empty result - or if
+                there are fewer groups than splits to fill.
 
     >>> from pyplatypus.data.paths import Sample
     >>> import pathlib
