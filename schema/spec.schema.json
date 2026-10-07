@@ -1,0 +1,2252 @@
+{
+  "$defs": {
+    "Activation": {
+      "enum": [
+        "relu",
+        "leaky_relu",
+        "elu",
+        "selu",
+        "gelu",
+        "silu",
+        "tanh"
+      ],
+      "title": "Activation",
+      "type": "string"
+    },
+    "Adadelta": {
+      "additionalProperties": false,
+      "properties": {
+        "eps": {
+          "default": 1e-06,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "name": {
+          "const": "adadelta",
+          "default": "adadelta",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "rho": {
+          "default": 0.9,
+          "description": "How long a window of squared gradients to remember. Adadelta exists to avoid Adagrad's ever-shrinking step, and this is the parameter that does it.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Rho",
+          "type": "number"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "Adadelta",
+      "type": "object"
+    },
+    "Adagrad": {
+      "additionalProperties": false,
+      "properties": {
+        "eps": {
+          "default": 1e-10,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "lr_decay": {
+          "default": 0.0,
+          "description": "Shrink the rate further as training goes on, on top of the shrinking Adagrad already does by accumulating every squared gradient it has seen. Adagrad's step only ever gets smaller, which is why long runs with it can stop learning.",
+          "minimum": 0,
+          "title": "Lr Decay",
+          "type": "number"
+        },
+        "name": {
+          "const": "adagrad",
+          "default": "adagrad",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "Adagrad",
+      "type": "object"
+    },
+    "Adam": {
+      "additionalProperties": false,
+      "properties": {
+        "amsgrad": {
+          "default": false,
+          "description": "Keep the largest squared-gradient average seen so far rather than the current one, so the step size never grows back. It fixes a convergence case in Adam's proof and usually changes nothing in practice; worth trying if a run plateaus and then gets worse.",
+          "title": "Amsgrad",
+          "type": "boolean"
+        },
+        "beta_1": {
+          "default": 0.9,
+          "description": "Decay for the running average of the gradient. Lower reacts to the last few batches, higher smooths over more of them; 0.9 is the usual value and rarely worth moving.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 1",
+          "type": "number"
+        },
+        "beta_2": {
+          "default": 0.999,
+          "description": "Decay for the running average of the squared gradient, which is what scales each parameter's step. Lowering it below about 0.99 makes training noticeably noisier.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 2",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-08,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "name": {
+          "const": "adam",
+          "default": "adam",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "Adam",
+      "type": "object"
+    },
+    "AdamW": {
+      "additionalProperties": false,
+      "properties": {
+        "beta_1": {
+          "default": 0.9,
+          "description": "Decay for the running average of the gradient. Lower reacts to the last few batches, higher smooths over more of them; 0.9 is the usual value and rarely worth moving.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 1",
+          "type": "number"
+        },
+        "beta_2": {
+          "default": 0.999,
+          "description": "Decay for the running average of the squared gradient, which is what scales each parameter's step. Lowering it below about 0.99 makes training noticeably noisier.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 2",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-08,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "name": {
+          "const": "adamw",
+          "default": "adamw",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight_decay": {
+          "default": 0.01,
+          "description": "As for the other optimisers, but applied to the weights directly rather than through the gradient - which is the whole difference between AdamW and Adam, and why the default here is 0.01 rather than 0.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "AdamW",
+      "type": "object"
+    },
+    "Adamax": {
+      "additionalProperties": false,
+      "properties": {
+        "beta_1": {
+          "default": 0.9,
+          "description": "Decay for the running average of the gradient. Lower reacts to the last few batches, higher smooths over more of them; 0.9 is the usual value and rarely worth moving.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 1",
+          "type": "number"
+        },
+        "beta_2": {
+          "default": 0.999,
+          "description": "As for Adam, except Adamax tracks the largest gradient seen rather than the average of their squares, which makes it the steadier of the two when a few batches carry very large gradients.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 2",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-08,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "name": {
+          "const": "adamax",
+          "default": "adamax",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "Adamax",
+      "type": "object"
+    },
+    "Architecture": {
+      "description": "One field, mutually exclusive by construction.",
+      "enum": [
+        "u_net",
+        "u_net_plus_plus",
+        "res_u_net",
+        "linknet"
+      ],
+      "title": "Architecture",
+      "type": "string"
+    },
+    "AugmentationStep": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "An albumentations transform, by its own class name - `HorizontalFlip`, `RandomBrightnessContrast`. Checked against what the installed albumentations offers, and `available_transforms()` lists them; at rank 3 the list is shorter, because support for volumes is uneven.",
+          "title": "Name",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "Arguments passed to that transform, exactly as albumentations names them - so `p` is the probability of applying it, defaulting to the transform's own. Not validated here: they are albumentations' to accept, and each step is probed at the model's input size when the pipeline is built, so a bad argument is named there rather than guessed at here.",
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "AugmentationStep",
+      "type": "object"
+    },
+    "BoundaryLoss": {
+      "additionalProperties": false,
+      "description": "A region loss plus a term that knows how far a wrong voxel is from the truth.\n\nDice and IoU count a voxel the same wherever it sits, which is why a model can reach\n0.88 on Dice while its volumes run a fifth too large: the overshoot is all at the\nboundary, and for a small lesion the boundary is most of the object. This adds\n`mean(phi * p)`, where `phi` is the signed distance to the truth's boundary.\n\n```yaml\nloss:\n  name: boundary\n  region: {name: focal, gamma: 2.0}\n  alpha: 0.5\n```\n\n`alpha` weights the region term, `1 - alpha` the surface term. It cannot be 1, which\nwould leave the surface term doing nothing and the name lying, and it cannot be 0: the\nsurface term alone has no notion of how much of the object was found and is minimised\nby a confident prediction deep inside a shrunken one.\n\n**What it buys and what it costs, measured.** Against Dice alone on lesions with\nambiguous edges, three seeds, at the default `alpha`: the systematic volume bias goes\nfrom -5.18% to -0.06%, and the per-case absolute volume error goes the wrong way, from\n16.90% to 22.17%. Dice itself falls by 0.011. So it trades *accuracy per case* for\n*being unbiased over a series* - and which of those you want is the question being\nasked. \"Is there a lesion\" wants the overlap; \"has it grown since March\" wants a volume\nthat is not systematically wrong, and no single number answers both.\n\nThe bias improvement is suggestive rather than established on three seeds, because the\nbaseline's own bias wanders by \u00b13.11%. The costs are established.\n\n**It also costs time.** The signed distance transform runs per sample in the loader's\nworkers - measured at 5.3 ms for a 256x256 image, 23.4 ms for a 64x64x32 volume and\n709.8 ms at 128^3 - so on large volumes give the loader workers, or the transform\nbecomes the training.",
+      "properties": {
+        "alpha": {
+          "default": 0.9,
+          "description": "How much of the objective is the region term, `1 - alpha` the surface term.\n\n**0.9 because 0.5 was measured and is unusable.** Three seeds on lesions with ambiguous edges, 60 epochs:\n\n```\n                 Dice             volume bias       volume |error|\ndice alone       0.9525 \u00b10.0027   -5.18% \u00b13.11%     16.90% \u00b10.90%\nboundary a=0.5   0.9164 \u00b10.0240  +32.22% \u00b128.28%    42.95% \u00b119.12%\nboundary a=0.9   0.9411 \u00b10.0093   -0.06% \u00b14.15%     22.17% \u00b12.88%\n```\n\nAt 0.5 the surface term has half the objective while the prediction is still random, which is where it is known to be unstable - the seed spread is six times the baseline's and every number is worse. Kervadec schedules this downwards from near 1 rather than fixing it; 0.9 is the closest a single number comes, and the spec deliberately has no schedule to hide behind.\n\nExcludes both ends: at 1 the surface term is absent and the name is a lie, and at 0 nothing measures how much of the object was found.",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "name": {
+          "const": "boundary",
+          "default": "boundary",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "region": {
+          "description": "The overlap term this is added to. Dice unless you say otherwise.",
+          "discriminator": {
+            "mapping": {
+              "cce": "#/$defs/CceLoss",
+              "cce_dice": "#/$defs/CceDiceLoss",
+              "combo": "#/$defs/ComboLoss",
+              "dice": "#/$defs/DiceLoss",
+              "focal": "#/$defs/FocalLoss",
+              "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "iou": "#/$defs/IouLoss",
+              "lovasz": "#/$defs/LovaszLoss",
+              "tversky": "#/$defs/TverskyLoss"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/IouLoss"
+            },
+            {
+              "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceDiceLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalLoss"
+            },
+            {
+              "$ref": "#/$defs/TverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalTverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/ComboLoss"
+            },
+            {
+              "$ref": "#/$defs/LovaszLoss"
+            }
+          ],
+          "title": "Region"
+        }
+      },
+      "title": "BoundaryLoss",
+      "type": "object"
+    },
+    "CceDiceLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "cce_weight": {
+          "default": 0.5,
+          "description": "How much of the objective is cross-entropy; the rest is Dice. Cross-entropy cares about every pixel and Dice about the overlap, so raising this helps a class that covers very little of the image and lowering it favours the shape.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Cce Weight",
+          "type": "number"
+        },
+        "name": {
+          "const": "cce_dice",
+          "default": "cce_dice",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.",
+          "exclusiveMinimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "CceDiceLoss",
+      "type": "object"
+    },
+    "CceLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "label_smoothing": {
+          "default": 0.0,
+          "description": "Train towards 1 - this value instead of towards 1, so the model is not pushed to be certain. Worth having where the labels themselves are uncertain, which on a hand-drawn boundary they are.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Label Smoothing",
+          "type": "number"
+        },
+        "name": {
+          "const": "cce",
+          "default": "cce",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "CceLoss",
+      "type": "object"
+    },
+    "ComboLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 0.5,
+          "description": "How much of the objective is the weighted cross-entropy term; the rest is Dice.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "ce_ratio": {
+          "default": 0.5,
+          "description": "Within the cross-entropy term, how much weight goes on the positive class. This is the key that makes `combo` worth choosing over `cce_dice`: it lets the two halves of the objective disagree about which class matters.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Ce Ratio",
+          "type": "number"
+        },
+        "name": {
+          "const": "combo",
+          "default": "combo",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "ComboLoss",
+      "type": "object"
+    },
+    "CosineAnnealing": {
+      "additionalProperties": false,
+      "description": "Decay the learning rate along a cosine, from its initial value to `min_lr`.\n\nNo `monitor`: it is a function of how far through the run you are, not of how the run\nis going. That is the difference from `reduce_lr_on_plateau`, and a run may want both.",
+      "properties": {
+        "epochs": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many epochs to spread the decay over. Unset means the model's `epochs`, which is what you want: a cosine that ends where the run ends. Setting it shorter parks the rate at `min_lr` for the remaining epochs, and longer stops the run part way down the curve.",
+          "title": "Epochs"
+        },
+        "min_lr": {
+          "default": 0.0,
+          "description": "The rate at the last epoch, which the cosine decays to from the optimiser's own learning_rate. Each parameter group decays from its own initial rate, so an encoder_learning_rate is not flattened at the first epoch - that would have been invisible, since the history records one learning_rate, the first group's.",
+          "minimum": 0,
+          "title": "Min Lr",
+          "type": "number"
+        },
+        "name": {
+          "const": "cosine_annealing",
+          "default": "cosine_annealing",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "CosineAnnealing",
+      "type": "object"
+    },
+    "CsvLogger": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "csv_logger",
+          "default": "csv_logger",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "description": "Where to append one row per epoch. The same numbers `training_history()` returns, written as they arrive - so a run that is interrupted still leaves its history behind.",
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CsvLogger",
+      "type": "object"
+    },
+    "DataMode": {
+      "enum": [
+        "nested_dirs",
+        "config_file"
+      ],
+      "title": "DataMode",
+      "type": "string"
+    },
+    "DetectionArchitecture": {
+      "description": "One member, and an enum anyway.\n\nA `Literal[\"yolo3\"]` would say the same thing today and would have to become an enum\nthe moment a second detector arrives, changing the type of a field the R package\nsends. See `Architecture` for the same reasoning on the segmentation side.",
+      "enum": [
+        "yolo3"
+      ],
+      "title": "DetectionArchitecture",
+      "type": "string"
+    },
+    "DetectionData": {
+      "additionalProperties": false,
+      "description": "Where the images and their annotation files are.\n\n`classes` is detection's answer to the colormap, and it is stated for the same reason:\nthe position of a name in this list *is* the class index the model learns. Read from\nthe annotation files instead, the order would come out alphabetical - reproducible,\nand unrelated to anything. A model trained with `RBC` at index 0 and used where index\n0 means `WBC` reports plausible boxes with plausible scores and nothing downstream can\ntell.\n\nUnlike a segmentation colormap there is no background entry. A pixel always belongs to\nsome class, so segmentation needs a name for \"none of them\"; a region of an image that\nholds no object is simply not a box.",
+      "properties": {
+        "annotation_format": {
+          "default": "pascal_voc",
+          "description": "Pascal VOC XML, the format BCCD and most detection datasets ship, or LabelMe JSON. Both readers are in `pyplatypus.detection.annotations`.",
+          "enum": [
+            "pascal_voc",
+            "labelme"
+          ],
+          "title": "Annotation Format",
+          "type": "string"
+        },
+        "classes": {
+          "description": "Class names in class order. Position is the class index. No background entry - an image region with no object is not a box.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Classes",
+          "type": "array"
+        },
+        "column_sep": {
+          "default": ";",
+          "description": "For `config_file`, what separates several paths inside one cell - a sample with one mask file per object, as Data Science Bowl has, or one file per channel.",
+          "title": "Column Sep",
+          "type": "string"
+        },
+        "coordinates": {
+          "anyOf": [
+            {
+              "enum": [
+                "voc",
+                "zero_based"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How to read a Pascal VOC box. The format's own convention is 1-based and inclusive of both endpoints, so a 10-pixel-wide box runs xmin=1 xmax=10 and the width is `xmax - xmin + 1`. Plenty of tools write the same files 0-based and exclusive, where that box is xmin=0 xmax=10. Reading one as the other shifts every box by a pixel and shrinks it by one, which is invisible at a glance and costs real IoU on small objects.\nUnset means 'voc'. `describe_annotations` reports the evidence: a minimum coordinate of 0 proves the file is 0-based, since a 1-based index cannot be zero.",
+          "title": "Coordinates"
+        },
+        "mode": {
+          "$ref": "#/$defs/DataMode",
+          "default": "nested_dirs",
+          "description": "How the files are arranged: `nested_dirs` for one directory per sample, `config_file` for a CSV whose columns name the files. The CSV form is what to use when the data cannot be moved or copied into a layout."
+        },
+        "shuffle": {
+          "default": true,
+          "description": "Shuffle the training data between epochs. Only the training data: validation is read in order so that two epochs measure the same thing in the same way.",
+          "title": "Shuffle",
+          "type": "boolean"
+        },
+        "split": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SplitSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Divide `train_path` instead of naming a second folder. Nothing is written: the samples that were already discovered are partitioned, so a specification stays a description and leaves no files behind. `split_dataset()` is the tool when the CSVs are the point - to keep, to hand to a colleague, or to cite."
+        },
+        "strict_labels": {
+          "default": true,
+          "description": "Refuse an object whose class is not in `classes`. False skips it instead, which is how you train on two of a dataset's three classes. True by default: an unexpected label is more often a typo in `classes` than an intention.",
+          "title": "Strict Labels",
+          "type": "boolean"
+        },
+        "subdirs": {
+          "default": [
+            "images",
+            "annotations"
+          ],
+          "description": "For `nested_dirs`, the two subdirectories of each sample directory: the images and the files holding their boxes. Which format those files are in is said by `annotation_format`, never guessed from the extension.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Subdirs",
+          "type": "array"
+        },
+        "test_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A third set, scored only when asked. Whether it can be scored at all depends on whether it carries labels: a folder of images alone is accepted and `predict` works on it, while `evaluate` refuses it by name rather than failing two layers down on the first missing mask.",
+          "title": "Test Path"
+        },
+        "train_path": {
+          "description": "Where the training data is. For `nested_dirs`, a directory of sample directories; for `config_file`, a CSV naming the files. With a `split`, this is the only path given and the divisions are cut from it.",
+          "title": "Train Path",
+          "type": "string"
+        },
+        "validation": {
+          "default": true,
+          "description": "Whether this run validates at all. `false` is the third and last way of answering the question `validation_path` and `split` answer, and it has to be written down.\n\nA final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. What is *not* legitimate is arriving here by omission: a specification with neither a path nor a split is still an error, because 'I have no validation set' and 'I forgot' look identical and only one of them is a decision.\n\nWith `false`, giving `validation_path` or `split` as well is refused: they say where the validation set comes from and this says there is not one.",
+          "title": "Validation",
+          "type": "boolean"
+        },
+        "validation_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional only in the sense that `split` is the other way to get one, and `validation: false` the third. Exactly one of them, because two sources for the validation set are two places to change it.",
+          "title": "Validation Path"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": "auto",
+          "description": "How values in real units are mapped to 0-1: a named window such as 'lung' or 'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole range present. A fixed window is what makes two scans comparable: scaling each one by its own extremes lets a single bright voxel rescale everything else. Ignored for ordinary pictures, which are already 0-255. Accepted as `dicom_window` too, the name it had while DICOM was the only format that needed it.",
+          "title": "Window"
+        }
+      },
+      "required": [
+        "train_path",
+        "classes"
+      ],
+      "title": "DetectionData",
+      "type": "object"
+    },
+    "DetectionModel": {
+      "additionalProperties": false,
+      "description": "One detector.\n\nNo `n_class`: the data's `classes` is the only place it is written. Segmentation\ncarries it on the model too and cross-checks the two, which is a consequence of its\nhistory rather than a design - one source cannot disagree with itself.",
+      "properties": {
+        "anchors": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The box shapes the model predicts offsets from, as fractions of the input size, one group per grid from coarsest to finest. Unset fits them to the training annotations with k-means under an IoU distance, which is what you want: measured on BCCD's 2,805 training boxes, COCO's anchors cover them at a mean IoU of 0.65 against 0.88 for anchors fitted to them. Fitted anchors are recorded with the run, since a detector cannot be reloaded without them.",
+          "title": "Anchors"
+        },
+        "anchors_per_grid": {
+          "default": 3,
+          "description": "How many anchors to fit per grid, when `anchors` is not given. It also sets the head's width, which is anchors_per_grid * (n_class + 5).",
+          "minimum": 1,
+          "title": "Anchors Per Grid",
+          "type": "integer"
+        },
+        "architecture": {
+          "$ref": "#/$defs/DetectionArchitecture",
+          "default": "yolo3",
+          "description": "Which detector. YOLOv3 is the only one, and it is 2D: boxes in a volume are a different problem with different annotations, so a detection specification at rank 3 is refused while the specification is read rather than failing later. Adopted from the weights file when `weights` names one, together with the anchors - weights mean nothing without the anchors they were trained with, so a specification naming both is refused."
+        },
+        "augmentation": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/AugmentationStep"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "albumentations transforms, applied to the training data only - never to validation, where the point is to measure the same thing every epoch. Each step is probed at the model's own input size while the pipeline is built, because support for volumes is uneven and a transform that cannot take one raises from inside the library.",
+          "title": "Augmentation"
+        },
+        "batch_size": {
+          "default": 8,
+          "description": "How many samples go through the network at once. Limited by memory rather than by the problem, and it is the first thing to lower when a 3D run will not fit. It interacts with `batch_normalization`: statistics taken over very few samples are noisy.",
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "box_loss": {
+          "default": "offsets",
+          "description": "How the box coordinates are scored. `offsets` is YOLOv3's own: cross-entropy on the two cell offsets and squared error on the two log sizes, each weighted by `2 - w*h` so a small object is not worth less than a large one. `giou` scores the decoded box against the true box directly, as `1 - GIoU`.\n\nThe reason to prefer `giou` is that **it can reach zero**. Cross-entropy against a soft target bottoms out at that target's entropy, so the `offsets` term is still 4.21 on a prediction that is exactly right - measured on three boxes - and a converged run cannot be told from a stalled one by reading it. The same prediction scores 0.000000 under `giou`.\n\n**It is not the better objective here, and that is measured.** BCCD, three seeds each, 150 epochs, its own test split:\n\n```\n            mAP@0.5          mAP@COCO         matched IoU\ngiou        0.8666 +-0.0147  0.5078 +-0.0083  0.7929 +-0.0069\noffsets     0.8583 +-0.0167  0.5172 +-0.0195  0.8038 +-0.0001\n```\n\nAverage precision cannot separate them in either direction - both gaps are inside the noise. How well the matched boxes fit can, and `giou` is worse by 0.0109, which is 2.7 standard errors of the difference. It is also far less repeatable on exactly the quantity it targets: `offsets` gave 0.803853, 0.803656 and 0.803861 across its seeds, sixty times tighter than `giou`.\n\nThe reason is in the same run's own numbers. GIoU exists because IoU is a flat zero for boxes that do not touch, so it has no gradient where a detector is most wrong - but anchors fitted by k-means already cover BCCD's truths at a mean IoU of 0.877, so predictions never start disjoint and the advantage never arrives while the cost does. Where fitted anchors cover poorly it should be a different story, which is untested here and therefore not claimed.\n\nSo choose `giou` to make the objective **readable**, not to raise the score: at 150 epochs its coordinate term sits at 0.05 on the training split against 0.47 on validation, which is a localisation gap you can see, while `offsets` reads 5.92 and 6.85 against a floor of 5.891 and tells you nothing. On BCCD that legibility costs about 0.011 of matched IoU.",
+          "enum": [
+            "offsets",
+            "giou"
+          ],
+          "title": "Box Loss",
+          "type": "string"
+        },
+        "callbacks": {
+          "description": "Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching `val_*` in a run with no validation set.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "cosine_annealing": "#/$defs/CosineAnnealing",
+                "csv_logger": "#/$defs/CsvLogger",
+                "early_stopping": "#/$defs/EarlyStopping",
+                "model_checkpoint": "#/$defs/ModelCheckpoint",
+                "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
+                "swa": "#/$defs/Swa",
+                "terminate_on_nan": "#/$defs/TerminateOnNaN"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/EarlyStopping"
+              },
+              {
+                "$ref": "#/$defs/ModelCheckpoint"
+              },
+              {
+                "$ref": "#/$defs/ReduceLrOnPlateau"
+              },
+              {
+                "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Swa"
+              },
+              {
+                "$ref": "#/$defs/CsvLogger"
+              },
+              {
+                "$ref": "#/$defs/TerminateOnNaN"
+              }
+            ]
+          },
+          "title": "Callbacks",
+          "type": "array"
+        },
+        "channels": {
+          "default": 3,
+          "description": "How many channels the network takes: 3 for colour, 1 for greyscale, and one per sequence for multi-modal data such as the four MRI sequences in BraTS. Derived rather than declared when `channels_from` names the files, because then the data decides. Not adopted from a weights file - the data pipeline needs it before a network exists, and a specification has to be checkable offline.",
+          "minimum": 1,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "epochs": {
+          "default": 10,
+          "description": "How many passes over the training data. The default is deliberately small: it is enough to see that a run works and not enough to mistake for a result. With `cosine_annealing` this is also the length the schedule is spread over.",
+          "minimum": 1,
+          "title": "Epochs",
+          "type": "integer"
+        },
+        "fit": {
+          "default": true,
+          "description": "Set false to load weights and skip training.",
+          "title": "Fit",
+          "type": "boolean"
+        },
+        "ignore_threshold": {
+          "default": 0.5,
+          "description": "A cell that is not responsible for an object but whose box overlaps one this much is left unsupervised rather than trained towards 'no object'. Without it a nearly-correct guess beside the responsible cell is punished, which is the one thing a detector should not learn.",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Ignore Threshold",
+          "type": "number"
+        },
+        "input_shape": {
+          "description": "Spatial size: (height, width) in 2D, (depth, height, width) in 3D.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Input Shape",
+          "type": "array"
+        },
+        "min_visibility": {
+          "default": 0.25,
+          "description": "How much of a box must survive an augmentation that removes part of the frame, as a fraction of its original area, for the box to be kept. A convention rather than a measurement; what is defensible is the direction. A box keeping two pixels of a cell teaches the model that a two-pixel fragment is a whole cell, which produces false positives everywhere, while dropping a heavily truncated object only fails to teach it about that object. Pascal VOC marks such objects `truncated` for the same reason.\nIrrelevant unless a transform can lose part of the frame: flips and rotations never do.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Visibility",
+          "type": "number"
+        },
+        "name": {
+          "description": "Unique within a spec; names the outputs.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "nms_threshold": {
+          "default": 0.45,
+          "description": "Two boxes of the same class overlapping this much are one object, and the lower-scoring one is dropped. Per class, so a platelet sitting on a red cell survives.",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Nms Threshold",
+          "type": "number"
+        },
+        "operating_point": {
+          "default": 0.5,
+          "description": "The confidence at which precision and recall are reported. Separate from `score_threshold` because they answer different questions: that one decides what is computed at all, this one decides where on the curve to stand.",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Operating Point",
+          "type": "number"
+        },
+        "optimizer": {
+          "description": "How the weights are updated. `name` selects which one and decides which other keys this block accepts.",
+          "discriminator": {
+            "mapping": {
+              "adadelta": "#/$defs/Adadelta",
+              "adagrad": "#/$defs/Adagrad",
+              "adam": "#/$defs/Adam",
+              "adamax": "#/$defs/Adamax",
+              "adamw": "#/$defs/AdamW",
+              "nadam": "#/$defs/NAdam",
+              "rmsprop": "#/$defs/RmsProp",
+              "sgd": "#/$defs/Sgd"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Adam"
+            },
+            {
+              "$ref": "#/$defs/AdamW"
+            },
+            {
+              "$ref": "#/$defs/Sgd"
+            },
+            {
+              "$ref": "#/$defs/RmsProp"
+            },
+            {
+              "$ref": "#/$defs/Adagrad"
+            },
+            {
+              "$ref": "#/$defs/Adadelta"
+            },
+            {
+              "$ref": "#/$defs/Adamax"
+            },
+            {
+              "$ref": "#/$defs/NAdam"
+            }
+          ],
+          "title": "Optimizer"
+        },
+        "score_threshold": {
+          "default": 0.01,
+          "description": "Discard a predicted box below this confidence. Low on purpose: average precision is computed over the whole ranking, so a cut here is a ceiling on recall that no threshold chosen later can lift.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Score Threshold",
+          "type": "number"
+        },
+        "weights": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Registry name (e.g. 'dsbowl-unet') or a path to a local checkpoint.",
+          "title": "Weights"
+        }
+      },
+      "required": [
+        "name",
+        "input_shape"
+      ],
+      "title": "DetectionModel",
+      "type": "object"
+    },
+    "DetectionSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/DetectionData",
+          "description": "Where the images and their annotations are, and how to read them."
+        },
+        "models": {
+          "description": "One or more detectors, trained in turn against the same data. Names must be unique, for the same reason as in a segmentation specification.",
+          "items": {
+            "$ref": "#/$defs/DetectionModel"
+          },
+          "minItems": 1,
+          "title": "Models",
+          "type": "array"
+        },
+        "output_dir": {
+          "default": "platypus_output",
+          "description": "Where a run record is written, and where `fit()` puts anything it is asked to save. Nothing is written unless something asks to write: naming this does not by itself create a directory.",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set it if you want a reproducible run.",
+          "title": "Seed"
+        },
+        "task": {
+          "const": "object_detection",
+          "description": "Fixed for this specification: `object_detection`.",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task",
+        "data",
+        "models"
+      ],
+      "title": "DetectionSpec",
+      "type": "object"
+    },
+    "DiceLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "dice",
+          "default": "dice",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.",
+          "exclusiveMinimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "DiceLoss",
+      "type": "object"
+    },
+    "DiceMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "include_background": {
+          "default": true,
+          "description": "Average over every class, background included. In medical images the background is often 95% of the pixels, so leaving it in flatters the score; papers usually report foreground only. Set false for that.",
+          "title": "Include Background",
+          "type": "boolean"
+        },
+        "name": {
+          "const": "dice",
+          "default": "dice",
+          "description": "Which metric. These are computed on the mask rather than on the objective, so they stay comparable between models trained on different losses.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth>0. Use 0 for an honest number, at the cost of NaN on absent classes.",
+          "minimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "DiceMetric",
+      "type": "object"
+    },
+    "EarlyStopping": {
+      "additionalProperties": false,
+      "properties": {
+        "min_delta": {
+          "default": 0.0,
+          "description": "Improvement smaller than this does not count as improvement. Useful where the watched number wanders: without it, noise alone keeps resetting the patience.",
+          "minimum": 0,
+          "title": "Min Delta",
+          "type": "number"
+        },
+        "monitor": {
+          "default": "val_loss",
+          "description": "What to watch: `val_loss`, `train_loss`, or `val_` followed by a metric the model asks for, such as `val_dice`. Whether the number should rise or fall is worked out from its name - anything ending in `loss` is minimised. Watching something no metric will produce is refused when the specification is built, and so is watching `val_*` in a run with `validation: false`, rather than waiting for a number that never arrives.",
+          "title": "Monitor",
+          "type": "string"
+        },
+        "name": {
+          "const": "early_stopping",
+          "default": "early_stopping",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "patience": {
+          "default": 10,
+          "description": "Epochs to wait, with no improvement, before acting.",
+          "minimum": 1,
+          "title": "Patience",
+          "type": "integer"
+        },
+        "restore_best": {
+          "default": true,
+          "description": "Put the best weights back when training stops, rather than keeping the last - which are by definition the ones that were not improving. Note that `swa` replaces nothing if a run stops before averaging began.",
+          "title": "Restore Best",
+          "type": "boolean"
+        }
+      },
+      "title": "EarlyStopping",
+      "type": "object"
+    },
+    "FocalLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Weight on the positive class, between 0 and 1. Unset means no weighting, which is not the same as 0.5: at 0.5 both classes are halved and the gradients are smaller, which looks like a learning-rate change.",
+          "title": "Alpha"
+        },
+        "gamma": {
+          "default": 2.0,
+          "description": "How hard to discount the pixels already classified well, so the gradient comes from the ones that are not. 0 is plain cross-entropy; 2 is the usual value.",
+          "minimum": 0,
+          "title": "Gamma",
+          "type": "number"
+        },
+        "name": {
+          "const": "focal",
+          "default": "focal",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "FocalLoss",
+      "type": "object"
+    },
+    "FocalTverskyLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 0.5,
+          "description": "Weight on false negatives, as in `tversky`, with false positives taking 1 - alpha.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "gamma": {
+          "default": 1.0,
+          "description": "Exponent on the Tversky index, which is where this differs from `tversky`: above 1 it concentrates the gradient on the cases scoring badly. Note 1 is the default and means plain Tversky, not 'off'.",
+          "exclusiveMinimum": 0,
+          "title": "Gamma",
+          "type": "number"
+        },
+        "name": {
+          "const": "focal_tversky",
+          "default": "focal_tversky",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.",
+          "exclusiveMinimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "FocalTverskyLoss",
+      "type": "object"
+    },
+    "Initialiser": {
+      "enum": [
+        "he_normal",
+        "he_uniform",
+        "glorot_normal",
+        "glorot_uniform"
+      ],
+      "title": "Initialiser",
+      "type": "string"
+    },
+    "IouLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "iou",
+          "default": "iou",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.",
+          "exclusiveMinimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "IouLoss",
+      "type": "object"
+    },
+    "IouMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "include_background": {
+          "default": true,
+          "description": "Average over every class, background included. In medical images the background is often 95% of the pixels, so leaving it in flatters the score; papers usually report foreground only. Set false for that.",
+          "title": "Include Background",
+          "type": "boolean"
+        },
+        "name": {
+          "const": "iou",
+          "default": "iou",
+          "description": "Which metric. These are computed on the mask rather than on the objective, so they stay comparable between models trained on different losses.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth>0. Use 0 for an honest number, at the cost of NaN on absent classes.",
+          "minimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "IouMetric",
+      "type": "object"
+    },
+    "LovaszLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "lovasz",
+          "default": "lovasz",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "per_image": {
+          "default": false,
+          "description": "Compute the loss for each image and average, rather than over the whole batch at once. Per image is the honest thing when images differ in how much of them is foreground, because otherwise a large object in one image dominates the batch; it is also noisier.",
+          "title": "Per Image",
+          "type": "boolean"
+        }
+      },
+      "title": "LovaszLoss",
+      "type": "object"
+    },
+    "ModelCheckpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "monitor": {
+          "default": "val_loss",
+          "description": "What to watch: `val_loss`, `train_loss`, or `val_` followed by a metric the model asks for, such as `val_dice`. Whether the number should rise or fall is worked out from its name - anything ending in `loss` is minimised. Watching something no metric will produce is refused when the specification is built, and so is watching `val_*` in a run with `validation: false`, rather than waiting for a number that never arrives.",
+          "title": "Monitor",
+          "type": "string"
+        },
+        "name": {
+          "const": "model_checkpoint",
+          "default": "model_checkpoint",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "path": {
+          "description": "Where to write the checkpoint. One file, overwritten - this is the run's safety net, not a history; `export_weights()` is what produces a file to publish, with a sidecar recording what it is.",
+          "title": "Path",
+          "type": "string"
+        },
+        "save_best_only": {
+          "default": true,
+          "description": "Write only when the watched number improves. With `false` every epoch is written, which is what to use when a run may be interrupted rather than when the best epoch is wanted.",
+          "title": "Save Best Only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ModelCheckpoint",
+      "type": "object"
+    },
+    "NAdam": {
+      "additionalProperties": false,
+      "properties": {
+        "beta_1": {
+          "default": 0.9,
+          "description": "Decay for the running average of the gradient. Lower reacts to the last few batches, higher smooths over more of them; 0.9 is the usual value and rarely worth moving.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 1",
+          "type": "number"
+        },
+        "beta_2": {
+          "default": 0.999,
+          "description": "Decay for the running average of the squared gradient, which is what scales each parameter's step. Lowering it below about 0.99 makes training noticeably noisier.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Beta 2",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-08,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "name": {
+          "const": "nadam",
+          "default": "nadam",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "NAdam",
+      "type": "object"
+    },
+    "ReduceLrOnPlateau": {
+      "additionalProperties": false,
+      "properties": {
+        "factor": {
+          "default": 0.1,
+          "description": "Multiply the learning rate by this when the watched number stops moving.",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Factor",
+          "type": "number"
+        },
+        "min_lr": {
+          "default": 0.0,
+          "description": "The floor the rate will not go below. Unlike `cosine_annealing`, this one acts on evidence rather than on a schedule, so it may never fire at all - which is why it is not refused alongside `swa` and a cosine is.",
+          "minimum": 0,
+          "title": "Min Lr",
+          "type": "number"
+        },
+        "monitor": {
+          "default": "val_loss",
+          "description": "What to watch: `val_loss`, `train_loss`, or `val_` followed by a metric the model asks for, such as `val_dice`. Whether the number should rise or fall is worked out from its name - anything ending in `loss` is minimised. Watching something no metric will produce is refused when the specification is built, and so is watching `val_*` in a run with `validation: false`, rather than waiting for a number that never arrives.",
+          "title": "Monitor",
+          "type": "string"
+        },
+        "name": {
+          "const": "reduce_lr_on_plateau",
+          "default": "reduce_lr_on_plateau",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "patience": {
+          "default": 5,
+          "description": "Epochs to wait, with no improvement, before acting.",
+          "minimum": 1,
+          "title": "Patience",
+          "type": "integer"
+        }
+      },
+      "title": "ReduceLrOnPlateau",
+      "type": "object"
+    },
+    "RmsProp": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 0.99,
+          "description": "Decay for the running average of the squared gradient - RmsProp's name for what Adam calls `beta_2`, and it does the same work.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "eps": {
+          "default": 1e-08,
+          "description": "Added to the denominator so a parameter whose gradient has been zero for a while does not take an enormous step. It is a guard, not a knob.",
+          "exclusiveMinimum": 0,
+          "title": "Eps",
+          "type": "number"
+        },
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "momentum": {
+          "default": 0.0,
+          "description": "Carry a fraction of the previous step into this one. 0 is plain gradient descent; 0.9 is the usual choice and is what makes SGD competitive with the adaptive methods.",
+          "minimum": 0,
+          "title": "Momentum",
+          "type": "number"
+        },
+        "name": {
+          "const": "rmsprop",
+          "default": "rmsprop",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "RmsProp",
+      "type": "object"
+    },
+    "SegmentationData": {
+      "additionalProperties": false,
+      "properties": {
+        "channels_from": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For datasets that keep one channel per file - BraTS ships T1, T1ce, T2 and FLAIR per patient; 38-Cloud keeps its bands apart - one pattern per channel, in channel order, each a regular expression matched against the file names. Every pattern must match exactly one of a sample's files. Stated rather than inferred because sorting gives flair, t1, t1ce, t2: reproducible, and anatomically meaningless. A model trained with FLAIR in channel one and used on data where channel one is T1 returns a plausible answer and no error.",
+          "title": "Channels From"
+        },
+        "colormap": {
+          "anyOf": [
+            {
+              "items": {
+                "description": "RGB, each channel 0-255.",
+                "maxItems": 3,
+                "minItems": 3,
+                "prefixItems": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ],
+                "type": "array"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "One colour per class; index in this list is the class index.",
+          "title": "Colormap"
+        },
+        "column_sep": {
+          "default": ";",
+          "description": "For `config_file`, what separates several paths inside one cell - a sample with one mask file per object, as Data Science Bowl has, or one file per channel.",
+          "title": "Column Sep",
+          "type": "string"
+        },
+        "labels": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For masks stored as label maps rather than pictures: the voxel value of each class, in class order. This is how volumes label anything - NIfTI holds integers, not colours - and how a single-channel PNG mask can be read too. Exactly one of `colormap` and `labels` is given.",
+          "title": "Labels"
+        },
+        "mode": {
+          "$ref": "#/$defs/DataMode",
+          "default": "nested_dirs",
+          "description": "How the files are arranged: `nested_dirs` for one directory per sample, `config_file` for a CSV whose columns name the files. The CSV form is what to use when the data cannot be moved or copied into a layout."
+        },
+        "shuffle": {
+          "default": true,
+          "description": "Shuffle the training data between epochs. Only the training data: validation is read in order so that two epochs measure the same thing in the same way.",
+          "title": "Shuffle",
+          "type": "boolean"
+        },
+        "split": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SplitSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Divide `train_path` instead of naming a second folder. Nothing is written: the samples that were already discovered are partitioned, so a specification stays a description and leaves no files behind. `split_dataset()` is the tool when the CSVs are the point - to keep, to hand to a colleague, or to cite."
+        },
+        "subdirs": {
+          "default": [
+            "images",
+            "masks"
+          ],
+          "description": "For `nested_dirs`, the two subdirectories of each sample directory: the images and their masks. A sample may hold several mask files - one per object, as Data Science Bowl does - and they are united into one mask when read.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Subdirs",
+          "type": "array"
+        },
+        "target_spacing": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resample every volume to this many millimetres per voxel before training, then centre-crop or pad to the model's input_shape. Without it a volume is simply resized to input_shape, which gives two scans of the same anatomy different physical scale when they were acquired at different slice thicknesses - and the network has no way to know. Volumes only; ignored for 2D.",
+          "title": "Target Spacing"
+        },
+        "test_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A third set, scored only when asked. Whether it can be scored at all depends on whether it carries labels: a folder of images alone is accepted and `predict` works on it, while `evaluate` refuses it by name rather than failing two layers down on the first missing mask.",
+          "title": "Test Path"
+        },
+        "train_path": {
+          "description": "Where the training data is. For `nested_dirs`, a directory of sample directories; for `config_file`, a CSV naming the files. With a `split`, this is the only path given and the divisions are cut from it.",
+          "title": "Train Path",
+          "type": "string"
+        },
+        "validation": {
+          "default": true,
+          "description": "Whether this run validates at all. `false` is the third and last way of answering the question `validation_path` and `split` answer, and it has to be written down.\n\nA final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. What is *not* legitimate is arriving here by omission: a specification with neither a path nor a split is still an error, because 'I have no validation set' and 'I forgot' look identical and only one of them is a decision.\n\nWith `false`, giving `validation_path` or `split` as well is refused: they say where the validation set comes from and this says there is not one.",
+          "title": "Validation",
+          "type": "boolean"
+        },
+        "validation_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional only in the sense that `split` is the other way to get one, and `validation: false` the third. Exactly one of them, because two sources for the validation set are two places to change it.",
+          "title": "Validation Path"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": "auto",
+          "description": "How values in real units are mapped to 0-1: a named window such as 'lung' or 'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole range present. A fixed window is what makes two scans comparable: scaling each one by its own extremes lets a single bright voxel rescale everything else. Ignored for ordinary pictures, which are already 0-255. Accepted as `dicom_window` too, the name it had while DICOM was the only format that needed it.",
+          "title": "Window"
+        }
+      },
+      "required": [
+        "train_path"
+      ],
+      "title": "SegmentationData",
+      "type": "object"
+    },
+    "SegmentationModel": {
+      "additionalProperties": false,
+      "properties": {
+        "activation": {
+          "$ref": "#/$defs/Activation",
+          "default": "relu",
+          "description": "The non-linearity between convolutions, the same one throughout."
+        },
+        "architecture": {
+          "$ref": "#/$defs/Architecture",
+          "default": "u_net",
+          "description": "Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 between images within any one of them, and 0.0012 from re-running one of them with another seed. On that problem the architecture is not where the result comes from. Adopted from the weights file when `weights` names one."
+        },
+        "augmentation": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/AugmentationStep"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "albumentations transforms, applied to the training data only - never to validation, where the point is to measure the same thing every epoch. Each step is probed at the model's own input size while the pipeline is built, because support for volumes is uneven and a transform that cannot take one raises from inside the library.",
+          "title": "Augmentation"
+        },
+        "batch_normalization": {
+          "default": true,
+          "description": "Normalise between convolutions. On by default, and worth knowing about when weights are averaged: `swa` has to recompute these statistics over the training data, because an averaged weight tensor inherits them from whichever epoch was last rather than averaging them.",
+          "title": "Batch Normalization",
+          "type": "boolean"
+        },
+        "batch_size": {
+          "default": 8,
+          "description": "How many samples go through the network at once. Limited by memory rather than by the problem, and it is the first thing to lower when a 3D run will not fit. It interacts with `batch_normalization`: statistics taken over very few samples are noisy.",
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "block_width": {
+          "default": 2,
+          "description": "Convolutions per block, at every level. 2 is what every U-Net paper uses and what the published weights were trained with; raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them.",
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Block Width",
+          "type": "integer"
+        },
+        "blocks": {
+          "default": 4,
+          "description": "How many times the resolution is halved, so how much context the deepest layer sees. `input_shape` must divide by 2^blocks. Adopted from the weights file when `weights` is given and this is not; with an `encoder`, the backbone's own depth is the ceiling.",
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Blocks",
+          "type": "integer"
+        },
+        "callbacks": {
+          "description": "Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching `val_*` in a run with no validation set.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "cosine_annealing": "#/$defs/CosineAnnealing",
+                "csv_logger": "#/$defs/CsvLogger",
+                "early_stopping": "#/$defs/EarlyStopping",
+                "model_checkpoint": "#/$defs/ModelCheckpoint",
+                "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
+                "swa": "#/$defs/Swa",
+                "terminate_on_nan": "#/$defs/TerminateOnNaN"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/EarlyStopping"
+              },
+              {
+                "$ref": "#/$defs/ModelCheckpoint"
+              },
+              {
+                "$ref": "#/$defs/ReduceLrOnPlateau"
+              },
+              {
+                "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Swa"
+              },
+              {
+                "$ref": "#/$defs/CsvLogger"
+              },
+              {
+                "$ref": "#/$defs/TerminateOnNaN"
+              }
+            ]
+          },
+          "title": "Callbacks",
+          "type": "array"
+        },
+        "channels": {
+          "default": 3,
+          "description": "How many channels the network takes: 3 for colour, 1 for greyscale, and one per sequence for multi-modal data such as the four MRI sequences in BraTS. Derived rather than declared when `channels_from` names the files, because then the data decides. Not adopted from a weights file - the data pipeline needs it before a network exists, and a specification has to be checkable offline.",
+          "minimum": 1,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "deep_supervision": {
+          "default": false,
+          "description": "Train every decoder depth rather than only the last, each at input resolution. `u_net_plus_plus` only, since it is the architecture with intermediate outputs to supervise.",
+          "title": "Deep Supervision",
+          "type": "boolean"
+        },
+        "dropout": {
+          "default": 0.0,
+          "description": "Drop this fraction during training. 0 switches it off, which is the default because these models are small enough that batch normalisation usually carries the regularisation on its own.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Dropout",
+          "type": "number"
+        },
+        "encoder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A timm backbone to use as the contracting path, e.g. 'resnet34'. Leave unset for the built-in encoder, which is the only one that works in 3D.",
+          "title": "Encoder"
+        },
+        "encoder_learning_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. The full-resolution stage added in front of them is ours and starts random, so it trains at the optimizer's own rate. Unset means one rate for the whole network.",
+          "title": "Encoder Learning Rate"
+        },
+        "epochs": {
+          "default": 10,
+          "description": "How many passes over the training data. The default is deliberately small: it is enough to see that a run works and not enough to mistake for a result. With `cosine_annealing` this is also the length the schedule is spread over.",
+          "minimum": 1,
+          "title": "Epochs",
+          "type": "integer"
+        },
+        "filters": {
+          "default": 16,
+          "description": "Filters in the first block, doubled at every level, so this sets the model's size more than anything else does. Adopted from the weights file when `weights` is given and this is not.",
+          "minimum": 1,
+          "title": "Filters",
+          "type": "integer"
+        },
+        "fit": {
+          "default": true,
+          "description": "Set false to load weights and skip training.",
+          "title": "Fit",
+          "type": "boolean"
+        },
+        "freeze_encoder": {
+          "default": 0,
+          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random decoder settle before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
+          "minimum": 0,
+          "title": "Freeze Encoder",
+          "type": "integer"
+        },
+        "initialiser": {
+          "$ref": "#/$defs/Initialiser",
+          "default": "he_normal",
+          "description": "How the weights start. The `he_*` family is scaled for ReLU-like activations and `glorot_*` for symmetric ones, so this and `activation` are a pair."
+        },
+        "input_shape": {
+          "description": "Spatial size: (height, width) in 2D, (depth, height, width) in 3D.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Input Shape",
+          "type": "array"
+        },
+        "loss": {
+          "description": "The objective trained against. The `loss` column of a score table is comparable only between models trained on the same one - a Focal-Tversky of 0.05 is not better than a cross-entropy of 0.14, it is not the same question - which is why the table carries the loss's name beside it.",
+          "discriminator": {
+            "mapping": {
+              "boundary": "#/$defs/BoundaryLoss",
+              "cce": "#/$defs/CceLoss",
+              "cce_dice": "#/$defs/CceDiceLoss",
+              "combo": "#/$defs/ComboLoss",
+              "dice": "#/$defs/DiceLoss",
+              "focal": "#/$defs/FocalLoss",
+              "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "iou": "#/$defs/IouLoss",
+              "lovasz": "#/$defs/LovaszLoss",
+              "tversky": "#/$defs/TverskyLoss"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/IouLoss"
+            },
+            {
+              "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceDiceLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalLoss"
+            },
+            {
+              "$ref": "#/$defs/TverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalTverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/ComboLoss"
+            },
+            {
+              "$ref": "#/$defs/LovaszLoss"
+            },
+            {
+              "$ref": "#/$defs/BoundaryLoss"
+            }
+          ],
+          "title": "Loss"
+        },
+        "metrics": {
+          "description": "What to report beside the loss, computed on the mask rather than on the objective, so these stay comparable across models. A callback watching `val_<metric>` is refused when nothing here will produce it.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "dice": "#/$defs/DiceMetric",
+                "iou": "#/$defs/IouMetric",
+                "tversky": "#/$defs/TverskyMetric"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/IouMetric"
+              },
+              {
+                "$ref": "#/$defs/DiceMetric"
+              },
+              {
+                "$ref": "#/$defs/TverskyMetric"
+              }
+            ]
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "name": {
+          "description": "Unique within a spec; names the outputs.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "optimizer": {
+          "description": "How the weights are updated. `name` selects which one and decides which other keys this block accepts.",
+          "discriminator": {
+            "mapping": {
+              "adadelta": "#/$defs/Adadelta",
+              "adagrad": "#/$defs/Adagrad",
+              "adam": "#/$defs/Adam",
+              "adamax": "#/$defs/Adamax",
+              "adamw": "#/$defs/AdamW",
+              "nadam": "#/$defs/NAdam",
+              "rmsprop": "#/$defs/RmsProp",
+              "sgd": "#/$defs/Sgd"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Adam"
+            },
+            {
+              "$ref": "#/$defs/AdamW"
+            },
+            {
+              "$ref": "#/$defs/Sgd"
+            },
+            {
+              "$ref": "#/$defs/RmsProp"
+            },
+            {
+              "$ref": "#/$defs/Adagrad"
+            },
+            {
+              "$ref": "#/$defs/Adadelta"
+            },
+            {
+              "$ref": "#/$defs/Adamax"
+            },
+            {
+              "$ref": "#/$defs/NAdam"
+            }
+          ],
+          "title": "Optimizer"
+        },
+        "pretrained": {
+          "default": false,
+          "description": "Load the encoder's ImageNet weights. Separate from `encoder` on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.",
+          "title": "Pretrained",
+          "type": "boolean"
+        },
+        "separable_conv": {
+          "default": false,
+          "description": "Depthwise-separable convolutions: far fewer parameters for the same shape, and a little slower to converge.",
+          "title": "Separable Conv",
+          "type": "boolean"
+        },
+        "spatial_dropout": {
+          "default": true,
+          "description": "Drop whole feature maps rather than individual activations. The right kind for images, because neighbouring pixels in one map are correlated and dropping them one at a time removes less than it appears to. Has no effect unless `dropout` is above 0.",
+          "title": "Spatial Dropout",
+          "type": "boolean"
+        },
+        "splits": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cut each image into a grid of tiles instead of shrinking it. One entry per spatial dimension, e.g. [2, 3] cuts into 2 rows by 3 columns. The source is read at splits * input_shape and divided; every tile is input_shape. Leave unset to resize the whole image instead.",
+          "title": "Splits"
+        },
+        "upsample": {
+          "default": false,
+          "description": "Upsample+conv instead of transposed convolution.",
+          "title": "Upsample",
+          "type": "boolean"
+        },
+        "weights": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Registry name (e.g. 'dsbowl-unet') or a path to a local checkpoint.",
+          "title": "Weights"
+        }
+      },
+      "required": [
+        "name",
+        "input_shape"
+      ],
+      "title": "SegmentationModel",
+      "type": "object"
+    },
+    "SegmentationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/SegmentationData",
+          "description": "Where the images and their masks are, and how to read them."
+        },
+        "models": {
+          "description": "One or more models, trained in turn against the same data. Names must be unique: a run is recorded under its model's name, so two models called the same thing would overwrite one record and report it as two. Several entries of the same architecture with different settings is the ordinary case - that is how a comparison is written.",
+          "items": {
+            "$ref": "#/$defs/SegmentationModel"
+          },
+          "minItems": 1,
+          "title": "Models",
+          "type": "array"
+        },
+        "output_dir": {
+          "default": "platypus_output",
+          "description": "Where a run record is written, and where `fit()` puts anything it is asked to save. Nothing is written unless something asks to write: naming this does not by itself create a directory.",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Set it if you want a reproducible run.",
+          "title": "Seed"
+        },
+        "task": {
+          "const": "semantic_segmentation",
+          "default": "semantic_segmentation",
+          "description": "Fixed for this specification: `semantic_segmentation`.",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "models"
+      ],
+      "title": "SegmentationSpec",
+      "type": "object"
+    },
+    "Sgd": {
+      "additionalProperties": false,
+      "properties": {
+        "learning_rate": {
+          "default": 0.001,
+          "description": "How big a step to take. The one setting worth trying first when a run will not learn: too high and the loss moves without improving, too low and it improves too slowly to tell from not improving at all. Each parameter group decays from its own rate, so an `encoder_learning_rate` is not flattened by a schedule.",
+          "exclusiveMinimum": 0,
+          "title": "Learning Rate",
+          "type": "number"
+        },
+        "momentum": {
+          "default": 0.0,
+          "description": "Carry a fraction of the previous step into this one. 0 is plain gradient descent; 0.9 is the usual choice and is what makes SGD competitive with the adaptive methods.",
+          "minimum": 0,
+          "title": "Momentum",
+          "type": "number"
+        },
+        "name": {
+          "const": "sgd",
+          "default": "sgd",
+          "description": "Which optimiser, and it decides which other keys this block accepts - `sgd` takes `momentum`, the Adam family takes `beta_1` and `beta_2`. `learning_rate` and `weight_decay` are accepted by all of them.",
+          "title": "Name",
+          "type": "string"
+        },
+        "nesterov": {
+          "default": false,
+          "description": "Look ahead to where momentum is about to carry the weights before measuring the gradient. Needs `momentum` above 0, and giving it without momentum is refused rather than ignored.",
+          "title": "Nesterov",
+          "type": "boolean"
+        },
+        "weight_decay": {
+          "default": 0.0,
+          "description": "Pull weights towards zero at every step, which is L2 regularisation. Off by default because it interacts with the loss and is not free: on a small dataset it can cost more than the overfitting it prevents.",
+          "minimum": 0,
+          "title": "Weight Decay",
+          "type": "number"
+        }
+      },
+      "title": "Sgd",
+      "type": "object"
+    },
+    "SplitSpec": {
+      "additionalProperties": false,
+      "description": "How to divide one folder, when there is only one folder.\n\nThe alternative to naming `validation_path`: a researcher with a single directory\nshould not have to run a splitting tool and then point three paths at its output,\nand nothing about that round trip was ever checked.\n\nNothing is written. `split_samples` partitions the samples that were already\ndiscovered, so a specification stays a description and gains no side effect on disk.\n`split_dataset()` is still the tool when you want the CSVs to keep, to hand to a\ncolleague or to cite.",
+      "properties": {
+        "fractions": {
+          "description": "Two or three: train, validation, and optionally test. The length rule is enforced by the splitting module rather than restated here - one rule, one place. A third fraction is scoreable, because it comes from annotated data.",
+          "items": {
+            "type": "number"
+          },
+          "title": "Fractions",
+          "type": "array"
+        },
+        "group_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "**Required, and may be null.** A regular expression read against the sample key; everything sharing a group lands in exactly one split. Usually a patient, sometimes a study, a scanner or a site - whatever must not straddle the division.\n\nRequired rather than optional because the mistake it prevents is invisible. Slices of one patient in training and validation at once make validation measure memory instead of generalisation, and Dice comes out several points too high with nothing in the output to say so. An omitted field would be that choice made silently; `null` is the same choice made on purpose, which is all this asks for.",
+          "title": "Group By"
+        },
+        "seed": {
+          "default": 0,
+          "description": "The split is deterministic given the samples, the fractions, the pattern and this. A split that moves between runs makes two results incomparable and the reason for a difference impossible to find.",
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fractions",
+        "group_by"
+      ],
+      "title": "SplitSpec",
+      "type": "object"
+    },
+    "Swa": {
+      "additionalProperties": false,
+      "description": "Average the weights over the last part of the run instead of taking the final ones.\n\nStochastic weight averaging. Past `start`, every epoch's weights are folded into a\nrunning average and at the end that average becomes the model - the claim being that a\npoint in the middle of a flat region generalises better than the corner the last epoch\nstopped in.\n\n**Batch-normalisation statistics are recomputed afterwards**, by a pass over the\ntraining data. They have to be: an averaged weight tensor *inherits* the statistics of\nwhichever epoch was last rather than averaging them, so without the pass the model is\nevaluated under the wrong normalisation and scores far worse than it should, with\nnothing to say why. It is the step an SWA implementation leaves out.\n\n**What it is worth, measured.** Three seeds, 60 epochs, lesions with ambiguous edges:\n\n```\n             Dice             volume bias        |volume error|\nplain        0.9639 \u00b10.0100   +1.71% \u00b112.18%     12.60% \u00b14.19%\nswa 0.75     0.9667 \u00b10.0087   +2.08% \u00b12.15%      12.38% \u00b14.31%\nswa 0.5      0.9640 \u00b10.0085   +2.78% \u00b13.44%      13.75% \u00b14.21%\n```\n\n**Dice does not move and neither does the per-case error** - both are inside the seed\nnoise. What moves is *reproducibility*: the volume bias of the plain runs was +4.5%,\n+12.2% and -11.6% across seeds, and with averaging it was -0.1%, +4.2% and +2.1%. A\nspread 5.7 times tighter, and paired per seed the distance from unbiased improved on\nall three, by 7.34% at 4.9 standard errors.\n\nWhich is what averaging is supposed to do and not what one looks for in a table of\nscores: a point in the middle of a flat region is the same point whichever corner the\nlast epoch wandered into. Read it as \"the same model twice\" rather than \"a better\nmodel\".\n\nNo `monitor`: like `cosine_annealing` this is a function of how far through the run you\nare, not of how the run is going.",
+      "properties": {
+        "learning_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hold the rate at this value once averaging begins. Unset leaves whatever the run was doing.\n\nWorth setting, and the reason is the whole mechanism: averaging is only worth something while the weights are still moving. A rate that has decayed towards zero produces a set of nearly identical snapshots, and their average is the last one.",
+          "title": "Learning Rate"
+        },
+        "name": {
+          "const": "swa",
+          "default": "swa",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "start": {
+          "default": 0.75,
+          "description": "The fraction of the run after which averaging begins - 0.75 folds the last quarter. A fraction rather than an epoch so that it survives a change to `epochs`, and the final epoch is always folded, so 1.0 averages one set of weights rather than none.",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Start",
+          "type": "number"
+        }
+      },
+      "title": "Swa",
+      "type": "object"
+    },
+    "TerminateOnNaN": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "const": "terminate_on_nan",
+          "default": "terminate_on_nan",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "TerminateOnNaN",
+      "type": "object"
+    },
+    "TverskyLoss": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 0.5,
+          "description": "Weight on false negatives; raising it buys recall at the cost of precision, which is the trade a screening task usually wants. The weight on false positives is 1 - alpha and is not a separate key, so the two cannot disagree. At alpha 0.5 this is Dice exactly, but only when `smooth` is 0.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "name": {
+          "const": "tversky",
+          "default": "tversky",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.",
+          "exclusiveMinimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "TverskyLoss",
+      "type": "object"
+    },
+    "TverskyMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "alpha": {
+          "default": 0.5,
+          "description": "Weight on false negatives, with 1 - alpha on false positives - the same meaning as in the Tversky loss. At 0.5 this is Dice, so it is worth moving or not reporting at all: a Tversky metric at 0.5 beside a Dice metric is one number twice.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Alpha",
+          "type": "number"
+        },
+        "include_background": {
+          "default": true,
+          "description": "Average over every class, background included. In medical images the background is often 95% of the pixels, so leaving it in flatters the score; papers usually report foreground only. Set false for that.",
+          "title": "Include Background",
+          "type": "boolean"
+        },
+        "name": {
+          "const": "tversky",
+          "default": "tversky",
+          "description": "Which metric. These are computed on the mask rather than on the objective, so they stay comparable between models trained on different losses.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth>0. Use 0 for an honest number, at the cost of NaN on absent classes.",
+          "minimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "TverskyMetric",
+      "type": "object"
+    }
+  },
+  "$id": "https://maju116.github.io/pyplatypus/schema/spec.schema.json",
+  "discriminator": {
+    "mapping": {
+      "object_detection": "#/$defs/DetectionSpec",
+      "semantic_segmentation": "#/$defs/SegmentationSpec"
+    },
+    "propertyName": "task"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SegmentationSpec"
+    },
+    {
+      "$ref": "#/$defs/DetectionSpec"
+    }
+  ],
+  "title": "platypus experiment specification"
+}

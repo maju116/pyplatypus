@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="description" content="From one model to several, by hand, in YAML.">
 
-<title>code_of_conduct – pyplatypus</title>
+<title>Writing a configuration – pyplatypus</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -25,6 +26,41 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -115,7 +151,7 @@ ul.task-list li input[type="checkbox"] {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./CHANGELOG.html">About</a></li><li class="breadcrumb-item"><a href="./CODE_OF_CONDUCT.html">Code of conduct</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Guides</a></li><li class="breadcrumb-item"><a href="./guide.html">Writing a configuration</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -537,7 +573,7 @@ ul.task-list li input[type="checkbox"] {
       <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+  <a href="./guide.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">Writing a configuration</span></a>
   </div>
 </li>
@@ -566,7 +602,7 @@ ul.task-list li input[type="checkbox"] {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link active">
+  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Code of conduct</span></a>
   </div>
 </li>
@@ -594,24 +630,184 @@ ul.task-list li input[type="checkbox"] {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#contributor-code-of-conduct" id="toc-contributor-code-of-conduct" class="nav-link active" data-scroll-target="#contributor-code-of-conduct">Contributor Code of Conduct</a></li>
+  <li><a href="#one-file-one-run" id="toc-one-file-one-run" class="nav-link active" data-scroll-target="#one-file-one-run">One file, one run</a></li>
+  <li><a href="#several-models-at-once" id="toc-several-models-at-once" class="nav-link" data-scroll-target="#several-models-at-once">Several models at once</a></li>
+  <li><a href="#dividing-one-folder" id="toc-dividing-one-folder" class="nav-link" data-scroll-target="#dividing-one-folder">Dividing one folder</a></li>
+  <li><a href="#augmentation-callbacks-and-the-rest-of-a-model" id="toc-augmentation-callbacks-and-the-rest-of-a-model" class="nav-link" data-scroll-target="#augmentation-callbacks-and-the-rest-of-a-model">Augmentation, callbacks, and the rest of a model</a></li>
+  <li><a href="#detection-instead-of-segmentation" id="toc-detection-instead-of-segmentation" class="nav-link" data-scroll-target="#detection-instead-of-segmentation">Detection instead of segmentation</a></li>
+  <li><a href="#not-training-at-all" id="toc-not-training-at-all" class="nav-link" data-scroll-target="#not-training-at-all">Not training at all</a></li>
+  <li><a href="#what-is-checked-and-when" id="toc-what-is-checked-and-when" class="nav-link" data-scroll-target="#what-is-checked-and-when">What is checked, and when</a></li>
+  <li><a href="#the-same-run-from-code" id="toc-the-same-run-from-code" class="nav-link" data-scroll-target="#the-same-run-from-code">The same run from code</a></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./CHANGELOG.html">About</a></li><li class="breadcrumb-item"><a href="./CODE_OF_CONDUCT.html">Code of conduct</a></li></ol></nav></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Guides</a></li><li class="breadcrumb-item"><a href="./guide.html">Writing a configuration</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Writing a configuration</h1>
+</div>
+
+<div>
+  <div class="description">
+    From one model to several, by hand, in YAML.
+  </div>
+</div>
 
 
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
 
 
-<section id="contributor-code-of-conduct" class="level1">
-<h1>Contributor Code of Conduct</h1>
-<p>As contributors and maintainers of this project, we pledge to respect all people who contribute through reporting issues, posting feature requests, updating documentation, submitting pull requests or patches, and other activities.</p>
-<p>We are committed to making participation in this project a harassment-free experience for everyone, regardless of level of experience, gender, gender identity and expression, sexual orientation, disability, personal appearance, body size, race, ethnicity, age, or religion.</p>
-<p>Examples of unacceptable behavior by participants include the use of sexual language or imagery, derogatory comments or personal attacks, trolling, public or private harassment, insults, or other unprofessional conduct.</p>
-<p>Project maintainers have the right and responsibility to remove, edit, or reject comments, commits, code, wiki edits, issues, and other contributions that are not aligned to this Code of Conduct. Project maintainers who do not follow the Code of Conduct may be removed from the project team.</p>
-<p>Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue or contacting one or more of the project maintainers.</p>
-<p>This Code of Conduct is adapted from the <a href="http://contributor-covenant.org">Contributor Covenant</a>, version 1.0.0, available at https://www.contributor-covenant.org/version/1/0/0/code-of-conduct.html</p>
+</header>
+
+
+<p>One YAML file describes a whole run. This page is the walk through it; <a href="./config.html">every field it accepts</a> is the reference beside it, generated from the same models that read the file.</p>
+<p><strong>The same file works in both packages.</strong> Python reads it with <code>from_yaml()</code>, R with <code>platypus_spec(yaml = ...)</code>, and both hand it to the same validator. Nothing on this page is Python-specific except the two lines that run it.</p>
+<section id="one-file-one-run" class="level2">
+<h2 class="anchored" data-anchor-id="one-file-one-run">One file, one run</h2>
+<p>The shortest thing that trains:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/train</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/validation</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> first_try</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyplatypus <span class="im">import</span> build_engine, from_yaml</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> build_engine(from_yaml(<span class="st">"run.yaml"</span>))</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>engine.fit()</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(engine.evaluate())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Four things are required and the rest have defaults: <code>task</code>, <code>data.train_path</code>, and a <code>name</code> and <code>input_shape</code> for each model. Everything else - the architecture, the loss, the optimiser, how many epochs - has a default that lives in the engine, so <strong>a short configuration is a complete one</strong> rather than an incomplete one.</p>
+<p><code>colormap</code> says which colour in a mask means which class, darkest first. Masks stored as label maps rather than pictures use <code>labels: [0, 1]</code> instead, and giving both is an error: exactly one says how a mask is encoded.</p>
+</section>
+<section id="several-models-at-once" class="level2">
+<h2 class="anchored" data-anchor-id="several-models-at-once">Several models at once</h2>
+<p><code>models:</code> is a list, and that is the reason this file format exists rather than only the code path. Each entry trains on the same data and lands in the same table, so the comparison is one run rather than a loop somebody has to write.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/train</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/validation</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> shallow</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">blocks</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">filters</span><span class="kw">:</span><span class="at"> </span><span class="dv">16</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> deep</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">blocks</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">filters</span><span class="kw">:</span><span class="at"> </span><span class="dv">32</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">architecture</span><span class="kw">:</span><span class="at"> u_net_plus_plus</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>name</code> has to be unique, because it is how a model is identified in every score table, in every record and in <code>engine.predict(model_name=...)</code>. Two models called the same thing is refused rather than resolved.</p>
+<p>Two entries differing only in <code>blocks</code> is a legitimate configuration and a common one: this is for comparing variants, not only architectures.</p>
+</section>
+<section id="dividing-one-folder" class="level2">
+<h2 class="anchored" data-anchor-id="dividing-one-folder">Dividing one folder</h2>
+<p>With no <code>validation_path</code>, say how to divide <code>train_path</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/all</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">split</span><span class="kw">:</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fractions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="fl">0.7</span><span class="kw">,</span><span class="at"> </span><span class="fl">0.15</span><span class="kw">,</span><span class="at"> </span><span class="fl">0.15</span><span class="kw">]</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">group_by</span><span class="kw">:</span><span class="at"> </span><span class="st">"^(patient</span><span class="sc">\\</span><span class="st">d+)_"</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> by_patient</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Two fractions give train and validation, three add a test set. Nothing is written to disk - the samples are divided after they are discovered, so there are no new folders and no CSV.</p>
+<p><strong><code>group_by</code> is required and may be <code>null</code>.</strong> It is a regular expression whose first group is the thing that must not appear on both sides - a patient, a scan, a slide. The mistake it prevents leaves no trace: slices of one patient in both sets make validation measure memory rather than generalisation, and every number in the output still looks reasonable. An omitted key would be that choice made silently; <code>null</code> is the same choice made on purpose, for data where every sample is independent.</p>
+<p>Exactly one of <code>split</code> and <code>validation_path</code>. If a run genuinely has no validation set - a final fit on everything - say <code>validation: false</code>, which is the third answer rather than an absence, because “I have no validation set” and “I forgot” look identical otherwise.</p>
+</section>
+<section id="augmentation-callbacks-and-the-rest-of-a-model" class="level2">
+<h2 class="anchored" data-anchor-id="augmentation-callbacks-and-the-rest-of-a-model">Augmentation, callbacks, and the rest of a model</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/train</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/validation</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> augmented</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">epochs</span><span class="kw">:</span><span class="at"> </span><span class="dv">40</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">loss</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> dice</span><span class="kw">}</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">metrics</span><span class="kw">:</span><span class="at"> </span><span class="kw">[{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> iou</span><span class="kw">},</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> dice</span><span class="kw">}]</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">optimizer</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> adam</span><span class="kw">,</span><span class="at"> </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.001</span><span class="kw">}</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">callbacks</span><span class="kw">:</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> early_stopping</span><span class="kw">,</span><span class="at"> </span><span class="fu">monitor</span><span class="kw">:</span><span class="at"> val_loss</span><span class="kw">,</span><span class="at"> </span><span class="fu">patience</span><span class="kw">:</span><span class="at"> </span><span class="dv">10</span><span class="kw">}</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> model_checkpoint</span><span class="kw">,</span><span class="at"> </span><span class="fu">monitor</span><span class="kw">:</span><span class="at"> val_iou</span><span class="kw">,</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span><span class="at"> runs/best.safetensors</span><span class="kw">}</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">augmentation</span><span class="kw">:</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> HorizontalFlip</span><span class="kw">,</span><span class="at"> </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">}}</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> RandomBrightnessContrast</span><span class="kw">,</span><span class="at"> </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.3</span><span class="kw">}}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>loss</code>, <code>optimizer</code>, each metric and each callback are blocks chosen by <code>name:</code>, and the name decides which other keys that block accepts. A key the chosen one does not have is refused by name rather than ignored.</p>
+<p><strong>There is no <code>mode</code> on a callback that watches a number.</strong> The direction is taken from the name: anything ending in <code>loss</code> is better lower, anything else better higher. So <code>monitor: val_iou</code> maximises and <code>monitor: val_loss</code> minimises, and there is nothing to set inconsistently.</p>
+<p><strong>Augmentation applies to the training data only</strong> - never to validation, where the point is to measure the same thing every epoch. The names are albumentations’ own, and <code>available_transforms()</code> lists what the installed version offers; at <code>rank=3</code> the list is shorter, because support for volumes is uneven. Each step is probed at the model’s own input size while the pipeline is built, so a transform that cannot do the job says so before the first epoch rather than during it.</p>
+</section>
+<section id="detection-instead-of-segmentation" class="level2">
+<h2 class="anchored" data-anchor-id="detection-instead-of-segmentation">Detection instead of segmentation</h2>
+<p><code>task: object_detection</code> changes which fields the file accepts. Boxes rather than masks, so <code>classes</code> and an annotation format rather than a colormap:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> object_detection</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/train</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/validation</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">annotation_format</span><span class="kw">:</span><span class="at"> pascal_voc</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">classes</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">rbc</span><span class="kw">,</span><span class="at"> wbc</span><span class="kw">,</span><span class="at"> platelets</span><span class="kw">]</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cells</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">416</span><span class="kw">,</span><span class="at"> </span><span class="dv">416</span><span class="kw">]</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Leave <code>anchors</code> out and they are fitted to your own boxes</strong> by k-means on an IoU distance, <code>anchors_per_grid</code> of them per grid. That is worth about 0.23 of mean overlap against COCO’s nine on blood cells - measured, 0.65 against 0.88 - so the default is the useful one and naming anchors by hand is for reproducing a published model.</p>
+</section>
+<section id="not-training-at-all" class="level2">
+<h2 class="anchored" data-anchor-id="not-training-at-all">Not training at all</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/images</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/images</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> published</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weights</span><span class="kw">:</span><span class="at"> dsbowl-unet</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fit</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>weights</code> takes a registry name, a local path, or <code>hf://owner/repo/file@commit</code> - and the <code>hf://</code> form requires the commit, because weights that change under a stable name are the worst kind of irreproducibility. A registry name carries one already.</p>
+<p>With <code>fit: false</code> nothing trains and <code>engine.predict()</code> works immediately. The weights are checked against the model they are being loaded into <em>before</em> torch is touched: a shape, a channel count or a class count that does not match is a refusal naming the field, not a tensor-size error from inside a loss.</p>
+</section>
+<section id="what-is-checked-and-when" class="level2">
+<h2 class="anchored" data-anchor-id="what-is-checked-and-when">What is checked, and when</h2>
+<p>Validation happens in this order, and the first two cost no epochs:</p>
+<ol type="1">
+<li><strong>The file, against the schema.</strong> Unknown fields, missing required ones, a <code>name:</code> that no block has, a callback watching a number nothing will produce. Before any path is read.</li>
+<li><strong>The data on disk</strong>, when the engine is built: that the folders exist, that images and masks correspond, and that every class in <code>colormap</code> or <code>labels</code> actually appears in the masks - because a declared class appearing in none has a target channel of zeros, so the model is never shown what it is being asked to find.</li>
+<li><strong>Everything else</strong>, during the run.</li>
+</ol>
+<p>A refusal names the field and says what to do. <code>models[0].callbacks[1].model_checkpoint.path: Field required</code> is the whole message - the path through the file, then the problem.</p>
+</section>
+<section id="the-same-run-from-code" class="level2">
+<h2 class="anchored" data-anchor-id="the-same-run-from-code">The same run from code</h2>
+<p>The file is not a second implementation. <code>from_yaml()</code> and <code>from_dict()</code> produce the same object, and so does building the models by hand:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyplatypus <span class="im">import</span> build_engine, from_dict</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> from_dict(</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"semantic_segmentation"</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"data"</span>: {</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">"train_path"</span>: <span class="st">"data/train"</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation_path"</span>: <span class="st">"data/validation"</span>,</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"colormap"</span>: [[<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>], [<span class="dv">255</span>, <span class="dv">255</span>, <span class="dv">255</span>]],</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"models"</span>: [{<span class="st">"name"</span>: <span class="st">"first_try"</span>, <span class="st">"input_shape"</span>: [<span class="dv">256</span>, <span class="dv">256</span>]}],</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> build_engine(spec)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Which to use is a question about how many models and how often, not about what is possible. A file is better when there are several models, when the run is going to be repeated, or when somebody else has to see what was done; the dict is better inside a loop over something the file cannot express, like a list of datasets.</p>
 
 
 </section>

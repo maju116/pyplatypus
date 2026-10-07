@@ -564,12 +564,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="true">
- <span class="menu-text">About</span></a>
+ <span class="menu-text">Guides</span></a>
           <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
       <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Writing a configuration</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./config.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Every configuration field</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="true">
+ <span class="menu-text">About</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="./CHANGELOG.html" class="sidebar-item-text sidebar-link">
@@ -586,6 +609,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <div class="sidebar-item-container"> 
   <a href="https://github.com/maju116/pyplatypus/blob/main/LICENSE" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Licence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CITATION.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Citation</span></a>
   </div>
 </li>
       </ul>
@@ -679,22 +708,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td>see every field a configuration accepts</td>
-<td><a href="./reference/spec_schema.html"><code>spec_schema</code></a>, and the field descriptions it carries</td>
+<td>write a configuration file</td>
+<td><a href="./guide.html">Writing a configuration</a>, then <a href="./config.html">every field</a></td>
 </tr>
 <tr class="even">
+<td>have your editor check that file as you type</td>
+<td><a href="./config.html#schema-for-your-editor">the JSON Schema</a></td>
+</tr>
+<tr class="odd">
 <td>train and score something</td>
 <td><a href="./reference/Engine.fit.html"><code>Engine.fit</code></a>, <a href="./reference/Engine.evaluate.html"><code>Engine.evaluate</code></a>, <a href="./reference/Engine.evaluate_cases.html"><code>Engine.evaluate_cases</code></a></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>detect objects rather than segment</td>
 <td><a href="./reference/DetectionEngine.html"><code>DetectionEngine</code></a> and its <a href="./reference/DetectionEngine.report.html">report</a></td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>not train at all, and use published weights</td>
 <td><a href="./reference/available_weights.html"><code>available_weights</code></a></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>split data without a patient on both sides</td>
 <td><a href="./reference/split_samples.html"><code>split_samples</code></a>, <a href="./reference/split_dataset.html"><code>split_dataset</code></a></td>
 </tr>
