@@ -47,6 +47,7 @@ import json
 import time
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 import pyplatypus as pp
@@ -245,6 +246,9 @@ def main() -> None:
     )
     parser.add_argument("--nms-iou", type=float, default=0.45)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--figures", default=None, help="a directory to draw the boxes and the anchors into"
+    )
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--out", default="measurements")
     parser.add_argument(
@@ -302,6 +306,62 @@ def main() -> None:
 
     if arguments.save:
         print(f"weights written to {engine.export_weights('bccd', arguments.save)}\n")
+
+    if arguments.figures:
+        figures = Path(arguments.figures)
+        figures.mkdir(parents=True, exist_ok=True)
+
+        # The anchors against the shapes they were fitted to, asked of the engine rather
+        # than assembled here. Widths from one place and anchors from another is how a
+        # figure comes to show boxes in different places from where the anchors were fitted
+        # to them, which looks like a bad fit and is a bug. Drawn for the split they were
+        # *not* fitted on as well: that is the only way to see a class they have nothing
+        # near.
+        for split in ("train", "validation"):
+            path = figures / f"bccd-anchors-{split}.png"
+            pp.plot_anchors(engine, split=split).savefig(path, dpi=110, bbox_inches="tight")
+            print(f"  wrote {path}")
+
+        # One frame, not a montage: `plot_boxes` stacks vertically by design, so three
+        # images make a column nobody reads. And the frame is chosen by reading the
+        # annotations rather than by eye - a picture of red cells alone shows a third of
+        # what the detector does.
+        found = engine.predict("bccd", "test")
+        dataset = engine.dataset(engine.runs["bccd"].spec, "test")
+        annotations = dataset.annotations()
+        wanted = [
+            index
+            for index, annotation in enumerate(annotations)
+            if set(engine.spec.data.classes) <= set(annotation.names)
+        ]
+        if not wanted:
+            print("  no test frame holds all three classes; drawing the first instead")
+        show = wanted[0] if wanted else 0
+
+        # At the file's own size: the boxes come back in the source image's pixels, and a
+        # box drawn over a resized copy sits beside the cell it belongs to.
+        images = np.stack([pp.read_image(dataset.samples[show].images[0], size=None)])
+        figure = pp.plot_boxes(
+            images,
+            [found[show]],
+            truth=[annotations[show].as_truth()],
+            labels=[Path(dataset.samples[show].images[0]).name],
+        )
+        path = figures / "bccd-boxes.png"
+        figure.savefig(path, dpi=110, bbox_inches="tight")
+        print(f"  wrote {path}")
+
+        # Printed so a caption is transcribed rather than counted off the picture.
+        drawn = [
+            name
+            for name, score in zip(found[show]["names"], found[show]["scores"], strict=True)
+            if score >= 0.5
+        ]
+        counted = {name: drawn.count(name) for name in engine.spec.data.classes}
+        truth_counted = {
+            name: list(annotations[show].names).count(name) for name in engine.spec.data.classes
+        }
+        print(f"  drawn at min_score 0.5: {counted}, annotated: {truth_counted}")
 
     results = {split: report(engine, split) for split in ("validation", "test")}
     (out / "bccd-yolo3.json").write_text(

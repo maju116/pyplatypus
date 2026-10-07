@@ -26,7 +26,9 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from pyplatypus import Engine, from_dict, summarise_cases
+import numpy as np
+
+from pyplatypus import Engine, from_dict, plot_masks, summarise_cases
 
 SOURCE = "https://data.broadinstitute.org/bbbc/BBBC038/stage1_train.zip"
 CITATION = (
@@ -127,6 +129,9 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--device", default=None)
     parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument(
+        "--figures", default=None, help="a directory to draw the worst validation cases into"
+    )
     arguments = parser.parse_args()
 
     root = fetch(Path(arguments.data))
@@ -171,6 +176,26 @@ def main() -> None:
     worst = sorted(cases, key=lambda row: row["dice"])[:5]
     for row in worst:
         print(f"  worst: {row['case'][:40]} dice={row['dice']:.3f}")
+
+    if arguments.figures:
+        # The worst four rather than the first four. A figure of the best cases is an
+        # advertisement, and the card these weights ship with reports a worst case of 0.72,
+        # so this is the picture that corresponds to the number a stranger will read.
+        #
+        # `evaluate_cases` walks the split in the dataset's own order and never shuffles, so
+        # a row's position in the list is the index to draw.
+        figures = Path(arguments.figures)
+        figures.mkdir(parents=True, exist_ok=True)
+        ranked = sorted(range(len(cases)), key=lambda index: cases[index]["dice"])[:4]
+        dataset = engine.dataset(engine.runs["dsbowl-unet"].spec, "validation")
+        figure = plot_masks(
+            np.stack([dataset[index][0] for index in ranked]),
+            prediction=engine.predict("dsbowl-unet", "validation")[ranked],
+            truth=np.stack([dataset[index][1] for index in ranked]),
+            labels=[f"dice {cases[index]['dice']:.3f}" for index in ranked],
+        )
+        figure.savefig(figures / "dsbowl-worst.png", dpi=110, bbox_inches="tight")
+        print(f"\nwrote {figures / 'dsbowl-worst.png'}")
 
     # Everything a stranger needs to judge these weights travels with them. The metrics are the
     # validation distribution rather than the mean alone, because a mean hides the failures and
