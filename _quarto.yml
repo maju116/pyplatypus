@@ -116,6 +116,11 @@ website:
         - reference/read_record.qmd
       - section: Looking at the results
         contents:
+        - reference/plot_masks.qmd
+        - reference/plot_boxes.qmd
+        - reference/plot_anchors.qmd
+        - reference/overlay_mask.qmd
+        - reference/overlay_agreement.qmd
         - reference/drawing_style.qmd
       - section: When something is wrong
         contents:
@@ -230,6 +235,11 @@ quartodoc:
       about what red means. Until 0.8.0a1 this group existed only in the R package, because the
       engine carried no plotting at all.
     contents:
+    - plot_masks
+    - plot_boxes
+    - plot_anchors
+    - overlay_mask
+    - overlay_agreement
     - drawing_style
   - title: When something is wrong
     desc: 'Three kinds, because they are three different problems: a configuration that cannot

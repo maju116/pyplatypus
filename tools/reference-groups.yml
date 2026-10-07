@@ -101,6 +101,11 @@ groups:
     about what red means. Until 0.8.0a1 this group existed only in the R package, because
     the engine carried no plotting at all.
   contents:
+  - plot_masks
+  - plot_boxes
+  - plot_anchors
+  - overlay_mask
+  - overlay_agreement
   - drawing_style
 
 - title: When something is wrong

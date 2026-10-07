@@ -14,6 +14,13 @@ from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.runs import read_record, write_record
+from pyplatypus.plots import (
+    overlay_agreement,
+    overlay_mask,
+    plot_anchors,
+    plot_boxes,
+    plot_masks,
+)
 from pyplatypus.style import drawing_style
 from pyplatypus.spec import (
     DetectionSpec,
@@ -53,6 +60,11 @@ __all__ = [
     "export_weights",
     "from_dict",
     "from_yaml",
+    "overlay_agreement",
+    "overlay_mask",
+    "plot_anchors",
+    "plot_boxes",
+    "plot_masks",
     "read_record",
     "resolve_weights",
     "spec_schema",

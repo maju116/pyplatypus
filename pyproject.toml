@@ -47,6 +47,14 @@ dependencies = [
     # albumentations requires it - but a package whose code imports scipy should say so
     # rather than rely on somebody else's dependency list not changing.
     "scipy>=1.10",
+    # Hard rather than an extra, and the number is why: the wheel is 9.9 MB and its own
+    # dependencies are small or already here, so with everything it is 15-20 MB against
+    # torch's 555 MB - about 3%. The rule already applied to `hub` and `encoders` was that
+    # under 2% of torch is not a trade worth making anyone opt into; this is the same
+    # bracket. And the examples *are* the documentation: a figure behind an extra is a
+    # figure most readers never see, which is exactly how the weights registry once could
+    # not work from R at all.
+    "matplotlib>=3.7",
     # No upper bound on purpose. torch 2.8+ ships CUDA 13 builds, which dropped the
     # Maxwell, Pascal and Volta generations - a GTX 10-series card needs a CUDA 12.x
     # build and therefore torch 2.7.x. That is a property of somebody's hardware, not of
