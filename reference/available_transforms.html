@@ -618,7 +618,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h1>available_transforms</h1>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>available_transforms(rank<span class="op">=</span><span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Transform names the installed albumentations actually offers.</p>
-<p>With <code>rank=3</code>, only those that can transform a volume. That list has to be found by trying rather than read from anywhere: albumentations supports volumes unevenly, and a transform that cannot raises from inside itself - <code>GaussNoise</code> comes back as <code>KeyError: 'images'</code>. Of the transforms in 2.0.8, 71 work on volumes and 33 do not.</p>
+<p>With <code>rank=3</code>, only those that can transform a volume. That list has to be found by trying rather than read from anywhere: albumentations supports volumes unevenly, and a transform that cannot raises from inside itself - <code>GaussNoise</code> comes back as <code>KeyError: 'images'</code>. Of the 118 transforms in 2.0.8, 87 work on volumes and 31 do not.</p>
 <p>Empty when albumentations is missing, in which case name checking is skipped and the backend reports the problem later - better than refusing a spec the user cannot fix.</p>
 <section id="parameters" class="level2 doc-section doc-section-parameters">
 <h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
@@ -646,7 +646,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
-<col style="width: 17%">
+<col style="width: 16%">
 <col style="width: 75%">
 </colgroup>
 <thead>
@@ -660,29 +660,49 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td></td>
 <td>frozenset[str]</td>
-<td>The names, as albumentations spells them. Ten of them are not transforms at</td>
+<td>The names, as albumentations spells them, and only things a spec may actually</td>
 </tr>
 <tr class="even">
 <td></td>
 <td>frozenset[str]</td>
-<td>all - <code>Compose</code>, <code>OneOf</code> and the other composition classes, plus <code>BboxParams</code></td>
+<td>name. Membership is decided by type - <code>BasicTransform</code> - so the composition</td>
 </tr>
 <tr class="odd">
 <td></td>
 <td>frozenset[str]</td>
-<td>and <code>KeypointParams</code> - because the list is filtered by the shape of the name</td>
+<td>classes (<code>Compose</code>, <code>OneOf</code>, <code>Sequential</code> and five more) and the two parameter</td>
 </tr>
 <tr class="even">
 <td></td>
 <td>frozenset[str]</td>
-<td>rather than by type. A known defect, queued.</td>
+<td>dataclasses (<code>BboxParams</code>, <code>KeypointParams</code>) are absent. They were listed</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>frozenset[str]</td>
+<td>until 0.7.0a2, when the filter went by the shape of the name, and none of</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>frozenset[str]</td>
+<td>them was ever usable: an <code>AugmentationStep</code> is a flat name and a dict of</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>frozenset[str]</td>
+<td>parameters with no nesting, so naming one passed the check here and failed</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>frozenset[str]</td>
+<td>when the pipeline was built.</td>
 </tr>
 </tbody>
 </table>
 <blockquote class="blockquote">
 <blockquote class="blockquote">
 <blockquote class="blockquote">
-<p>names = available_transforms() “HorizontalFlip” in names, “GaussNoise” in names (True, True)</p>
+<p>names = available_transforms() “HorizontalFlip” in names, “GaussNoise” in names (True, True) any(name in names for name in (“Compose”, “OneOf”, “BboxParams”)) False</p>
 </blockquote>
 </blockquote>
 </blockquote>
