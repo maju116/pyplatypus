@@ -25,19 +25,42 @@ All notable changes to this project will be documented in this file.
    `NoOp` is why the defining module cannot decide it either: a real transform living beside
    the four in `albumentations.core.transforms_interface`.
 
- - **The docstring's counts were wrong and are now held to the measurement.** It said "71
+ - **The docstring's counts were wrong, and one of them was never a fact.** It said "71
    work on volumes and 33 do not", which is 104; on the same albumentations 2.0.8 the old
-   list returned 130. The measured figures for the corrected list are **118 transforms, 87
-   of which work on volumes and 31 of which do not**, and a test parses the three numbers
-   out of the prose and compares them to what the function returns. `albumentations` is
-   pinned only as `>=1.4`, so an upgrade can move all three - and then the test names the
-   new values instead of letting the documentation drift again, which is how the previous
-   numbers survived two corrections elsewhere.
+   list returned 130. The corrected list is **118 transforms**, and a test parses that
+   number out of the prose and compares it to what the function returns - `albumentations`
+   is pinned only as `>=1.4`, so an upgrade now names the new value instead of letting the
+   documentation drift again, which is how the previous numbers survived two corrections
+   elsewhere.
+
+   The volume count is **not pinned, because it is not portable**, and that was found by
+   pinning it: the first version of this test asserted all three numbers and one job of
+   twelve answered "the docstring says 118/87/31; measured 118/88/30". The rank-3 list is
+   produced by running each transform against a probe, and **eleven of the thirty-one it
+   rejects fail for the probe's reasons rather than albumentations'** - nine require three
+   channels where the probe has one, and `Crop`, `FrequencyMasking`, `TimeMasking` and
+   `Superpixels` fail on its 8x8 size - so which of them tips over is environmental.
+
+   Which job it was is worth stating precisely, because the obvious reading is wrong: 87 on
+   all four Linux builds, on both macOS builds **and on Windows with Python 3.10**, and 88 on
+   Windows with Python 3.13 alone. Neither axis explains it, and no mechanism is claimed.
+   So the prose states the portable number, says the other one is not, and explains why;
+   what is asserted about rank 3 instead is that it is a strict, non-empty subset of rank 2.
 
    Accounting, so the change is checkable: 130 -> 118 removes the 8 composition classes, the
    2 dataclasses, and `ImageOnlyTransform` and `Transform3D`, which the name filter had
-   admitted. 97 -> 87 on volumes is the 10 non-transforms, which had been passing the volume
-   probe spuriously.
+   admitted. On volumes the old 97 becomes 87 here, the difference being the 10
+   non-transforms, which had been passing the volume probe spuriously.
+
+### Noted, not fixed
+
+ - **The rank-3 probe is one channel and 8x8**, which is why eleven transforms are reported
+   as unable to take a volume when what they cannot take is the probe. Enlarging it is not
+   obviously right: a three-channel probe would list `ChromaticAberration` and its eight
+   relatives as available to someone whose CT has one channel, and the listing cannot know
+   the channel count - only the pipeline-build check can, and it already probes at the
+   model's own input size. The size half (`Crop`, `FrequencyMasking`, `TimeMasking`,
+   `Superpixels`) has no such objection and is worth doing on its own.
 
 ## [0.7.0a1] - 2026-10-07
 

@@ -154,36 +154,48 @@ class TestAvailableTransforms:
         for name in composition + ("BboxParams", "KeypointParams"):
             assert name not in names, name
 
-    def test_the_docstring_numbers_are_the_measured_ones(self):
-        """The prose states three counts, and this is what keeps them true.
+    def test_the_docstring_total_is_the_measured_one(self):
+        """The prose states how many transforms there are, and this is what keeps it true.
 
         The defect being fixed here was never only the filter: the docstring said "71 work on
         volumes and 33 do not" long after the measurement said otherwise, because correcting a
         number nobody re-measures is not a step anyone schedules. `albumentations` is pinned
-        only as `>=1.4`, so an upgrade can move all three - and then this fails and names the
-        new values rather than letting the documentation drift again.
+        only as `>=1.4`, so an upgrade moves this - and then the test names the new value
+        rather than letting the documentation drift again.
+
+        **Only the total is asserted, and the first version of this test asserted the volume
+        count too and was right to fail.** One CI job of twelve said "the docstring says
+        118/87/31; measured 118/88/30": the volume list is found by running each transform
+        against a probe, and eleven of the thirty-one it rejects fail for the probe's reasons
+        rather than albumentations' - nine need three channels where the probe has one, and
+        `Crop`, `FrequencyMasking`, `TimeMasking` and `Superpixels` fail on its 8x8 size.
+        That job was Windows with Python 3.13, while Windows with 3.10 and macOS with 3.13
+        both answered 87, so neither axis explains it. There is no portable number there to
+        pin, and the docstring says so rather than claiming one.
         """
         pytest.importorskip("albumentations")
         doc = inspect.getdoc(available_transforms) or ""
         # `[^.]*` would not do here: the sentence names the albumentations version, so the
-        # span between the first count and the second contains "2.0.8".
-        stated = re.search(
-            r"Of\s+the\s+(\d+)\s+transforms.*?(\d+)\s+work\s+on\s+volumes"
-            r"\s+and\s+(\d+)\s+do\s+not",
-            doc,
-            re.DOTALL,
-        )
-        assert stated, "the docstring no longer states the three counts in a readable form"
+        # span before the count contains "2.0.8".
+        stated = re.search(r"albumentations\s+\S+\s+offers\s+(\d+)\s+transforms", doc, re.DOTALL)
+        assert stated, "the docstring no longer states the total in a readable form"
 
-        total, volumes, flat = (int(group) for group in stated.groups())
-        measured_total = len(available_transforms())
-        measured_volumes = len(available_transforms(rank=3))
-
-        assert (total, volumes, flat) == (
-            measured_total,
-            measured_volumes,
-            measured_total - measured_volumes,
-        ), (
-            f"the docstring says {total}/{volumes}/{flat}; measured "
-            f"{measured_total}/{measured_volumes}/{measured_total - measured_volumes}"
+        measured = len(available_transforms())
+        assert int(stated.group(1)) == measured, (
+            f"the docstring says {stated.group(1)} transforms; measured {measured}"
         )
+
+    def test_the_volume_list_is_a_smaller_subset(self):
+        """What is portable about rank 3: shorter, contained, and not empty.
+
+        The count is not assertable - see above - but these three are, and together they are
+        what a caller relies on: a name that passes at rank 3 is a real transform, and asking
+        for volumes narrows rather than changes the answer.
+        """
+        pytest.importorskip("albumentations")
+        images = available_transforms()
+        volumes = available_transforms(rank=3)
+
+        assert volumes, "albumentations is installed, so some transform takes a volume"
+        assert volumes < images, "rank 3 must be a strict subset of rank 2"
+        assert "GaussNoise" in images and "GaussNoise" not in volumes

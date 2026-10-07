@@ -750,8 +750,21 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
 
     With `rank=3`, only those that can transform a volume. That list has to be found by trying
     rather than read from anywhere: albumentations supports volumes unevenly, and a transform
-    that cannot raises from inside itself - `GaussNoise` comes back as `KeyError: 'images'`. Of
-    the 118 transforms in 2.0.8, 87 work on volumes and 31 do not.
+    that cannot raises from inside itself - `GaussNoise` comes back as `KeyError: 'images'`.
+    albumentations 2.0.8 offers 118 transforms, and 87 of them took a volume where this was
+    measured.
+
+    **That second number is not portable and the first one is.** 118 is a property of the
+    installed albumentations; the volume count is the outcome of running each transform against
+    a small probe, and a few of them fail it for reasons that have nothing to do with volumes -
+    the probe is one channel, so the nine transforms that require three are refused, and it is
+    8x8, so `Crop`, `FrequencyMasking`, `TimeMasking` and `Superpixels` fail on its size. Eleven
+    of the 31 are therefore the probe's limits rather than albumentations', and which of them
+    tip over is environmental. Measured across one CI matrix on the same albumentations: 87 on
+    four Linux builds, both macOS builds and Windows with Python 3.10, and **88 on Windows with
+    Python 3.13** - so it is that combination rather than either Windows or 3.13, and no
+    mechanism is claimed for it beyond the probe being marginal. The authoritative check is the
+    one made when the pipeline is built, against the user's own shape and parameters.
 
     Empty when albumentations is missing, in which case name checking is skipped and the
     backend reports the problem later - better than refusing a spec the user cannot fix.
