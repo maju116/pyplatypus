@@ -549,7 +549,7 @@ def plot_anchors(
 
     >>> figure = plot_anchors([[(0.1, 0.1), (0.2, 0.3)], [(0.4, 0.5)]])
     >>> len(figure.axes[0].collections), figure.axes[0].get_yscale()
-    (2, 'linear')
+    (1, 'linear')
     """
     subtitle = None
     cloud: list[tuple[str, np.ndarray]] = []
@@ -590,9 +590,22 @@ def plot_anchors(
             color="#999999" if label == "boxes" else CLASS_COLOURS[index % len(CLASS_COLOURS)],
             label=label,
         )
-    for group_index, pairs in enumerate(anchors):
-        wide = np.asarray(pairs, dtype=float).reshape(-1, 2)
-        axis.scatter(wide[:, 0], wide[:, 1], s=70, marker="x", label=f"grid {group_index + 1}")
+    # One appearance for every anchor, hollow and black, as R draws them - and not one
+    # colour per grid, which was the first version here: the grids took matplotlib's default
+    # cycle, so an orange anchor sat invisibly inside an orange class cloud. Legibility
+    # against any cloud is worth more than which stride an anchor belongs to, and that is
+    # what `anchor_coverage` answers anyway.
+    every = np.concatenate([np.asarray(pairs, dtype=float).reshape(-1, 2) for pairs in anchors])
+    axis.scatter(
+        every[:, 0],
+        every[:, 1],
+        s=70,
+        marker="D",
+        facecolors="none",
+        edgecolors="black",
+        linewidths=0.9,
+        label="anchors",
+    )
     if log:
         axis.set_xscale("log")
         axis.set_yscale("log")
