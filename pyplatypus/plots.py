@@ -27,7 +27,7 @@ import matplotlib
 import numpy as np
 from matplotlib.figure import Figure
 
-from pyplatypus.data.masks import onehot_to_colours
+from pyplatypus.data.masks import MaskError, onehot_to_colours
 from pyplatypus.errors import PlatypusError
 from pyplatypus.style import (
     AGREEMENT_COLOURS,
@@ -81,6 +81,47 @@ def _blend(picture: np.ndarray, tint: np.ndarray, where: np.ndarray, alpha: floa
         layer[where] = (1.0 - alpha) * layer[where] + alpha * tint[channel]
 
 
+def _classes_to_colours(mask: np.ndarray, colormap: list[tuple[int, int, int]]) -> np.ndarray:
+    """A mask as the picture its colormap says it is, whichever way it arrived.
+
+    Private. R exports this under this name, and the public counterpart here would want a
+    `Masks and volumes` group that has no other member - a sidebar section whose description
+    is about reading, joining and writing masks, holding one function that does none of
+    those. Worth deciding with that group rather than as a by-product of a figure.
+
+    One-hot, probabilities or class indices, all to `(h, w, 3)` uint8. The two ways in used
+    to read the same mistake differently - a one-hot mask with more channels than the
+    colormap has colours was refused by name, while an index mask was clipped, so classes 2
+    and 3 of a four-class mask were drawn in class 1's colour and nothing said so.
+
+    Args:
+        mask: `height x width` indices, or `height x width x class` one-hot or probabilities.
+        colormap: one colour per class, darkest first.
+
+    Returns:
+        The mask in colour, `height x width x 3` uint8.
+
+    Raises:
+        MaskError: if the mask holds a class the colormap has no colour for.
+
+    >>> import numpy as np
+    >>> indices = np.array([[0, 1], [1, 0]])
+    >>> _classes_to_colours(indices, [(0, 0, 0), (255, 255, 255)])[0, 1].tolist()
+    [255, 255, 255]
+    """
+    classes = np.asarray(mask)
+    if classes.ndim == 3 and classes.shape[-1] > 1:
+        return onehot_to_colours(classes, colormap)
+    indices = classes.reshape(classes.shape[:2])
+    highest = int(indices.max(initial=0))
+    if highest >= len(colormap):
+        raise MaskError(
+            f"the mask holds class {highest} but the colormap defines {len(colormap)} "
+            "classes; drawing it would show one class in another's colour"
+        )
+    return np.asarray(colormap, dtype=np.uint8)[indices]
+
+
 def overlay_mask(
     image: np.ndarray,
     mask: np.ndarray,
@@ -114,21 +155,7 @@ def overlay_mask(
     True
     """
     picture = _as_picture(image)
-    classes = np.asarray(mask)
-    if classes.ndim == 3 and classes.shape[-1] > 1:
-        coloured = onehot_to_colours(classes, colormap)
-    else:
-        indices = classes.reshape(classes.shape[:2])
-        highest = int(indices.max(initial=0))
-        if highest >= len(colormap):
-            # The one-hot path above refuses this by name, and clipping here instead meant
-            # one function read the same mistake two ways: a four-class mask drawn with two
-            # colours showed classes 2 and 3 in class 1's colour and said nothing.
-            raise PlatypusError(
-                f"the mask holds class {highest} but the colormap defines {len(colormap)} "
-                "classes; drawing it would show one class in another's colour"
-            )
-        coloured = np.asarray(colormap, dtype=np.uint8)[indices]
+    coloured = _classes_to_colours(mask, colormap)
     if coloured.shape[:2] != picture.shape[:2]:
         raise PlatypusError(
             f"the mask is {coloured.shape[:2]} and the image is {picture.shape[:2]}; "
@@ -338,15 +365,18 @@ def plot_masks(
     for row, index in enumerate(which):
         drawn = {
             "image": _as_picture(stack[index]).astype(np.uint8),
+            # The mask in its own colours rather than tinted over the image, which is what
+            # R's `plot_masks()` draws - and R's figures are the published ones, in a README
+            # and three articles. The image is underneath in the agreement panel, where the
+            # question is where the boundary falls; here the question is what shape the mask
+            # is, and tissue showing through makes two shapes harder to compare.
             "truth": (
-                None
-                if truth is None
-                else overlay_mask(stack[index], _stack(truth)[index], colormap, alpha)
+                None if truth is None else _classes_to_colours(_stack(truth)[index], colormap)
             ),
             "prediction": (
                 None
                 if prediction is None
-                else overlay_mask(stack[index], _stack(prediction)[index], colormap, alpha)
+                else _classes_to_colours(_stack(prediction)[index], colormap)
             ),
             "agreement": (
                 None
