@@ -18,7 +18,9 @@ import argparse
 import json
 from pathlib import Path
 
-from pyplatypus import Engine, from_dict, summarise_cases
+import numpy as np
+
+from pyplatypus import Engine, from_dict, plot_masks, summarise_cases
 
 ARCHITECTURES = ("u_net", "u_net_plus_plus", "res_u_net", "linknet")
 
@@ -82,6 +84,9 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument(
         "--only", nargs="*", default=None, help="a subset of the architectures, for a smoke test"
+    )
+    parser.add_argument(
+        "--figures", default=None, help="a directory to draw each architecture's masks into"
     )
     arguments = parser.parse_args()
 
@@ -154,6 +159,26 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / "dsbowl-comparison.json").write_text(json.dumps(rows, indent=2) + "\n")
     print(f"\nwrote {out / 'dsbowl-comparison.json'}")
+
+    if arguments.figures:
+        # One figure per architecture, over the **same** four validation images, because the
+        # table's finding is that the four are within 0.0030 of each other while two images
+        # differ by 0.054 - and that is only visible if the pictures can be laid side by
+        # side. Four figures of four different images would show the spread between images
+        # and read as a spread between architectures.
+        figures = Path(arguments.figures)
+        figures.mkdir(parents=True, exist_ok=True)
+        which = [0, 1, 2, 3]
+        for name in wanted:
+            dataset = engine.dataset(engine.runs[name].spec, "validation")
+            figure = plot_masks(
+                np.stack([dataset[index][0] for index in which]),
+                prediction=engine.predict(name, "validation")[which],
+                truth=np.stack([dataset[index][1] for index in which]),
+            )
+            path = figures / f"dsbowl-{name.replace('_', '-')}.png"
+            figure.savefig(path, dpi=110, bbox_inches="tight")
+            print(f"  wrote {path}")
 
     # Every model's weights are exported. Which of them get published is a decision taken after
     # reading the table, not before: a name in the registry is a promise, and four names that mean

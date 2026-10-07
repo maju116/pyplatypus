@@ -31,7 +31,9 @@ import statistics
 import time
 from pathlib import Path
 
-from pyplatypus import Engine, from_dict, summarise_cases
+import numpy as np
+
+from pyplatypus import Engine, from_dict, plot_masks, summarise_cases
 
 
 def configurations(backbone: str, rate: float, freeze: int) -> list[tuple[str, dict]]:
@@ -91,12 +93,28 @@ def specification(arguments, seed: int, extra: dict) -> dict:
     }
 
 
-def run(arguments, seed: int, extra: dict) -> tuple[dict, float, int, int]:
+def run(arguments, seed: int, extra: dict, figure: Path | None = None) -> tuple:
     spec = from_dict(specification(arguments, seed, extra))
     engine = Engine(spec, num_workers=arguments.workers)
     history = engine.fit(verbose=False)["m"]
     distribution = {row["metric"]: row for row in summarise_cases(engine.evaluate_cases("m"))}
     best = max(record["val_dice"] for record in history.records)
+
+    if figure is not None:
+        # One arm, one figure, at one seed - not eight times three. The table is what ranks
+        # these configurations and a picture cannot; what a picture shows is the thing the
+        # table only implies, which is that a frozen ImageNet encoder on microscopy produces
+        # masks of the wrong shape rather than merely a lower number.
+        which = [0, 1, 2, 3]
+        dataset = engine.dataset(engine.runs["m"].spec, "validation")
+        drawing = plot_masks(
+            np.stack([dataset[index][0] for index in which]),
+            prediction=engine.predict("m", "validation")[which],
+            truth=np.stack([dataset[index][1] for index in which]),
+        )
+        drawing.savefig(figure, dpi=110, bbox_inches="tight")
+        print(f"      wrote {figure}")
+
     return distribution["dice"], best, len(history.records), engine.runs["m"].parameters
 
 
@@ -119,6 +137,7 @@ def main() -> None:
     parser.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--out", default="measurements")
+    parser.add_argument("--figures", default=None, help="a directory to draw each arm's masks into")
     arguments = parser.parse_args()
 
     rows = []
@@ -126,7 +145,11 @@ def main() -> None:
         means, worst, bests, epochs, parameters = [], [], [], [], None
         started = time.time()
         for seed in arguments.seeds:
-            dice, best, ran, parameters = run(arguments, seed, extra)
+            drawing = None
+            if arguments.figures and seed == arguments.seeds[0]:
+                drawing = Path(arguments.figures) / f"encoders-{label.replace(' ', '-')}.png"
+                drawing.parent.mkdir(parents=True, exist_ok=True)
+            dice, best, ran, parameters = run(arguments, seed, extra, drawing)
             means.append(dice["mean"])
             worst.append(dice["min"])
             bests.append(best)
