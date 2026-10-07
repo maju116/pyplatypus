@@ -19,6 +19,7 @@ from pyplatypus.spec import (
     PlatypusSpec,
     SegmentationSpec,
     Task,
+    available_transforms,
     from_dict,
     from_yaml,
     spec_schema,
@@ -26,12 +27,12 @@ from pyplatypus.spec import (
 )
 from pyplatypus.weights import (
     WeightsError,
+    available_weights,
     export_weights,
-    known_weights,
     resolve_weights,
 )
 
-__version__ = "0.6.0a4"
+__version__ = "0.7.0a1"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -44,11 +45,12 @@ __all__ = [
     "Task",
     "WeightsError",
     "__version__",
+    "available_transforms",
+    "available_weights",
     "build_engine",
     "export_weights",
     "from_dict",
     "from_yaml",
-    "known_weights",
     "read_record",
     "resolve_weights",
     "spec_schema",

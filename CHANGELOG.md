@@ -1,6 +1,47 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.7.0a1] - 2026-10-07
+
+One name per concept, across both packages. The R surface and this engine had grown two
+words for several of the same things - `available_augmentations` against
+`available_transforms`, `save_weights` against `export_weights`, `mask_report` against
+`inspect_masks` - and a reader moving between the halves paid for every one of them. The
+rule settled on is that **the engine's name wins**, because it is the layer that cannot be
+renamed later without touching the configuration format and the schema; the exception is
+where the R package already had a family of names, and `available_*` was one.
+
+### Changed
+
+ - **`known_weights()` is now `available_weights()`.** The R package already called it
+   that, `available_transforms()` is the same verb, and "known" said nothing the other
+   two did not say better. A breaking rename rather than an alias: two names for one
+   thing is the thing this release removes.
+
+### Added
+
+ - **`available_transforms()` is exported from the package root.** It was reachable only
+   as `pyplatypus.spec.components.available_transforms`, while the refusal a user meets
+   when a 3D augmentation is unsupported tells them to "see `available_transforms(rank=3)`"
+   and does not say where it lives. `from pyplatypus import available_transforms` raised
+   `ImportError`.
+
+ - **`tests/test_public_api.py`.** Four checks on the front door, none of which existed:
+   every name in `__all__` resolves, `__all__` is sorted, both listings are reachable, and
+   - the general form of the bug above - **every function a user-facing message tells
+   somebody to call is importable from `pyplatypus`**. Each was proven able to fail by
+   mutation; removing the `available_transforms` import fails three of them, naming
+   `augmentation.py` as the file whose message would have lied.
+
+### Not changed, and deliberately
+
+ - `onehot_to_colours()` keeps its name. Pairing it with the R package's `mask_colours()`
+   was proposed and measuring killed it: this one takes a one-hot or probability array and
+   argmaxes it, R's takes class indices. Two names because they are two functions.
+ - `Engine` / `DetectionEngine` / `build_engine` keep theirs. The R package has no name
+   for the engine at all, which is a difference of idiom - an object with methods against
+   verbs on a fitted model - and not a divergence to resolve.
+
 ## [0.6.0a4] - 2026-10-07
 
 ### Added

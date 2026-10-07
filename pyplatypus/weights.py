@@ -85,8 +85,12 @@ REGISTRY: dict[str, Published] = {
 }
 
 
-def known_weights() -> dict[str, str]:
-    """Registry names and what they are, for listing to a user."""
+def available_weights() -> dict[str, str]:
+    """Registry names and what they are, for listing to a user.
+
+    Named to match `available_weights()` in the R package and `available_transforms()`
+    here: everything a user can be offered a list of answers to the same verb.
+    """
     return {name: entry.description for name, entry in REGISTRY.items()}
 
 
