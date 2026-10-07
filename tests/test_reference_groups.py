@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import inspect
 import pathlib
+import subprocess
+import sys
 
 import pytest
 import yaml
@@ -98,7 +100,24 @@ def test_the_generated_config_matches_the_grouping(target):
     assert contents == expected_contents, "run tools/build_reference.py - _quarto.yml is stale"
 
 
-def test_the_about_section_is_in_the_agreed_order_and_every_page_exists():
+@pytest.fixture(scope="module")
+def _generated() -> None:
+    """Run the site generator, because two About pages are its output rather than sources.
+
+    `CITATION.qmd` is rendered from `CITATION.cff` at docs-build time and gitignored, so in a
+    fresh checkout it does not exist. The first version of the test below asserted every page
+    entry was a file in the repository and **passed only because this machine had run the
+    generator** - four `test` jobs failed on a clean one, which is the local-versus-CI gap in
+    its purest form. What the assertion means is "the build produces this", so the build runs.
+    """
+    subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "build_reference.py")],
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_the_about_section_is_in_the_agreed_order_and_every_page_exists(_generated):
     """The About section, which the test above does not read.
 
     Two things are pinned, and the second has already gone wrong in the R package.
