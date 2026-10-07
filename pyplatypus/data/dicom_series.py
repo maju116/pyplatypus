@@ -43,7 +43,7 @@ from pyplatypus.data.volumes import resize_volume
 
 # Positions are in millimetres; scanners write them with a few decimals of noise.
 POSITION_TOLERANCE = 1e-3
-SPACING_TOLERANCE = 0.02      # 2% of the median gap, comfortably inside scanner jitter
+SPACING_TOLERANCE = 0.02  # 2% of the median gap, comfortably inside scanner jitter
 
 
 @dataclass(frozen=True)
@@ -110,8 +110,9 @@ def describe_series(source: str | Path | list) -> Series:
         for _, header in headers:
             uid = getattr(header, "SeriesInstanceUID", None)
             counts[uid] = counts.get(uid, 0) + 1
-        listed = "; ".join(f"{uid}: {n} file(s)" for uid, n in sorted(counts.items(),
-                                                                     key=lambda kv: -kv[1]))
+        listed = "; ".join(
+            f"{uid}: {n} file(s)" for uid, n in sorted(counts.items(), key=lambda kv: -kv[1])
+        )
         raise DicomError(
             f"these files are {len(uids)} different series, not one: {listed}. Stacking "
             "them would interleave two anatomies. Separate them by SeriesInstanceUID first."
@@ -137,9 +138,14 @@ def describe_series(source: str | Path | list) -> Series:
     )
 
 
-def read_dicom_series(source: str | Path | list, *, window="auto", channels: int = 1,
-                      size: tuple[int, ...] | None = None, nearest: bool = False
-                      ) -> np.ndarray:
+def read_dicom_series(
+    source: str | Path | list,
+    *,
+    window="auto",
+    channels: int = 1,
+    size: tuple[int, ...] | None = None,
+    nearest: bool = False,
+) -> np.ndarray:
     """Read a series as one channels-last volume, canonical and scaled to 0-1."""
     import pydicom
     from pydicom.pixels import apply_modality_lut
@@ -156,8 +162,7 @@ def read_dicom_series(source: str | Path | list, *, window="auto", channels: int
     for path in series.paths:
         try:
             dataset = pydicom.dcmread(str(path))
-            values = np.asarray(apply_modality_lut(dataset.pixel_array, dataset),
-                                dtype=np.float32)
+            values = np.asarray(apply_modality_lut(dataset.pixel_array, dataset), dtype=np.float32)
         except Exception as error:  # noqa: BLE001
             raise DicomError(f"could not read '{path}': {error}") from None
         if values.ndim != 2:
@@ -167,7 +172,7 @@ def read_dicom_series(source: str | Path | list, *, window="auto", channels: int
             )
         slices.append(values)
 
-    volume = np.stack(slices, axis=-1)          # (rows, columns, slices)
+    volume = np.stack(slices, axis=-1)  # (rows, columns, slices)
 
     if bounds is None:
         low, high = float(volume.min()), float(volume.max())

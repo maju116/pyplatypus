@@ -26,15 +26,17 @@ class AugmentationError(PlatypusError):
 class Augmenter(Protocol):
     """Takes an image and its class-index mask, returns both transformed."""
 
-    def __call__(self, image: np.ndarray, mask: np.ndarray | None = None
-                 ) -> tuple[np.ndarray, np.ndarray | None]: ...
+    def __call__(
+        self, image: np.ndarray, mask: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray | None]: ...
 
 
 class BoxAugmenter(Protocol):
     """Takes an image and its boxes, returns both transformed."""
 
-    def __call__(self, image: np.ndarray, boxes: np.ndarray, labels: np.ndarray
-                 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
+    def __call__(
+        self, image: np.ndarray, boxes: np.ndarray, labels: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
 
 
 class AlbumentationsAugmenter:
@@ -49,8 +51,12 @@ class AlbumentationsAugmenter:
     is reported by name now rather than as a library traceback forty minutes into training.
     """
 
-    def __init__(self, steps: list[AugmentationStep], rank: int = 2,
-                 input_shape: tuple[int, ...] | None = None):
+    def __init__(
+        self,
+        steps: list[AugmentationStep],
+        rank: int = 2,
+        input_shape: tuple[int, ...] | None = None,
+    ):
         try:
             import albumentations
         except ImportError:  # pragma: no cover
@@ -65,8 +71,9 @@ class AlbumentationsAugmenter:
         if rank == 3:
             _refuse_flat_transforms(albumentations, steps, built, input_shape)
 
-    def __call__(self, image: np.ndarray, mask: np.ndarray | None = None
-                 ) -> tuple[np.ndarray, np.ndarray | None]:
+    def __call__(
+        self, image: np.ndarray, mask: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         image_key, mask_key = ("volume", "mask3d") if self.rank == 3 else ("image", "mask")
         if mask is None:
             return self._pipeline(**{image_key: image})[image_key], None
@@ -74,8 +81,12 @@ class AlbumentationsAugmenter:
         return out[image_key], out[mask_key]
 
 
-def _refuse_flat_transforms(albumentations, steps: list[AugmentationStep], built: list,
-                            input_shape: tuple[int, ...] | None = None) -> None:
+def _refuse_flat_transforms(
+    albumentations,
+    steps: list[AugmentationStep],
+    built: list,
+    input_shape: tuple[int, ...] | None = None,
+) -> None:
     """Try each transform on a volume, and name the one that cannot.
 
     Per step rather than on the whole pipeline: composing them and catching the failure would
@@ -95,22 +106,21 @@ def _refuse_flat_transforms(albumentations, steps: list[AugmentationStep], built
     """
     depth, height, width = (
         (int(input_shape[0]), int(input_shape[1]), int(input_shape[2]))
-        if input_shape is not None and len(input_shape) == 3 else (4, 8, 8)
+        if input_shape is not None and len(input_shape) == 3
+        else (4, 8, 8)
     )
     probe = np.zeros((depth, height, width, 1), dtype=np.float32)
     inset_y, inset_x = max(height // 4, 1), max(width // 4, 1)
-    probe[:, inset_y:height - inset_y, inset_x:width - inset_x] = 1.0
+    probe[:, inset_y : height - inset_y, inset_x : width - inset_x] = 1.0
     probe_mask = np.zeros((depth, height, width), dtype=np.uint8)
-    probe_mask[:, inset_y:height - inset_y, inset_x:width - inset_x] = 1
+    probe_mask[:, inset_y : height - inset_y, inset_x : width - inset_x] = 1
 
     for step, transform in zip(steps, built, strict=True):
         try:
             with warnings.catch_warnings():
                 # The probe is not the user's run; its warnings are about the probe.
                 warnings.simplefilter("ignore")
-                albumentations.Compose([_always(transform, step)])(
-                    volume=probe, mask3d=probe_mask
-                )
+                albumentations.Compose([_always(transform, step)])(volume=probe, mask3d=probe_mask)
         except Exception as error:  # noqa: BLE001 - albumentations raises whatever it likes
             raise AugmentationError(
                 f"'{step.name}' cannot transform a volume: "
@@ -131,8 +141,9 @@ def _always(transform, step: AugmentationStep):
         return transform
 
 
-def build_augmenter(steps: list[AugmentationStep] | None, rank: int = 2,
-                    input_shape: tuple[int, ...] | None = None) -> Augmenter | None:
+def build_augmenter(
+    steps: list[AugmentationStep] | None, rank: int = 2, input_shape: tuple[int, ...] | None = None
+) -> Augmenter | None:
     """None when there is nothing to do, which keeps the caller free of special cases.
 
     `input_shape` only affects the 3D probe, which is honest at the size the transforms
@@ -187,9 +198,14 @@ class AlbumentationsBoxAugmenter:
     as wrong by 46 pixels - a fault in the probe, not the transform.
     """
 
-    def __init__(self, steps: list[AugmentationStep], *, input_shape: tuple[int, int],
-                 min_visibility: float = DEFAULT_MIN_VISIBILITY,
-                 seed: int | None = None):
+    def __init__(
+        self,
+        steps: list[AugmentationStep],
+        *,
+        input_shape: tuple[int, int],
+        min_visibility: float = DEFAULT_MIN_VISIBILITY,
+        seed: int | None = None,
+    ):
         try:
             import albumentations
         except ImportError:  # pragma: no cover
@@ -201,7 +217,7 @@ class AlbumentationsBoxAugmenter:
         self.min_visibility = float(min_visibility)
         self.steps = tuple(step.name for step in steps)
         self._params = albumentations.BboxParams(
-            format="pascal_voc",            # absolute [x_min, y_min, x_max, y_max]
+            format="pascal_voc",  # absolute [x_min, y_min, x_max, y_max]
             label_fields=["labels"],
             min_visibility=self.min_visibility,
         )
@@ -217,20 +233,22 @@ class AlbumentationsBoxAugmenter:
             # locally. None leaves it unseeded, which is what training wants - the engine
             # seeds torch, and a fixed augmentation sequence across epochs would mean
             # every epoch saw the same distortions.
-            self._pipeline = albumentations.Compose(built, bbox_params=self._params,
-                                                     seed=seed)
-        _refuse_transforms_without_boxes(albumentations, steps, built, self._params,
-                                         input_shape)
+            self._pipeline = albumentations.Compose(built, bbox_params=self._params, seed=seed)
+        _refuse_transforms_without_boxes(albumentations, steps, built, self._params, input_shape)
 
-    def __call__(self, image: np.ndarray, boxes: np.ndarray, labels: np.ndarray
-                 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def __call__(
+        self, image: np.ndarray, boxes: np.ndarray, labels: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         height, width = image.shape[0], image.shape[1]
         # Clipped first: albumentations validates that a box lies inside its frame, and a
         # letterboxed box can sit a hair outside after the scale - which would stop a run
         # with a validation error about a box that is wrong by 1e-9.
         inside = clip_boxes(boxes, (height, width)) if len(boxes) else boxes
-        out = self._pipeline(image=image, bboxes=[list(map(float, b)) for b in inside],
-                             labels=[int(v) for v in labels])
+        out = self._pipeline(
+            image=image,
+            bboxes=[list(map(float, b)) for b in inside],
+            labels=[int(v) for v in labels],
+        )
         kept = np.asarray(out["bboxes"], dtype=float).reshape(-1, 4)
         return out["image"], kept, np.asarray(out["labels"], dtype=int)
 
@@ -242,8 +260,7 @@ def _build_steps(albumentations, steps: list[AugmentationStep]) -> list:
         factory = getattr(albumentations, step.name, None)
         if factory is None:
             raise AugmentationError(
-                f"albumentations {albumentations.__version__} has no transform "
-                f"'{step.name}'"
+                f"albumentations {albumentations.__version__} has no transform '{step.name}'"
             )
         try:
             built.append(factory(**step.params))
@@ -257,9 +274,9 @@ def _build_steps(albumentations, steps: list[AugmentationStep]) -> list:
     return built
 
 
-def _refuse_transforms_without_boxes(albumentations, steps: list[AugmentationStep],
-                                     built: list, params,
-                                     input_shape: tuple[int, int]) -> None:
+def _refuse_transforms_without_boxes(
+    albumentations, steps: list[AugmentationStep], built: list, params, input_shape: tuple[int, int]
+) -> None:
     """Try each transform on an image the size the real one will be, and name the one that
     cannot handle boxes.
 
@@ -281,16 +298,14 @@ def _refuse_transforms_without_boxes(albumentations, steps: list[AugmentationSte
     height, width = int(input_shape[0]), int(input_shape[1])
     probe = np.zeros((height, width, 3), dtype=np.float32)
     inset_y, inset_x = max(height // 4, 1), max(width // 4, 1)
-    probe[inset_y:height - inset_y, inset_x:width - inset_x] = 1.0
-    box = [[float(inset_x), float(inset_y),
-            float(width - inset_x), float(height - inset_y)]]
+    probe[inset_y : height - inset_y, inset_x : width - inset_x] = 1.0
+    box = [[float(inset_x), float(inset_y), float(width - inset_x), float(height - inset_y)]]
 
     for step, transform in zip(steps, built, strict=True):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                albumentations.Compose([_always(transform, step)],
-                                       bbox_params=params)(
+                albumentations.Compose([_always(transform, step)], bbox_params=params)(
                     image=probe, bboxes=box, labels=[0]
                 )
         except Exception as error:  # noqa: BLE001 - albumentations raises whatever it likes
@@ -303,10 +318,13 @@ def _refuse_transforms_without_boxes(albumentations, steps: list[AugmentationSte
             ) from None
 
 
-def build_box_augmenter(steps: list[AugmentationStep] | None, *,
-                        input_shape: tuple[int, int],
-                        min_visibility: float = DEFAULT_MIN_VISIBILITY,
-                        seed: int | None = None) -> BoxAugmenter | None:
+def build_box_augmenter(
+    steps: list[AugmentationStep] | None,
+    *,
+    input_shape: tuple[int, int],
+    min_visibility: float = DEFAULT_MIN_VISIBILITY,
+    seed: int | None = None,
+) -> BoxAugmenter | None:
     """None when there is nothing to do, which keeps the caller free of special cases.
 
     `input_shape` is required rather than defaulted because the probe is only honest at the
@@ -319,5 +337,6 @@ def build_box_augmenter(steps: list[AugmentationStep] | None, *,
     """
     if not steps:
         return None
-    return AlbumentationsBoxAugmenter(steps, input_shape=input_shape,
-                                      min_visibility=min_visibility, seed=seed)
+    return AlbumentationsBoxAugmenter(
+        steps, input_shape=input_shape, min_visibility=min_visibility, seed=seed
+    )

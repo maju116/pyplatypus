@@ -151,8 +151,7 @@ def _from_hub(reference: str) -> Path:
         local = hf_hub_download(repo_id=repo_id, filename=path, revision=revision)
     except Exception as error:  # noqa: BLE001 - huggingface_hub raises a family of its own
         raise WeightsError(
-            f"could not fetch {path} from {repo_id} at {revision}: "
-            f"{type(error).__name__}: {error}"
+            f"could not fetch {path} from {repo_id} at {revision}: {type(error).__name__}: {error}"
         ) from None
 
     sidecar = _fetch_sidecar(repo_id, path, revision)
@@ -172,8 +171,9 @@ def _fetch_sidecar(repo_id: str, path: str, revision: str) -> dict | None:
 
     stem = path.rsplit(".", 1)[0]
     try:
-        local = hf_hub_download(repo_id=repo_id, filename=f"{stem}{SIDECAR_SUFFIX}",
-                                revision=revision)
+        local = hf_hub_download(
+            repo_id=repo_id, filename=f"{stem}{SIDECAR_SUFFIX}", revision=revision
+        )
     except EntryNotFoundError:
         return None
     except Exception:  # noqa: BLE001 - a missing description must not fail a download
@@ -243,8 +243,7 @@ def load_into(model, reference: str, spec, *, extra: dict | None = None) -> dict
     return sidecar
 
 
-def _refuse_mismatch(sidecar: dict, spec, reference: str, *,
-                     extra: dict | None = None) -> None:
+def _refuse_mismatch(sidecar: dict, spec, reference: str, *, extra: dict | None = None) -> None:
     """Compare what the weights are for with what the model is, and say which field differs.
 
     Before loading rather than after: `load_state_dict` catches a different number of
@@ -262,8 +261,9 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str, *,
             # package has ever printed, and a released vignette shows it that way.
             theirs = list(theirs)
             if theirs != mine:
-                problems.append(f"{field}: weights say {tuple(theirs)}, the model says "
-                                f"{tuple(mine)}")
+                problems.append(
+                    f"{field}: weights say {tuple(theirs)}, the model says {tuple(mine)}"
+                )
             continue
         if theirs != mine:
             problems.append(f"{field}: weights say {theirs}, the model says {mine}")
@@ -298,8 +298,7 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
     target.parent.mkdir(parents=True, exist_ok=True)
 
     # contiguous() because safetensors refuses a view, and a state dict can hold them.
-    state = {name: value.detach().cpu().contiguous()
-             for name, value in model.state_dict().items()}
+    state = {name: value.detach().cpu().contiguous() for name, value in model.state_dict().items()}
     save_file(state, str(target))
 
     sidecar = {

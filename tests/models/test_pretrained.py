@@ -20,8 +20,7 @@ timm = pytest.importorskip("timm", reason="the `encoders` extra is not installed
 
 
 def spec(**overrides):
-    base = {"name": "m", "input_shape": (64, 64), "channels": 3, 
-            "blocks": 4, "filters": 16}
+    base = {"name": "m", "input_shape": (64, 64), "channels": 3, "blocks": 4, "filters": 16}
     return SegmentationModel(**{**base, **overrides})
 
 
@@ -31,6 +30,7 @@ def encoder(**overrides):
 
 
 # --- the contract ------------------------------------------------------------------------
+
 
 def test_a_backbone_satisfies_the_encoder_contract():
     """The check that catches a half-resolution encoder has to pass for the real thing."""
@@ -85,6 +85,7 @@ def test_blocks_selects_how_many_backbone_stages_to_use(blocks):
 
 # --- the refusals -----------------------------------------------------------------------
 
+
 def test_a_volume_is_refused_by_the_spec_before_anything_is_built():
     """Caught while the configuration is read, so a 3D run fails before a download."""
     with pytest.raises(ValueError, match="ImageNet is images"):
@@ -111,7 +112,7 @@ def test_a_patch_based_backbone_is_refused_by_name_and_reason():
     message = str(raised.value)
     assert "convnext_tiny" in message
     assert "1/2" in message
-    assert "resnet" in message          # and it says what to use instead
+    assert "resnet" in message  # and it says what to use instead
 
 
 def test_asking_for_more_blocks_than_the_backbone_has_is_refused():
@@ -127,6 +128,7 @@ def test_an_unknown_backbone_name_is_refused_with_somewhere_to_look():
 
 # --- channels ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("channels", [1, 2, 3, 4])
 def test_channel_counts_other_than_three(channels):
     """Grayscale CT has one, BraTS has four; ImageNet has three and timm adapts the stem."""
@@ -135,6 +137,7 @@ def test_channel_counts_other_than_three(channels):
 
 
 # --- normalisation ----------------------------------------------------------------------
+
 
 def test_input_statistics_are_applied_only_with_the_weights_that_expect_them():
     """ImageNet statistics on a from-scratch run are meaningless numbers."""

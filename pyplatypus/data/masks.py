@@ -34,8 +34,9 @@ def unite_masks(masks: list[np.ndarray]) -> np.ndarray:
     return np.maximum.reduce(masks)
 
 
-def colours_to_classes(mask: np.ndarray, colormap: list[tuple[int, int, int]],
-                       *, tolerance: int = 0) -> tuple[np.ndarray, float]:
+def colours_to_classes(
+    mask: np.ndarray, colormap: list[tuple[int, int, int]], *, tolerance: int = 0
+) -> tuple[np.ndarray, float]:
     """Map an RGB mask to class indices, dropping the channel axis.
 
     Anything matching no colour becomes class 0. `unmatched_fraction` exists so a caller
@@ -45,9 +46,7 @@ def colours_to_classes(mask: np.ndarray, colormap: list[tuple[int, int, int]],
     if mask.ndim < 2:
         raise MaskError(f"a mask needs at least 2 dimensions, got shape {mask.shape}")
     if mask.shape[-1] < 3:
-        raise MaskError(
-            f"expected an RGB mask with 3 channels last, got shape {mask.shape}"
-        )
+        raise MaskError(f"expected an RGB mask with 3 channels last, got shape {mask.shape}")
     rgb = mask[..., :3].astype(np.int16)
 
     classes = np.zeros(rgb.shape[:-1], dtype=np.int64)
@@ -64,8 +63,9 @@ def colours_to_classes(mask: np.ndarray, colormap: list[tuple[int, int, int]],
     return classes, float(1.0 - matched.mean())
 
 
-def labels_to_classes(mask: np.ndarray, labels: list[int], *, tolerance: float = 0.5
-                      ) -> tuple[np.ndarray, float]:
+def labels_to_classes(
+    mask: np.ndarray, labels: list[int], *, tolerance: float = 0.5
+) -> tuple[np.ndarray, float]:
     """Map a label map to class indices, dropping the channel axis.
 
     The other half of `colours_to_classes`, for masks that hold numbers rather than
@@ -95,8 +95,7 @@ def labels_to_classes(mask: np.ndarray, labels: list[int], *, tolerance: float =
     return classes, float(1.0 - matched.mean())
 
 
-def signed_distance(onehot: np.ndarray, spacing: tuple[float, ...] | None = None
-                    ) -> np.ndarray:
+def signed_distance(onehot: np.ndarray, spacing: tuple[float, ...] | None = None) -> np.ndarray:
     """Distance to the nearest boundary, negative inside each class and positive outside.
 
     One map per class, same shape as the mask it came from, for a loss that needs to know
@@ -119,18 +118,15 @@ def signed_distance(onehot: np.ndarray, spacing: tuple[float, ...] | None = None
 
     array = np.asarray(onehot)
     if array.ndim < 2:
-        raise MaskError(
-            f"expected a one-hot mask with a class axis last; got shape {array.shape}"
-        )
+        raise MaskError(f"expected a one-hot mask with a class axis last; got shape {array.shape}")
     out = np.zeros(array.shape, dtype=np.float32)
     for index in range(array.shape[-1]):
         inside = array[..., index] > 0.5
         if not inside.any() or inside.all():
             continue
-        out[..., index] = (
-            distance_transform_edt(~inside, sampling=spacing)
-            - distance_transform_edt(inside, sampling=spacing)
-        )
+        out[..., index] = distance_transform_edt(
+            ~inside, sampling=spacing
+        ) - distance_transform_edt(inside, sampling=spacing)
     return out
 
 
@@ -138,14 +134,11 @@ def classes_to_onehot(classes: np.ndarray, n_class: int) -> np.ndarray:
     """Class indices to a channels-last one-hot array."""
     highest = int(classes.max(initial=0))
     if highest >= n_class:
-        raise MaskError(
-            f"found class index {highest} but only {n_class} classes are defined"
-        )
+        raise MaskError(f"found class index {highest} but only {n_class} classes are defined")
     return np.eye(n_class, dtype=np.float32)[classes]
 
 
-def onehot_to_colours(onehot: np.ndarray, colormap: list[tuple[int, int, int]]
-                      ) -> np.ndarray:
+def onehot_to_colours(onehot: np.ndarray, colormap: list[tuple[int, int, int]]) -> np.ndarray:
     """A predicted one-hot (or probability) array back to an RGB picture."""
     if onehot.shape[-1] != len(colormap):
         raise MaskError(

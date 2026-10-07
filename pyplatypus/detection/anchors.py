@@ -74,9 +74,9 @@ class AnchorFit:
         return list(self.per_anchor)
 
 
-def _shapes_and_labels(annotations: Sequence[Any], input_shape: tuple[int, int],
-                       letterbox: bool, want_labels: bool
-                       ) -> tuple[np.ndarray, np.ndarray]:
+def _shapes_and_labels(
+    annotations: Sequence[Any], input_shape: tuple[int, int], letterbox: bool, want_labels: bool
+) -> tuple[np.ndarray, np.ndarray]:
     """One implementation, because two would drift.
 
     `box_shapes` and `shape_table` are two views of this. A second copy of the letterbox
@@ -100,31 +100,36 @@ def _shapes_and_labels(annotations: Sequence[Any], input_shape: tuple[int, int],
             width, height = input_shape[1], input_shape[0]
         else:
             width, height = annotation.width, annotation.height
-        shapes.append(np.stack([(boxes[:, 2] - boxes[:, 0]) / width,
-                                (boxes[:, 3] - boxes[:, 1]) / height], axis=1))
+        shapes.append(
+            np.stack(
+                [(boxes[:, 2] - boxes[:, 0]) / width, (boxes[:, 3] - boxes[:, 1]) / height], axis=1
+            )
+        )
         if want_labels:
             labels.append(np.asarray(annotation.labels, dtype=int).reshape(-1))
     if not shapes:
         return np.zeros((0, 2), dtype=float), np.zeros(0, dtype=int)
-    return (np.concatenate(shapes),
-            np.concatenate(labels) if labels else np.zeros(0, dtype=int))
+    return (np.concatenate(shapes), np.concatenate(labels) if labels else np.zeros(0, dtype=int))
 
 
-def box_shapes(annotations: Sequence[Any], *,
-               input_shape: tuple[int, int] = (416, 416),
-               letterbox: bool = True) -> np.ndarray:
+def box_shapes(
+    annotations: Sequence[Any], *, input_shape: tuple[int, int] = (416, 416), letterbox: bool = True
+) -> np.ndarray:
     """Every annotated box as a (width, height) fraction of the network's input.
 
     `letterbox=False` reproduces the old behaviour - dividing by the source image - and is
     here only so the difference can be measured rather than argued about.
     """
-    return _shapes_and_labels(annotations, input_shape, letterbox,
-                              want_labels=False)[0]
+    return _shapes_and_labels(annotations, input_shape, letterbox, want_labels=False)[0]
 
 
-def shape_table(annotations: Sequence[Any], *, labels: Sequence[str] | None = None,
-                input_shape: tuple[int, int] = (416, 416),
-                letterbox: bool = True) -> dict[str, list]:
+def shape_table(
+    annotations: Sequence[Any],
+    *,
+    labels: Sequence[str] | None = None,
+    input_shape: tuple[int, int] = (416, 416),
+    letterbox: bool = True,
+) -> dict[str, list]:
     """The same shapes, with the class each box belongs to. One row per box.
 
     What `box_shapes` drops, and what makes the picture worth looking at: a cloud of
@@ -141,10 +146,8 @@ def shape_table(annotations: Sequence[Any], *, labels: Sequence[str] | None = No
 
     Plain lists rather than arrays: this crosses into R as a data frame.
     """
-    shapes, indices = _shapes_and_labels(annotations, input_shape, letterbox,
-                                         want_labels=True)
-    named = [labels[i] if labels is not None and 0 <= i < len(labels) else str(i)
-             for i in indices]
+    shapes, indices = _shapes_and_labels(annotations, input_shape, letterbox, want_labels=True)
+    named = [labels[i] if labels is not None and 0 <= i < len(labels) else str(i) for i in indices]
     return {
         "width": shapes[:, 0].tolist(),
         "height": shapes[:, 1].tolist(),
@@ -153,9 +156,14 @@ def shape_table(annotations: Sequence[Any], *, labels: Sequence[str] | None = No
     }
 
 
-def fit_shapes(shapes, count: int, *, iterations: int = 100, seed: int = 0,
-               centroid: Callable[[np.ndarray], np.ndarray] | None = None
-               ) -> tuple[np.ndarray, float, int, bool]:
+def fit_shapes(
+    shapes,
+    count: int,
+    *,
+    iterations: int = 100,
+    seed: int = 0,
+    centroid: Callable[[np.ndarray], np.ndarray] | None = None,
+) -> tuple[np.ndarray, float, int, bool]:
     """k-means over box shapes with IoU distance. Returns centres, mean IoU, steps, converged.
 
     k-means++ for the initial centres, which matters here: a plain random start on a
@@ -207,11 +215,18 @@ def fit_shapes(shapes, count: int, *, iterations: int = 100, seed: int = 0,
     return centres, float(best.mean()), step, converged
 
 
-def generate_anchors(annotations: Sequence[Any], *, anchors_per_grid: int = 3,
-                     scales: int = 3, input_shape: tuple[int, int] = (416, 416),
-                     iterations: int = 100, seed: int = 0,
-                     centroid: Callable[[np.ndarray], np.ndarray] | None = None,
-                     letterbox: bool = True, minimum_side: float = 1.0) -> AnchorFit:
+def generate_anchors(
+    annotations: Sequence[Any],
+    *,
+    anchors_per_grid: int = 3,
+    scales: int = 3,
+    input_shape: tuple[int, int] = (416, 416),
+    iterations: int = 100,
+    seed: int = 0,
+    centroid: Callable[[np.ndarray], np.ndarray] | None = None,
+    letterbox: bool = True,
+    minimum_side: float = 1.0,
+) -> AnchorFit:
     """Anchors for a set of annotations, grouped coarsest grid first.
 
     `anchors_per_grid * scales` anchors are fitted at once and then split by area, which is
@@ -240,20 +255,24 @@ def generate_anchors(annotations: Sequence[Any], *, anchors_per_grid: int = 3,
     per_anchor = []
     for index in range(total):
         mine = overlaps[chosen == index, index]
-        per_anchor.append({
-            "grid": index // anchors_per_grid,
-            "slot": index % anchors_per_grid,
-            "width": float(ordered[index, 0]),
-            "height": float(ordered[index, 1]),
-            "width_pixels": float(ordered[index, 0] * width),
-            "height_pixels": float(ordered[index, 1] * height),
-            "boxes": int((chosen == index).sum()),
-            "mean_iou": float(mine.mean()) if mine.size else None,
-        })
+        per_anchor.append(
+            {
+                "grid": index // anchors_per_grid,
+                "slot": index % anchors_per_grid,
+                "width": float(ordered[index, 0]),
+                "height": float(ordered[index, 1]),
+                "width_pixels": float(ordered[index, 0] * width),
+                "height_pixels": float(ordered[index, 1] * height),
+                "boxes": int((chosen == index).sum()),
+                "mean_iou": float(mine.mean()) if mine.size else None,
+            }
+        )
 
     grouped = tuple(
-        tuple((float(w), float(h)) for w, h in ordered[g * anchors_per_grid:
-                                                       (g + 1) * anchors_per_grid])
+        tuple(
+            (float(w), float(h))
+            for w, h in ordered[g * anchors_per_grid : (g + 1) * anchors_per_grid]
+        )
         for g in range(scales)
     )
     return AnchorFit(
@@ -275,8 +294,11 @@ def anchor_coverage(shapes, anchors) -> dict[str, Any]:
     in one number instead of a training run.
     """
     data = np.asarray(shapes, dtype=float).reshape(-1, 2)
-    flat = np.asarray([pair for group in anchors for pair in group], dtype=float) \
-        if np.ndim(anchors) == 3 else np.asarray(anchors, dtype=float).reshape(-1, 2)
+    flat = (
+        np.asarray([pair for group in anchors for pair in group], dtype=float)
+        if np.ndim(anchors) == 3
+        else np.asarray(anchors, dtype=float).reshape(-1, 2)
+    )
     if data.size == 0:
         raise DetectionError("there are no boxes to measure coverage over")
     overlaps = _shape_iou(data, flat)
@@ -308,13 +330,14 @@ def _plus_plus(data: np.ndarray, count: int, rng) -> np.ndarray:
     centres[0] = data[rng.integers(0, len(data))]
     for index in range(1, count):
         distance = 1.0 - _shape_iou(data, centres[:index]).max(axis=1)
-        weights = distance ** 2
+        weights = distance**2
         total = weights.sum()
         if total <= 0:
             # Every remaining box already sits on a centre, so there is nothing further
             # away to pick; take any distinct shape rather than loop.
-            remaining = [row for row in data
-                         if not any(np.allclose(row, c) for c in centres[:index])]
+            remaining = [
+                row for row in data if not any(np.allclose(row, c) for c in centres[:index])
+            ]
             centres[index] = remaining[0] if remaining else data[0]
             continue
         centres[index] = data[rng.choice(len(data), p=weights / total)]

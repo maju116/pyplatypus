@@ -62,7 +62,7 @@ class SplitSpec(SpecModel):
     def fractions_are_two_or_three(self):
         from pyplatypus.data.splits import _fractions
 
-        _fractions(self.fractions)      # raises with the message that module already gives
+        _fractions(self.fractions)  # raises with the message that module already gives
         return self
 
 
@@ -145,8 +145,11 @@ class DataSpec(SpecModel):
         sources for one thing are two places to change it and one gets forgotten.
         """
         if not self.validation:
-            named = [n for n, v in (("validation_path", self.validation_path),
-                                    ("split", self.split)) if v is not None]
+            named = [
+                n
+                for n, v in (("validation_path", self.validation_path), ("split", self.split))
+                if v is not None
+            ]
             if named:
                 joined = " and ".join("`" + n + "`" for n in named)
                 raise ValueError(
@@ -240,6 +243,7 @@ class SegmentationData(DataSpec):
             "network has no way to know. Volumes only; ignored for 2D."
         ),
     )
+
     @field_validator("colormap")
     @classmethod
     def channels_in_range(cls, value: list[tuple[int, int, int]] | None):
@@ -280,8 +284,7 @@ class SegmentationData(DataSpec):
             return value
         if len(set(value)) != len(value):
             raise ValueError(
-                "label values must be distinct - two classes sharing a value cannot be "
-                "told apart"
+                "label values must be distinct - two classes sharing a value cannot be told apart"
             )
         return value
 

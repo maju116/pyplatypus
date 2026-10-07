@@ -17,8 +17,19 @@ from pyplatypus.training.trainer import (
 )
 
 __all__ = [
-    "Callback", "DetectionTrainer", "History", "TorchDetectionDataset",
-    "TorchSegmentationDataset", "Trainer", "TrainingState", "build_callbacks",
-    "build_optimizer", "format_logs", "make_detection_loader", "make_loader",
-    "pick_device", "seed_everything", "to_channels_first",
+    "Callback",
+    "DetectionTrainer",
+    "History",
+    "TorchDetectionDataset",
+    "TorchSegmentationDataset",
+    "Trainer",
+    "TrainingState",
+    "build_callbacks",
+    "build_optimizer",
+    "format_logs",
+    "make_detection_loader",
+    "make_loader",
+    "pick_device",
+    "seed_everything",
+    "to_channels_first",
 ]

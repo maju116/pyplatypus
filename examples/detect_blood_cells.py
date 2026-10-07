@@ -88,11 +88,13 @@ def write_splits(root: Path, out_dir: Path) -> dict[str, Path]:
             # because what labels an image is an annotation file and not a picture.
             writer.writerow(["key", "images", "annotations"])
             for name in split_names(root, listed):
-                writer.writerow([
-                    name,
-                    str((root / "JPEGImages" / f"{name}.jpg").resolve()),
-                    str((root / "Annotations" / f"{name}.xml").resolve()),
-                ])
+                writer.writerow(
+                    [
+                        name,
+                        str((root / "JPEGImages" / f"{name}.jpg").resolve()),
+                        str((root / "Annotations" / f"{name}.xml").resolve()),
+                    ]
+                )
         written[split] = path
     return written
 
@@ -116,28 +118,30 @@ def configuration(splits: dict[str, Path], arguments) -> dict:
             "classes": LABELS,
             "annotation_format": "pascal_voc",
         },
-        "models": [{
-            "name": "bccd",
-            "architecture": "yolo3",
-            "input_shape": [arguments.size, arguments.size],
-            "anchors_per_grid": arguments.anchors_per_grid,
-            "box_loss": arguments.box_loss,
-            "epochs": arguments.epochs,
-            "batch_size": arguments.batch,
-            "score_threshold": arguments.objectness,
-            "operating_point": arguments.operating_point,
-            "nms_threshold": arguments.nms_iou,
-            "optimizer": {"name": "adam", "learning_rate": arguments.rate},
-            # Horizontal flip only. A smear has no up or down, and a left-right flip is
-            # free: the boxes follow it exactly, with no interpolation and no rounding.
-            # 205 training images is few enough that seeing each one both ways round
-            # matters - measured, see the note at the top of `report`.
-            "augmentation": [{"name": "HorizontalFlip", "params": {"p": 0.5}}],
-            # And the rate decays to nothing over the run. Worth about +0.006 of
-            # mAP@[.50:.95] here, from one run with and one without - which is the
-            # honest size of it and not a clean measurement; see DETECTION_RECON.md §12.
-            "callbacks": [{"name": "cosine_annealing"}],
-        }],
+        "models": [
+            {
+                "name": "bccd",
+                "architecture": "yolo3",
+                "input_shape": [arguments.size, arguments.size],
+                "anchors_per_grid": arguments.anchors_per_grid,
+                "box_loss": arguments.box_loss,
+                "epochs": arguments.epochs,
+                "batch_size": arguments.batch,
+                "score_threshold": arguments.objectness,
+                "operating_point": arguments.operating_point,
+                "nms_threshold": arguments.nms_iou,
+                "optimizer": {"name": "adam", "learning_rate": arguments.rate},
+                # Horizontal flip only. A smear has no up or down, and a left-right flip is
+                # free: the boxes follow it exactly, with no interpolation and no rounding.
+                # 205 training images is few enough that seeing each one both ways round
+                # matters - measured, see the note at the top of `report`.
+                "augmentation": [{"name": "HorizontalFlip", "params": {"p": 0.5}}],
+                # And the rate decays to nothing over the run. Worth about +0.006 of
+                # mAP@[.50:.95] here, from one run with and one without - which is the
+                # honest size of it and not a clean measurement; see DETECTION_RECON.md §12.
+                "callbacks": [{"name": "cosine_annealing"}],
+            }
+        ],
     }
 
 
@@ -159,13 +163,16 @@ def report(engine, split: str) -> dict:
     # the boxes that matched actually fit, rather than merely that they cleared 0.5.
     if model["mean_matched_iou"] is not None:
         print(f"  mean IoU of matched boxes {model['mean_matched_iou']:.4f}")
-    print(f"  {'class':12} {'AP@0.5':>8} {'IoU':>6} {'truth':>6} {'pred':>7} "
-          f"{'prec':>7} {'rec':>7}")
+    print(
+        f"  {'class':12} {'AP@0.5':>8} {'IoU':>6} {'truth':>6} {'pred':>7} {'prec':>7} {'rec':>7}"
+    )
     for row in per_class:
-        print(f"  {row['class']:12} {_f(row['average_precision'], 4):>8} "
-              f"{_f(row['mean_matched_iou'], 3):>6} {row['n_truth']:>6} "
-              f"{row['n_predicted']:>7} {_f(row['precision'], 3):>7} "
-              f"{_f(row['recall'], 3):>7}")
+        print(
+            f"  {row['class']:12} {_f(row['average_precision'], 4):>8} "
+            f"{_f(row['mean_matched_iou'], 3):>6} {row['n_truth']:>6} "
+            f"{row['n_predicted']:>7} {_f(row['precision'], 3):>7} "
+            f"{_f(row['recall'], 3):>7}"
+        )
     print()
 
     # Which frames, not just how well on average. A mean over a split says 0.86; it does
@@ -178,9 +185,11 @@ def report(engine, split: str) -> dict:
     print(f"  worst {min(5, len(worst))} images by boxes missed")
     print(f"  {'image':28} {'truth':>6} {'found':>6} {'missed':>7} {'extra':>6} {'IoU':>6}")
     for row in worst[:5]:
-        print(f"  {str(row['key'])[:28]:28} {row['n_truth']:>6} {row['matched']:>6} "
-              f"{row['missed']:>7} {row['spurious']:>6} "
-              f"{_f(row['mean_matched_iou'], 3):>6}")
+        print(
+            f"  {str(row['key'])[:28]:28} {row['n_truth']:>6} {row['matched']:>6} "
+            f"{row['missed']:>7} {row['spurious']:>6} "
+            f"{_f(row['mean_matched_iou'], 3):>6}"
+        )
     clean = sum(1 for row in images if not row["missed"] and not row["spurious"])
     print(f"  {clean} of {len(images)} images exactly right\n")
 
@@ -192,39 +201,61 @@ def _f(value, places: int) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--data", required=True, help="the BCCD directory")
     parser.add_argument("--size", type=int, default=416, help="divisible by 32")
     parser.add_argument("--epochs", type=int, default=150)
-    parser.add_argument("--batch", type=int, default=8,
-                        help="the micro-batch that has to fit in memory")
-    parser.add_argument("--accumulate", type=int, default=1,
-                        help="micro-batches per optimiser step, so the effective batch is "
-                             "--batch times this. A 608 input at batch 8 needs 7.4 GB of "
-                             "activations, which does not fit an 8 GB card; 4 with 2 "
-                             "accumulated does, at the same effective batch. **Not the "
-                             "same run**: batch norm still sees the micro-batch, so its "
-                             "statistics are noisier than a true batch of 8.")
+    parser.add_argument(
+        "--batch", type=int, default=8, help="the micro-batch that has to fit in memory"
+    )
+    parser.add_argument(
+        "--accumulate",
+        type=int,
+        default=1,
+        help="micro-batches per optimiser step, so the effective batch is "
+        "--batch times this. A 608 input at batch 8 needs 7.4 GB of "
+        "activations, which does not fit an 8 GB card; 4 with 2 "
+        "accumulated does, at the same effective batch. **Not the "
+        "same run**: batch norm still sees the micro-batch, so its "
+        "statistics are noisier than a true batch of 8.",
+    )
     parser.add_argument("--rate", type=float, default=1e-4)
     parser.add_argument("--anchors-per-grid", type=int, default=3)
-    parser.add_argument("--box-loss", choices=("offsets", "giou"), default="offsets",
-                        help="how the box coordinates are scored. 'offsets' is YOLOv3's "
-                             "own and is what the published weights were trained with; "
-                             "'giou' scores the decoded box directly and can reach zero")
-    parser.add_argument("--objectness", type=float, default=0.01,
-                        help="kept low: average precision integrates the whole ranking")
-    parser.add_argument("--operating-point", type=float, default=0.5,
-                        help="the confidence at which precision and recall are reported")
+    parser.add_argument(
+        "--box-loss",
+        choices=("offsets", "giou"),
+        default="offsets",
+        help="how the box coordinates are scored. 'offsets' is YOLOv3's "
+        "own and is what the published weights were trained with; "
+        "'giou' scores the decoded box directly and can reach zero",
+    )
+    parser.add_argument(
+        "--objectness",
+        type=float,
+        default=0.01,
+        help="kept low: average precision integrates the whole ranking",
+    )
+    parser.add_argument(
+        "--operating-point",
+        type=float,
+        default=0.5,
+        help="the confidence at which precision and recall are reported",
+    )
     parser.add_argument("--nms-iou", type=float, default=0.45)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--out", default="measurements")
-    parser.add_argument("--save", default=None, metavar="PATH.safetensors",
-                        help="where to write the trained weights, as safetensors with a "
-                             "sidecar carrying the anchors - which the weights are "
-                             "meaningless without. Any other suffix is replaced. Without "
-                             "this the run cannot be asked anything afterwards")
+    parser.add_argument(
+        "--save",
+        default=None,
+        metavar="PATH.safetensors",
+        help="where to write the trained weights, as safetensors with a "
+        "sidecar carrying the anchors - which the weights are "
+        "meaningless without. Any other suffix is replaced. Without "
+        "this the run cannot be asked anything afterwards",
+    )
     arguments = parser.parse_args()
 
     root = Path(arguments.data)
@@ -239,14 +270,18 @@ def main() -> None:
     (out / "detection-bccd.yaml").write_text(yaml.safe_dump(config, sort_keys=False))
 
     spec = pp.from_dict(config)
-    engine = pp.build_engine(spec, num_workers=arguments.workers,
-                             accumulate=arguments.accumulate)
+    engine = pp.build_engine(spec, num_workers=arguments.workers, accumulate=arguments.accumulate)
     counts = engine.split_sizes()
     print("BCCD: " + ", ".join(f"{n} {name}" for name, n in counts.items()))
     effective = arguments.batch * arguments.accumulate
-    print(f"input {arguments.size}, micro-batch {arguments.batch}"
-          + (f" x {arguments.accumulate} accumulated = {effective}"
-             if arguments.accumulate > 1 else ""))
+    print(
+        f"input {arguments.size}, micro-batch {arguments.batch}"
+        + (
+            f" x {arguments.accumulate} accumulated = {effective}"
+            if arguments.accumulate > 1
+            else ""
+        )
+    )
 
     started = time.time()
     history = engine.fit(verbose=True)
@@ -255,28 +290,36 @@ def main() -> None:
     run = engine.runs["bccd"]
     print(f"model: {run.parameters:,} parameters")
     for row in run.anchor_fit.as_rows():
-        print(f"  grid {row['grid']} slot {row['slot']}: "
-              f"{row['width_pixels']:6.1f} x {row['height_pixels']:6.1f} px, "
-              f"{row['boxes']:4} boxes, IoU {row['mean_iou']:.3f}")
+        print(
+            f"  grid {row['grid']} slot {row['slot']}: "
+            f"{row['width_pixels']:6.1f} x {row['height_pixels']:6.1f} px, "
+            f"{row['boxes']:4} boxes, IoU {row['mean_iou']:.3f}"
+        )
     # Asked of validation on purpose. Anchors fitted to the training boxes cover those
     # boxes well by construction; whether they cover a split they were not fitted on is
     # the question, and a large gap says the two splits hold different objects.
-    print(f"  anchor coverage on validation: "
-          f"{engine.anchor_coverage('bccd', 'validation')}\n")
+    print(f"  anchor coverage on validation: {engine.anchor_coverage('bccd', 'validation')}\n")
 
     if arguments.save:
         print(f"weights written to {engine.export_weights('bccd', arguments.save)}\n")
 
     results = {split: report(engine, split) for split in ("validation", "test")}
-    (out / "bccd-yolo3.json").write_text(json.dumps({
-        "configuration": config,
-        "anchors": [[list(pair) for pair in group] for group in run.anchors],
-        "anchor_mean_iou": run.anchor_fit.mean_iou if run.anchor_fit else None,
-        "targets": run.survey.to_dict() if run.survey else None,
-        "history": history["bccd"].records,
-        "validation": results["validation"],
-        "test": results["test"],
-    }, indent=2, default=float) + "\n")
+    (out / "bccd-yolo3.json").write_text(
+        json.dumps(
+            {
+                "configuration": config,
+                "anchors": [[list(pair) for pair in group] for group in run.anchors],
+                "anchor_mean_iou": run.anchor_fit.mean_iou if run.anchor_fit else None,
+                "targets": run.survey.to_dict() if run.survey else None,
+                "history": history["bccd"].records,
+                "validation": results["validation"],
+                "test": results["test"],
+            },
+            indent=2,
+            default=float,
+        )
+        + "\n"
+    )
     print(f"wrote {out / 'bccd-yolo3.json'}")
 
 

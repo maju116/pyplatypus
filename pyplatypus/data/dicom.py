@@ -86,8 +86,7 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
         from pydicom.pixels import apply_modality_lut
     except ImportError:  # pragma: no cover
         raise DicomError(
-            "reading DICOM needs pydicom, which should have been installed with this "
-            "package."
+            "reading DICOM needs pydicom, which should have been installed with this package."
         ) from None
 
     try:
@@ -131,6 +130,4 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
         return values.mean(axis=-1, keepdims=True)
     if channels == 3 and present == 1:
         return np.repeat(values, 3, axis=-1)
-    raise DicomError(
-        f"'{path}' has {present} channel(s) and {channels} were asked for."
-    )
+    raise DicomError(f"'{path}' has {present} channel(s) and {channels} were asked for.")

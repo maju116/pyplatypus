@@ -86,8 +86,7 @@ def format_logs(logs: dict[str, float]) -> str:
     for key, value in logs.items():
         if key == "seconds":
             continue
-        parts.append(f"{key}={value:.3g}" if key == "learning_rate"
-                     else f"{key}={value:.4f}")
+        parts.append(f"{key}={value:.3g}" if key == "learning_rate" else f"{key}={value:.4f}")
     return " ".join(parts)
 
 
@@ -98,8 +97,14 @@ def pick_device(requested: str | None = None) -> torch.device:
 
 
 class Trainer:
-    def __init__(self, model: nn.Module, spec: SegmentationModel, *,
-                 device: str | None = None, callbacks: list[Callback] | None = None):
+    def __init__(
+        self,
+        model: nn.Module,
+        spec: SegmentationModel,
+        *,
+        device: str | None = None,
+        callbacks: list[Callback] | None = None,
+    ):
         self.spec = spec
         self.device = pick_device(device)
         self.model = model.to(self.device)
@@ -117,23 +122,25 @@ class Trainer:
         self._frozen: bool | None = None
         self._wants_distance = getattr(self.loss_fn, "needs_distance", False)
 
-    def _loss_and_final(self, batch_x: torch.Tensor, batch_y: torch.Tensor,
-                        distance: torch.Tensor | None = None):
+    def _loss_and_final(
+        self, batch_x: torch.Tensor, batch_y: torch.Tensor, distance: torch.Tensor | None = None
+    ):
         out = self.model(batch_x)
         # The flag, not the value: a loss that does not want a distance map must not be
         # handed one, and eight of the nine take two arguments. Read with a default
         # because `loss_fn` need only be callable - the NaN test substitutes a bare
         # function - and something that does not say it wants a distance map does not.
-        call = ((lambda o: self.loss_fn(o, batch_y, distance))
-                if self._wants_distance
-                else (lambda o: self.loss_fn(o, batch_y)))
+        call = (
+            (lambda o: self.loss_fn(o, batch_y, distance))
+            if self._wants_distance
+            else (lambda o: self.loss_fn(o, batch_y))
+        )
         if isinstance(out, tuple):
             # Deep supervision: every depth is trained, the deepest is reported.
             return torch.stack([call(o) for o in out]).mean(), out[-1]
         return call(out), out
 
-    def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str
-                   ) -> dict[str, float]:
+    def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str) -> dict[str, float]:
         self.model.train(train)
         # After model.train(), never before: that call reaches every submodule, so a
         # transferred encoder put in eval() earlier would be switched straight back and
@@ -150,8 +157,7 @@ class Trainer:
                 # loader produces only when the loss asked for it. Unpacked by length
                 # rather than by a flag, so a loader and a trainer cannot disagree.
                 batch_x, batch_y = batch[0], batch[1]
-                distance = batch[2].to(self.device, non_blocking=True) \
-                    if len(batch) > 2 else None
+                distance = batch[2].to(self.device, non_blocking=True) if len(batch) > 2 else None
                 batch_x = batch_x.to(self.device, non_blocking=True)
                 batch_y = batch_y.to(self.device, non_blocking=True)
                 if train:
@@ -187,12 +193,21 @@ class Trainer:
             parameter.requires_grad_(not frozen)
         self._frozen = frozen
 
-    def fit(self, train_loader: DataLoader, validation_loader: DataLoader | None = None,
-            *, epochs: int | None = None, verbose: bool = False) -> History:
+    def fit(
+        self,
+        train_loader: DataLoader,
+        validation_loader: DataLoader | None = None,
+        *,
+        epochs: int | None = None,
+        verbose: bool = False,
+    ) -> History:
         epochs = epochs if epochs is not None else self.spec.epochs
-        state = TrainingState(model=self.model, optimizer=self.optimizer,
-                              train_loader=train_loader,
-                              total_epochs=epochs)
+        state = TrainingState(
+            model=self.model,
+            optimizer=self.optimizer,
+            train_loader=train_loader,
+            total_epochs=epochs,
+        )
         history = History()
 
         for callback in self.callbacks:
@@ -213,8 +228,7 @@ class Trainer:
             history.records.append(record)
             state.history = history.records
             if verbose:
-                print(f"epoch {epoch:>3}  {format_logs(logs)}  "
-                      f"({logs['seconds']:.1f}s)")
+                print(f"epoch {epoch:>3}  {format_logs(logs)}  ({logs['seconds']:.1f}s)")
 
             if any(callback.on_epoch_end(state) for callback in self.callbacks):
                 history.stop_reason = state.stop_reason
@@ -315,7 +329,9 @@ class Trainer:
                 f"got {len(predictions)} tiles, which is not a whole number of images "
                 f"at {per_image} tiles each; the loader must not drop or shuffle them"
             )
-        return np.stack([
-            stitch(predictions[i:i + per_image], splits)
-            for i in range(0, len(predictions), per_image)
-        ])
+        return np.stack(
+            [
+                stitch(predictions[i : i + per_image], splits)
+                for i in range(0, len(predictions), per_image)
+            ]
+        )

@@ -26,18 +26,28 @@ def tiny_segmentation(root, output_dir=None):
             sample = root / split / f"s{n}"
             (sample / "images").mkdir(parents=True, exist_ok=True)
             (sample / "masks").mkdir(parents=True, exist_ok=True)
-            Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(
-                sample / "images" / "i.png")
+            Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(sample / "images" / "i.png")
             mask = np.zeros((32, 32, 3), np.uint8)
             mask[8:20, 8:20] = 255
             Image.fromarray(mask).save(sample / "masks" / "m.png")
 
     config = {
         "task": "semantic_segmentation",
-        "data": {"train_path": str(root / "train"), "validation_path": str(root / "valid"),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "u", "input_shape": [32, 32], "blocks": 2, "filters": 4,
-                    "epochs": 1, "batch_size": 2}],
+        "data": {
+            "train_path": str(root / "train"),
+            "validation_path": str(root / "valid"),
+            "colormap": [[0, 0, 0], [255, 255, 255]],
+        },
+        "models": [
+            {
+                "name": "u",
+                "input_shape": [32, 32],
+                "blocks": 2,
+                "filters": 4,
+                "epochs": 1,
+                "batch_size": 2,
+            }
+        ],
     }
     if output_dir is not None:
         config["output_dir"] = str(output_dir)
@@ -45,6 +55,7 @@ def tiny_segmentation(root, output_dir=None):
 
 
 # --- only when asked for -----------------------------------------------------------------
+
 
 def test_nothing_is_written_when_output_dir_was_not_given(tmp_path):
     """A field with a default cannot otherwise be told from one the user set to that
@@ -79,12 +90,12 @@ def test_setting_output_dir_to_its_own_default_still_counts_as_asking(tmp_path, 
 
 # --- what is in it -------------------------------------------------------------------------
 
+
 def test_a_segmentation_record_runs_again(tmp_path):
     """The assertion that matters. A record that cannot be turned back into a
     specification is a summary, and a summary is for reading rather than for running."""
     out = tmp_path / "runs"
-    Engine(tiny_segmentation(tmp_path, output_dir=out), device="cpu",
-           check_masks=False).fit()
+    Engine(tiny_segmentation(tmp_path, output_dir=out), device="cpu", check_masks=False).fit()
 
     record = read_record(out / "u" / "run.json")
     again = from_dict(record["specification"])
@@ -101,13 +112,11 @@ def test_a_segmentation_record_derives_nothing_and_says_so(tmp_path):
     input shape and the window, so there is nothing a segmentation run works out that it
     does not already say."""
     out = tmp_path / "runs"
-    Engine(tiny_segmentation(tmp_path, output_dir=out), device="cpu",
-           check_masks=False).fit()
+    Engine(tiny_segmentation(tmp_path, output_dir=out), device="cpu", check_masks=False).fit()
     assert read_record(out / "u" / "run.json")["derived"] == {}
 
 
-def test_a_detection_record_carries_the_fitted_anchors(tmp_path, detection_config,
-                                                       detection_root):
+def test_a_detection_record_carries_the_fitted_anchors(tmp_path, detection_config, detection_root):
     """The reason this exists. The specification that produced this detector does not name
     its anchors, the same weights read with any others decode every box scaled by a fixed
     factor, and without the record the only copy is a weights sidecar - and only if
@@ -131,8 +140,7 @@ def test_a_detection_record_carries_the_fitted_anchors(tmp_path, detection_confi
     assert record["derived"]["targets"]["placed"] > 0
 
 
-def test_the_detection_record_re_runs_the_same_detector(tmp_path, detection_config,
-                                                        detection_root):
+def test_the_detection_record_re_runs_the_same_detector(tmp_path, detection_config, detection_root):
     """Specification plus `derived.anchors` is the pair that reproduces a detector. Put
     them together and the engine uses exactly those anchors rather than fitting new ones."""
     out = tmp_path / "runs"
@@ -155,8 +163,11 @@ def test_the_detection_record_re_runs_the_same_detector(tmp_path, detection_conf
 
 def test_a_record_given_anchors_says_they_were_not_fitted(tmp_path, detection_config):
     out = tmp_path / "runs"
-    given = [[[0.30, 0.30], [0.20, 0.20]], [[0.16, 0.16], [0.12, 0.12]],
-             [[0.08, 0.08], [0.05, 0.05]]]
+    given = [
+        [[0.30, 0.30], [0.20, 0.20]],
+        [[0.16, 0.16], [0.12, 0.12]],
+        [[0.08, 0.08], [0.05, 0.05]],
+    ]
     detection_config["output_dir"] = str(out)
     detection_config["models"][0]["anchors"] = given
     build_engine(from_dict(detection_config), device="cpu").fit()

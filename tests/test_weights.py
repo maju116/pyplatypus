@@ -30,8 +30,7 @@ from pyplatypus.weights import (
 
 
 def model_spec(**overrides) -> SegmentationModel:
-    block = {"name": "m", "input_shape": (32, 32), "channels": 3, 
-             "blocks": 2, "filters": 4}
+    block = {"name": "m", "input_shape": (32, 32), "channels": 3, "blocks": 2, "filters": 4}
     block.update(overrides)
     return SegmentationModel(**block)
 
@@ -44,8 +43,12 @@ def trained(tmp_path):
     # `n_class` reaches the sidecar through `extra`, because the data decides it and the
     # model no longer carries it. The engine contributes it the same way, from the
     # colormap or the labels - this is that, written out by hand.
-    path = export_weights(model, spec, tmp_path / "run.safetensors",
-                          extra={"n_class": 2, "data": "synthetic", "licence": "MIT"})
+    path = export_weights(
+        model,
+        spec,
+        tmp_path / "run.safetensors",
+        extra={"n_class": 2, "data": "synthetic", "licence": "MIT"},
+    )
     return spec, model, path
 
 
@@ -80,8 +83,9 @@ def test_exported_weights_load_back_into_the_same_model(trained):
     load_into(fresh, str(path), spec)
 
     # Something actually changed, and it matches the model that was exported.
-    changed = any(not torch.equal(before[name], value)
-                  for name, value in fresh.state_dict().items())
+    changed = any(
+        not torch.equal(before[name], value) for name, value in fresh.state_dict().items()
+    )
     assert changed
     for name, value in model.state_dict().items():
         assert torch.equal(value, fresh.state_dict()[name])
@@ -107,8 +111,7 @@ def test_weights_for_a_different_class_count_are_refused(trained):
     _, _, path = trained
     other = model_spec()
     with pytest.raises(WeightsError, match="n_class"):
-        load_into(build_model(other, n_class=4), str(path), other,
-                  extra={"n_class": 4})
+        load_into(build_model(other, n_class=4), str(path), other, extra={"n_class": 4})
 
 
 def test_weights_for_a_different_architecture_are_refused(trained):
@@ -130,8 +133,7 @@ def test_every_disagreement_is_listed_at_once(trained):
     _, _, path = trained
     other = model_spec(filters=16)
     with pytest.raises(WeightsError) as raised:
-        load_into(build_model(other, n_class=3), str(path), other,
-                  extra={"n_class": 3})
+        load_into(build_model(other, n_class=3), str(path), other, extra={"n_class": 3})
     message = str(raised.value)
     assert "n_class" in message and "filters" in message
 
@@ -152,7 +154,7 @@ def test_weights_without_a_sidecar_still_load_if_they_fit(tmp_path):
 def test_weights_that_do_not_fit_say_so_in_plain_words(tmp_path):
     spec = model_spec()
     path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "bare.safetensors")
-    path.with_suffix(".json").unlink()          # no sidecar, so torch is the only check
+    path.with_suffix(".json").unlink()  # no sidecar, so torch is the only check
 
     other = model_spec(filters=16)
     with pytest.raises(WeightsError, match="does not fit this model"):
@@ -258,8 +260,12 @@ def fake_hub(monkeypatch, tmp_path):
 def test_a_hub_reference_downloads_the_file_and_its_sidecar(fake_hub, tmp_path):
     served, asked = fake_hub
     spec = model_spec()
-    export_weights(build_model(spec, n_class=2), spec, served / "dsbowl-unet.safetensors",
-                   extra={"data": "BBBC038v1"})
+    export_weights(
+        build_model(spec, n_class=2),
+        spec,
+        served / "dsbowl-unet.safetensors",
+        extra={"data": "BBBC038v1"},
+    )
 
     path = resolve_weights("hf://maju116/platypus-weights/dsbowl-unet.safetensors@a1b2c3d")
     assert Path(path).exists()
@@ -288,8 +294,12 @@ def test_a_registry_name_resolves_through_the_hub(fake_hub, monkeypatch):
     monkeypatch.setitem(
         __import__("pyplatypus.weights", fromlist=["REGISTRY"]).REGISTRY,
         "dsbowl-unet",
-        Published(repo="maju116/platypus-weights", filename="dsbowl-unet.safetensors",
-                  revision="a1b2c3d4e5f6", description="U-Net on the 2018 Data Science Bowl"),
+        Published(
+            repo="maju116/platypus-weights",
+            filename="dsbowl-unet.safetensors",
+            revision="a1b2c3d4e5f6",
+            description="U-Net on the 2018 Data Science Bowl",
+        ),
     )
 
     path = resolve_weights("dsbowl-unet")
@@ -311,14 +321,31 @@ def test_a_spec_can_name_local_weights_and_skip_training(tmp_path, nested_root):
     spec = model_spec(input_shape=(32, 32), channels=3)
     path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "published.safetensors")
 
-    engine = Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, 
-                    "blocks": 2, "filters": 4, "batch_size": 2,
-                    "weights": str(path), "fit": False}],
-    }), device="cpu")
+    engine = Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(nested_root),
+                    "validation_path": str(nested_root),
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                },
+                "models": [
+                    {
+                        "name": "m",
+                        "input_shape": [32, 32],
+                        "channels": 3,
+                        "blocks": 2,
+                        "filters": 4,
+                        "batch_size": 2,
+                        "weights": str(path),
+                        "fit": False,
+                    }
+                ],
+            }
+        ),
+        device="cpu",
+    )
     engine.fit()
 
     assert engine.runs["m"].trained is False
@@ -328,13 +355,30 @@ def test_a_spec_can_name_local_weights_and_skip_training(tmp_path, nested_root):
 def test_the_engine_exports_what_it_trained(tmp_path, nested_root):
     from pyplatypus import Engine
 
-    engine = Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, 
-                    "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 1}],
-    }), device="cpu")
+    engine = Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(nested_root),
+                    "validation_path": str(nested_root),
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                },
+                "models": [
+                    {
+                        "name": "m",
+                        "input_shape": [32, 32],
+                        "channels": 3,
+                        "blocks": 2,
+                        "filters": 4,
+                        "batch_size": 2,
+                        "epochs": 1,
+                    }
+                ],
+            }
+        ),
+        device="cpu",
+    )
     engine.fit()
 
     path = engine.export_weights("m", tmp_path / "trained", data="the nested fixture")
@@ -347,13 +391,30 @@ def test_exporting_a_model_that_was_not_trained_lists_the_ones_there_are(nested_
     from pyplatypus import Engine
     from pyplatypus.engine import EngineError
 
-    engine = Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(nested_root), "validation_path": str(nested_root),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "channels": 3, 
-                    "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 1}],
-    }), device="cpu")
+    engine = Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(nested_root),
+                    "validation_path": str(nested_root),
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                },
+                "models": [
+                    {
+                        "name": "m",
+                        "input_shape": [32, 32],
+                        "channels": 3,
+                        "blocks": 2,
+                        "filters": 4,
+                        "batch_size": 2,
+                        "epochs": 1,
+                    }
+                ],
+            }
+        ),
+        device="cpu",
+    )
     engine.fit()
     with pytest.raises(EngineError, match="no model called"):
         engine.export_weights("nope", tmp_path / "x")
@@ -454,18 +515,16 @@ def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
     from pyplatypus.weights import WeightsError, export_weights, load_into
 
     trained = SegmentationModel(name="a", input_shape=(256, 256))
-    written = export_weights(build_model(trained, n_class=2), trained,
-                             tmp_path / "w.safetensors")
+    written = export_weights(build_model(trained, n_class=2), trained, tmp_path / "w.safetensors")
 
     other = SegmentationModel(name="b", input_shape=(160, 160))
     with pytest.raises(WeightsError) as caught:
         load_into(build_model(other, n_class=2), str(written), other)
-    assert "input_shape: weights say (256, 256), the model says (160, 160)" in str(
-        caught.value
-    )
+    assert "input_shape: weights say (256, 256), the model says (160, 160)" in str(caught.value)
 
 
 # --- the colormap, which the module described and did not record -------------------------
+
 
 def _trained(tmp_path, colormap, name="m"):
     """An engine with one model, trained for nothing, over masks of that colormap."""
@@ -479,19 +538,31 @@ def _trained(tmp_path, colormap, name="m"):
             sample = tmp_path / split / f"s{n}"
             (sample / "images").mkdir(parents=True, exist_ok=True)
             (sample / "masks").mkdir(parents=True, exist_ok=True)
-            Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(
-                sample / "images" / "i.png")
+            Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(sample / "images" / "i.png")
             mask = np.zeros((32, 32, 3), np.uint8)
             mask[8:20, 8:20] = colormap[1]
             Image.fromarray(mask).save(sample / "masks" / "m.png")
 
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(tmp_path / "train"),
-                 "validation_path": str(tmp_path / "valid"), "colormap": colormap},
-        "models": [{"name": name, "input_shape": [32, 32], "blocks": 2, "filters": 4,
-                    "epochs": 1, "batch_size": 2}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(tmp_path / "train"),
+                "validation_path": str(tmp_path / "valid"),
+                "colormap": colormap,
+            },
+            "models": [
+                {
+                    "name": name,
+                    "input_shape": [32, 32],
+                    "blocks": 2,
+                    "filters": 4,
+                    "epochs": 1,
+                    "batch_size": 2,
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu", check_masks=False)
     engine.fit()
     return engine
@@ -536,17 +607,32 @@ def test_label_maps_are_compared_too(tmp_path):
                 (sample / "images").mkdir(parents=True, exist_ok=True)
                 (sample / "masks").mkdir(parents=True, exist_ok=True)
                 Image.fromarray(np.full((32, 32, 3), 10, np.uint8)).save(
-                    sample / "images" / "i.png")
+                    sample / "images" / "i.png"
+                )
                 mask = np.zeros((32, 32), np.uint8)
                 mask[8:20, 8:20] = labels[1]
                 Image.fromarray(mask).save(sample / "masks" / "m.png")
-        spec = from_dict({
-        "task": "semantic_segmentation",
-            "data": {"train_path": str(root / "train"),
-                     "validation_path": str(root / "valid"), "labels": labels},
-            "models": [{"name": "m", "input_shape": [32, 32], "blocks": 2, "filters": 4,
-                        "channels": 1, "epochs": 1, "batch_size": 2}],
-        })
+        spec = from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(root / "train"),
+                    "validation_path": str(root / "valid"),
+                    "labels": labels,
+                },
+                "models": [
+                    {
+                        "name": "m",
+                        "input_shape": [32, 32],
+                        "blocks": 2,
+                        "filters": 4,
+                        "channels": 1,
+                        "epochs": 1,
+                        "batch_size": 2,
+                    }
+                ],
+            }
+        )
         engine = Engine(spec, device="cpu", check_masks=False)
         engine.fit()
         return engine
@@ -576,5 +662,6 @@ def test_weights_published_before_this_still_load(tmp_path):
     other = _trained(tmp_path / "b", [[0, 0, 0], [0, 255, 0]])
     # No complaint: the sidecar says nothing about the colormap, so there is nothing to
     # disagree with. Silent, and better than refusing weights that predate the field.
-    assert other._load_weights(other.runs["m"].model, str(written),
-                               other.runs["m"].spec) is not None
+    assert (
+        other._load_weights(other.runs["m"].model, str(written), other.runs["m"].spec) is not None
+    )

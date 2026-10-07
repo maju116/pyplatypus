@@ -118,28 +118,45 @@ def verify_encoder(encoder: Encoder, rank: int, in_channels: int, levels: int) -
 class UShapedEncoder(nn.Module):
     """Ours: `blocks` convolution blocks, each halving the resolution and doubling width."""
 
-    def __init__(self, rank: int, in_channels: int, *, blocks: int = 4, filters: int = 16,
-                 residual: bool = False, width: int = 2, batch_norm: bool = True,
-                 separable: bool = False, act: Activation = Activation.RELU,
-                 drop: float = 0.0, spatial_dropout: bool = True):
+    def __init__(
+        self,
+        rank: int,
+        in_channels: int,
+        *,
+        blocks: int = 4,
+        filters: int = 16,
+        residual: bool = False,
+        width: int = 2,
+        batch_norm: bool = True,
+        separable: bool = False,
+        act: Activation = Activation.RELU,
+        drop: float = 0.0,
+        spatial_dropout: bool = True,
+    ):
         super().__init__()
         self.rank = check_rank(rank)
         self.blocks = blocks
         block_type = ResidualConvBlock if residual else ConvBlock
-        options = {"width": width, "batch_norm": batch_norm, "separable": separable,
-                   "act": act, "drop": drop, "spatial_dropout": spatial_dropout}
+        options = {
+            "width": width,
+            "batch_norm": batch_norm,
+            "separable": separable,
+            "act": act,
+            "drop": drop,
+            "spatial_dropout": spatial_dropout,
+        }
 
         self.stages = nn.ModuleList()
         channels = in_channels
         widths = []
         for level in range(blocks):
-            out = filters * 2 ** level
+            out = filters * 2**level
             self.stages.append(block_type(rank, channels, out, **options))
             widths.append(out)
             channels = out
 
-        self.bottleneck = block_type(rank, channels, filters * 2 ** blocks, **options)
-        widths.append(filters * 2 ** blocks)
+        self.bottleneck = block_type(rank, channels, filters * 2**blocks, **options)
+        widths.append(filters * 2**blocks)
         self.channels = tuple(widths)
         self.pool = pooling(rank)
 
@@ -176,8 +193,17 @@ class PretrainedEncoder(nn.Module):
     """
 
     #: ImageNet statistics are applied only when the weights that expect them are loaded.
-    def __init__(self, name: str, *, in_channels: int, blocks: int, filters: int,
-                 pretrained: bool = False, rank: int = 2, **stem_options):
+    def __init__(
+        self,
+        name: str,
+        *,
+        in_channels: int,
+        blocks: int,
+        filters: int,
+        pretrained: bool = False,
+        rank: int = 2,
+        **stem_options,
+    ):
         super().__init__()
         if rank != 2:
             raise ModelError(
@@ -203,7 +229,7 @@ class PretrainedEncoder(nn.Module):
             ) from error
 
         reductions = list(probe.feature_info.reduction())
-        wanted = [2 ** level for level in range(blocks + 1)]  # 1, 2, 4, ... 2**blocks
+        wanted = [2**level for level in range(blocks + 1)]  # 1, 2, 4, ... 2**blocks
         self.own_level_zero = reductions[0] != 1
         needed_from_backbone = wanted[1:] if self.own_level_zero else wanted
 
@@ -220,8 +246,11 @@ class PretrainedEncoder(nn.Module):
 
         indices = tuple(reductions.index(r) for r in needed_from_backbone)
         self.backbone = timm.create_model(
-            name, features_only=True, pretrained=pretrained,
-            in_chans=in_channels, out_indices=indices,
+            name,
+            features_only=True,
+            pretrained=pretrained,
+            in_chans=in_channels,
+            out_indices=indices,
         )
         backbone_widths = tuple(self.backbone.feature_info.channels())
 

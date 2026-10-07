@@ -49,9 +49,14 @@ def looks_like_volume(path: str | Path) -> bool:
     return any(name.endswith(suffix) for suffix in VOLUME_SUFFIXES)
 
 
-def read_volume(path: str | Path, *, window: str | tuple[float, float] = "auto",
-                size: tuple[int, ...] | None = None, nearest: bool = False,
-                channels: int = 1) -> np.ndarray:
+def read_volume(
+    path: str | Path,
+    *,
+    window: str | tuple[float, float] = "auto",
+    size: tuple[int, ...] | None = None,
+    nearest: bool = False,
+    channels: int = 1,
+) -> np.ndarray:
     """Read a volume as a channels-last array, reoriented to canonical and scaled to 0-1.
 
     `nearest` must be used for label maps: interpolating labels invents values that belong
@@ -116,8 +121,7 @@ def volume_shape(path: str | Path) -> tuple[int, int, int]:
     return tuple(int(size) for size in _load_canonical(path).shape[:3])
 
 
-def _rescale(values: np.ndarray, window: str | tuple[float, float], *, nearest: bool
-             ) -> np.ndarray:
+def _rescale(values: np.ndarray, window: str | tuple[float, float], *, nearest: bool) -> np.ndarray:
     """Map values to 0-1 through a fixed window, or leave a label map alone.
 
     A label map must keep its integers: 0, 1, 2 are classes, not intensities, and dividing
@@ -156,8 +160,7 @@ def _rescale(values: np.ndarray, window: str | tuple[float, float], *, nearest: 
     return ((clipped - low) / (high - low)).astype(np.float32)
 
 
-def resize_volume(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = False
-                  ) -> np.ndarray:
+def resize_volume(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = False) -> np.ndarray:
     """Resample a channels-last volume to `size`.
 
     Through torch rather than scipy: torch is already a dependency, does trilinear and
@@ -169,23 +172,23 @@ def resize_volume(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = F
     if len(size) != 3:
         raise VolumeError(f"a volume needs three sizes, got {tuple(size)}")
     if array.ndim != 4:
-        raise VolumeError(
-            f"expected a channels-last volume (d, h, w, c), got shape {array.shape}"
-        )
+        raise VolumeError(f"expected a channels-last volume (d, h, w, c), got shape {array.shape}")
     if tuple(array.shape[:3]) == tuple(size):
         return array
 
     tensor = torch.from_numpy(np.ascontiguousarray(array, dtype=np.float32))
-    tensor = tensor.permute(3, 0, 1, 2)[None]           # (1, c, d, h, w)
+    tensor = tensor.permute(3, 0, 1, 2)[None]  # (1, c, d, h, w)
     mode = "nearest" if nearest else "trilinear"
     kwargs = {} if nearest else {"align_corners": False}
-    resized = torch.nn.functional.interpolate(tensor, size=tuple(int(s) for s in size),
-                                              mode=mode, **kwargs)
+    resized = torch.nn.functional.interpolate(
+        tensor, size=tuple(int(s) for s in size), mode=mode, **kwargs
+    )
     return resized[0].permute(1, 2, 3, 0).numpy()
 
 
-def resample_to_spacing(array: np.ndarray, source_spacing, target_spacing, *,
-                        nearest: bool = False) -> np.ndarray:
+def resample_to_spacing(
+    array: np.ndarray, source_spacing, target_spacing, *, nearest: bool = False
+) -> np.ndarray:
     """Resample a channels-last volume from one voxel size to another.
 
     Why this is not the same as resizing to a fixed shape, which is what the pipeline does
@@ -198,15 +201,11 @@ def resample_to_spacing(array: np.ndarray, source_spacing, target_spacing, *,
     source = tuple(float(s) for s in source_spacing)
     target = tuple(float(s) for s in target_spacing)
     if len(source) != 3 or len(target) != 3:
-        raise VolumeError(
-            f"spacing is three numbers per side; got {source} and {target}"
-        )
+        raise VolumeError(f"spacing is three numbers per side; got {source} and {target}")
     if any(s <= 0 for s in source + target):
         raise VolumeError(f"spacing must be positive; got {source} and {target}")
     if array.ndim != 4:
-        raise VolumeError(
-            f"expected a channels-last volume (d, h, w, c), got shape {array.shape}"
-        )
+        raise VolumeError(f"expected a channels-last volume (d, h, w, c), got shape {array.shape}")
 
     shape = tuple(
         max(1, round(size * have / want))
@@ -215,8 +214,7 @@ def resample_to_spacing(array: np.ndarray, source_spacing, target_spacing, *,
     return resize_volume(array, shape, nearest=nearest)
 
 
-def crop_or_pad(array: np.ndarray, size: tuple[int, ...], *, pad_value: float = 0.0
-                ) -> np.ndarray:
+def crop_or_pad(array: np.ndarray, size: tuple[int, ...], *, pad_value: float = 0.0) -> np.ndarray:
     """Centre-crop or centre-pad a channels-last array to exactly `size`.
 
     The other half of resampling. Once voxels are a fixed physical size the shape varies from

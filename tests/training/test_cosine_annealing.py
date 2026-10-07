@@ -37,7 +37,7 @@ def rates_from_callback(initial, epochs, min_lr=0.0, horizon=None):
 
     seen = []
     for epoch in range(1, epochs + 1):
-        seen.append(optimizer.param_groups[0]["lr"])   # the rate this epoch trains at
+        seen.append(optimizer.param_groups[0]["lr"])  # the rate this epoch trains at
         state.epoch = epoch
         callback.on_epoch_end(state)
     return seen
@@ -50,8 +50,9 @@ def rates_from_torch(initial, epochs, min_lr=0.0):
     _, optimizer = one_parameter(initial)
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", message=".*lr_scheduler.step.*")
-        schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
-                                                              eta_min=min_lr)
+        schedule = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=epochs, eta_min=min_lr
+        )
         seen = []
         for _ in range(epochs):
             seen.append(optimizer.param_groups[0]["lr"])
@@ -93,10 +94,13 @@ def test_each_parameter_group_decays_from_its_own_rate():
     rates deliberately, and a schedule computing one rate for all of them would undo that
     at the first epoch while the history showed only `learning_rate`, the first group's."""
     model = nn.Sequential(nn.Linear(1, 1), nn.Linear(1, 1))
-    optimizer = torch.optim.SGD([
-        {"params": model[0].parameters()},
-        {"params": model[1].parameters(), "lr": 1e-6},
-    ], lr=1e-4)
+    optimizer = torch.optim.SGD(
+        [
+            {"params": model[0].parameters()},
+            {"params": model[1].parameters(), "lr": 1e-6},
+        ],
+        lr=1e-4,
+    )
 
     callback = CosineAnnealing()
     state = TrainingState(model=model, optimizer=optimizer, total_epochs=10)
@@ -129,6 +133,7 @@ def test_it_refuses_to_guess_the_horizon():
 
 # --- the join, not the halves -----------------------------------------------------------
 
+
 def test_a_spec_that_asks_for_it_gets_it(tmp_path):
     """From the YAML key to the rate the optimizer actually uses.
 
@@ -150,20 +155,33 @@ def test_a_spec_that_asks_for_it_gets_it(tmp_path):
             mask = np.zeros((32, 32, 3), np.uint8)
             mask[8:20, 8:20] = 255
             Image.fromarray(np.full((32, 32, 3), 10 * n, np.uint8)).save(
-                sample / "images" / "i.png")
+                sample / "images" / "i.png"
+            )
             Image.fromarray(mask).save(sample / "masks" / "m.png")
 
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "seed": 1,
-        "data": {"train_path": str(tmp_path / "train"),
-                 "validation_path": str(tmp_path / "valid"),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "u", "input_shape": [32, 32], "blocks": 2, "filters": 4,
-                    "epochs": 4, "batch_size": 2,
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "seed": 1,
+            "data": {
+                "train_path": str(tmp_path / "train"),
+                "validation_path": str(tmp_path / "valid"),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+            },
+            "models": [
+                {
+                    "name": "u",
+                    "input_shape": [32, 32],
+                    "blocks": 2,
+                    "filters": 4,
+                    "epochs": 4,
+                    "batch_size": 2,
                     "optimizer": {"name": "adam", "learning_rate": 1e-3},
-                    "callbacks": [{"name": "cosine_annealing"}]}],
-    })
+                    "callbacks": [{"name": "cosine_annealing"}],
+                }
+            ],
+        }
+    )
     history = Engine(spec, device="cpu", check_masks=False).fit()["u"]
     rates = [record["learning_rate"] for record in history.records]
 

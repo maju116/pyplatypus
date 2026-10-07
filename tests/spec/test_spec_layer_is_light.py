@@ -18,8 +18,17 @@ from pathlib import Path
 
 import pytest
 
-HEAVY = {"numpy", "torch", "pydicom", "albumentations", "nibabel", "PIL", "timm",
-         "safetensors", "huggingface_hub"}
+HEAVY = {
+    "numpy",
+    "torch",
+    "pydicom",
+    "albumentations",
+    "nibabel",
+    "PIL",
+    "timm",
+    "safetensors",
+    "huggingface_hub",
+}
 
 LAYER = sorted(Path("pyplatypus/spec").glob("*.py"))
 
@@ -55,19 +64,15 @@ def test_no_module_level_dependency_on_the_data_stack(path):
 def test_the_spec_does_not_reach_into_the_rest_of_the_package(path):
     """Except where it is deliberate and deferred. `pyplatypus.errors` is fine - it is the
     exception types and imports nothing."""
-    reached = {
-        name for name in module_level_imports(path)
-        if name == "pyplatypus"
-    }
+    reached = {name for name in module_level_imports(path) if name == "pyplatypus"}
     if not reached:
         return
     tree = ast.parse(path.read_text())
     modules = {
-        node.module for node in tree.body
-        if isinstance(node, ast.ImportFrom) and node.module
-        and node.module.startswith("pyplatypus")
+        node.module
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("pyplatypus")
     }
     allowed = {"pyplatypus.errors"}
-    stray = {m for m in modules
-             if not m.startswith("pyplatypus.spec") and m not in allowed}
+    stray = {m for m in modules if not m.startswith("pyplatypus.spec") and m not in allowed}
     assert not stray, f"{path} imports {', '.join(sorted(stray))} at module level"

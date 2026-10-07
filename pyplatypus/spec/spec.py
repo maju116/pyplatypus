@@ -119,11 +119,15 @@ class SegmentationSpec(PlatypusSpec):
         models = config.get("models")
         if not isinstance(models, list):
             return config
-        config = {**config, "models": [
-            {**m, "channels": len(patterns)} if isinstance(m, dict) and "channels" not in m
-            else m
-            for m in models
-        ]}
+        config = {
+            **config,
+            "models": [
+                {**m, "channels": len(patterns)}
+                if isinstance(m, dict) and "channels" not in m
+                else m
+                for m in models
+            ],
+        }
         return config
 
     @model_validator(mode="after")
@@ -153,6 +157,7 @@ class SegmentationSpec(PlatypusSpec):
                 f"or give the run a validation set."
             )
         return self
+
     @model_validator(mode="after")
     def channels_match_the_data(self):
         """One pattern per channel - **derived when the model stayed silent, checked when it
@@ -177,10 +182,9 @@ class SegmentationSpec(PlatypusSpec):
             if "channels" in model.model_fields_set and model.channels != expected
         ]
         if wrong:
-            raise ValueError(
-                f"channels_from lists {expected} channels, but " + "; ".join(wrong)
-            )
+            raise ValueError(f"channels_from lists {expected} channels, but " + "; ".join(wrong))
         return self
+
 
 class DetectionSpec(PlatypusSpec):
     task: Literal[Task.OBJECT_DETECTION]

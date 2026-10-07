@@ -17,8 +17,9 @@ from pyplatypus.spec.common import Task
 from pyplatypus.spec.spec import SPEC_ADAPTER, PlatypusSpec
 
 
-def from_dict(config: dict[str, Any], *, source: str | None = None,
-              check_paths: bool = True) -> PlatypusSpec:
+def from_dict(
+    config: dict[str, Any], *, source: str | None = None, check_paths: bool = True
+) -> PlatypusSpec:
     """Validate a dict into a spec, raising ConfigError with every problem at once.
 
     **`task` is required.** It was briefly defaulted to segmentation so that files written
@@ -44,7 +45,8 @@ def from_dict(config: dict[str, Any], *, source: str | None = None,
         # and reads as a field called 'detection'. Only the caller knows the tag.
         tag = config.get("task")
         raise ConfigError.from_validation_error(
-            error, source=source,
+            error,
+            source=source,
             drop_prefix=tag if isinstance(tag, str) else None,
         ) from None
 

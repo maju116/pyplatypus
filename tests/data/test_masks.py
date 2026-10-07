@@ -9,8 +9,10 @@ BINARY = [(0, 0, 0), (255, 255, 255)]
 
 def test_unite_merges_one_file_per_object():
     """The Data Science Bowl stores one mask file per nucleus; they have to become one."""
-    a = np.zeros((4, 4, 3), np.uint8); a[0] = 255
-    b = np.zeros((4, 4, 3), np.uint8); b[2] = 255
+    a = np.zeros((4, 4, 3), np.uint8)
+    a[0] = 255
+    b = np.zeros((4, 4, 3), np.uint8)
+    b[2] = 255
     united = unite_masks([a, b])
     assert united[0].max() == 255 and united[2].max() == 255
     assert united[1].max() == 0

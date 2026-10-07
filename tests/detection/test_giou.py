@@ -17,30 +17,42 @@ from pyplatypus.detection.metrics import DetectionError
 # Boxes and the values torchvision's `generalized_box_iou` returns for them, baked in so
 # this suite needs no torchvision - the same arrangement the detection metrics use with
 # pycocotools. Regenerate by taking the diagonal of `generalized_box_iou(A, B)`.
-A = torch.tensor([
-    [0.534923, 0.198803, 0.987151, 0.262634],
-    [0.659212, 0.656890, 1.261163, 0.741562],
-    [0.232762, 0.425061, 0.782488, 0.692965],
-    [0.207086, 0.629736, 0.681403, 1.066645],
-    [0.365316, 0.851268, 0.697874, 1.227207],
-    [0.854943, 0.550935, 1.402766, 0.948089],
-    [0.286839, 0.206319, 0.766003, 0.294252],
-    [0.445090, 0.359286, 0.978656, 0.782537],
-])
-B = torch.tensor([
-    [0.626651, 0.569073, 1.088768, 0.608939],
-    [0.743733, 0.959217, 0.818559, 1.518859],
-    [0.388742, 0.221446, 1.004914, 0.523619],
-    [0.374202, 0.195258, 0.457156, 0.523455],
-    [0.740524, 0.252880, 0.920958, 0.572303],
-    [0.233150, 0.931414, 0.699990, 1.384216],
-    [0.957538, 0.557507, 1.242359, 0.910536],
-    [0.413419, 0.435458, 0.815060, 0.520311],
-])
-TORCHVISION = torch.tensor([
-    -0.791817009, -0.821061671, -0.058988228, -0.432734549,
-    -0.662607968, -0.559873164, -0.787954509, 0.092576548,
-])
+A = torch.tensor(
+    [
+        [0.534923, 0.198803, 0.987151, 0.262634],
+        [0.659212, 0.656890, 1.261163, 0.741562],
+        [0.232762, 0.425061, 0.782488, 0.692965],
+        [0.207086, 0.629736, 0.681403, 1.066645],
+        [0.365316, 0.851268, 0.697874, 1.227207],
+        [0.854943, 0.550935, 1.402766, 0.948089],
+        [0.286839, 0.206319, 0.766003, 0.294252],
+        [0.445090, 0.359286, 0.978656, 0.782537],
+    ]
+)
+B = torch.tensor(
+    [
+        [0.626651, 0.569073, 1.088768, 0.608939],
+        [0.743733, 0.959217, 0.818559, 1.518859],
+        [0.388742, 0.221446, 1.004914, 0.523619],
+        [0.374202, 0.195258, 0.457156, 0.523455],
+        [0.740524, 0.252880, 0.920958, 0.572303],
+        [0.233150, 0.931414, 0.699990, 1.384216],
+        [0.957538, 0.557507, 1.242359, 0.910536],
+        [0.413419, 0.435458, 0.815060, 0.520311],
+    ]
+)
+TORCHVISION = torch.tensor(
+    [
+        -0.791817009,
+        -0.821061671,
+        -0.058988228,
+        -0.432734549,
+        -0.662607968,
+        -0.559873164,
+        -0.787954509,
+        0.092576548,
+    ]
+)
 
 
 def test_giou_agrees_with_torchvision():
@@ -87,11 +99,12 @@ def test_giou_has_a_gradient_where_iou_has_none():
 
 # --- the loss ---------------------------------------------------------------------------
 
+
 def _targets_and_a_perfect_prediction():
     """Targets for three boxes, and logits that decode to exactly those boxes."""
-    boxes = np.array([[40.0, 50.0, 150.0, 170.0],
-                      [220.0, 60.0, 300.0, 140.0],
-                      [10.0, 300.0, 70.0, 360.0]])
+    boxes = np.array(
+        [[40.0, 50.0, 150.0, 170.0], [220.0, 60.0, 300.0, 140.0], [10.0, 300.0, 70.0, 360.0]]
+    )
     enc = encode(boxes, [0, 1, 2], anchors=COCO_ANCHORS, input_shape=(416, 416), n_class=3)
     assert enc.placed == 3, "the fixture is only meaningful if every box was placed"
     targets = [torch.tensor(t, dtype=torch.float32)[None] for t in enc.targets]
@@ -101,9 +114,9 @@ def _targets_and_a_perfect_prediction():
         p = torch.zeros_like(target)
         here = target[..., 4] > 0.5
         eps = 1e-6
-        p[..., 0] = torch.logit(target[..., 0].clamp(eps, 1 - eps))   # undo the sigmoid
+        p[..., 0] = torch.logit(target[..., 0].clamp(eps, 1 - eps))  # undo the sigmoid
         p[..., 1] = torch.logit(target[..., 1].clamp(eps, 1 - eps))
-        p[..., 2] = target[..., 2]                                     # log sizes as written
+        p[..., 2] = target[..., 2]  # log sizes as written
         p[..., 3] = target[..., 3]
         p[..., 4] = torch.where(here, 20.0, -20.0)
         p[..., 5:] = torch.where(target[..., 5:] > 0.5, 20.0, -20.0)
@@ -129,7 +142,7 @@ def test_a_perfect_prediction_costs_nothing_under_giou_and_something_under_offse
 
     assert giou["coordinates"] == pytest.approx(0.0, abs=1e-5)
     assert giou["loss"] == pytest.approx(0.0, abs=1e-5)
-    assert offsets["coordinates"] > 4.0          # measured: 4.2138 on this fixture
+    assert offsets["coordinates"] > 4.0  # measured: 4.2138 on this fixture
     assert offsets["loss"] == pytest.approx(offsets["coordinates"], abs=1e-5)
 
 
@@ -139,7 +152,7 @@ def test_a_wrong_box_costs_more_than_a_right_one():
     predictions, targets = _targets_and_a_perfect_prediction()
     nudged = [p.clone() for p in predictions]
     for p in nudged:
-        p[..., 2] += 0.5                          # every box half a log-unit too wide
+        p[..., 2] += 0.5  # every box half a log-unit too wide
 
     right = _loss("giou")(predictions, targets).as_dict()["coordinates"]
     wrong = _loss("giou")(nudged, targets).as_dict()["coordinates"]
@@ -164,8 +177,9 @@ def test_offsets_is_the_default_so_published_weights_keep_their_objective():
     assert Yolo3Loss(n_class=3).box_loss == "offsets"
     predictions, targets = _targets_and_a_perfect_prediction()
     default = Yolo3Loss(anchors=COCO_ANCHORS, n_class=3, input_shape=(416, 416))
-    assert (default(predictions, targets).as_dict()
-            == _loss("offsets")(predictions, targets).as_dict())
+    assert (
+        default(predictions, targets).as_dict() == _loss("offsets")(predictions, targets).as_dict()
+    )
 
 
 def test_an_unknown_box_loss_is_refused_by_name():

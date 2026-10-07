@@ -33,9 +33,9 @@ def write_volume(path, array, affine=None, spacing=(1.0, 1.0, 1.0)):
 
 def hounsfield_block(shape=(6, 8, 4)):
     """Something CT-shaped: air, soft tissue and bone in known places."""
-    volume = np.full(shape, -1000.0, dtype=np.float32)   # air
-    volume[1:4, 2:6, 1:3] = 40.0                          # soft tissue
-    volume[2, 3, 2] = 1200.0                              # a spot of bone
+    volume = np.full(shape, -1000.0, dtype=np.float32)  # air
+    volume[1:4, 2:6, 1:3] = 40.0  # soft tissue
+    volume[2, 3, 2] = 1200.0  # a spot of bone
     return volume
 
 
@@ -58,13 +58,13 @@ def test_two_files_describing_the_same_anatomy_read_alike(tmp_path):
     anatomy, and nothing in either file looks wrong.
     """
     volume = hounsfield_block()
-    forwards = write_volume(tmp_path / "forwards.nii.gz", volume,
-                            affine=np.diag([1.0, 1.0, 1.0, 1.0]))
+    forwards = write_volume(
+        tmp_path / "forwards.nii.gz", volume, affine=np.diag([1.0, 1.0, 1.0, 1.0])
+    )
 
     flipped_affine = np.diag([-1.0, 1.0, 1.0, 1.0])
-    flipped_affine[0, 3] = volume.shape[0] - 1        # same origin after the flip
-    backwards = write_volume(tmp_path / "backwards.nii.gz", volume[::-1],
-                             affine=flipped_affine)
+    flipped_affine[0, 3] = volume.shape[0] - 1  # same origin after the flip
+    backwards = write_volume(tmp_path / "backwards.nii.gz", volume[::-1], affine=flipped_affine)
 
     a = read_volume(forwards, window="soft_tissue")
     b = read_volume(backwards, window="soft_tissue")
@@ -72,8 +72,7 @@ def test_two_files_describing_the_same_anatomy_read_alike(tmp_path):
 
 
 def test_spacing_comes_back_in_the_order_the_reader_uses(tmp_path):
-    path = write_volume(tmp_path / "scan.nii.gz", hounsfield_block(),
-                        spacing=(0.7, 0.7, 5.0))
+    path = write_volume(tmp_path / "scan.nii.gz", hounsfield_block(), spacing=(0.7, 0.7, 5.0))
     # 0.7 x 0.7 in plane and 5 mm between slices: the ordinary shape of a clinical CT, and
     # the reason anything reporting a volume in millilitres needs this.
     assert volume_spacing(path) == pytest.approx((0.7, 0.7, 5.0))
@@ -96,7 +95,7 @@ def test_a_named_window_maps_the_same_numbers_the_same_way(tmp_path):
     plain = write_volume(tmp_path / "a.nii.gz", volume)
 
     with_implant = volume.copy()
-    with_implant[0, 0, 0] = 30000.0      # metal, or a corrupted voxel
+    with_implant[0, 0, 0] = 30000.0  # metal, or a corrupted voxel
     spiked = write_volume(tmp_path / "b.nii.gz", with_implant)
 
     a = read_volume(plain, window="lung")
@@ -228,7 +227,7 @@ def sphere(shape, spacing, radius_mm=10.0):
     grid = np.indices(shape).astype(np.float32)
     centre = (np.asarray(shape, dtype=np.float32) - 1) / 2
     millimetres = [(grid[axis] - centre[axis]) * spacing[axis] for axis in range(3)]
-    distance = np.sqrt(sum(axis ** 2 for axis in millimetres))
+    distance = np.sqrt(sum(axis**2 for axis in millimetres))
     return np.where(distance <= radius_mm, 40.0, -1000.0).astype(np.float32)
 
 
@@ -244,10 +243,12 @@ def test_resampling_brings_two_acquisitions_onto_one_scale(tmp_path):
     So the test compares the error before and after, which is the actual promise. Numbers for
     a 10 mm sphere: 4189 mm3 in theory, 4224 measured at 1 mm.
     """
-    fine = write_volume(tmp_path / "fine.nii.gz", sphere((40, 40, 40), (1.0, 1.0, 1.0)),
-                        spacing=(1.0, 1.0, 1.0))
-    coarse = write_volume(tmp_path / "coarse.nii.gz", sphere((40, 40, 16), (1.0, 1.0, 2.5)),
-                          spacing=(1.0, 1.0, 2.5))
+    fine = write_volume(
+        tmp_path / "fine.nii.gz", sphere((40, 40, 40), (1.0, 1.0, 1.0)), spacing=(1.0, 1.0, 1.0)
+    )
+    coarse = write_volume(
+        tmp_path / "coarse.nii.gz", sphere((40, 40, 16), (1.0, 1.0, 2.5)), spacing=(1.0, 1.0, 2.5)
+    )
 
     reference = read_volume(fine, window="soft_tissue")
     native = read_volume(coarse, window="soft_tissue")
@@ -264,17 +265,19 @@ def test_resampling_brings_two_acquisitions_onto_one_scale(tmp_path):
 
     before = abs(voxels(native) - voxels(reference)) / voxels(reference)
     after = abs(voxels(resampled) - voxels(reference)) / voxels(reference)
-    assert before > 0.4          # the problem, as it arrives
-    assert after < 0.15          # the same object, now on the same scale
+    assert before > 0.4  # the problem, as it arrives
+    assert after < 0.15  # the same object, now on the same scale
     assert after < before / 3
 
 
 def test_without_resampling_the_same_anatomy_comes_out_different_sizes(tmp_path):
     """The counterexample, so the difference is on the record rather than asserted."""
-    fine = write_volume(tmp_path / "fine.nii.gz", sphere((40, 40, 40), (1.0, 1.0, 1.0)),
-                        spacing=(1.0, 1.0, 1.0))
-    coarse = write_volume(tmp_path / "coarse.nii.gz", sphere((40, 40, 16), (1.0, 1.0, 2.5)),
-                          spacing=(1.0, 1.0, 2.5))
+    fine = write_volume(
+        tmp_path / "fine.nii.gz", sphere((40, 40, 40), (1.0, 1.0, 1.0)), spacing=(1.0, 1.0, 1.0)
+    )
+    coarse = write_volume(
+        tmp_path / "coarse.nii.gz", sphere((40, 40, 16), (1.0, 1.0, 2.5)), spacing=(1.0, 1.0, 2.5)
+    )
 
     # Both resized into the same box, which is the pipeline's behaviour without a target
     # spacing.
@@ -380,15 +383,17 @@ def test_the_pipeline_resamples_both_image_and_mask_the_same_way(tmp_path):
     from pyplatypus.spec.models import SegmentationModel
 
     root = tmp_path / "cases"
-    write_case(root, "fine", (40, 40, 40), (1.0, 1.0, 1.0))      # 40 mm of patient
-    write_case(root, "coarse", (40, 40, 40), (1.0, 1.0, 2.5))    # 100 mm of patient
+    write_case(root, "fine", (40, 40, 40), (1.0, 1.0, 1.0))  # 40 mm of patient
+    write_case(root, "coarse", (40, 40, 40), (1.0, 1.0, 2.5))  # 100 mm of patient
 
     data = SegmentationData(
-        train_path=str(root), validation_path=str(root), labels=[0, 1],
-        window="soft_tissue", target_spacing=(1.0, 1.0, 1.0),
+        train_path=str(root),
+        validation_path=str(root),
+        labels=[0, 1],
+        window="soft_tissue",
+        target_spacing=(1.0, 1.0, 1.0),
     )
-    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, 
-                              blocks=2)
+    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
     shapes, foreground = [], []
@@ -420,13 +425,13 @@ def test_without_a_target_spacing_the_two_fields_of_view_disagree(tmp_path):
     from pyplatypus.spec.models import SegmentationModel
 
     root = tmp_path / "cases"
-    write_case(root, "fine", (40, 40, 40), (1.0, 1.0, 1.0))      # 40 mm of patient
-    write_case(root, "coarse", (40, 40, 40), (1.0, 1.0, 2.5))    # 100 mm of patient
+    write_case(root, "fine", (40, 40, 40), (1.0, 1.0, 1.0))  # 40 mm of patient
+    write_case(root, "coarse", (40, 40, 40), (1.0, 1.0, 2.5))  # 100 mm of patient
 
-    data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1],
-                            window="soft_tissue")
-    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, 
-                              blocks=2)
+    data = SegmentationData(
+        train_path=str(root), validation_path=str(root), labels=[0, 1], window="soft_tissue"
+    )
+    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
     foreground = [int(dataset[i][1][..., 1].sum()) for i in range(len(dataset))]
@@ -448,10 +453,14 @@ def test_padding_a_label_map_adds_background_not_a_new_class(tmp_path):
     root = tmp_path / "cases"
     write_case(root, "small", (16, 16, 8), (1.0, 1.0, 1.0), radius_mm=4.0)
 
-    data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1],
-                            window="soft_tissue", target_spacing=(1.0, 1.0, 1.0))
-    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, 
-                              blocks=2)
+    data = SegmentationData(
+        train_path=str(root),
+        validation_path=str(root),
+        labels=[0, 1],
+        window="soft_tissue",
+        target_spacing=(1.0, 1.0, 1.0),
+    )
+    model = SegmentationModel(name="m", input_shape=(32, 32, 32), channels=1, blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
     image, mask = dataset[0]

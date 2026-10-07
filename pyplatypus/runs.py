@@ -28,8 +28,9 @@ def wants_a_record(spec) -> bool:
     return "output_dir" in spec.model_fields_set
 
 
-def write_record(spec, name: str, *, derived: dict[str, Any] | None = None,
-                 history: Any = None) -> Path:
+def write_record(
+    spec, name: str, *, derived: dict[str, Any] | None = None, history: Any = None
+) -> Path:
     """Write `<output_dir>/<name>/run.json` and return its path.
 
     `derived` is whatever the run worked out that the specification does not already say -

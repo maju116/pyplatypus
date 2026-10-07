@@ -31,11 +31,17 @@ def four_patients(tmp_path):
 
 
 def engine_for(root, split):
-    return Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "colormap": COLORMAP, "split": split},
-        "models": [{"name": "m", "input_shape": [32, 32]}],
-    }), device="cpu", check_masks=False)
+    return Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {"train_path": str(root), "colormap": COLORMAP, "split": split},
+                "models": [{"name": "m", "input_shape": [32, 32]}],
+            }
+        ),
+        device="cpu",
+        check_masks=False,
+    )
 
 
 def patients_in(engine, split):
@@ -62,8 +68,9 @@ def test_group_by_keeps_a_patient_out_of_both_halves(four_patients):
     output to say so.
     """
     by_file = engine_for(four_patients, {"fractions": [0.5, 0.25, 0.25], "group_by": None})
-    by_patient = engine_for(four_patients,
-                            {"fractions": [0.5, 0.25, 0.25], "group_by": r"^(patient\d+)_"})
+    by_patient = engine_for(
+        four_patients, {"fractions": [0.5, 0.25, 0.25], "group_by": r"^(patient\d+)_"}
+    )
 
     assert patients_in(by_file, "train") & patients_in(by_file, "validation")
     assert not (patients_in(by_patient, "train") & patients_in(by_patient, "validation"))
@@ -74,16 +81,19 @@ def test_the_split_is_deterministic(four_patients):
     split = {"fractions": [0.5, 0.25, 0.25], "group_by": r"^(patient\d+)_", "seed": 7}
     first = engine_for(four_patients, split)
     again = engine_for(four_patients, split)
-    assert ([s.key for s in first._samples["validation"]]
-            == [s.key for s in again._samples["validation"]])
+    assert [s.key for s in first._samples["validation"]] == [
+        s.key for s in again._samples["validation"]
+    ]
 
 
 def test_a_different_seed_divides_differently(four_patients):
     """Otherwise the seed is decoration and nobody could re-split a stubborn dataset."""
     keys = []
     for seed in (1, 2, 3, 4, 5):
-        engine = engine_for(four_patients, {"fractions": [0.5, 0.25, 0.25],
-                                            "group_by": r"^(patient\d+)_", "seed": seed})
+        engine = engine_for(
+            four_patients,
+            {"fractions": [0.5, 0.25, 0.25], "group_by": r"^(patient\d+)_", "seed": seed},
+        )
         keys.append(tuple(s.key for s in engine._samples["validation"]))
     assert len(set(keys)) > 1
 

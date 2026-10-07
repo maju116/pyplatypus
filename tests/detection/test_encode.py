@@ -23,6 +23,7 @@ THREE = ((0.2, 0.2), (0.3, 0.15)), ((0.1, 0.1), (0.05, 0.2)), ((0.03, 0.03), (0.
 
 # --- grids ------------------------------------------------------------------------------
 
+
 def test_the_classic_grids_for_416():
     assert grid_shapes((416, 416)) == ((13, 13), (26, 26), (52, 52))
 
@@ -41,6 +42,7 @@ def test_a_size_the_strides_do_not_divide_is_refused_with_the_nearest_ones():
 
 
 # --- the round trip ---------------------------------------------------------------------
+
 
 def as_set(boxes):
     return np.array(sorted(map(tuple, np.round(np.asarray(boxes), 4).tolist())))
@@ -80,6 +82,7 @@ def test_the_class_survives_the_round_trip():
 
 # --- the infinity the old encoding had --------------------------------------------------
 
+
 def test_a_centre_on_a_cell_boundary_stays_finite():
     """The package this replaces stored `logit(centre - floor(centre))`, which is `-inf`
     when the centre lands on a cell line. Measured on a 416 input at grid 13, that was 37
@@ -108,15 +111,16 @@ def test_a_box_flush_with_the_far_edge_does_not_index_past_the_grid():
 
 # --- assignment -------------------------------------------------------------------------
 
+
 def test_a_large_object_goes_to_the_coarse_grid_and_a_small_one_to_the_fine():
     """Which is the whole point of three scales, and why an image of nothing but platelets
     trains only the finest grid."""
     big = encode([[0, 0, 300, 300]], [0], anchors=THREE, n_class=1)
     small = encode([[0, 0, 12, 12]], [0], anchors=THREE, n_class=1)
 
-    assert big.targets[0][..., 4].sum() == 1          # coarsest
+    assert big.targets[0][..., 4].sum() == 1  # coarsest
     assert big.targets[2][..., 4].sum() == 0
-    assert small.targets[2][..., 4].sum() == 1        # finest
+    assert small.targets[2][..., 4].sum() == 1  # finest
     assert small.targets[0][..., 4].sum() == 0
 
 
@@ -133,11 +137,16 @@ def test_the_number_of_anchors_per_grid_comes_from_the_anchors():
     assert two.targets[0].shape == (13, 13, 2, 6)
 
     five = tuple(tuple((0.1 + 0.02 * i, 0.1) for i in range(5)) for _ in range(3))
-    assert encode([[10, 10, 50, 50]], [0], anchors=five, n_class=1).targets[0].shape == \
-        (13, 13, 5, 6)
+    assert encode([[10, 10, 50, 50]], [0], anchors=five, n_class=1).targets[0].shape == (
+        13,
+        13,
+        5,
+        6,
+    )
 
 
 # --- what cannot be represented ---------------------------------------------------------
+
 
 def test_two_boxes_in_one_cell_with_one_shape_cannot_both_be_stored():
     """Counted rather than overwritten in silence. On a dataset of touching objects this
@@ -159,6 +168,7 @@ def test_a_finer_input_loses_fewer_objects_at_the_same_density():
     density of a blood smear, a 416 input cannot represent about one object in eleven, and
     a 608 input represents them all."""
     rng = np.random.default_rng(3)
+
     def pack(shape):
         boxes = []
         for _ in range(45):
@@ -176,11 +186,13 @@ def test_a_finer_input_loses_fewer_objects_at_the_same_density():
 
 # --- decoding a network's output --------------------------------------------------------
 
+
 def test_a_raw_output_decodes_through_the_sigmoid():
     """The path the published COCO weights take: offsets and objectness in logit space."""
     rng = np.random.default_rng(1)
-    raw = [rng.normal(0, 1, (gh, gw, 3, 85)).astype(np.float32)
-           for gh, gw in grid_shapes((416, 416))]
+    raw = [
+        rng.normal(0, 1, (gh, gw, 3, 85)).astype(np.float32) for gh, gw in grid_shapes((416, 416))
+    ]
     boxes, scores, labels = decode(raw, n_class=80, objectness=0.9, raw=True)
 
     assert len(boxes) > 0
@@ -203,12 +215,12 @@ def test_a_grid_of_the_wrong_shape_says_what_was_expected():
 
 # --- refusals ---------------------------------------------------------------------------
 
+
 def test_anchors_given_in_pixels_are_refused_with_the_division_named():
     """COCO's are published as pixels at 416, and using them unchanged would make every
     anchor larger than the image."""
     with pytest.raises(DetectionError, match=r"\(116, 90\) / 416"):
-        encode([[10, 10, 50, 50]], [0],
-               anchors=(((116, 90),), ((30, 61),), ((10, 13),)), n_class=1)
+        encode([[10, 10, 50, 50]], [0], anchors=(((116, 90),), ((30, 61),), ((10, 13),)), n_class=1)
 
 
 def test_anchors_as_an_array_encode_exactly_as_the_grouped_tuple_does():
@@ -216,9 +228,11 @@ def test_anchors_as_an_array_encode_exactly_as_the_grouped_tuple_does():
     error from inside the one guard meant to produce a clear message. Asserted on the
     arrays themselves rather than on their shapes: the two routes must agree element for
     element, since a transposed or reordered group would keep every shape intact."""
-    grouped = (((0.05, 0.06), (0.1, 0.1), (0.2, 0.15)),
-               ((0.3, 0.25), (0.4, 0.3), (0.5, 0.45)),
-               ((0.6, 0.55), (0.7, 0.65), (0.8, 0.75)))
+    grouped = (
+        ((0.05, 0.06), (0.1, 0.1), (0.2, 0.15)),
+        ((0.3, 0.25), (0.4, 0.3), (0.5, 0.45)),
+        ((0.6, 0.55), (0.7, 0.65), (0.8, 0.75)),
+    )
     boxes, labels = [[10, 10, 90, 80], [200, 150, 320, 290]], [0, 2]
 
     from_tuple = encode(boxes, labels, anchors=grouped, n_class=3)
@@ -241,9 +255,20 @@ def test_flattened_anchors_are_refused_and_the_message_names_the_grouped_attribu
     """`AnchorFit.flat` is this shape and is what someone reaches for after fitting
     anchors. It cannot say how the anchors divide between the output grids, and dividing by
     three would be right for YOLOv3 and wrong for a model with two heads."""
-    flat = np.asarray([(0.05, 0.06), (0.1, 0.1), (0.2, 0.15),
-                       (0.3, 0.25), (0.4, 0.3), (0.5, 0.45),
-                       (0.6, 0.55), (0.7, 0.65), (0.8, 0.75)], dtype=float)
+    flat = np.asarray(
+        [
+            (0.05, 0.06),
+            (0.1, 0.1),
+            (0.2, 0.15),
+            (0.3, 0.25),
+            (0.4, 0.3),
+            (0.5, 0.45),
+            (0.6, 0.55),
+            (0.7, 0.65),
+            (0.8, 0.75),
+        ],
+        dtype=float,
+    )
     with pytest.raises(DetectionError, match=r"`\.anchors` rather than `\.flat`"):
         encode([[10, 10, 50, 50]], [0], anchors=flat, n_class=1)
 
@@ -252,11 +277,23 @@ def test_an_anchor_fit_offers_both_and_only_the_grouped_one_is_accepted():
     """Pins the pairing that caused this: the attribute that works and the attribute that
     is refused both exist on the same object."""
     from pyplatypus.detection.anchors import fit_shapes
-    shapes = np.array([[0.05, 0.05], [0.1, 0.12], [0.3, 0.28], [0.5, 0.45],
-                       [0.6, 0.7], [0.8, 0.75], [0.15, 0.2], [0.35, 0.4], [0.7, 0.6]])
+
+    shapes = np.array(
+        [
+            [0.05, 0.05],
+            [0.1, 0.12],
+            [0.3, 0.28],
+            [0.5, 0.45],
+            [0.6, 0.7],
+            [0.8, 0.75],
+            [0.15, 0.2],
+            [0.35, 0.4],
+            [0.7, 0.6],
+        ]
+    )
     fitted, mean_iou, _, _ = fit_shapes(shapes, 9, seed=0)
     assert mean_iou > 0  # the fit is real, so the anchors below are too
-    grouped = tuple(tuple(map(tuple, fitted[i * 3:(i + 1) * 3])) for i in range(3))
+    grouped = tuple(tuple(map(tuple, fitted[i * 3 : (i + 1) * 3])) for i in range(3))
 
     encode([[10, 10, 50, 50]], [0], anchors=grouped, n_class=1)
     with pytest.raises(DetectionError, match=r"flat \(9, 2\) array"):
@@ -265,9 +302,12 @@ def test_an_anchor_fit_offers_both_and_only_the_grouped_one_is_accepted():
 
 def test_unequal_anchor_counts_are_refused_because_the_head_cannot_have_two_widths():
     with pytest.raises(DetectionError, match="same number of anchors"):
-        encode([[10, 10, 50, 50]], [0],
-               anchors=(((0.2, 0.2), (0.3, 0.3)), ((0.1, 0.1),), ((0.05, 0.05),)),
-               n_class=1)
+        encode(
+            [[10, 10, 50, 50]],
+            [0],
+            anchors=(((0.2, 0.2), (0.3, 0.3)), ((0.1, 0.1),), ((0.05, 0.05),)),
+            n_class=1,
+        )
 
 
 def test_a_label_outside_the_class_count_is_refused():

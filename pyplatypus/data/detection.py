@@ -47,12 +47,12 @@ class Example:
     in the photograph's own pixels and never in the network's.
     """
 
-    image: np.ndarray                      # (h, w, c), 0-1 floats
-    boxes: np.ndarray                      # (n, 4) in the letterboxed frame
-    labels: np.ndarray                     # (n,) class indices
+    image: np.ndarray  # (h, w, c), 0-1 floats
+    boxes: np.ndarray  # (n, 4) in the letterboxed frame
+    labels: np.ndarray  # (n,) class indices
     fit: Letterbox
     annotation: Annotation
-    dropped: int                           # boxes too small to survive the letterbox
+    dropped: int  # boxes too small to survive the letterbox
 
 
 @dataclass(frozen=True)
@@ -80,9 +80,13 @@ class TargetSurvey:
         return self.unplaced / self.total if self.total else 0.0
 
     def to_dict(self) -> dict[str, float]:
-        return {"placed": self.placed, "unplaced": self.unplaced,
-                "dropped": self.dropped, "images": self.images,
-                "unplaced_fraction": self.unplaced_fraction}
+        return {
+            "placed": self.placed,
+            "unplaced": self.unplaced,
+            "dropped": self.dropped,
+            "images": self.images,
+            "unplaced_fraction": self.unplaced_fraction,
+        }
 
 
 class DetectionDataset:
@@ -92,17 +96,25 @@ class DetectionDataset:
     image into a grid cuts boxes in half and a half box is not a smaller object.
     """
 
-    def __init__(self, samples: tuple[Sample, ...], model: DetectionModel,
-                 data: DetectionData, *, anchors, only_images: bool = False,
-                 augmenter: BoxAugmenter | None = None):
+    def __init__(
+        self,
+        samples: tuple[Sample, ...],
+        model: DetectionModel,
+        data: DetectionData,
+        *,
+        anchors,
+        only_images: bool = False,
+        augmenter: BoxAugmenter | None = None,
+    ):
         if not samples:
             raise DetectionDataError("a detection dataset needs at least one sample")
         self.samples = samples
         self.model = model
         self.data = data
         self.augmenter = augmenter
-        self.anchors = tuple(tuple(tuple(float(v) for v in pair) for pair in group)
-                             for group in anchors)
+        self.anchors = tuple(
+            tuple(tuple(float(v) for v in pair) for pair in group) for group in anchors
+        )
         self.only_images = only_images
         self.input_shape = (int(model.input_shape[0]), int(model.input_shape[1]))
         # Every sample, now, rather than when one is first read: counting paths costs no
@@ -139,8 +151,12 @@ class DetectionDataset:
         classes = list(self.data.classes)
         if self.data.annotation_format == "labelme":
             return read_labelme(path, classes, strict_labels=self.data.strict_labels)
-        return read_voc(path, classes, coordinates=self.data.voc_coordinates,
-                        strict_labels=self.data.strict_labels)
+        return read_voc(
+            path,
+            classes,
+            coordinates=self.data.voc_coordinates,
+            strict_labels=self.data.strict_labels,
+        )
 
     def source_image(self, index: int) -> np.ndarray:
         """One sample's image at its native size, before any letterbox.
@@ -156,8 +172,11 @@ class DetectionDataset:
         labelled.
         """
         sample = self.samples[index]
-        return to_float(read_image(sample.images[0], channels=self.model.channels,
-                                   dicom_window=self.data.window))
+        return to_float(
+            read_image(
+                sample.images[0], channels=self.model.channels, dicom_window=self.data.window
+            )
+        )
 
     def read(self, index: int) -> Example:
         """One sample, letterboxed, with everything evaluation will need.
@@ -167,24 +186,36 @@ class DetectionDataset:
         letterbox exists to avoid.
         """
         sample = self.samples[index]
-        image = to_float(read_image(sample.images[0], channels=self.model.channels,
-                                    dicom_window=self.data.window))
+        image = to_float(
+            read_image(
+                sample.images[0], channels=self.model.channels, dicom_window=self.data.window
+            )
+        )
 
         if self.only_images:
             height, width = image.shape[0], image.shape[1]
             fit = Letterbox.fit((height, width), self.input_shape)
-            return Example(image=fit.apply_to_image(image),
-                           boxes=np.zeros((0, 4)), labels=np.zeros(0, dtype=int),
-                           fit=fit, annotation=_empty_annotation(sample, height, width),
-                           dropped=0)
+            return Example(
+                image=fit.apply_to_image(image),
+                boxes=np.zeros((0, 4)),
+                labels=np.zeros(0, dtype=int),
+                fit=fit,
+                annotation=_empty_annotation(sample, height, width),
+                dropped=0,
+            )
 
         annotation = self.annotation(index)
         self._check_frame(sample, annotation, image)
         fit = Letterbox.fit((annotation.height, annotation.width), self.input_shape)
-        boxes, labels, dropped = drop_degenerate(fit.forward(annotation.boxes),
-                                                 annotation.labels)
-        return Example(image=fit.apply_to_image(image), boxes=boxes, labels=labels,
-                       fit=fit, annotation=annotation, dropped=dropped)
+        boxes, labels, dropped = drop_degenerate(fit.forward(annotation.boxes), annotation.labels)
+        return Example(
+            image=fit.apply_to_image(image),
+            boxes=boxes,
+            labels=labels,
+            fit=fit,
+            annotation=annotation,
+            dropped=dropped,
+        )
 
     def _one_image(self, sample: Sample) -> None:
         """One image per sample, said rather than assumed.
@@ -205,8 +236,7 @@ class DetectionDataset:
                 f"image to one annotation file is the only arrangement."
             )
 
-    def _check_frame(self, sample: Sample, annotation: Annotation,
-                     image: np.ndarray) -> None:
+    def _check_frame(self, sample: Sample, annotation: Annotation, image: np.ndarray) -> None:
         """The annotation's <size> has to be the image's size.
 
         A box is a position in a frame, so a frame of the wrong size puts every box
@@ -240,8 +270,13 @@ class DetectionDataset:
             # ratios a crop can return a tile that is mostly padding.
             image, boxes, labels = self.augmenter(image, boxes, labels)
 
-        encoded = encode(boxes, labels, anchors=self.anchors,
-                         input_shape=self.input_shape, n_class=self.data.n_class)
+        encoded = encode(
+            boxes,
+            labels,
+            anchors=self.anchors,
+            input_shape=self.input_shape,
+            n_class=self.data.n_class,
+        )
         return image, tuple(encoded.targets)
 
     # ------------------------------------------------------------------ surveying
@@ -255,15 +290,18 @@ class DetectionDataset:
         for index in range(len(self)):
             annotation = self.annotation(index)
             fit = Letterbox.fit((annotation.height, annotation.width), self.input_shape)
-            boxes, labels, lost = drop_degenerate(fit.forward(annotation.boxes),
-                                                  annotation.labels)
+            boxes, labels, lost = drop_degenerate(fit.forward(annotation.boxes), annotation.labels)
             dropped += lost
-            encoded = encode(boxes, labels, anchors=self.anchors,
-                             input_shape=self.input_shape, n_class=self.data.n_class)
+            encoded = encode(
+                boxes,
+                labels,
+                anchors=self.anchors,
+                input_shape=self.input_shape,
+                n_class=self.data.n_class,
+            )
             placed += encoded.placed
             unplaced += encoded.unplaced
-        return TargetSurvey(placed=placed, unplaced=unplaced, dropped=dropped,
-                            images=len(self))
+        return TargetSurvey(placed=placed, unplaced=unplaced, dropped=dropped, images=len(self))
 
     def annotations(self) -> list[Annotation]:
         """Every annotation in this split, for fitting anchors to it."""
@@ -273,7 +311,12 @@ class DetectionDataset:
 def _empty_annotation(sample: Sample, height: int, width: int) -> Annotation:
     """A frame with no boxes, for a test split that has images and no labels."""
     return Annotation(
-        path=Path(sample.images[0]), width=width, height=height,
-        boxes=np.zeros((0, 4)), labels=np.zeros(0, dtype=int), names=[],
-        difficult=np.zeros(0, dtype=bool), image_path=str(sample.images[0]),
+        path=Path(sample.images[0]),
+        width=width,
+        height=height,
+        boxes=np.zeros((0, 4)),
+        labels=np.zeros(0, dtype=int),
+        names=[],
+        difficult=np.zeros(0, dtype=bool),
+        image_path=str(sample.images[0]),
     )

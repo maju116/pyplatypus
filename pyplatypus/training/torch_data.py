@@ -50,8 +50,7 @@ class TorchSegmentationDataset(Dataset):
         if not self.with_distance:
             return to_channels_first(image), to_channels_first(mask)
         distance = signed_distance(mask, spacing=self._spacing())
-        return (to_channels_first(image), to_channels_first(mask),
-                to_channels_first(distance))
+        return (to_channels_first(image), to_channels_first(mask), to_channels_first(distance))
 
     def _spacing(self):
         """Millimetres per voxel if there is such a thing, and None if there is not.
@@ -72,9 +71,15 @@ class TorchSegmentationDataset(Dataset):
         return tuple(float(v) for v in spacing)
 
 
-def make_loader(base: SegmentationDataset, *, batch_size: int = 8, shuffle: bool = False,
-                num_workers: int = 0, drop_last: bool = False,
-                with_distance: bool = False) -> DataLoader:
+def make_loader(
+    base: SegmentationDataset,
+    *,
+    batch_size: int = 8,
+    shuffle: bool = False,
+    num_workers: int = 0,
+    drop_last: bool = False,
+    with_distance: bool = False,
+) -> DataLoader:
     return DataLoader(
         TorchSegmentationDataset(base, with_distance=with_distance),
         batch_size=batch_size,
@@ -102,8 +107,7 @@ class TorchDetectionDataset(Dataset):
         # The targets stay as they are: a YOLOv3 target is (rows, cols, anchors, 5 +
         # classes), where the last axis is not channels but a record per anchor. Moving
         # it would be meaningless, and the loss indexes it where it is.
-        return (to_channels_first(image),
-                tuple(torch.from_numpy(t) for t in targets))
+        return (to_channels_first(image), tuple(torch.from_numpy(t) for t in targets))
 
 
 def _collate_detection(batch):
@@ -121,9 +125,14 @@ def _collate_detection(batch):
     return images, targets
 
 
-def make_detection_loader(base: DetectionDataset, *, batch_size: int = 8,
-                          shuffle: bool = False, num_workers: int = 0,
-                          drop_last: bool = False) -> DataLoader:
+def make_detection_loader(
+    base: DetectionDataset,
+    *,
+    batch_size: int = 8,
+    shuffle: bool = False,
+    num_workers: int = 0,
+    drop_last: bool = False,
+) -> DataLoader:
     return DataLoader(
         TorchDetectionDataset(base),
         batch_size=batch_size,

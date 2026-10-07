@@ -35,8 +35,7 @@ class UShapedNet(nn.Module):
     Logits, always - the loss applies its own activation.
     """
 
-    def __init__(self, spec: SegmentationModel, *, n_class: int,
-                 encoder: Encoder | None = None):
+    def __init__(self, spec: SegmentationModel, *, n_class: int, encoder: Encoder | None = None):
         super().__init__()
         self.rank = check_rank(spec.rank)
         self.spec = spec
@@ -47,14 +46,21 @@ class UShapedNet(nn.Module):
 
         block_type = ResidualConvBlock if residual else ConvBlock
         self.block_options = {
-            "width": spec.block_width, "batch_norm": spec.batch_normalization,
-            "separable": spec.separable_conv, "act": spec.activation,
-            "drop": spec.dropout, "spatial_dropout": spec.spatial_dropout,
+            "width": spec.block_width,
+            "batch_norm": spec.batch_normalization,
+            "separable": spec.separable_conv,
+            "act": spec.activation,
+            "drop": spec.dropout,
+            "spatial_dropout": spec.spatial_dropout,
         }
 
         self.encoder = encoder or UShapedEncoder(
-            self.rank, spec.channels, blocks=spec.blocks, filters=spec.filters,
-            residual=residual, **self.block_options,
+            self.rank,
+            spec.channels,
+            blocks=spec.blocks,
+            filters=spec.filters,
+            residual=residual,
+            **self.block_options,
         )
         # Measured, not trusted: a supplied encoder is checked against what the decoder
         # is about to assume of it. Ours passes by construction; the check is here for
@@ -74,8 +80,11 @@ class UShapedNet(nn.Module):
                 if not self.nested and j != depth - i:
                     continue  # plain decoders only walk the diagonal
                 self.ups[f"{i}_{j}"] = upsample(
-                    self.rank, widths[i + 1], widths[i],
-                    learned=learned, separable=spec.separable_conv,
+                    self.rank,
+                    widths[i + 1],
+                    widths[i],
+                    learned=learned,
+                    separable=spec.separable_conv,
                 )
                 # LinkNet adds, so width is unchanged. U-Net++ concatenates every
                 # earlier node on this row plus the upsampled one; a plain decoder has
@@ -92,10 +101,9 @@ class UShapedNet(nn.Module):
 
         self.deep_supervision = spec.deep_supervision
         head_depths = range(1, depth + 1) if spec.deep_supervision else [depth]
-        self.heads = nn.ModuleDict({
-            str(j): convolution(self.rank, widths[0], n_class, kernel_size=1)
-            for j in head_depths
-        })
+        self.heads = nn.ModuleDict(
+            {str(j): convolution(self.rank, widths[0], n_class, kernel_size=1) for j in head_depths}
+        )
 
         initialise(self, spec.initialiser, spec.activation)
 
@@ -109,8 +117,9 @@ class UShapedNet(nn.Module):
         return torch.cat([*skips, upsampled], dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor | tuple[torch.Tensor, ...]:
-        features = self.encoder.forward(x) if not isinstance(self.encoder, nn.Module) \
-            else self.encoder(x)
+        features = (
+            self.encoder.forward(x) if not isinstance(self.encoder, nn.Module) else self.encoder(x)
+        )
         depth = self.spec.blocks
 
         # grid[i][j]; column 0 is the encoder, the bottleneck is grid[depth][0].
@@ -142,9 +151,9 @@ class UShapedNet(nn.Module):
         return tuple(outputs) if self.deep_supervision else outputs[-1]
 
 
-
-def build_model(spec: SegmentationModel, *, n_class: int,
-                encoder: Encoder | None = None) -> UShapedNet:
+def build_model(
+    spec: SegmentationModel, *, n_class: int, encoder: Encoder | None = None
+) -> UShapedNet:
     """The one entry point. Every architecture, every rank, one call.
 
     `n_class` is passed rather than read off the model, because the data decides how many

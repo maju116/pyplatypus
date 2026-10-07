@@ -7,7 +7,6 @@ does not need pycocotools installed. It was computed once, against the reference
 `scripts/` is not where that should live - a verification that happened once is not a test.
 """
 
-
 import numpy as np
 import pytest
 
@@ -21,6 +20,7 @@ from pyplatypus.detection import (
 from pyplatypus.detection.metrics import DetectionError
 
 # --- intersection over union -----------------------------------------------------------
+
 
 def test_a_box_against_itself_is_one():
     assert iou_matrix([[0, 0, 10, 10]], [[0, 0, 10, 10]])[0, 0] == pytest.approx(1.0)
@@ -55,6 +55,7 @@ def test_a_reversed_box_is_refused_with_the_likely_cause():
 
 # --- matching --------------------------------------------------------------------------
 
+
 def truth(*boxes):
     return list(boxes)
 
@@ -72,14 +73,16 @@ def test_a_prediction_below_the_threshold_is_a_miss():
 
 def test_a_second_prediction_on_the_same_object_is_a_false_positive():
     """Which is what makes non-maximum suppression worth doing."""
-    _, hit, _ = match_detections([[0, 0, 10, 10], [0, 0, 10, 10]], [0.9, 0.8],
-                              truth([0, 0, 10, 10]))
+    _, hit, _ = match_detections(
+        [[0, 0, 10, 10], [0, 0, 10, 10]], [0.9, 0.8], truth([0, 0, 10, 10])
+    )
     assert hit.tolist() == [True, False]
 
 
 def test_the_higher_scoring_prediction_claims_the_truth():
-    order, hit, _ = match_detections([[5, 5, 15, 15], [0, 0, 10, 10]], [0.3, 0.9],
-                                  truth([0, 0, 10, 10]))
+    order, hit, _ = match_detections(
+        [[5, 5, 15, 15], [0, 0, 10, 10]], [0.3, 0.9], truth([0, 0, 10, 10])
+    )
     # Sorted by score, so the good box comes first and takes it.
     assert order.tolist() == [1, 0]
     assert hit.tolist() == [True, False]
@@ -87,8 +90,7 @@ def test_the_higher_scoring_prediction_claims_the_truth():
 
 def test_among_candidates_the_best_overlap_wins():
     """Two truths in reach; the prediction should take the one it fits, not the first."""
-    _, hit, _ = match_detections([[9, 0, 20, 10]], [0.9],
-                              truth([0, 0, 10, 10], [10, 0, 20, 10]))
+    _, hit, _ = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10], [10, 0, 20, 10]))
     assert hit.tolist() == [True]
     # And the one it took is the better fit: with only the poor truth present, it misses.
     _, poor, _ = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10]))
@@ -97,8 +99,9 @@ def test_among_candidates_the_best_overlap_wins():
 
 def test_ties_in_score_keep_the_input_order():
     """So a report is reproducible rather than dependent on the sort's internals."""
-    order, _, _ = match_detections([[0, 0, 1, 1], [2, 2, 3, 3], [4, 4, 5, 5]],
-                                [0.5, 0.5, 0.5], truth())
+    order, _, _ = match_detections(
+        [[0, 0, 1, 1], [2, 2, 3, 3], [4, 4, 5, 5]], [0.5, 0.5, 0.5], truth()
+    )
     assert order.tolist() == [0, 1, 2]
 
 
@@ -109,14 +112,18 @@ def test_one_score_per_box_is_required():
 
 # --- average precision, by hand --------------------------------------------------------
 
-@pytest.mark.parametrize("hit, n_truth, expected", [
-    ([True], 1, 1.0),                 # found it, nothing else
-    ([False], 1, 0.0),                # missed it
-    ([True, False], 1, 1.0),          # found it, then a duplicate: recall never grows
-    ([False, True], 1, 0.5),          # a false positive outranks the hit
-    ([True, True], 2, 1.0),           # both found, top two
-    ([True, False], 2, 0.5),          # one of two, recall caps at a half
-])
+
+@pytest.mark.parametrize(
+    "hit, n_truth, expected",
+    [
+        ([True], 1, 1.0),  # found it, nothing else
+        ([False], 1, 0.0),  # missed it
+        ([True, False], 1, 1.0),  # found it, then a duplicate: recall never grows
+        ([False, True], 1, 0.5),  # a false positive outranks the hit
+        ([True, True], 2, 1.0),  # both found, top two
+        ([True, False], 2, 0.5),  # one of two, recall caps at a half
+    ],
+)
 def test_average_precision_matches_the_arithmetic(hit, n_truth, expected):
     assert average_precision(hit, n_truth) == pytest.approx(expected)
 
@@ -146,6 +153,7 @@ def test_an_unknown_interpolation_is_refused():
 
 # --- the whole report ------------------------------------------------------------------
 
+
 def one_image(boxes, labels, scores=None):
     entry = {"boxes": boxes, "labels": labels}
     if scores is not None:
@@ -155,8 +163,7 @@ def one_image(boxes, labels, scores=None):
 
 def test_a_perfect_detector_scores_one():
     truths = [one_image([[0, 0, 10, 10]], [0]), one_image([[5, 5, 20, 20]], [1])]
-    preds = [one_image([[0, 0, 10, 10]], [0], [0.9]),
-             one_image([[5, 5, 20, 20]], [1], [0.8])]
+    preds = [one_image([[0, 0, 10, 10]], [0], [0.9]), one_image([[5, 5, 20, 20]], [1], [0.8])]
     report = detection_report(preds, truths, labels=["a", "b"])
     assert report.mean_average_precision == pytest.approx(1.0)
     assert report.classes_without_truth == []
@@ -189,10 +196,12 @@ def test_predictions_are_pooled_across_images_rather_than_averaged_per_image():
     report = detection_report(preds, truths, labels=["a"])
     pooled = report.mean_average_precision
 
-    per_image = np.mean([
-        detection_report([preds[i]], [truths[i]], labels=["a"]).mean_average_precision
-        for i in (0, 1)
-    ])
+    per_image = np.mean(
+        [
+            detection_report([preds[i]], [truths[i]], labels=["a"]).mean_average_precision
+            for i in (0, 1)
+        ]
+    )
     assert pooled == pytest.approx(0.2)
     assert per_image == pytest.approx(0.5555, abs=1e-3)
     assert pooled < per_image
@@ -210,8 +219,9 @@ def test_a_declared_class_the_data_never_contained_is_reported_not_scored():
 
 
 def test_difficult_objects_are_left_out_as_pascal_voc_leaves_them_out():
-    truths = [{"boxes": [[0, 0, 10, 10], [50, 50, 60, 60]], "labels": [0, 0],
-               "difficult": [False, True]}]
+    truths = [
+        {"boxes": [[0, 0, 10, 10], [50, 50, 60, 60]], "labels": [0, 0], "difficult": [False, True]}
+    ]
     preds = [one_image([[0, 0, 10, 10]], [0], [0.9])]
     report = detection_report(preds, truths, labels=["a"])
     assert report.per_class[0]["n_truth"] == 1
@@ -221,8 +231,9 @@ def test_difficult_objects_are_left_out_as_pascal_voc_leaves_them_out():
 def test_the_conventions_used_travel_with_the_result():
     truths = [one_image([[0, 0, 10, 10]], [0])]
     preds = [one_image([[0, 0, 10, 10]], [0], [0.9])]
-    report = detection_report(preds, truths, labels=["a"],
-                              iou_thresholds=(0.5, 0.75), interpolation="101")
+    report = detection_report(
+        preds, truths, labels=["a"], iou_thresholds=(0.5, 0.75), interpolation="101"
+    )
     assert report.iou_thresholds == (0.5, 0.75)
     assert report.interpolation == "101"
 
@@ -242,8 +253,9 @@ def test_mismatched_image_counts_are_refused():
 
 def test_predictions_without_scores_are_refused_with_the_reason():
     with pytest.raises(DetectionError, match="no ordering"):
-        detection_report([one_image([[0, 0, 1, 1]], [0])],
-                         [one_image([[0, 0, 1, 1]], [0])], labels=["a"])
+        detection_report(
+            [one_image([[0, 0, 1, 1]], [0])], [one_image([[0, 0, 1, 1]], [0])], labels=["a"]
+        )
 
 
 @pytest.mark.parametrize("thresholds", [(), (0.0,), (1.5,), (-0.5,)])
@@ -255,6 +267,7 @@ def test_impossible_iou_thresholds_are_refused(thresholds):
 
 
 # --- agreement with pycocotools --------------------------------------------------------
+
 
 def random_problem(seed: int, n_images: int = 8, n_class: int = 3) -> dict:
     """A reproducible detection problem: some predictions are jittered truths, some are
@@ -278,16 +291,23 @@ def random_problem(seed: int, n_images: int = 8, n_class: int = 3) -> dict:
             if boxes and rng.random() < 0.6:
                 base = boxes[int(rng.integers(0, len(boxes)))]
                 jitter = rng.normal(0, 5, 4)
-                pboxes.append([base[0] + jitter[0], base[1] + jitter[1],
-                               base[2] + jitter[2], base[3] + jitter[3]])
+                pboxes.append(
+                    [
+                        base[0] + jitter[0],
+                        base[1] + jitter[1],
+                        base[2] + jitter[2],
+                        base[3] + jitter[3],
+                    ]
+                )
             else:
                 x, y = rng.uniform(0, 80, 2)
                 w, h = rng.uniform(10, 40, 2)
                 pboxes.append([x, y, x + w, y + h])
             plabels.append(int(rng.integers(0, n_class)))
             scores.append(float(rng.uniform(0.05, 0.99)))
-        pboxes = [[min(b[0], b[2]), min(b[1], b[3]), max(b[0], b[2]), max(b[1], b[3])]
-                  for b in pboxes]
+        pboxes = [
+            [min(b[0], b[2]), min(b[1], b[3]), max(b[0], b[2]), max(b[1], b[3])] for b in pboxes
+        ]
         preds.append({"boxes": pboxes, "labels": plabels, "scores": scores})
     return {"truths": truths, "predictions": preds, "n_class": n_class}
 
@@ -317,10 +337,20 @@ def test_mean_average_precision_agrees_with_pycocotools(seed):
     labels = [str(index) for index in range(case["n_class"])]
     expected_half, expected_coco = COCOTOOLS_REFERENCE[seed]
 
-    half = detection_report(case["predictions"], case["truths"], labels=labels,
-                            iou_thresholds=(0.5,), interpolation="101")
-    coco = detection_report(case["predictions"], case["truths"], labels=labels,
-                            iou_thresholds=COCO_THRESHOLDS, interpolation="101")
+    half = detection_report(
+        case["predictions"],
+        case["truths"],
+        labels=labels,
+        iou_thresholds=(0.5,),
+        interpolation="101",
+    )
+    coco = detection_report(
+        case["predictions"],
+        case["truths"],
+        labels=labels,
+        iou_thresholds=COCO_THRESHOLDS,
+        interpolation="101",
+    )
 
     assert half.mean_average_precision == pytest.approx(expected_half, abs=1e-12)
     assert coco.mean_average_precision == pytest.approx(expected_coco, abs=1e-12)
@@ -336,13 +366,16 @@ def test_the_reference_problems_are_not_trivial():
         assert truths >= 5, (seed, truths)
         assert preds >= 5, (seed, preds)
         score = detection_report(
-            case["predictions"], case["truths"],
-            labels=[str(i) for i in range(case["n_class"])], interpolation="101"
+            case["predictions"],
+            case["truths"],
+            labels=[str(i) for i in range(case["n_class"])],
+            interpolation="101",
         ).mean_average_precision
         assert 0 < score < 1, (seed, score)
 
 
 # --- how well the matched boxes actually fit --------------------------------------------
+
 
 def test_matching_reports_the_overlap_it_matched_at():
     """The threshold throws this away: a box matching at 0.52 and one at 0.97 are both a
@@ -363,12 +396,12 @@ def test_the_report_says_how_well_the_matches_fit():
     and 0.50 averaged over 0.50-0.95 is finding its objects and placing them loosely."""
     truths = [one_image([[0, 0, 100, 100]], [0])]
     tight = [one_image([[0, 0, 100, 100]], [0], [0.9])]
-    loose = [one_image([[0, 0, 70, 100]], [0], [0.9])]      # IoU 0.7
+    loose = [one_image([[0, 0, 70, 100]], [0], [0.9])]  # IoU 0.7
 
-    assert detection_report(tight, truths, labels=["a"]).mean_matched_iou == \
-        pytest.approx(1.0)
-    assert detection_report(loose, truths, labels=["a"]).mean_matched_iou == \
-        pytest.approx(0.7, abs=0.01)
+    assert detection_report(tight, truths, labels=["a"]).mean_matched_iou == pytest.approx(1.0)
+    assert detection_report(loose, truths, labels=["a"]).mean_matched_iou == pytest.approx(
+        0.7, abs=0.01
+    )
 
 
 def test_the_matched_overlap_is_weighted_by_how_many_matched():
@@ -378,9 +411,10 @@ def test_the_matched_overlap_is_weighted_by_how_many_matched():
         one_image([[0, 0, 100, 100], [200, 0, 300, 100], [400, 0, 500, 100]], [1, 1, 1]),
     ]
     preds = [
-        one_image([[0, 0, 60, 100]], [0], [0.9]),                      # class 0: IoU 0.6
-        one_image([[0, 0, 100, 100], [200, 0, 300, 100], [400, 0, 500, 100]],
-                  [1, 1, 1], [0.9, 0.9, 0.9]),                          # class 1: IoU 1.0
+        one_image([[0, 0, 60, 100]], [0], [0.9]),  # class 0: IoU 0.6
+        one_image(
+            [[0, 0, 100, 100], [200, 0, 300, 100], [400, 0, 500, 100]], [1, 1, 1], [0.9, 0.9, 0.9]
+        ),  # class 1: IoU 1.0
     ]
     report = detection_report(preds, truths, labels=["a", "b"])
     by_class = {row["label"]: row["mean_matched_iou"] for row in report.per_class}

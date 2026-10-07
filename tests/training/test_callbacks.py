@@ -71,7 +71,7 @@ def test_early_stopping_restores_the_best_weights(state):
     good = state.model.weight.detach().clone()
 
     with torch.no_grad():
-        state.model.weight.add_(5.0)               # the epoch that made things worse
+        state.model.weight.add_(5.0)  # the epoch that made things worse
     state.epoch, state.logs = 2, {"val_loss": 9.9}
     assert callback.on_epoch_end(state)
     callback.on_train_end(state)
@@ -83,13 +83,12 @@ def test_checkpoint_only_saves_improvements(tmp_path, state):
     callback = build_callbacks([ModelCheckpointSpec(path=str(path))])[0]
     run(callback, state, [1.0, 0.5, 0.7])
     assert path.exists()
-    assert callback.saved_epoch == 2               # not 3, which was worse
+    assert callback.saved_epoch == 2  # not 3, which was worse
 
 
 def test_checkpoint_can_save_every_epoch(tmp_path, state):
     path = tmp_path / "last.pt"
-    callback = build_callbacks(
-        [ModelCheckpointSpec(path=str(path), save_best_only=False)])[0]
+    callback = build_callbacks([ModelCheckpointSpec(path=str(path), save_best_only=False)])[0]
     run(callback, state, [1.0, 0.5, 0.7])
     assert callback.saved_epoch == 3
 
@@ -101,8 +100,7 @@ def test_reduce_lr_cuts_the_rate_on_a_plateau(state):
 
 
 def test_reduce_lr_respects_its_floor(state):
-    callback = build_callbacks(
-        [ReduceLrOnPlateauSpec(factor=0.01, patience=1, min_lr=0.09)])[0]
+    callback = build_callbacks([ReduceLrOnPlateauSpec(factor=0.01, patience=1, min_lr=0.09)])[0]
     run(callback, state, [1.0, 1.0])
     assert state.optimizer.param_groups[0]["lr"] == pytest.approx(0.09)
 

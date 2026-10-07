@@ -46,7 +46,7 @@ def test_the_result_is_ordered_by_confidence_across_classes():
 
 
 def test_the_threshold_decides_how_much_overlap_is_too_much():
-    boxes = [[0, 0, 10, 10], [5, 0, 15, 10]]        # IoU 1/3
+    boxes = [[0, 0, 10, 10], [5, 0, 15, 10]]  # IoU 1/3
     assert len(nms(boxes, [0.9, 0.8], iou_threshold=0.3)) == 1
     assert len(nms(boxes, [0.9, 0.8], iou_threshold=0.5)) == 2
 
@@ -89,8 +89,9 @@ def test_suppression_is_what_makes_precision_meaningful():
     from pyplatypus.detection import detection_report
 
     truth = [{"boxes": [[10, 10, 50, 50]], "labels": [0]}]
-    cluster = np.array([[10, 10, 50, 50], [11, 11, 51, 51], [9, 9, 49, 49],
-                        [12, 10, 52, 50]], dtype=float)
+    cluster = np.array(
+        [[10, 10, 50, 50], [11, 11, 51, 51], [9, 9, 49, 49], [12, 10, 52, 50]], dtype=float
+    )
     scores = np.array([0.9, 0.85, 0.8, 0.75])
 
     raw = detection_report(
@@ -98,8 +99,9 @@ def test_suppression_is_what_makes_precision_meaningful():
     )
     keep = nms(cluster, scores, [0] * 4)
     suppressed = detection_report(
-        [{"boxes": cluster[keep], "scores": scores[keep],
-          "labels": [0] * len(keep)}], truth, labels=["a"]
+        [{"boxes": cluster[keep], "scores": scores[keep], "labels": [0] * len(keep)}],
+        truth,
+        labels=["a"],
     )
 
     assert raw.per_class[0]["false_positives"] == 3

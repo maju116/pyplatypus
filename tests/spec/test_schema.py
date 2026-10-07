@@ -23,7 +23,8 @@ def test_the_top_level_is_a_choice_of_task():
         },
     }
     assert {ref["$ref"] for ref in schema["oneOf"]} == {
-        "#/$defs/SegmentationSpec", "#/$defs/DetectionSpec",
+        "#/$defs/SegmentationSpec",
+        "#/$defs/DetectionSpec",
     }
 
 
@@ -37,8 +38,14 @@ def test_schema_forbids_unknown_keys():
     """extra='forbid' has to survive into the schema, or a tool built over it would
     accept the typos the engine refuses."""
     defs = spec_schema()["$defs"]
-    for name in ("SegmentationModel", "DetectionModel", "SegmentationData",
-                 "DetectionData", "SegmentationSpec", "DetectionSpec"):
+    for name in (
+        "SegmentationModel",
+        "DetectionModel",
+        "SegmentationData",
+        "DetectionData",
+        "SegmentationSpec",
+        "DetectionSpec",
+    ):
         assert defs[name].get("additionalProperties") is False, name
 
 

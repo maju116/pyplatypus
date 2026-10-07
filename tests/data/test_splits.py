@@ -32,9 +32,7 @@ def sample(key: str) -> Sample:
 
 def slices(patients: int, per_patient: int) -> list[Sample]:
     return [
-        sample(f"patient{p:02d}_slice{s:03d}")
-        for p in range(patients)
-        for s in range(per_patient)
+        sample(f"patient{p:02d}_slice{s:03d}") for p in range(patients) for s in range(per_patient)
     ]
 
 
@@ -111,9 +109,7 @@ def test_uneven_groups_still_land_near_the_target_share():
     # Patients with wildly different numbers of slices, which is the normal case. Assigning
     # by group count rather than sample count would miss the target badly here.
     samples = [
-        sample(f"patient{p:02d}_slice{s:03d}")
-        for p in range(20)
-        for s in range(1 + (p % 7) * 3)
+        sample(f"patient{p:02d}_slice{s:03d}") for p in range(20) for s in range(1 + (p % 7) * 3)
     ]
     split = split_samples(samples, fractions=(0.6, 0.4), group_by=PATIENT, seed=5)
     share = split.counts["train"] / len(samples)
@@ -137,10 +133,10 @@ def test_one_lopsided_patient_does_not_starve_a_split():
     # One patient with 100 slices and two with one each. Chasing target sizes alone leaves
     # a split empty here; being a little off the fractions beats returning an empty
     # validation or test set.
-    samples = (
-        [sample(f"patient00_slice{s:03d}") for s in range(100)]
-        + [sample("patient01_slice000"), sample("patient02_slice000")]
-    )
+    samples = [sample(f"patient00_slice{s:03d}") for s in range(100)] + [
+        sample("patient01_slice000"),
+        sample("patient02_slice000"),
+    ]
     split = split_samples(samples, group_by=PATIENT, seed=0)
     assert all(split.counts[name] > 0 for name in ("train", "validation", "test"))
 
@@ -230,9 +226,7 @@ def test_paths_are_written_relative_so_the_dataset_can_move(tmp_path):
     write_png(root / "patient01_slice000" / "images" / "a.png", np.zeros((8, 8, 3)))
     write_png(root / "patient01_slice000" / "masks" / "a.png", np.zeros((8, 8, 3)))
 
-    split = split_samples(
-        discover_samples(root).samples, fractions=(0.5, 0.5), group_by=PATIENT
-    )
+    split = split_samples(discover_samples(root).samples, fractions=(0.5, 0.5), group_by=PATIENT)
     written = write_splits(split, tmp_path, relative=True)
     with open(written["train"], newline="") as handle:
         row = next(csv.DictReader(handle))
@@ -253,8 +247,7 @@ def test_an_empty_split_is_not_written_as_an_empty_file(tmp_path):
         write_png(root / key / "images" / "a.png", np.zeros((8, 8, 3)))
         write_png(root / key / "masks" / "a.png", np.zeros((8, 8, 3)))
 
-    report = split_dataset(root, tmp_path / "splits", fractions=(0.75, 0.25),
-                           group_by=PATIENT)
+    report = split_dataset(root, tmp_path / "splits", fractions=(0.75, 0.25), group_by=PATIENT)
     assert "test" not in report["paths"]
     assert not (tmp_path / "splits" / "test.csv").exists()
 
@@ -284,21 +277,35 @@ def test_a_split_can_be_trained_on_without_touching_anything_else(tmp_path):
             write_png(root / key / "images" / "a.png", mask // 2)
             write_png(root / key / "masks" / "a.png", mask)
 
-    report = split_dataset(root, tmp_path / "splits", group_by=PATIENT,
-                           fractions=(0.5, 0.5), seed=0)
+    report = split_dataset(
+        root, tmp_path / "splits", group_by=PATIENT, fractions=(0.5, 0.5), seed=0
+    )
 
-    engine = Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {
-            "train_path": report["paths"]["train"],
-            "validation_path": report["paths"]["validation"],
-            "mode": "config_file",
-            "colormap": [[0, 0, 0], [255, 255, 255]],
-        },
-        "models": [{"name": "tiny", "input_shape": [32, 32], "blocks": 2,
-                    "filters": 4, "batch_size": 2, "epochs": 1,
-                    "metrics": [{"name": "dice"}]}],
-    }), device="cpu")
+    engine = Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": report["paths"]["train"],
+                    "validation_path": report["paths"]["validation"],
+                    "mode": "config_file",
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                },
+                "models": [
+                    {
+                        "name": "tiny",
+                        "input_shape": [32, 32],
+                        "blocks": 2,
+                        "filters": 4,
+                        "batch_size": 2,
+                        "epochs": 1,
+                        "metrics": [{"name": "dice"}],
+                    }
+                ],
+            }
+        ),
+        device="cpu",
+    )
     history = engine.fit()["tiny"]
     assert len(history) == 1
     assert history.records[0]["val_dice"] > 0

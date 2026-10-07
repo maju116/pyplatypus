@@ -13,9 +13,16 @@ from pyplatypus.training import Trainer, make_loader
 
 
 def model_spec(**overrides):
-    base = {"name": "m", "input_shape": (32, 32), "channels": 3, 
-            "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 2,
-            "metrics": [DiceMetric()]}
+    base = {
+        "name": "m",
+        "input_shape": (32, 32),
+        "channels": 3,
+        "blocks": 2,
+        "filters": 4,
+        "batch_size": 2,
+        "epochs": 2,
+        "metrics": [DiceMetric()],
+    }
     return SegmentationModel(**{**base, **overrides})
 
 
@@ -26,6 +33,7 @@ def loaders(nested_root, binary_data):
     def build(spec, **kwargs):
         base = SegmentationDataset(samples, spec, binary_data, **kwargs)
         return make_loader(base, batch_size=spec.batch_size)
+
     return build
 
 
@@ -39,10 +47,17 @@ def test_fit_returns_one_record_per_epoch(loaders):
 
 def test_history_carries_losses_metrics_and_timing(loaders):
     spec = model_spec()
-    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(loaders(spec), loaders(spec))
+    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(
+        loaders(spec), loaders(spec)
+    )
     assert set(history.columns) >= {
-        "epoch", "train_loss", "train_dice", "val_loss", "val_dice",
-        "seconds", "learning_rate",
+        "epoch",
+        "train_loss",
+        "train_dice",
+        "val_loss",
+        "val_dice",
+        "seconds",
+        "learning_rate",
     }
 
 
@@ -61,14 +76,18 @@ def test_validation_is_optional(loaders):
 
 def test_best_picks_the_lowest_loss_and_the_highest_metric(loaders):
     spec = model_spec(epochs=3)
-    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(loaders(spec), loaders(spec))
+    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(
+        loaders(spec), loaders(spec)
+    )
     assert history.best("val_loss") == min(history.records, key=lambda r: r["val_loss"])
     assert history.best("val_dice") == max(history.records, key=lambda r: r["val_dice"])
 
 
 def test_callbacks_can_cut_training_short(loaders):
     spec = model_spec(epochs=20, callbacks=[EarlyStopping(patience=1, min_delta=1e9)])
-    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(loaders(spec), loaders(spec))
+    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(
+        loaders(spec), loaders(spec)
+    )
     assert len(history) < 20
     assert "early stopping" in history.stop_reason
 
@@ -85,7 +104,9 @@ def test_a_nan_loss_stops_the_run(loaders):
 def test_deep_supervision_trains_on_every_output(loaders):
     """The loss averages over all depths; the metrics score only the final prediction."""
     spec = model_spec(architecture=Architecture.U_NET_PLUS_PLUS, deep_supervision=True)
-    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(loaders(spec), loaders(spec))
+    history = Trainer(build_model(spec, n_class=2), spec, device="cpu").fit(
+        loaders(spec), loaders(spec)
+    )
     assert len(history) == 2
     assert 0.0 <= history.records[-1]["val_dice"] <= 1.0
 
@@ -107,7 +128,7 @@ def test_predict_reassembles_tiles_into_whole_images(loaders):
     """The capability the old package lacked: an image cut into a grid comes back whole."""
     spec = model_spec(input_shape=(32, 32), splits=(2, 2))
     predictions = Trainer(build_model(spec, n_class=2), spec, device="cpu").predict(loaders(spec))
-    assert predictions.shape == (3, 64, 64, 2)     # 3 images at 2x2 tiles of 32x32
+    assert predictions.shape == (3, 64, 64, 2)  # 3 images at 2x2 tiles of 32x32
 
 
 def test_predict_refuses_a_partial_grid(loaders):
@@ -121,6 +142,7 @@ def test_predict_refuses_a_partial_grid(loaders):
 
 
 # --- the distance map's route through the data path ----------------------------------------
+
 
 def test_the_loader_carries_a_distance_map_only_when_the_loss_asks(config, nested_root):
     """Two items in the batch or three, and the loader decides from the specification.

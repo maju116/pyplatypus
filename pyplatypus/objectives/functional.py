@@ -35,8 +35,9 @@ def probabilities(logits: torch.Tensor) -> torch.Tensor:
     return logits.softmax(dim=1)
 
 
-def overlaps(probs: torch.Tensor, target: torch.Tensor
-             ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def overlaps(
+    probs: torch.Tensor, target: torch.Tensor
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """True positives, false positives and false negatives, per sample and class."""
     dims = spatial_dims(probs)
     tp = (probs * target).sum(dims)
@@ -63,18 +64,19 @@ def tversky_from_overlaps(tp, fp, fn, alpha: float = 0.5, smooth: float = 1.0):
     return (tp + smooth) / (tp + alpha * fn + beta * fp + smooth)
 
 
-def dice_coefficient(probs: torch.Tensor, target: torch.Tensor, smooth: float = 1.0
-                     ) -> torch.Tensor:
+def dice_coefficient(
+    probs: torch.Tensor, target: torch.Tensor, smooth: float = 1.0
+) -> torch.Tensor:
     return dice_from_overlaps(*overlaps(probs, target), smooth)
 
 
-def iou_coefficient(probs: torch.Tensor, target: torch.Tensor, smooth: float = 1.0
-                    ) -> torch.Tensor:
+def iou_coefficient(probs: torch.Tensor, target: torch.Tensor, smooth: float = 1.0) -> torch.Tensor:
     return iou_from_overlaps(*overlaps(probs, target), smooth)
 
 
-def tversky_coefficient(probs: torch.Tensor, target: torch.Tensor, alpha: float = 0.5,
-                        smooth: float = 1.0) -> torch.Tensor:
+def tversky_coefficient(
+    probs: torch.Tensor, target: torch.Tensor, alpha: float = 0.5, smooth: float = 1.0
+) -> torch.Tensor:
     """TP / (TP + alpha*FN + beta*FP), with beta = 1 - alpha.
 
     alpha weights false negatives, so raising it punishes missed foreground and pushes
@@ -87,8 +89,9 @@ def tversky_coefficient(probs: torch.Tensor, target: torch.Tensor, alpha: float 
     return tversky_from_overlaps(*overlaps(probs, target), alpha, smooth)
 
 
-def cross_entropy(logits: torch.Tensor, target: torch.Tensor,
-                  label_smoothing: float = 0.0) -> torch.Tensor:
+def cross_entropy(
+    logits: torch.Tensor, target: torch.Tensor, label_smoothing: float = 0.0
+) -> torch.Tensor:
     """Categorical cross-entropy against a one-hot target, averaged over everything."""
     log_probs = logits.log_softmax(dim=1)
     if label_smoothing > 0:
@@ -97,8 +100,9 @@ def cross_entropy(logits: torch.Tensor, target: torch.Tensor,
     return -(target * log_probs).sum(dim=1).mean()
 
 
-def focal(logits: torch.Tensor, target: torch.Tensor, gamma: float = 2.0,
-          alpha: float | None = None) -> torch.Tensor:
+def focal(
+    logits: torch.Tensor, target: torch.Tensor, gamma: float = 2.0, alpha: float | None = None
+) -> torch.Tensor:
     """Down-weights the pixels the model already gets right, so the hard ones dominate."""
     log_probs = logits.log_softmax(dim=1)
     probs = log_probs.exp()
@@ -111,8 +115,13 @@ def focal(logits: torch.Tensor, target: torch.Tensor, gamma: float = 2.0,
     return -(target * weight * log_probs).sum(dim=1).mean()
 
 
-def combo(logits: torch.Tensor, target: torch.Tensor, alpha: float = 0.5,
-          ce_ratio: float = 0.5, smooth: float = 1.0) -> torch.Tensor:
+def combo(
+    logits: torch.Tensor,
+    target: torch.Tensor,
+    alpha: float = 0.5,
+    ce_ratio: float = 0.5,
+    smooth: float = 1.0,
+) -> torch.Tensor:
     """Taghanaki's Combo loss: a lopsided cross-entropy blended with Dice.
 
     `ce_ratio` tilts the cross-entropy between punishing false negatives (towards 1) and
@@ -120,8 +129,7 @@ def combo(logits: torch.Tensor, target: torch.Tensor, alpha: float = 0.5,
     """
     probs = probabilities(logits).clamp(EPS, 1 - EPS)
     weighted_ce = -(
-        ce_ratio * target * probs.log()
-        + (1 - ce_ratio) * (1 - target) * (1 - probs).log()
+        ce_ratio * target * probs.log() + (1 - ce_ratio) * (1 - target) * (1 - probs).log()
     ).mean()
     dice_loss = 1 - dice_coefficient(probabilities(logits), target, smooth).mean()
     return alpha * weighted_ce + (1 - alpha) * dice_loss
@@ -138,8 +146,9 @@ def _lovasz_grad(sorted_target: torch.Tensor) -> torch.Tensor:
     return jaccard
 
 
-def lovasz_softmax(logits: torch.Tensor, target: torch.Tensor, per_image: bool = False
-                   ) -> torch.Tensor:
+def lovasz_softmax(
+    logits: torch.Tensor, target: torch.Tensor, per_image: bool = False
+) -> torch.Tensor:
     """A convex surrogate for IoU that is actually differentiable.
 
     Classes absent from a batch are skipped rather than scored as perfect, which is what

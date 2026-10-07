@@ -42,6 +42,7 @@ def test_discovery_is_the_base_s_and_neither_engine_has_its_own():
 
 # --- the same question of both -------------------------------------------------------------
 
+
 def _segmentation(config, nested_root, **data):
     config["data"]["train_path"] = str(nested_root)
     config["data"]["validation_path"] = str(nested_root)
@@ -60,17 +61,18 @@ def _detection(detection_config, detection_root, **data):
     return build_engine(from_dict(detection_config), device="cpu")
 
 
-def test_both_record_the_same_splits_as_labelled(config, nested_root, detection_config,
-                                                 detection_root):
+def test_both_record_the_same_splits_as_labelled(
+    config, nested_root, detection_config, detection_root
+):
     one = _segmentation(config, nested_root)
     two = _detection(detection_config, detection_root)
     assert one.labelled == two.labelled == {"train", "validation"}
     assert set(one._samples) == set(two._samples) == {"train", "validation"}
 
 
-def test_both_drop_validation_when_the_run_says_it_has_none(config, nested_root,
-                                                            detection_config,
-                                                            detection_root):
+def test_both_drop_validation_when_the_run_says_it_has_none(
+    config, nested_root, detection_config, detection_root
+):
     one = _segmentation(config, nested_root, validation=False)
     two = _detection(detection_config, detection_root, validation=False)
     for engine in (one, two):
@@ -79,9 +81,9 @@ def test_both_drop_validation_when_the_run_says_it_has_none(config, nested_root,
         assert engine.labelled == {"train"}
 
 
-def test_both_refuse_a_missing_split_with_the_same_sentence(config, nested_root,
-                                                            detection_config,
-                                                            detection_root):
+def test_both_refuse_a_missing_split_with_the_same_sentence(
+    config, nested_root, detection_config, detection_root
+):
     """The divergence that mattered: one said "no masks" where the truth was "no split",
     and the other said "no annotations" for the same reason. One message now."""
     one = _segmentation(config, nested_root, validation=False)
@@ -93,9 +95,9 @@ def test_both_refuse_a_missing_split_with_the_same_sentence(config, nested_root,
             engine._require_split("nonsense")
 
 
-def test_both_name_what_is_missing_before_naming_what_is_unlabelled(config, nested_root,
-                                                                    detection_config,
-                                                                    detection_root):
+def test_both_name_what_is_missing_before_naming_what_is_unlabelled(
+    config, nested_root, detection_config, detection_root
+):
     """Order, which was wrong in both. A split that was never created is a different thing
     from one that exists without labels, and the second message sends somebody looking for
     files they never wrote."""

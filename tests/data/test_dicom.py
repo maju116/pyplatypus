@@ -15,9 +15,9 @@ from pyplatypus.data.dicom import DicomError, looks_like_dicom, read_dicom, reso
 from pyplatypus.data.images import read_image
 from pyplatypus.spec.common import WINDOWS
 
-CT = get_testdata_file("CT_small.dcm")       # rescale, no window tags
-MR = get_testdata_file("MR_small.dcm")       # window tags, no rescale
-RGB = get_testdata_file("SC_rgb.dcm")        # three channels, 8-bit
+CT = get_testdata_file("CT_small.dcm")  # rescale, no window tags
+MR = get_testdata_file("MR_small.dcm")  # window tags, no rescale
+RGB = get_testdata_file("SC_rgb.dcm")  # three channels, 8-bit
 
 
 def test_a_dicom_is_recognised_by_its_contents():
@@ -51,7 +51,7 @@ def test_stored_values_become_real_units():
     stored = dataset.pixel_array
     real = apply_modality_lut(stored, dataset)
     assert float(real.min()) == pytest.approx(float(stored.min()) + dataset.RescaleIntercept)
-    assert dataset.RescaleIntercept != 0     # this file would show the difference
+    assert dataset.RescaleIntercept != 0  # this file would show the difference
 
 
 def test_a_fixed_window_does_not_let_one_pixel_rescale_the_image():
@@ -67,8 +67,10 @@ def test_a_fixed_window_does_not_let_one_pixel_rescale_the_image():
     with_artefact[0, 0] = 3000.0
 
     by_extremes = lambda a: (a - a.min()) / (a.max() - a.min())
-    low, high = WINDOWS["soft_tissue"][0] - WINDOWS["soft_tissue"][1] / 2, \
-        WINDOWS["soft_tissue"][0] + WINDOWS["soft_tissue"][1] / 2
+    low, high = (
+        WINDOWS["soft_tissue"][0] - WINDOWS["soft_tissue"][1] / 2,
+        WINDOWS["soft_tissue"][0] + WINDOWS["soft_tissue"][1] / 2,
+    )
     by_window = lambda a: np.clip((a - low) / (high - low), 0, 1)
 
     assert not np.allclose(by_extremes(values)[1:], by_extremes(with_artefact)[1:])
@@ -85,6 +87,7 @@ def test_monochrome1_is_inverted():
     dataset.PhotometricInterpretation = "MONOCHROME1"
     import pathlib
     import tempfile
+
     with tempfile.TemporaryDirectory() as directory:
         inverted_path = pathlib.Path(directory) / "inverted.dcm"
         dataset.save_as(inverted_path)
@@ -92,11 +95,14 @@ def test_monochrome1_is_inverted():
     assert np.allclose(inverted, 1.0 - normal, atol=1e-5)
 
 
-@pytest.mark.parametrize("path,channels,shape", [
-    (CT, 1, (128, 128, 1)),
-    (MR, 1, (64, 64, 1)),
-    (RGB, 3, (100, 100, 3)),
-])
+@pytest.mark.parametrize(
+    "path,channels,shape",
+    [
+        (CT, 1, (128, 128, 1)),
+        (MR, 1, (64, 64, 1)),
+        (RGB, 3, (100, 100, 3)),
+    ],
+)
 def test_modalities_read_to_a_unit_range(path, channels, shape):
     array = read_dicom(path, channels=channels)
     assert array.shape == shape
@@ -128,8 +134,8 @@ def test_a_window_of_no_width_is_refused():
 
 def test_auto_uses_the_window_in_the_file():
     dataset = pydicom.dcmread(MR)
-    assert resolve_window(dataset, "auto") is not None      # this file has the tags
-    assert resolve_window(pydicom.dcmread(CT), "auto") is None   # this one does not
+    assert resolve_window(dataset, "auto") is not None  # this file has the tags
+    assert resolve_window(pydicom.dcmread(CT), "auto") is None  # this one does not
 
 
 def test_channels_are_converted_rather_than_refused():
@@ -156,6 +162,7 @@ def test_resizing_keeps_the_precision_the_rescale_recovered():
 def test_a_corrupt_file_says_which_one():
     import pathlib
     import tempfile
+
     with tempfile.TemporaryDirectory() as directory:
         broken = pathlib.Path(directory) / "broken.dcm"
         broken.write_bytes(b"\x00" * 200)
@@ -180,7 +187,7 @@ def dicom_dataset(root, n=4, size=64):
 
         top = 8 + index * 4
         stored = np.full((size, size), 0, dtype=np.int16)
-        stored[top:top + 20, 10:40] = 1200          # a bright structure to find
+        stored[top : top + 20, 10:40] = 1200  # a bright structure to find
         stored = stored + rng.integers(0, 60, (size, size)).astype(np.int16)
 
         slice_ds = dataset.copy()
@@ -189,7 +196,7 @@ def dicom_dataset(root, n=4, size=64):
         slice_ds.save_as(sample / "images" / "scan.dcm")
 
         mask = np.zeros((size, size), np.uint8)
-        mask[top:top + 20, 10:40] = 255
+        mask[top : top + 20, 10:40] = 255
         Image.fromarray(mask).convert("RGB").save(sample / "masks" / "label.png")
 
 
@@ -199,20 +206,30 @@ def test_a_dicom_dataset_trains_end_to_end(tmp_path):
     from pyplatypus import Engine, from_dict
 
     dicom_dataset(tmp_path)
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {
-            "train_path": str(tmp_path), "validation_path": str(tmp_path),
-            "colormap": [[0, 0, 0], [255, 255, 255]],
-            "dicom_window": "soft_tissue",
-        },
-        "models": [{
-            "name": "ct", "input_shape": [32, 32], "channels": 1, 
-            "blocks": 2, "filters": 4, "epochs": 2, "batch_size": 2,
-            "loss": {"name": "cce_dice"},
-            "metrics": [{"name": "dice", "include_background": False}],
-        }],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(tmp_path),
+                "validation_path": str(tmp_path),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                "dicom_window": "soft_tissue",
+            },
+            "models": [
+                {
+                    "name": "ct",
+                    "input_shape": [32, 32],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 4,
+                    "epochs": 2,
+                    "batch_size": 2,
+                    "loss": {"name": "cce_dice"},
+                    "metrics": [{"name": "dice", "include_background": False}],
+                }
+            ],
+        }
+    )
 
     engine = Engine(spec, device="cpu")
     histories = engine.fit()
@@ -238,8 +255,10 @@ def test_the_window_reaches_the_pipeline(tmp_path):
 
     def first_image(window):
         data = SegmentationData(
-            train_path=str(tmp_path), validation_path=str(tmp_path),
-            colormap=[(0, 0, 0), (255, 255, 255)], dicom_window=window,
+            train_path=str(tmp_path),
+            validation_path=str(tmp_path),
+            colormap=[(0, 0, 0), (255, 255, 255)],
+            dicom_window=window,
         )
         samples = discover(tmp_path, data).samples
         return SegmentationDataset(samples, model, data)[0][0]

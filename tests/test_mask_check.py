@@ -28,7 +28,7 @@ def dataset_with_foreground(root, fraction, *, n=6, size=64, colour=(255, 255, 2
         (sample / "images").mkdir(parents=True, exist_ok=True)
         (sample / "masks").mkdir(parents=True, exist_ok=True)
         mask = np.zeros((size, size, 3), np.uint8)
-        mask[5:5 + side, 5:5 + side] = colour
+        mask[5 : 5 + side, 5 : 5 + side] = colour
         Image.fromarray(mask).save(sample / "masks" / "m.png")
         image = np.clip(mask[..., :1].repeat(3, axis=2) * 0.6 + 20, 0, 255)
         Image.fromarray(image.astype(np.uint8)).save(sample / "images" / "a.png")
@@ -36,24 +36,40 @@ def dataset_with_foreground(root, fraction, *, n=6, size=64, colour=(255, 255, 2
 
 
 def spec_for(root, colormap, **overrides):
-    return from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root),
-                 "colormap": colormap, "mode": "nested_dirs"},
-        "models": [{"name": "m", "input_shape": [64, 64], "channels": 3,
-                    "blocks": 4, "filters": 8,
-                    "epochs": 1, "batch_size": 2, **overrides}],
-    })
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "colormap": colormap,
+                "mode": "nested_dirs",
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [64, 64],
+                    "channels": 3,
+                    "blocks": 4,
+                    "filters": 8,
+                    "epochs": 1,
+                    "batch_size": 2,
+                    **overrides,
+                }
+            ],
+        }
+    )
 
 
 # --- the reason the check is not a threshold on the unmatched fraction ------------------
+
 
 @pytest.mark.parametrize("fraction", [0.25, 0.05, 0.004])
 def test_the_unmatched_fraction_scales_with_the_foreground(tmp_path, fraction):
     """So it cannot be thresholded: at 0.4% a completely wrong colormap is quieter than
     the JPEG compression around a correct mask's edge, which measures about 0.7%."""
     root = dataset_with_foreground(tmp_path / f"f{fraction}", fraction)
-    spec = spec_for(root, [[0, 0, 0], [128, 0, 0]])          # white masks, red asked for
+    spec = spec_for(root, [[0, 0, 0], [128, 0, 0]])  # white masks, red asked for
     report = Engine(spec, check_masks=False).dataset(spec.models[0], "train").inspect_masks()
 
     assert report.unmatched == pytest.approx(fraction, rel=0.35)
@@ -84,6 +100,7 @@ def test_a_class_the_data_does_not_have_is_invisible_to_the_fraction(tmp_path):
 
 # --- what fit() does with it -----------------------------------------------------------
 
+
 def test_fit_refuses_a_colormap_that_matches_no_tissue(tmp_path):
     root = dataset_with_foreground(tmp_path / "wrong", 0.004)
     with pytest.raises(EngineError) as raised:
@@ -100,13 +117,28 @@ def test_fit_refuses_a_colormap_that_matches_no_tissue(tmp_path):
 
 def test_the_refusal_names_a_label_when_labels_were_given(volume_root):
     """A label map is the other way in, and a class is named by its label there."""
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
-                 "labels": [0, 1, 7], "mode": "nested_dirs"},
-        "models": [{"name": "m", "input_shape": [8, 8, 4], "channels": 1, 
-                    "blocks": 1, "filters": 4, "epochs": 1, "batch_size": 1}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(volume_root),
+                "validation_path": str(volume_root),
+                "labels": [0, 1, 7],
+                "mode": "nested_dirs",
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [8, 8, 4],
+                    "channels": 1,
+                    "blocks": 1,
+                    "filters": 4,
+                    "epochs": 1,
+                    "batch_size": 1,
+                }
+            ],
+        }
+    )
     with pytest.raises(EngineError, match=r"class 2 \(label 7\)"):
         Engine(spec).fit()
 
@@ -118,7 +150,7 @@ def test_several_missing_classes_are_listed_together(tmp_path):
         Engine(spec).fit()
     message = str(raised.value)
     assert "class 2" in message and "class 3" in message
-    assert " and " in message          # listed as prose, not as a repr
+    assert " and " in message  # listed as prose, not as a repr
 
 
 def test_a_high_unmatched_fraction_warns_without_refusing(tmp_path):
@@ -130,8 +162,8 @@ def test_a_high_unmatched_fraction_warns_without_refusing(tmp_path):
         (sample / "images").mkdir(parents=True, exist_ok=True)
         (sample / "masks").mkdir(parents=True, exist_ok=True)
         mask = np.zeros((64, 64, 3), np.uint8)
-        mask[5:25, 5:25] = (255, 255, 255)      # declared
-        mask[30:50, 30:50] = (77, 88, 99)       # not declared, and large
+        mask[5:25, 5:25] = (255, 255, 255)  # declared
+        mask[30:50, 30:50] = (77, 88, 99)  # not declared, and large
         Image.fromarray(mask).save(sample / "masks" / "m.png")
         Image.fromarray(np.full((64, 64, 3), 30, np.uint8)).save(sample / "images" / "a.png")
 
@@ -146,7 +178,7 @@ def test_a_high_unmatched_fraction_warns_without_refusing(tmp_path):
 def test_the_check_can_be_turned_off(tmp_path):
     root = dataset_with_foreground(tmp_path / "off", 0.05)
     spec = spec_for(root, [[0, 0, 0], [128, 0, 0]])
-    Engine(spec, check_masks=False).fit()          # trains on nothing, as asked
+    Engine(spec, check_masks=False).fit()  # trains on nothing, as asked
 
 
 def test_a_prediction_only_run_is_not_refused(tmp_path):
@@ -162,17 +194,18 @@ def test_a_prediction_only_run_is_not_refused(tmp_path):
 
     root = dataset_with_foreground(tmp_path / "noop", 0.05)
     wrong = spec_for(root, [[0, 0, 0], [128, 0, 0]])
-    weights = export_weights(build_model(wrong.models[0], n_class=2), wrong.models[0],
-                             tmp_path / "w.safetensors")
+    weights = export_weights(
+        build_model(wrong.models[0], n_class=2), wrong.models[0], tmp_path / "w.safetensors"
+    )
 
-    loading = spec_for(root, [[0, 0, 0], [128, 0, 0]],
-                       weights=str(weights), fit=False)
+    loading = spec_for(root, [[0, 0, 0], [128, 0, 0]], weights=str(weights), fit=False)
     engine = Engine(loading)
     engine.fit()
     assert engine.runs["m"].trained is False
 
 
 # --- the sample has to cross the dataset, not its beginning ----------------------------
+
 
 def test_a_class_only_in_the_last_samples_is_still_found(tmp_path):
     """The check reads a subset, and real datasets arrive sorted - by patient, by
@@ -196,8 +229,10 @@ def test_a_class_only_in_the_last_samples_is_still_found(tmp_path):
 
     # The prefix a naive check would have read carries nothing at all...
     prefix = sorted(p.name for p in root.iterdir())[:50]
-    assert all(not name.endswith(tuple(f"{n:04d}" for n in range(total - positives, total)))
-               for name in prefix)
+    assert all(
+        not name.endswith(tuple(f"{n:04d}" for n in range(total - positives, total)))
+        for name in prefix
+    )
 
     # ...and the visit order finds the class anyway, so fit() proceeds. It finds it almost
     # at once, because the order opens with both ends of the dataset.
@@ -220,6 +255,7 @@ def test_the_report_says_how_much_of_the_dataset_it_looked_at(tmp_path):
 
 
 # --- the scan stops early when there is nothing to find --------------------------------
+
 
 def test_a_healthy_dataset_is_answered_in_a_few_reads(tmp_path):
     """Cost belongs where the doubt is. On Data Science Bowl, where every sample carries

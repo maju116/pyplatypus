@@ -45,7 +45,7 @@ def test_validation_split_is_there(data):
 
 def test_samples_carry_many_mask_files(train):
     counts = [len(s.masks) for s in train.samples]
-    assert max(counts) > 20          # one file per nucleus
+    assert max(counts) > 20  # one file per nucleus
     assert min(counts) >= 1
 
 
@@ -58,8 +58,7 @@ def test_the_binary_colormap_actually_describes_this_dataset(train, data):
 
 
 def test_a_real_example_has_the_right_shape_and_content(train, data):
-    model = SegmentationModel(name="unet", input_shape=(256, 256), channels=3,
-                              blocks=4)
+    model = SegmentationModel(name="unet", input_shape=(256, 256), channels=3, blocks=4)
     dataset = SegmentationDataset(train.samples, model, data)
     image, mask = dataset[0]
 
@@ -82,8 +81,7 @@ def test_nine_different_source_sizes_all_normalise(train, data):
 def test_tiling_a_real_image_round_trips(train, data):
     """Cut a source image into 6 tiles and put it back exactly - the capability the old
     package was missing on the way out."""
-    model = SegmentationModel(name="hd", input_shape=(256, 256), blocks=4,
-                              splits=(2, 3))
+    model = SegmentationModel(name="hd", input_shape=(256, 256), blocks=4, splits=(2, 3))
     dataset = SegmentationDataset(train.samples, model, data)
     assert len(dataset) == 536 * 6
 

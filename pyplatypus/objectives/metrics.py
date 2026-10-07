@@ -51,7 +51,7 @@ class SegmentationMetric(nn.Module):
     @torch.no_grad()
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         hard = f.as_onehot(logits.argmax(dim=1), logits.shape[1])
-        return self.reduce(self.coefficient(hard, target))   # (batch, class) -> scalar
+        return self.reduce(self.coefficient(hard, target))  # (batch, class) -> scalar
 
 
 class Dice(SegmentationMetric):
@@ -71,8 +71,7 @@ class Iou(SegmentationMetric):
 class Tversky(SegmentationMetric):
     name = "tversky"
 
-    def __init__(self, alpha: float = 0.5, smooth: float = 1.0,
-                 include_background: bool = True):
+    def __init__(self, alpha: float = 0.5, smooth: float = 1.0, include_background: bool = True):
         super().__init__(smooth, include_background)
         self.alpha = alpha
 

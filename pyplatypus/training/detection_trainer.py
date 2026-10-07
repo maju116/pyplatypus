@@ -40,9 +40,17 @@ GRADIENT_CLIP = 10.0
 
 
 class DetectionTrainer:
-    def __init__(self, model: nn.Module, spec: DetectionModel, *, anchors,
-                 n_class: int, device: str | None = None,
-                 callbacks: list[Callback] | None = None, accumulate: int = 1):
+    def __init__(
+        self,
+        model: nn.Module,
+        spec: DetectionModel,
+        *,
+        anchors,
+        n_class: int,
+        device: str | None = None,
+        callbacks: list[Callback] | None = None,
+        accumulate: int = 1,
+    ):
         if accumulate < 1:
             raise ValueError(f"accumulate must be at least 1, got {accumulate}")
         self.spec = spec
@@ -52,21 +60,17 @@ class DetectionTrainer:
         self.device = pick_device(device)
         self.model = model.to(self.device)
         self.loss_fn = Yolo3Loss(
-            anchors=anchors, n_class=n_class,
+            anchors=anchors,
+            n_class=n_class,
             input_shape=(int(spec.input_shape[0]), int(spec.input_shape[1])),
             ignore_threshold=spec.ignore_threshold,
             box_loss=spec.box_loss,
         )
-        self.optimizer = build_optimizer(
-            spec.optimizer, parameter_groups(self.model, None, None)
-        )
-        self.callbacks = callbacks if callbacks is not None else build_callbacks(
-            spec.callbacks
-        )
+        self.optimizer = build_optimizer(spec.optimizer, parameter_groups(self.model, None, None))
+        self.callbacks = callbacks if callbacks is not None else build_callbacks(spec.callbacks)
 
     # ------------------------------------------------------------------ one epoch
-    def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str
-                   ) -> dict[str, float]:
+    def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str) -> dict[str, float]:
         self.model.train(train)
         totals: dict[str, float] = {}
         batches = 0
@@ -108,12 +112,21 @@ class DetectionTrainer:
         self.optimizer.zero_grad(set_to_none=True)
 
     # ------------------------------------------------------------------ fit
-    def fit(self, train_loader: DataLoader, validation_loader: DataLoader | None = None,
-            *, epochs: int | None = None, verbose: bool = False) -> History:
+    def fit(
+        self,
+        train_loader: DataLoader,
+        validation_loader: DataLoader | None = None,
+        *,
+        epochs: int | None = None,
+        verbose: bool = False,
+    ) -> History:
         epochs = epochs if epochs is not None else self.spec.epochs
-        state = TrainingState(model=self.model, optimizer=self.optimizer,
-                              train_loader=train_loader,
-                              total_epochs=epochs)
+        state = TrainingState(
+            model=self.model,
+            optimizer=self.optimizer,
+            train_loader=train_loader,
+            total_epochs=epochs,
+        )
         history = History()
 
         for callback in self.callbacks:
@@ -132,8 +145,7 @@ class DetectionTrainer:
             history.records.append({"epoch": epoch, **logs})
             state.history = history.records
             if verbose:
-                print(f"epoch {epoch:>3}  {format_logs(logs)}  "
-                      f"({logs['seconds']:.1f}s)")
+                print(f"epoch {epoch:>3}  {format_logs(logs)}  ({logs['seconds']:.1f}s)")
 
             if any(callback.on_epoch_end(state) for callback in self.callbacks):
                 history.stop_reason = state.stop_reason

@@ -40,12 +40,23 @@ def labelled_parts(tmp_path):
 
 def engine_for(parts, test, **kwargs):
     train, valid = parts
-    return Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(train), "validation_path": str(valid),
-                 "test_path": str(test), "colormap": COLORMAP},
-        "models": [{"name": "m", "input_shape": [32, 32]}],
-    }), device="cpu", check_masks=False, **kwargs)
+    return Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(train),
+                    "validation_path": str(valid),
+                    "test_path": str(test),
+                    "colormap": COLORMAP,
+                },
+                "models": [{"name": "m", "input_shape": [32, 32]}],
+            }
+        ),
+        device="cpu",
+        check_masks=False,
+        **kwargs,
+    )
 
 
 def test_a_test_split_with_masks_is_scoreable(labelled_parts, tmp_path):

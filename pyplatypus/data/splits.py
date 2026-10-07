@@ -57,9 +57,7 @@ class Split:
 
     @property
     def group_counts(self) -> dict[str, int]:
-        return {
-            name: len({self.groups[s.key] for s in self[name]}) for name in SPLIT_NAMES
-        }
+        return {name: len({self.groups[s.key] for s in self[name]}) for name in SPLIT_NAMES}
 
     def groups_of(self, name: str) -> set[str]:
         return {self.groups[s.key] for s in self[name]}
@@ -97,8 +95,7 @@ def _fractions(fractions: Sequence[float] | Mapping[str, float]) -> dict[str, fl
     else:
         if len(fractions) not in (2, 3):
             raise ConfigError(
-                f"give two or three fractions (train, validation[, test]), got "
-                f"{len(fractions)}"
+                f"give two or three fractions (train, validation[, test]), got {len(fractions)}"
             )
         values = [float(v) for v in fractions] + [0.0]
         shares = dict(zip(SPLIT_NAMES, values[:3], strict=True))
@@ -116,9 +113,13 @@ def _fractions(fractions: Sequence[float] | Mapping[str, float]) -> dict[str, fl
     return shares
 
 
-def split_samples(samples: Sequence[Sample], *,
-                  fractions: Sequence[float] | Mapping[str, float] = (0.7, 0.15, 0.15),
-                  group_by: str | None = None, seed: int = 0) -> Split:
+def split_samples(
+    samples: Sequence[Sample],
+    *,
+    fractions: Sequence[float] | Mapping[str, float] = (0.7, 0.15, 0.15),
+    group_by: str | None = None,
+    seed: int = 0,
+) -> Split:
     """Divide samples between the splits, keeping every group whole.
 
     Deterministic: the same samples, fractions, pattern and seed give the same split on
@@ -178,8 +179,9 @@ def split_samples(samples: Sequence[Sample], *,
     )
 
 
-def _fill_empty_splits(assigned: dict[str, str], groups: Mapping[str, list[Sample]],
-                       wanted: Sequence[str]) -> None:
+def _fill_empty_splits(
+    assigned: dict[str, str], groups: Mapping[str, list[Sample]], wanted: Sequence[str]
+) -> None:
     """Make sure every requested split got something, by moving one group if it did not.
 
     Chasing the target *sizes* can leave a split empty when the groups are lopsided: one
@@ -204,8 +206,14 @@ def _fill_empty_splits(assigned: dict[str, str], groups: Mapping[str, list[Sampl
         assigned[moved] = name
 
 
-def write_splits(split: Split, out_dir: str | Path, *, column_sep: str = ";",
-                 relative: bool = True, label_column: str = "masks") -> dict[str, Path]:
+def write_splits(
+    split: Split,
+    out_dir: str | Path,
+    *,
+    column_sep: str = ";",
+    relative: bool = True,
+    label_column: str = "masks",
+) -> dict[str, Path]:
     """Write one CSV per split, in the layout `config_file` mode reads.
 
     Paths are written relative to the CSV when they can be, so the dataset and its split
@@ -226,12 +234,14 @@ def write_splits(split: Split, out_dir: str | Path, *, column_sep: str = ";",
             writer = csv.writer(handle)
             writer.writerow(["key", "group", "images", label_column])
             for sample in samples:
-                writer.writerow([
-                    sample.key,
-                    split.groups[sample.key],
-                    column_sep.join(_as_text(p, out, relative) for p in sample.images),
-                    column_sep.join(_as_text(p, out, relative) for p in sample.masks),
-                ])
+                writer.writerow(
+                    [
+                        sample.key,
+                        split.groups[sample.key],
+                        column_sep.join(_as_text(p, out, relative) for p in sample.images),
+                        column_sep.join(_as_text(p, out, relative) for p in sample.masks),
+                    ]
+                )
         written[name] = path
     return written
 
@@ -247,14 +257,20 @@ def _as_text(path: Path, base: Path, relative: bool) -> str:
         return str(path.resolve())
 
 
-def split_dataset(root: str | Path, out_dir: str | Path, *,
-                  mode: DataMode | str = DataMode.NESTED_DIRS,
-                  subdirs: tuple[str, str] = ("images", "masks"),
-                  column_sep: str = ";",
-                  fractions: Sequence[float] | Mapping[str, float] = (0.7, 0.15, 0.15),
-                  group_by: str | None = None, seed: int = 0,
-                  strict: bool = True, relative: bool = True,
-                  label_column: str = "masks") -> dict[str, object]:
+def split_dataset(
+    root: str | Path,
+    out_dir: str | Path,
+    *,
+    mode: DataMode | str = DataMode.NESTED_DIRS,
+    subdirs: tuple[str, str] = ("images", "masks"),
+    column_sep: str = ";",
+    fractions: Sequence[float] | Mapping[str, float] = (0.7, 0.15, 0.15),
+    group_by: str | None = None,
+    seed: int = 0,
+    strict: bool = True,
+    relative: bool = True,
+    label_column: str = "masks",
+) -> dict[str, object]:
     """Split one folder of data into three CSVs a specification can point at.
 
     The whole point of the function: a researcher has one directory and needs
@@ -268,12 +284,17 @@ def split_dataset(root: str | Path, out_dir: str | Path, *,
     quietly write a file their existing configuration could no longer read.
     """
     found = discover_samples(
-        root, mode=DataMode(mode), subdirs=subdirs, column_sep=column_sep, strict=strict,
+        root,
+        mode=DataMode(mode),
+        subdirs=subdirs,
+        column_sep=column_sep,
+        strict=strict,
         label_column=label_column,
     )
     split = split_samples(found.samples, fractions=fractions, group_by=group_by, seed=seed)
-    paths = write_splits(split, out_dir, column_sep=column_sep, relative=relative,
-                         label_column=label_column)
+    paths = write_splits(
+        split, out_dir, column_sep=column_sep, relative=relative, label_column=label_column
+    )
     return {
         "paths": {name: str(path) for name, path in paths.items()},
         "samples": split.counts,

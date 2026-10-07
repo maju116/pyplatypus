@@ -50,7 +50,7 @@ def nested_root(tmp_path):
         write_png(sample / "images" / f"{n}.png", np.full((64, 64, 3), 10 * n, np.uint8))
         for m in range(2):
             mask = np.zeros((64, 64, 3), np.uint8)
-            mask[m * 20:(m + 1) * 20, :] = 255
+            mask[m * 20 : (m + 1) * 20, :] = 255
             write_png(sample / "masks" / f"{m}.png", mask)
     return root
 
@@ -58,7 +58,8 @@ def nested_root(tmp_path):
 @pytest.fixture
 def binary_data():
     return SegmentationData(
-        train_path="unused", validation_path="unused",
+        train_path="unused",
+        validation_path="unused",
         colormap=[(0, 0, 0), (255, 255, 255)],
     )
 
@@ -77,8 +78,8 @@ def volume_root(tmp_path):
         (sample / "images").mkdir(parents=True, exist_ok=True)
         (sample / "masks").mkdir(parents=True, exist_ok=True)
 
-        scan = np.full((8, 8, 4), -1000.0, dtype=np.float32)      # air
-        scan[2:6, 2:6, 1:3] = 40.0 + 10 * n                       # soft tissue
+        scan = np.full((8, 8, 4), -1000.0, dtype=np.float32)  # air
+        scan[2:6, 2:6, 1:3] = 40.0 + 10 * n  # soft tissue
         labels = np.zeros((8, 8, 4), dtype=np.float32)
         labels[2:6, 2:6, 1:3] = 1
 
@@ -91,7 +92,9 @@ def volume_root(tmp_path):
 @pytest.fixture
 def volume_data():
     return SegmentationData(
-        train_path="unused", validation_path="unused", labels=[0, 1],
+        train_path="unused",
+        validation_path="unused",
+        labels=[0, 1],
     )
 
 
@@ -107,8 +110,16 @@ DETECTION_CLASSES = ["square", "bar"]
 SOURCE_SHAPE = (128, 160)
 
 
-def write_voc_sample(root, key, boxes, labels, *, shape=SOURCE_SHAPE,
-                     declared_shape=None, subdirs=("images", "annotations")):
+def write_voc_sample(
+    root,
+    key,
+    boxes,
+    labels,
+    *,
+    shape=SOURCE_SHAPE,
+    declared_shape=None,
+    subdirs=("images", "annotations"),
+):
     """One sample in nested_dirs layout: a PNG and a Pascal VOC XML beside it.
 
     Coordinates are written in VOC's own convention - 1-based and inclusive of both ends -
@@ -121,7 +132,7 @@ def write_voc_sample(root, key, boxes, labels, *, shape=SOURCE_SHAPE,
     height, width = shape
     image = np.full((height, width, 3), 30, np.uint8)
     for (x0, y0, x1, y1), label in zip(boxes, labels):
-        image[int(y0):int(y1), int(x0):int(x1)] = 220 if label == 0 else 120
+        image[int(y0) : int(y1), int(x0) : int(x1)] = 220 if label == 0 else 120
 
     sample = Path(root) / key
     (sample / subdirs[0]).mkdir(parents=True, exist_ok=True)
@@ -155,7 +166,8 @@ def detection_split(root, prefix, count, seed):
         side = int(rng.integers(16, 40))
         bar = int(rng.integers(28, 58))
         write_voc_sample(
-            root, f"{prefix}_{n}",
+            root,
+            f"{prefix}_{n}",
             [(x0, y0, x0 + side, y0 + side), (96, 20, 96 + bar, 34)],
             [0, 1],
         )
@@ -187,14 +199,16 @@ def detection_config(detection_root):
             "validation_path": str(detection_root / "valid"),
             "classes": DETECTION_CLASSES,
         },
-        "models": [{
-            "name": "d",
-            "input_shape": [128, 128],
-            "epochs": 2,
-            "batch_size": 2,
-            "anchors_per_grid": 2,
-            "optimizer": {"name": "adam", "learning_rate": 1e-3},
-        }],
+        "models": [
+            {
+                "name": "d",
+                "input_shape": [128, 128],
+                "epochs": 2,
+                "batch_size": 2,
+                "anchors_per_grid": 2,
+                "optimizer": {"name": "adam", "learning_rate": 1e-3},
+            }
+        ],
     }
 
 

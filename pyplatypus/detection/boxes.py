@@ -44,19 +44,14 @@ class Letterbox:
     target_shape: tuple[int, int]
 
     @classmethod
-    def fit(cls, source_shape: tuple[int, int],
-            target_shape: tuple[int, int]) -> Letterbox:
+    def fit(cls, source_shape: tuple[int, int], target_shape: tuple[int, int]) -> Letterbox:
         """The transform that fits `source_shape` inside `target_shape`, centred."""
         source_h, source_w = (int(source_shape[0]), int(source_shape[1]))
         target_h, target_w = (int(target_shape[0]), int(target_shape[1]))
         if source_h <= 0 or source_w <= 0:
-            raise DetectionError(
-                f"an image cannot have shape {(source_h, source_w)}"
-            )
+            raise DetectionError(f"an image cannot have shape {(source_h, source_w)}")
         if target_h <= 0 or target_w <= 0:
-            raise DetectionError(
-                f"a network input cannot have shape {(target_h, target_w)}"
-            )
+            raise DetectionError(f"a network input cannot have shape {(target_h, target_w)}")
         scale = min(target_h / source_h, target_w / source_w)
         return cls(
             scale=scale,
@@ -108,8 +103,7 @@ class Letterbox:
             array = array[..., None]
         if array.ndim != 3:
             raise DetectionError(
-                f"an image must be 2 or 3 dimensional, channels last; got shape "
-                f"{array.shape}"
+                f"an image must be 2 or 3 dimensional, channels last; got shape {array.shape}"
             )
         source_h, source_w = self.source_shape
         if array.shape[:2] != (source_h, source_w):
@@ -126,7 +120,7 @@ class Letterbox:
         out = np.full((target_h, target_w, array.shape[2]), fill, dtype=np.float32)
         top = round(self.pad_y)
         left = round(self.pad_x)
-        out[top:top + inner_h, left:left + inner_w] = resized
+        out[top : top + inner_h, left : left + inner_w] = resized
         return out
 
 
@@ -144,9 +138,15 @@ def _boxes(boxes) -> np.ndarray:
     return array
 
 
-def crop_boxes(image, boxes, *, context: float = 0.0,
-               size: tuple[int, int] | None = None, fit: str = "letterbox",
-               fill: float = 0.5) -> list[np.ndarray]:
+def crop_boxes(
+    image,
+    boxes,
+    *,
+    context: float = 0.0,
+    size: tuple[int, int] | None = None,
+    fit: str = "letterbox",
+    fill: float = 0.5,
+) -> list[np.ndarray]:
     """One sub-image per box: detect, cut out, hand to something else.
 
     The pipeline this exists for is detection followed by a classifier the detector does
@@ -260,8 +260,7 @@ def box_areas(boxes) -> np.ndarray:
     array = _boxes(boxes)
     if array.size == 0:
         return np.zeros(0, dtype=float)
-    return np.clip(array[:, 2] - array[:, 0], 0, None) * \
-        np.clip(array[:, 3] - array[:, 1], 0, None)
+    return np.clip(array[:, 2] - array[:, 0], 0, None) * np.clip(array[:, 3] - array[:, 1], 0, None)
 
 
 def drop_degenerate(boxes, labels, *, minimum_side: float = 1.0):
@@ -275,19 +274,25 @@ def drop_degenerate(boxes, labels, *, minimum_side: float = 1.0):
     array = _boxes(boxes)
     tags = np.asarray(labels).ravel()
     if len(array) != len(tags):
-        raise DetectionError(
-            f"{len(array)} boxes and {len(tags)} labels; they must agree"
-        )
+        raise DetectionError(f"{len(array)} boxes and {len(tags)} labels; they must agree")
     if array.size == 0:
         return array, tags, 0
-    keep = ((array[:, 2] - array[:, 0]) >= minimum_side) & \
-           ((array[:, 3] - array[:, 1]) >= minimum_side)
+    keep = ((array[:, 2] - array[:, 0]) >= minimum_side) & (
+        (array[:, 3] - array[:, 1]) >= minimum_side
+    )
     return array[keep], tags[keep], int((~keep).sum())
 
 
-def non_max_suppression(boxes, scores, labels=None, *, iou_threshold: float = 0.45,
-                        score_threshold: float = 0.0, per_class: bool = True,
-                        limit: int | None = None):
+def non_max_suppression(
+    boxes,
+    scores,
+    labels=None,
+    *,
+    iou_threshold: float = 0.45,
+    score_threshold: float = 0.0,
+    per_class: bool = True,
+    limit: int | None = None,
+):
     """Keep the confident box and drop the ones that overlap it.
 
     A detector predicts from every cell of every grid, so one object arrives as a cluster
@@ -304,23 +309,24 @@ def non_max_suppression(boxes, scores, labels=None, *, iou_threshold: float = 0.
     confidence = np.asarray(scores, dtype=float).ravel()
     if len(array) != len(confidence):
         raise DetectionError(
-            f"{len(array)} boxes and {len(confidence)} scores; there must be one score "
-            f"per box"
+            f"{len(array)} boxes and {len(confidence)} scores; there must be one score per box"
         )
-    tags = (np.zeros(len(array), dtype=int) if labels is None
-            else np.asarray(labels, dtype=int).ravel())
+    tags = (
+        np.zeros(len(array), dtype=int) if labels is None else np.asarray(labels, dtype=int).ravel()
+    )
     if len(tags) != len(array):
         raise DetectionError(f"{len(array)} boxes and {len(tags)} labels; they must agree")
     if not 0 < iou_threshold <= 1:
-        raise DetectionError(
-            f"iou_threshold must be above 0 and at most 1; got {iou_threshold}"
-        )
+        raise DetectionError(f"iou_threshold must be above 0 and at most 1; got {iou_threshold}")
     if array.size == 0:
         return np.zeros(0, dtype=int)
 
     alive = confidence >= score_threshold
-    groups = [np.where(alive & (tags == value))[0] for value in np.unique(tags)] \
-        if per_class else [np.where(alive)[0]]
+    groups = (
+        [np.where(alive & (tags == value))[0] for value in np.unique(tags)]
+        if per_class
+        else [np.where(alive)[0]]
+    )
 
     kept: list[int] = []
     for group in groups:
@@ -347,8 +353,8 @@ def _pairwise_iou(one: np.ndarray, many: np.ndarray) -> np.ndarray:
     bottom = np.minimum(one[3], many[:, 3])
     overlap = np.clip(right - left, 0, None) * np.clip(bottom - top, 0, None)
     area_one = max(one[2] - one[0], 0) * max(one[3] - one[1], 0)
-    area_many = np.clip(many[:, 2] - many[:, 0], 0, None) * \
-        np.clip(many[:, 3] - many[:, 1], 0, None)
+    area_many = np.clip(many[:, 2] - many[:, 0], 0, None) * np.clip(
+        many[:, 3] - many[:, 1], 0, None
+    )
     union = area_one + area_many - overlap
-    return np.divide(overlap, union, out=np.zeros_like(overlap, dtype=float),
-                     where=union > 0)
+    return np.divide(overlap, union, out=np.zeros_like(overlap, dtype=float), where=union > 0)

@@ -38,7 +38,9 @@ def test_every_parameter_receives_a_gradient():
 def test_the_three_grids_come_out_coarsest_first():
     out = build_yolo3(n_class=80)(torch.zeros(1, 3, 416, 416))
     assert [tuple(t.shape) for t in out] == [
-        (1, 13, 13, 3, 85), (1, 26, 26, 3, 85), (1, 52, 52, 3, 85)
+        (1, 13, 13, 3, 85),
+        (1, 26, 26, 3, 85),
+        (1, 52, 52, 3, 85),
     ]
 
 
@@ -67,7 +69,9 @@ def test_classes_and_anchors_are_the_callers(n_class, anchors):
 def test_a_rectangular_non_standard_input_works():
     out = build_yolo3(n_class=3)(torch.zeros(1, 3, 320, 608))
     assert [tuple(t.shape) for t in out] == [
-        (1, 10, 19, 3, 8), (1, 20, 38, 3, 8), (1, 40, 76, 3, 8)
+        (1, 10, 19, 3, 8),
+        (1, 20, 38, 3, 8),
+        (1, 40, 76, 3, 8),
     ]
 
 
@@ -75,8 +79,9 @@ def test_the_backbone_is_independent_of_classes_and_anchors():
     """Which is precisely why COCO's backbone can be reused on three classes of blood cell
     while its heads cannot: the heads' width depends on both."""
     first = sum(p.numel() for p in build_yolo3(n_class=3).backbone.parameters())
-    second = sum(p.numel() for p in build_yolo3(n_class=80, anchors_per_grid=5)
-                 .backbone.parameters())
+    second = sum(
+        p.numel() for p in build_yolo3(n_class=80, anchors_per_grid=5).backbone.parameters()
+    )
     assert first == second
 
 
@@ -92,8 +97,7 @@ def test_the_leaky_slope_is_darknets_not_torchs():
     against this function."""
     assert LEAKY_SLOPE == 0.1
     model = build_yolo3(n_class=1)
-    slopes = {m.negative_slope for m in model.modules()
-              if isinstance(m, torch.nn.LeakyReLU)}
+    slopes = {m.negative_slope for m in model.modules() if isinstance(m, torch.nn.LeakyReLU)}
     assert slopes == {0.1}
 
 

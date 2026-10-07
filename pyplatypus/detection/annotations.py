@@ -41,8 +41,8 @@ class Annotation:
     path: Path
     width: int
     height: int
-    boxes: np.ndarray                      # (n, 4) xmin, ymin, xmax, ymax
-    labels: np.ndarray                     # (n,) int, indices into the label list
+    boxes: np.ndarray  # (n, 4) xmin, ymin, xmax, ymax
+    labels: np.ndarray  # (n,) int, indices into the label list
     names: list[str] = field(default_factory=list)
     difficult: np.ndarray | None = None
     image_path: str | None = None
@@ -55,8 +55,9 @@ class Annotation:
         return out
 
 
-def read_voc(path, labels: list[str], *, coordinates: Coordinates = "voc",
-             strict_labels: bool = True) -> Annotation:
+def read_voc(
+    path, labels: list[str], *, coordinates: Coordinates = "voc", strict_labels: bool = True
+) -> Annotation:
     """One Pascal VOC XML file.
 
     `strict_labels=False` skips objects whose class is not in `labels`, which is how you
@@ -126,9 +127,7 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
     height = payload.get("imageHeight")
     width = payload.get("imageWidth")
     if not height or not width:
-        raise DetectionError(
-            f"'{file}' has no imageHeight/imageWidth, so its boxes have no frame"
-        )
+        raise DetectionError(f"'{file}' has no imageHeight/imageWidth, so its boxes have no frame")
 
     boxes, indices, names = [], [], []
     for shape in payload.get("shapes", []):
@@ -148,8 +147,9 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
             )
         # LabelMe's coordinates are already continuous, and its two rectangle points are
         # opposite corners in no guaranteed order.
-        boxes.append([points[:, 0].min(), points[:, 1].min(),
-                      points[:, 0].max(), points[:, 1].max()])
+        boxes.append(
+            [points[:, 0].min(), points[:, 1].min(), points[:, 0].max(), points[:, 1].max()]
+        )
         indices.append(labels.index(name))
         names.append(name)
 
@@ -165,10 +165,14 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
     )
 
 
-def read_annotations(directory, labels: list[str], *,
-                     annotation_format: Literal["pascal_voc", "labelme"] = "pascal_voc",
-                     coordinates: Coordinates = "voc",
-                     strict_labels: bool = True) -> list[Annotation]:
+def read_annotations(
+    directory,
+    labels: list[str],
+    *,
+    annotation_format: Literal["pascal_voc", "labelme"] = "pascal_voc",
+    coordinates: Coordinates = "voc",
+    strict_labels: bool = True,
+) -> list[Annotation]:
     """Every annotation in a directory, in sorted order so a split is reproducible."""
     root = Path(directory)
     if not root.is_dir():
@@ -181,14 +185,19 @@ def read_annotations(directory, labels: list[str], *,
             f"pass annotation_format='labelme' for JSON."
         )
     if annotation_format == "pascal_voc":
-        return [read_voc(f, labels, coordinates=coordinates,
-                         strict_labels=strict_labels) for f in files]
+        return [
+            read_voc(f, labels, coordinates=coordinates, strict_labels=strict_labels) for f in files
+        ]
     return [read_labelme(f, labels, strict_labels=strict_labels) for f in files]
 
 
-def describe_annotations(directory, labels: list[str], *,
-                         annotation_format: Literal["pascal_voc", "labelme"] = "pascal_voc",
-                         limit: int = 200) -> dict[str, Any]:
+def describe_annotations(
+    directory,
+    labels: list[str],
+    *,
+    annotation_format: Literal["pascal_voc", "labelme"] = "pascal_voc",
+    limit: int = 200,
+) -> dict[str, Any]:
     """What is in a directory of annotations, and which coordinate convention fits.
 
     Reads the numbers exactly as written - no conversion - so the evidence is the data's
@@ -202,9 +211,11 @@ def describe_annotations(directory, labels: list[str], *,
     if not files:
         raise DetectionError(f"'{root}' holds no {pattern} files")
 
-    reader = (lambda f: read_voc(f, labels, coordinates="zero_based", strict_labels=False)) \
-        if annotation_format == "pascal_voc" else \
-        (lambda f: read_labelme(f, labels, strict_labels=False))
+    reader = (
+        (lambda f: read_voc(f, labels, coordinates="zero_based", strict_labels=False))
+        if annotation_format == "pascal_voc"
+        else (lambda f: read_labelme(f, labels, strict_labels=False))
+    )
 
     per_class: dict[str, int] = {name: 0 for name in labels}
     minima, widths, heights, sides = [], [], [], []
@@ -214,12 +225,15 @@ def describe_annotations(directory, labels: list[str], *,
         for name in annotation.names:
             per_class[name] = per_class.get(name, 0) + 1
         if annotation.boxes.size:
-            minima.append(float(min(annotation.boxes[:, 0].min(),
-                                    annotation.boxes[:, 1].min())))
+            minima.append(float(min(annotation.boxes[:, 0].min(), annotation.boxes[:, 1].min())))
             sides.extend((annotation.boxes[:, 2] - annotation.boxes[:, 0]).tolist())
             sides.extend((annotation.boxes[:, 3] - annotation.boxes[:, 1]).tolist())
-            touching_edge += int(((annotation.boxes[:, 2] >= annotation.width) |
-                                  (annotation.boxes[:, 3] >= annotation.height)).sum())
+            touching_edge += int(
+                (
+                    (annotation.boxes[:, 2] >= annotation.width)
+                    | (annotation.boxes[:, 3] >= annotation.height)
+                ).sum()
+            )
         widths.append(annotation.width)
         heights.append(annotation.height)
 
@@ -236,8 +250,9 @@ def describe_annotations(directory, labels: list[str], *,
         "median_side": float(np.median(sides)) if sides else None,
         # The only part of this that is proof rather than evidence.
         "coordinates": (
-            "zero_based" if minimum_seen == 0 else
-            "consistent with voc (1-based); no zero minimum seen"
+            "zero_based"
+            if minimum_seen == 0
+            else "consistent with voc (1-based); no zero minimum seen"
         ),
     }
 
@@ -246,9 +261,7 @@ def _to_continuous(raw: list[float], coordinates: Coordinates, file: Path) -> li
     if coordinates == "zero_based":
         return raw
     if coordinates != "voc":
-        raise DetectionError(
-            f"coordinates must be 'voc' or 'zero_based'; got {coordinates!r}"
-        )
+        raise DetectionError(f"coordinates must be 'voc' or 'zero_based'; got {coordinates!r}")
     xmin, ymin, xmax, ymax = raw
     if xmin == 0 or ymin == 0:
         raise DetectionError(

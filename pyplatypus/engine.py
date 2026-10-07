@@ -121,8 +121,7 @@ class EngineBase:
         except ConfigError:
             if self._has_any_labels():
                 raise
-            return discover(data.test_path, data, only_images=True,
-                            strict=strict).samples
+            return discover(data.test_path, data, only_images=True, strict=strict).samples
         self.labelled.add("test")
         return samples
 
@@ -146,8 +145,7 @@ class EngineBase:
                 "and fit again."
             )
         raise EngineError(
-            f"no '{split}' data in this spec; available: "
-            f"{', '.join(sorted(self._samples))}"
+            f"no '{split}' data in this spec; available: {', '.join(sorted(self._samples))}"
         )
 
     def _needs_labels(self, split: str, suggestion: str) -> None:
@@ -188,9 +186,15 @@ class Engine(EngineBase):
     #: What a labelled split carries here, for the one message that names it.
     labels_are = "masks"
 
-    def __init__(self, spec: PlatypusSpec, *, device: str | None = None,
-                 num_workers: int = 0, strict_data: bool = True,
-                 check_masks: bool = True):
+    def __init__(
+        self,
+        spec: PlatypusSpec,
+        *,
+        device: str | None = None,
+        num_workers: int = 0,
+        strict_data: bool = True,
+        check_masks: bool = True,
+    ):
         if not isinstance(spec, SegmentationSpec):
             raise EngineError(
                 f"this engine trains segmentation; the specification's task is "
@@ -209,7 +213,6 @@ class Engine(EngineBase):
         self._samples: dict[str, tuple[Sample, ...]]
         self._discover_splits(discover, strict=strict_data)
 
-
     def _has_any_labels(self) -> bool:
         """Whether the test split carries masks for anything, without reading them."""
         from pyplatypus.spec.common import DataMode
@@ -221,17 +224,24 @@ class Engine(EngineBase):
             header = path.read_text().splitlines()[:1]
             if not header:
                 return False
-            return self.spec.data.label_column in [
-                name.strip() for name in header[0].split(",")
-            ]
+            return self.spec.data.label_column in [name.strip() for name in header[0].split(",")]
         if not path.is_dir():
             return False
         wanted = self.spec.data.subdirs[1]
-        return any((entry / wanted).is_dir() and any((entry / wanted).iterdir())
-                   for entry in path.iterdir() if entry.is_dir())
+        return any(
+            (entry / wanted).is_dir() and any((entry / wanted).iterdir())
+            for entry in path.iterdir()
+            if entry.is_dir()
+        )
 
-    def dataset(self, model: SegmentationModel, split: str, *, augmented: bool = False,
-                only_images: bool | None = None) -> SegmentationDataset:
+    def dataset(
+        self,
+        model: SegmentationModel,
+        split: str,
+        *,
+        augmented: bool = False,
+        only_images: bool | None = None,
+    ) -> SegmentationDataset:
         """`only_images` defaults to what the split actually has rather than to False.
 
         It used to default to False, so asking for a test split of images alone built a
@@ -241,16 +251,29 @@ class Engine(EngineBase):
         self._require_split(split)
         if only_images is None:
             only_images = split not in self.labelled
-        augmenter = build_augmenter(
-            model.augmentation, model.rank, tuple(model.input_shape)
-        ) if augmented else None
+        augmenter = (
+            build_augmenter(model.augmentation, model.rank, tuple(model.input_shape))
+            if augmented
+            else None
+        )
         return SegmentationDataset(
-            self._samples[split], model, self.spec.data,
-            augmenter=augmenter, only_images=only_images,
+            self._samples[split],
+            model,
+            self.spec.data,
+            augmenter=augmenter,
+            only_images=only_images,
         )
 
-    def loader(self, model: SegmentationModel, split: str, *, augmented: bool = False,
-               shuffle: bool = False, only_images: bool = False, for_loss: bool = True):
+    def loader(
+        self,
+        model: SegmentationModel,
+        split: str,
+        *,
+        augmented: bool = False,
+        shuffle: bool = False,
+        only_images: bool = False,
+        for_loss: bool = True,
+    ):
         # `boundary` needs the signed distance map of its target and nothing else does, so
         # the loader computes it only when the loss asks - the transform costs more than an
         # epoch of a small 3D model and nobody else should pay for it. Read from the spec
@@ -261,13 +284,16 @@ class Engine(EngineBase):
         # sample at 128^3, on work that does not read it.
         return make_loader(
             self.dataset(model, split, augmented=augmented, only_images=only_images),
-            batch_size=model.batch_size, shuffle=shuffle, num_workers=self.num_workers,
+            batch_size=model.batch_size,
+            shuffle=shuffle,
+            num_workers=self.num_workers,
             with_distance=for_loss and loss_needs_distance(model.loss),
         )
 
     # ----------------------------------------------------------------- weights
-    def _load_weights(self, model: torch.nn.Module, reference: str,
-                      spec: SegmentationModel) -> dict | None:
+    def _load_weights(
+        self, model: torch.nn.Module, reference: str, spec: SegmentationModel
+    ) -> dict | None:
         """A registry name, a Hub reference, or a local path - see `pyplatypus.weights`.
 
         The colormap goes into the comparison, and it is the thing the model specification
@@ -312,8 +338,9 @@ class Engine(EngineBase):
             raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
         # The colormap always, whatever else the caller adds: it is what makes the sidecar
         # able to refuse weights that would load cleanly and mean something else.
-        return export_weights(run.model, run.spec, path,
-                              extra={**self._class_fingerprint(), **(extra or {})})
+        return export_weights(
+            run.model, run.spec, path, extra={**self._class_fingerprint(), **(extra or {})}
+        )
 
     # ------------------------------------------------------------------ checks
     def _refuse_masks_that_describe_nothing(self, model_spec: SegmentationModel) -> None:
@@ -390,7 +417,6 @@ class Engine(EngineBase):
             return parts[0]
         return ", ".join(parts[:-1]) + " and " + parts[-1]
 
-
     #: What a sidecar may fill in when the specification did not say. Deliberately not
     #: `input_shape` or `channels`: the rank comes from `input_shape` and is needed while the
     #: specification is validated - long before any weights exist - and the data pipeline
@@ -417,12 +443,15 @@ class Engine(EngineBase):
         try:
             sidecar = describe(resolve_weights(model_spec.weights))
         except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
-            return model_spec          # told with the message it has always given.
+            return model_spec  # told with the message it has always given.
         if not sidecar:
             return model_spec
 
-        adopted = {field: sidecar[field] for field in self.ADOPTABLE
-                   if field in sidecar and field not in model_spec.model_fields_set}
+        adopted = {
+            field: sidecar[field]
+            for field in self.ADOPTABLE
+            if field in sidecar and field not in model_spec.model_fields_set
+        }
         if not adopted:
             return model_spec
         # Re-validated rather than copied, because the adopted values have to face the same
@@ -440,25 +469,29 @@ class Engine(EngineBase):
             if verbose:
                 print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
 
-            network = build_model(model_spec, n_class=self.spec.data.n_class,
-                                  encoder=_encoder_for(model_spec))
+            network = build_model(
+                model_spec, n_class=self.spec.data.n_class, encoder=_encoder_for(model_spec)
+            )
             if model_spec.weights:
                 self._load_weights(network, model_spec.weights, model_spec)
 
             trainer = Trainer(network, model_spec, device=self.device)
-            run = ModelRun(name=model_spec.name, spec=model_spec,
-                           model=trainer.model, trainer=trainer)
+            run = ModelRun(
+                name=model_spec.name, spec=model_spec, model=trainer.model, trainer=trainer
+            )
 
             if model_spec.fit:
                 run.history = trainer.fit(
-                    self.loader(model_spec, "train", augmented=True,
-                                shuffle=self.spec.data.shuffle),
+                    self.loader(
+                        model_spec, "train", augmented=True, shuffle=self.spec.data.shuffle
+                    ),
                     # None when the run says it has no validation set. `fit` already took
                     # an optional loader, so nothing below this had to learn about it - the
                     # history simply has no `val_` columns, which is the honest shape for a
                     # run that measured nothing.
                     self.loader(model_spec, "validation")
-                    if "validation" in self._samples else None,
+                    if "validation" in self._samples
+                    else None,
                     verbose=verbose,
                 )
                 run.trained = True
@@ -488,7 +521,6 @@ class Engine(EngineBase):
             f"predict('{split}') works on it, and save_masks() writes what it predicts.",
         )
 
-
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
         """One row per model: the comparison table the whole multi-model idea is for."""
         if not self.runs:
@@ -499,21 +531,24 @@ class Engine(EngineBase):
         for run in self.runs.values():
             scores = run.trainer.evaluate(self.loader(run.spec, split))
             best = run.history.best("val_loss")
-            table.append({
-                "model": run.name,
-                "architecture": run.spec.architecture.value,
-                # Named, because a loss column is only comparable between models that
-                # were trained on the same one - see best_model().
-                "loss_function": run.spec.loss.name,
-                "parameters": run.parameters,
-                "epochs_run": len(run.history),
-                "best_epoch": best["epoch"] if best else None,
-                **{key.removeprefix("val_"): value for key, value in scores.items()},
-            })
+            table.append(
+                {
+                    "model": run.name,
+                    "architecture": run.spec.architecture.value,
+                    # Named, because a loss column is only comparable between models that
+                    # were trained on the same one - see best_model().
+                    "loss_function": run.spec.loss.name,
+                    "parameters": run.parameters,
+                    "epochs_run": len(run.history),
+                    "best_epoch": best["epoch"] if best else None,
+                    **{key.removeprefix("val_"): value for key, value in scores.items()},
+                }
+            )
         return table
 
-    def evaluate_cases(self, model_name: str, split: str = "validation", *,
-                       group_by: str | None = None) -> list[dict[str, Any]]:
+    def evaluate_cases(
+        self, model_name: str, split: str = "validation", *, group_by: str | None = None
+    ) -> list[dict[str, Any]]:
         """One row per case instead of one row per model.
 
         The comparison table answers "which model"; this answers "on whom does it fail",
@@ -572,8 +607,9 @@ class Engine(EngineBase):
             raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
         only_images = split == "test" and "test" in self._samples
         # Never shuffle: stitching depends on tiles arriving in the order they were cut.
-        loader = self.loader(run.spec, split, shuffle=False,
-                             only_images=only_images, for_loss=False)
+        loader = self.loader(
+            run.spec, split, shuffle=False, only_images=only_images, for_loss=False
+        )
         predictions = run.trainer.predict(loader)
 
         if space == "model":
@@ -584,8 +620,9 @@ class Engine(EngineBase):
             for index, sample in enumerate(samples)
         ]
 
-    def _to_source_space(self, prediction: np.ndarray, sample: Sample,
-                         model: SegmentationModel) -> np.ndarray:
+    def _to_source_space(
+        self, prediction: np.ndarray, sample: Sample, model: SegmentationModel
+    ) -> np.ndarray:
         """Undo what reading did, so the answer lands on the grid the data arrived on.
 
         The forward path is: read at native size, resample to `target_spacing` if asked, then
@@ -611,7 +648,8 @@ class Engine(EngineBase):
             # The shape resampling produced on the way in, computed the same way, so the crop
             # below is the exact inverse of the pad that happened there (and vice versa).
             resampled = resample_to_spacing(
-                np.zeros((*shape, 1), dtype=np.float32), spacing,
+                np.zeros((*shape, 1), dtype=np.float32),
+                spacing,
                 self.spec.data.target_spacing,
             ).shape[:3]
             prediction = crop_or_pad(prediction, resampled)
@@ -631,8 +669,7 @@ class Engine(EngineBase):
         if _is_series(sample.images):
             return series_shape(list(sample.images))
         if self.spec.data.channels_from is not None and len(sample.images) > 1:
-            ordered = match_channels(sample.images, self.spec.data.channels_from,
-                                     key=sample.key)
+            ordered = match_channels(sample.images, self.spec.data.channels_from, key=sample.key)
             return spatial_shape(ordered[0])
         return spatial_shape(sample.images[0])
 
@@ -644,8 +681,7 @@ class Engine(EngineBase):
         if _is_series(sample.images):
             return series_spacing(list(sample.images))
         if self.spec.data.channels_from is not None and len(sample.images) > 1:
-            ordered = match_channels(sample.images, self.spec.data.channels_from,
-                                     key=sample.key)
+            ordered = match_channels(sample.images, self.spec.data.channels_from, key=sample.key)
             return volume_spacing(ordered[0])
         return volume_spacing(sample.images[0])
 
@@ -685,11 +721,18 @@ def _encoder_for(spec: SegmentationModel) -> PretrainedEncoder | None:
     if spec.encoder is None:
         return None
     return PretrainedEncoder(
-        spec.encoder, in_channels=spec.channels, blocks=spec.blocks,
-        filters=spec.filters, pretrained=spec.pretrained, rank=spec.rank,
-        width=spec.block_width, batch_norm=spec.batch_normalization,
-        separable=spec.separable_conv, act=spec.activation,
-        drop=spec.dropout, spatial_dropout=spec.spatial_dropout,
+        spec.encoder,
+        in_channels=spec.channels,
+        blocks=spec.blocks,
+        filters=spec.filters,
+        pretrained=spec.pretrained,
+        rank=spec.rank,
+        width=spec.block_width,
+        batch_norm=spec.batch_normalization,
+        separable=spec.separable_conv,
+        act=spec.activation,
+        drop=spec.dropout,
+        spatial_dropout=spec.spatial_dropout,
     )
 
 
@@ -715,16 +758,18 @@ def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for metric in metrics:
         values = np.array([row[metric] for row in rows], dtype=float)
         worst = min(rows, key=lambda row: row[metric])
-        out.append({
-            "metric": metric,
-            "n": int(values.size),
-            "mean": float(values.mean()),
-            "sd": float(values.std(ddof=1)) if values.size > 1 else None,
-            "median": float(np.median(values)),
-            "min": float(values.min()),
-            "max": float(values.max()),
-            f"worst_{label}": worst[label],
-        })
+        out.append(
+            {
+                "metric": metric,
+                "n": int(values.size),
+                "mean": float(values.mean()),
+                "sd": float(values.std(ddof=1)) if values.size > 1 else None,
+                "median": float(np.median(values)),
+                "min": float(values.min()),
+                "max": float(values.max()),
+                f"worst_{label}": worst[label],
+            }
+        )
     return out
 
 
@@ -747,8 +792,9 @@ def split_from_train(data, discover, *, strict: bool) -> dict[str, tuple]:
     from pyplatypus.data.splits import split_samples
 
     found = discover(data.train_path, data, strict=strict).samples
-    divided = split_samples(found, fractions=data.split.fractions,
-                            group_by=data.split.group_by, seed=data.split.seed)
+    divided = split_samples(
+        found, fractions=data.split.fractions, group_by=data.split.group_by, seed=data.split.seed
+    )
     samples = {"train": divided.train, "validation": divided.validation}
     if divided.test:
         samples["test"] = divided.test

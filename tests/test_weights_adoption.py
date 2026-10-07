@@ -20,8 +20,9 @@ from pyplatypus.weights import WeightsError, export_weights
 def unusual_weights(tmp_path):
     """Deliberately not the defaults: blocks=4 filters=16 would pass by coincidence."""
     spec = SegmentationModel(name="m", input_shape=(32, 32), blocks=2, filters=8)
-    export_weights(build_model(spec, n_class=2), spec,
-                   tmp_path / "w.safetensors", extra={"n_class": 2})
+    export_weights(
+        build_model(spec, n_class=2), spec, tmp_path / "w.safetensors", extra={"n_class": 2}
+    )
     return tmp_path / "w.safetensors"
 
 
@@ -40,13 +41,25 @@ def tiny_root(tmp_path):
 
 
 def spec_for(root, weights, **model):
-    return from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "m", "input_shape": [32, 32], "weights": str(weights),
-                    "fit": False, **model}],
-    })
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [32, 32],
+                    "weights": str(weights),
+                    "fit": False,
+                    **model,
+                }
+            ],
+        }
+    )
 
 
 def test_geometry_the_spec_did_not_state_comes_from_the_file(tiny_root, unusual_weights):
@@ -58,16 +71,16 @@ def test_geometry_the_spec_did_not_state_comes_from_the_file(tiny_root, unusual_
 
 
 def test_stating_it_correctly_still_works(tiny_root, unusual_weights):
-    engine = Engine(spec_for(tiny_root, unusual_weights, blocks=2, filters=8),
-                    device="cpu", check_masks=False)
+    engine = Engine(
+        spec_for(tiny_root, unusual_weights, blocks=2, filters=8), device="cpu", check_masks=False
+    )
     engine.fit()
     assert engine.runs["m"].spec.blocks == 2
 
 
 def test_stating_it_wrongly_is_still_refused(tiny_root, unusual_weights):
     """Adoption loosens what may be omitted and nothing about what is checked."""
-    engine = Engine(spec_for(tiny_root, unusual_weights, blocks=3),
-                    device="cpu", check_masks=False)
+    engine = Engine(spec_for(tiny_root, unusual_weights, blocks=3), device="cpu", check_masks=False)
     with pytest.raises(WeightsError, match="blocks"):
         engine.fit()
 
@@ -77,10 +90,17 @@ def test_input_shape_is_not_adopted(tiny_root, unusual_weights):
     validated, long before a sidecar can be reached without a download. A spec that cannot
     be checked offline is the air-gapped hospital problem."""
     from pyplatypus.errors import ConfigError
+
     with pytest.raises(ConfigError, match="input_shape"):
-        from_dict({
-            "task": "semantic_segmentation",
-            "data": {"train_path": str(tiny_root), "validation_path": str(tiny_root),
-                     "colormap": [[0, 0, 0], [255, 255, 255]]},
-            "models": [{"name": "m", "weights": str(unusual_weights), "fit": False}],
-        }, check_paths=False)
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(tiny_root),
+                    "validation_path": str(tiny_root),
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                },
+                "models": [{"name": "m", "weights": str(unusual_weights), "fit": False}],
+            },
+            check_paths=False,
+        )

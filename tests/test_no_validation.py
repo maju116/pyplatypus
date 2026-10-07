@@ -26,16 +26,15 @@ def no_validation(config, nested_root):
 
 # --- the specification ---------------------------------------------------------------------
 
-def test_silence_is_still_an_error_and_the_message_names_the_third_option(config,
-                                                                         nested_root):
+
+def test_silence_is_still_an_error_and_the_message_names_the_third_option(config, nested_root):
     config["data"]["train_path"] = str(nested_root)
     config["data"].pop("validation_path", None)
     with pytest.raises(ConfigError, match="validation: false"):
         from_dict(config, check_paths=False)
 
 
-def test_saying_both_where_it_comes_from_and_that_there_is_none_is_refused(config,
-                                                                          nested_root):
+def test_saying_both_where_it_comes_from_and_that_there_is_none_is_refused(config, nested_root):
     config["data"]["train_path"] = str(nested_root)
     config["data"]["validation_path"] = str(nested_root)
     config["data"]["validation"] = False
@@ -68,6 +67,7 @@ def test_watching_a_training_quantity_is_fine(no_validation):
 
 # --- the run -------------------------------------------------------------------------------
 
+
 def test_it_trains_and_the_history_has_no_validation_columns(no_validation):
     engine = build_engine(from_dict(no_validation), device="cpu")
     with warnings.catch_warnings():
@@ -90,15 +90,16 @@ def test_the_validation_split_is_absent_rather_than_empty(no_validation):
     assert "train" in engine.labelled
 
 
-def test_asking_for_the_validation_split_says_validation_false_and_not_no_masks(
-        no_validation):
+def test_asking_for_the_validation_split_says_validation_false_and_not_no_masks(no_validation):
     """The two are different and the wrong one sends somebody looking for files. `evaluate`
     defaults to `"validation"`, so this is the first thing anyone meets after `fit`."""
     engine = build_engine(from_dict(no_validation), device="cpu")
     engine.fit()
-    for call in (lambda: engine.evaluate(),
-                 lambda: engine.evaluate_cases(no_validation["models"][0]["name"]),
-                 lambda: engine.predict(no_validation["models"][0]["name"], "validation")):
+    for call in (
+        lambda: engine.evaluate(),
+        lambda: engine.evaluate_cases(no_validation["models"][0]["name"]),
+        lambda: engine.predict(no_validation["models"][0]["name"], "validation"),
+    ):
         with pytest.raises(EngineError, match="`validation: false`"):
             call()
 
@@ -112,6 +113,7 @@ def test_everything_else_still_works_on_the_split_that_does_exist(no_validation)
 
 
 # --- detection, which has the same three-way choice ------------------------------------------
+
 
 def test_a_detector_can_also_be_fitted_without_validation(detection_config, detection_root):
     """`DetectionData` inherits the field, so the rule and the refusals come with it - but

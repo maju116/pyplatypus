@@ -24,9 +24,21 @@ from pyplatypus.data.images import read_image
 CT = get_testdata_file("CT_small.dcm")
 
 
-def write_series(directory, positions, *, names=None, uid=None, spacing=(0.8, 0.8),
-                 orientation=(1, 0, 0, 0, 1, 0), fill=None, pixels=None, window=None,
-                 instance_numbers=None, thickness=2.5, origin=(0.0, 0.0)):
+def write_series(
+    directory,
+    positions,
+    *,
+    names=None,
+    uid=None,
+    spacing=(0.8, 0.8),
+    orientation=(1, 0, 0, 0, 1, 0),
+    fill=None,
+    pixels=None,
+    window=None,
+    instance_numbers=None,
+    thickness=2.5,
+    origin=(0.0, 0.0),
+):
     """A series on disk, with the geometry the test cares about and nothing else.
 
     Names default to something whose lexicographic order disagrees with the anatomy, because
@@ -193,7 +205,7 @@ def test_a_missing_slice_is_an_error_not_a_shorter_volume(tmp_path):
     wrong place - and every score computed on it looks perfectly ordinary.
     """
     root = tmp_path / "series"
-    write_series(root, positions=[0.0, 2.5, 7.5, 10.0])     # 5.0 is missing
+    write_series(root, positions=[0.0, 2.5, 7.5, 10.0])  # 5.0 is missing
 
     with pytest.raises(DicomError, match="not evenly spaced"):
         describe_series(root)
@@ -203,8 +215,11 @@ def test_the_message_says_where_the_gap_is(tmp_path):
     # Long enough for the median gap to mean something, which is what lets the message name
     # the offender.
     root = tmp_path / "series"
-    write_series(root, positions=[0.0, 2.5, 5.0, 10.0, 12.5, 15.0],
-                 names=["a.dcm", "b.dcm", "c.dcm", "d.dcm", "e.dcm", "f.dcm"])
+    write_series(
+        root,
+        positions=[0.0, 2.5, 5.0, 10.0, 12.5, 15.0],
+        names=["a.dcm", "b.dcm", "c.dcm", "d.dcm", "e.dcm", "f.dcm"],
+    )
     with pytest.raises(DicomError, match="after 'c.dcm'"):
         describe_series(root)
 
@@ -242,8 +257,12 @@ def test_one_window_is_used_for_the_whole_series(tmp_path):
     gradient the scanner never measured. The window is resolved once, from the first slice.
     """
     root = tmp_path / "series"
-    write_series(root, positions=[0.0, 2.5, 5.0], fill=[500, 500, 500],
-                 window=[(40, 400), (1000, 4000), (-600, 1500)])
+    write_series(
+        root,
+        positions=[0.0, 2.5, 5.0],
+        fill=[500, 500, 500],
+        window=[(40, 400), (1000, 4000), (-600, 1500)],
+    )
 
     volume = read_dicom_series(root, window="auto")
     slices = [float(volume[64, 64, k, 0]) for k in range(3)]
@@ -286,18 +305,28 @@ def test_the_same_anatomy_stored_two_ways_reads_alike(tmp_path):
     look wrong.
     """
     pattern = np.zeros((128, 128), dtype=np.int16)
-    pattern[10:40, 20:60] = 400          # asymmetric, so a flip cannot hide
+    pattern[10:40, 20:60] = 400  # asymmetric, so a flip cannot hide
 
     plain = tmp_path / "plain"
-    write_series(plain, positions=[0.0, 2.5, 5.0], orientation=(1, 0, 0, 0, 1, 0),
-                 pixels=[pattern, pattern, pattern], spacing=(1.0, 1.0))
+    write_series(
+        plain,
+        positions=[0.0, 2.5, 5.0],
+        orientation=(1, 0, 0, 0, 1, 0),
+        pixels=[pattern, pattern, pattern],
+        spacing=(1.0, 1.0),
+    )
 
     # Reversed in-plane axes: increasing column index now runs in -x, increasing row index in
     # -y, so the stored array is flipped both ways and the origin is the far corner.
     flipped = tmp_path / "flipped"
-    write_series(flipped, positions=[0.0, 2.5, 5.0], orientation=(-1, 0, 0, 0, -1, 0),
-                 pixels=[pattern[::-1, ::-1].copy()] * 3, spacing=(1.0, 1.0),
-                 origin=(127.0, 127.0))
+    write_series(
+        flipped,
+        positions=[0.0, 2.5, 5.0],
+        orientation=(-1, 0, 0, 0, -1, 0),
+        pixels=[pattern[::-1, ::-1].copy()] * 3,
+        spacing=(1.0, 1.0),
+        origin=(127.0, 127.0),
+    )
 
     a = read_dicom_series(plain, window="full")
     b = read_dicom_series(flipped, window="full")
@@ -345,12 +374,12 @@ def test_describe_series_reads_no_pixels(tmp_path):
     root = tmp_path / "series"
     paths = write_series(root, positions=[0.0, 2.5, 5.0])
     dataset = pydicom.dcmread(str(paths[1]))
-    dataset.PixelData = b"\x00" * 8            # far too short to decode
+    dataset.PixelData = b"\x00" * 8  # far too short to decode
     dataset.save_as(paths[1])
 
-    series = describe_series(root)             # headers only: fine
+    series = describe_series(root)  # headers only: fine
     assert len(series) == 3
-    with pytest.raises(DicomError):            # pixels: not fine
+    with pytest.raises(DicomError):  # pixels: not fine
         read_dicom_series(root)
 
 
@@ -364,22 +393,39 @@ def test_a_series_per_case_trains_end_to_end(tmp_path):
     root = tmp_path / "cases"
     for case in range(3):
         sample = root / f"case_{case:02d}"
-        write_series(sample / "images", positions=[0.0, 2.5, 5.0, 7.5],
-                     spacing=(1.0, 1.0))
+        write_series(sample / "images", positions=[0.0, 2.5, 5.0, 7.5], spacing=(1.0, 1.0))
         labels = np.zeros((128, 128, 4), dtype=np.float32)
         labels[20:60, 20:60, 1:3] = 1
         (sample / "masks").mkdir(parents=True, exist_ok=True)
-        nib.save(nib.Nifti1Image(labels, np.diag([1.0, 1.0, 2.5, 1.0])),
-                 str(sample / "masks" / "seg.nii.gz"))
+        nib.save(
+            nib.Nifti1Image(labels, np.diag([1.0, 1.0, 2.5, 1.0])),
+            str(sample / "masks" / "seg.nii.gz"),
+        )
 
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root),
-                 "labels": [0, 1], "window": "soft_tissue", "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [32, 32, 4], 
-                    "channels": 1, "blocks": 2, "filters": 4, "batch_size": 1,
-                    "epochs": 1, "metrics": [{"name": "dice"}]}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "labels": [0, 1],
+                "window": "soft_tissue",
+                "shuffle": False,
+            },
+            "models": [
+                {
+                    "name": "unet3d",
+                    "input_shape": [32, 32, 4],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 1,
+                    "epochs": 1,
+                    "metrics": [{"name": "dice"}],
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     history = engine.fit()["unet3d"]
 
@@ -403,14 +449,17 @@ def test_several_volumes_per_sample_need_their_order_stated(tmp_path):
     (sample / "images").mkdir(parents=True, exist_ok=True)
     (sample / "masks").mkdir(parents=True, exist_ok=True)
     for modality in ("t1", "t2"):
-        nib.save(nib.Nifti1Image(np.zeros((8, 8, 4), np.float32), np.eye(4)),
-                 str(sample / "images" / f"{modality}.nii.gz"))
-    nib.save(nib.Nifti1Image(np.zeros((8, 8, 4), np.float32), np.eye(4)),
-             str(sample / "masks" / "seg.nii.gz"))
+        nib.save(
+            nib.Nifti1Image(np.zeros((8, 8, 4), np.float32), np.eye(4)),
+            str(sample / "images" / f"{modality}.nii.gz"),
+        )
+    nib.save(
+        nib.Nifti1Image(np.zeros((8, 8, 4), np.float32), np.eye(4)),
+        str(sample / "masks" / "seg.nii.gz"),
+    )
 
     data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1])
-    model = SegmentationModel(name="m", input_shape=(8, 8, 4), channels=1, 
-                              blocks=2)
+    model = SegmentationModel(name="m", input_shape=(8, 8, 4), channels=1, blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
     with pytest.raises(DataError, match="channels_from"):
         dataset[0]

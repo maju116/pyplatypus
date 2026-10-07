@@ -56,8 +56,7 @@ def test_a_pattern_matching_nothing_names_the_files_present(tmp_path):
 
 def test_the_sample_is_named_in_the_complaint(tmp_path):
     with pytest.raises(ChannelError, match="sample 'case_001'"):
-        match_channels([tmp_path / n for n in BRATS], [r"_t1\.nii", r"_dwi\.nii"],
-                       key="case_001")
+        match_channels([tmp_path / n for n in BRATS], [r"_t1\.nii", r"_dwi\.nii"], key="case_001")
 
 
 def test_a_file_matching_no_channel_is_refused(tmp_path):
@@ -82,8 +81,10 @@ def brats_case(root, name, values, spacing=(1.0, 1.0, 1.0), shape=(16, 16, 8)):
     (sample / "masks").mkdir(parents=True, exist_ok=True)
     affine = np.diag([*spacing, 1.0])
     for sequence, value in values.items():
-        nib.save(nib.Nifti1Image(np.full(shape, float(value), dtype=np.float32), affine),
-                 str(sample / "images" / f"{name}_{sequence}.nii.gz"))
+        nib.save(
+            nib.Nifti1Image(np.full(shape, float(value), dtype=np.float32), affine),
+            str(sample / "images" / f"{name}_{sequence}.nii.gz"),
+        )
     labels = np.zeros(shape, dtype=np.float32)
     labels[4:12, 4:12, 2:6] = 1
     nib.save(nib.Nifti1Image(labels, affine), str(sample / "masks" / f"{name}_seg.nii.gz"))
@@ -96,10 +97,10 @@ def build_dataset(root, **data_kwargs):
     from pyplatypus.spec.data import SegmentationData
     from pyplatypus.spec.models import SegmentationModel
 
-    data = SegmentationData(train_path=str(root), validation_path=str(root), labels=[0, 1],
-                            **data_kwargs)
-    model = SegmentationModel(name="m", input_shape=(16, 16, 8), channels=4, 
-                              blocks=2)
+    data = SegmentationData(
+        train_path=str(root), validation_path=str(root), labels=[0, 1], **data_kwargs
+    )
+    model = SegmentationModel(name="m", input_shape=(16, 16, 8), channels=4, blocks=2)
     return SegmentationDataset(discover_samples(root).samples, model, data)
 
 
@@ -138,11 +139,13 @@ def test_channels_survive_resampling(tmp_path):
     """Each channel is resampled on its own, so they have to come back the same size or the
     stack cannot be built at all."""
     root = tmp_path / "cases"
-    brats_case(root, "case_001", {"t1": 100, "t1ce": 200, "t2": 300, "flair": 400},
-               spacing=(1.0, 1.0, 2.5))
+    brats_case(
+        root, "case_001", {"t1": 100, "t1ce": 200, "t2": 300, "flair": 400}, spacing=(1.0, 1.0, 2.5)
+    )
 
-    dataset = build_dataset(root, channels_from=PATTERNS, window=(250.0, 500.0),
-                            target_spacing=(1.0, 1.0, 1.0))
+    dataset = build_dataset(
+        root, channels_from=PATTERNS, window=(250.0, 500.0), target_spacing=(1.0, 1.0, 1.0)
+    )
     image, _ = dataset[0]
     assert image.shape == (16, 16, 8, 4)
 
@@ -155,8 +158,10 @@ def test_channels_of_different_shapes_are_refused(tmp_path):
     root = tmp_path / "cases"
     sample = brats_case(root, "case_001", {"t1": 100, "t1ce": 200, "t2": 300, "flair": 400})
     # Rewrite one sequence at a different size.
-    nib.save(nib.Nifti1Image(np.full((8, 8, 4), 200.0, dtype=np.float32), np.eye(4)),
-             str(sample / "images" / "case_001_t1ce.nii.gz"))
+    nib.save(
+        nib.Nifti1Image(np.full((8, 8, 4), 200.0, dtype=np.float32), np.eye(4)),
+        str(sample / "images" / "case_001_t1ce.nii.gz"),
+    )
 
     from pyplatypus.data.dataset import DataError
 
@@ -173,7 +178,7 @@ def test_a_case_missing_a_sequence_is_refused_by_name(tmp_path):
     brats_case(root, "case_002", {"t1": 100, "t1ce": 200, "t2": 300})
 
     dataset = build_dataset(root, channels_from=PATTERNS, window=(250.0, 500.0))
-    dataset[0]                                   # the complete one is fine
+    dataset[0]  # the complete one is fine
     with pytest.raises(ChannelError, match="case_002"):
         dataset[1]
 
@@ -183,18 +188,38 @@ def test_a_multi_modal_spec_trains(tmp_path):
 
     root = tmp_path / "cases"
     for index in range(2):
-        brats_case(root, f"case_{index:03d}",
-                   {"t1": 100 + index, "t1ce": 200, "t2": 300, "flair": 400})
+        brats_case(
+            root, f"case_{index:03d}", {"t1": 100 + index, "t1ce": 200, "t2": 300, "flair": 400}
+        )
 
-    engine = Engine(from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
-                 "channels_from": PATTERNS, "window": [250.0, 500.0],
-                 "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [16, 16, 8], 
-                    "channels": 4, "blocks": 2, "filters": 4, "batch_size": 1,
-                    "epochs": 1, "metrics": [{"name": "dice"}]}],
-    }), device="cpu")
+    engine = Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(root),
+                    "validation_path": str(root),
+                    "labels": [0, 1],
+                    "channels_from": PATTERNS,
+                    "window": [250.0, 500.0],
+                    "shuffle": False,
+                },
+                "models": [
+                    {
+                        "name": "unet3d",
+                        "input_shape": [16, 16, 8],
+                        "channels": 4,
+                        "blocks": 2,
+                        "filters": 4,
+                        "batch_size": 1,
+                        "epochs": 1,
+                        "metrics": [{"name": "dice"}],
+                    }
+                ],
+            }
+        ),
+        device="cpu",
+    )
     history = engine.fit()["unet3d"]
 
     assert len(history) == 1
@@ -223,13 +248,16 @@ def test_two_dimensional_channels_work_the_same_way(tmp_path):
     mask[4:12, 4:12] = 255
     Image.fromarray(mask).save(sample / "masks" / "tile_01_mask.png")
 
-    data = SegmentationData(train_path=str(root), validation_path=str(root),
-                            colormap=[(0, 0, 0), (255, 255, 255)],
-                            channels_from=[r"_red\.", r"_green\.", r"_nir\."])
+    data = SegmentationData(
+        train_path=str(root),
+        validation_path=str(root),
+        colormap=[(0, 0, 0), (255, 255, 255)],
+        channels_from=[r"_red\.", r"_green\.", r"_nir\."],
+    )
     model = SegmentationModel(name="m", input_shape=(16, 16), channels=3, blocks=2)
     dataset = SegmentationDataset(discover_samples(root).samples, model, data)
 
     image, _ = dataset[0]
     assert image.shape == (16, 16, 3)
     means = [float(image[..., channel].mean()) for channel in range(3)]
-    assert means == sorted(means)                # red < green < nir, as asked for
+    assert means == sorted(means)  # red < green < nir, as asked for

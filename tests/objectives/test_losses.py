@@ -18,8 +18,15 @@ from pyplatypus.spec.components import (
 )
 
 ALL = [
-    IouLoss(), DiceLoss(), CceLoss(), CceDiceLoss(), FocalLoss(),
-    TverskyLoss(), FocalTverskyLoss(), ComboLoss(), LovaszLoss(),
+    IouLoss(),
+    DiceLoss(),
+    CceLoss(),
+    CceDiceLoss(),
+    FocalLoss(),
+    TverskyLoss(),
+    FocalTverskyLoss(),
+    ComboLoss(),
+    LovaszLoss(),
 ]
 IDS = [type(s).__name__ for s in ALL]
 
@@ -69,8 +76,11 @@ def test_a_better_prediction_scores_lower(spec):
     assert loss(good, target) < loss(bad, target)
 
 
-@pytest.mark.parametrize("spec", [IouLoss(), DiceLoss(), TverskyLoss(), LovaszLoss()],
-                         ids=["iou", "dice", "tversky", "lovasz"])
+@pytest.mark.parametrize(
+    "spec",
+    [IouLoss(), DiceLoss(), TverskyLoss(), LovaszLoss()],
+    ids=["iou", "dice", "tversky", "lovasz"],
+)
 def test_overlap_losses_vanish_on_a_perfect_prediction(spec):
     target = f.as_onehot(torch.randint(0, 2, (2, 16, 16)), 2)
     logits = (target - 0.5) * 40

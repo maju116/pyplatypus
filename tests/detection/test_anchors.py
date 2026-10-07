@@ -52,6 +52,7 @@ def shape_iou(a, b):
 
 # --- the distance ----------------------------------------------------------------------
 
+
 def test_euclidean_distance_is_blind_to_scale_and_overlap_is_not():
     """The reason for the distance, as a pair of cases Euclidean cannot separate.
 
@@ -64,8 +65,9 @@ def test_euclidean_distance_is_blind_to_scale_and_overlap_is_not():
     large, large_nudged = (0.50, 0.50), (0.52, 0.52)
 
     # Identical Euclidean distance.
-    assert np.hypot(*np.subtract(small, small_double)) == \
-        pytest.approx(np.hypot(*np.subtract(large, large_nudged)))
+    assert np.hypot(*np.subtract(small, small_double)) == pytest.approx(
+        np.hypot(*np.subtract(large, large_nudged))
+    )
 
     # Entirely different as anchors: a fourfold area error against an eight per cent one.
     assert shape_iou(small, small_double) == pytest.approx(0.25, abs=0.01)
@@ -74,9 +76,9 @@ def test_euclidean_distance_is_blind_to_scale_and_overlap_is_not():
 
 # --- recovering what was planted --------------------------------------------------------
 
+
 def test_k_means_recovers_shapes_it_was_given():
-    planted = [(0.05, 0.05), (0.10, 0.20), (0.30, 0.15),
-               (0.40, 0.40), (0.15, 0.08), (0.60, 0.25)]
+    planted = [(0.05, 0.05), (0.10, 0.20), (0.30, 0.15), (0.40, 0.40), (0.15, 0.08), (0.60, 0.25)]
     annotations = clustered(planted, per_centre=120, spread=0.06, seed=0)
     shapes = box_shapes(annotations)
 
@@ -116,6 +118,7 @@ def test_a_different_seed_can_differ_but_still_fits():
 
 # --- the space the shapes are measured in -----------------------------------------------
 
+
 def test_shapes_are_fractions_of_the_input_not_of_the_source():
     """The old code divided by the source image, which equals the input fraction only when
     the image is stretched to fill. A 100x100 object in a 640x480 image is square after
@@ -125,8 +128,8 @@ def test_shapes_are_fractions_of_the_input_not_of_the_source():
     letterboxed = box_shapes(annotations, input_shape=(416, 416))[0]
     sourced = box_shapes(annotations, input_shape=(416, 416), letterbox=False)[0]
 
-    assert letterboxed[0] == pytest.approx(letterboxed[1])          # square stays square
-    assert sourced[1] / sourced[0] == pytest.approx(640 / 480)      # and this does not
+    assert letterboxed[0] == pytest.approx(letterboxed[1])  # square stays square
+    assert sourced[1] / sourced[0] == pytest.approx(640 / 480)  # and this does not
     assert abs(sourced[1] - letterboxed[1]) / letterboxed[1] > 0.3
 
 
@@ -137,12 +140,15 @@ def test_a_square_source_makes_the_two_agree():
 
 
 def test_images_with_no_boxes_contribute_nothing_rather_than_breaking():
-    annotations = [Annotated(np.zeros((0, 4)), 640, 480),
-                   Annotated(np.asarray([[0.0, 0.0, 64.0, 64.0]]), 640, 480)]
+    annotations = [
+        Annotated(np.zeros((0, 4)), 640, 480),
+        Annotated(np.asarray([[0.0, 0.0, 64.0, 64.0]]), 640, 480),
+    ]
     assert box_shapes(annotations).shape == (1, 2)
 
 
 # --- the report rather than a plot ------------------------------------------------------
+
 
 def test_the_result_is_data_and_carries_the_evidence():
     """The old `generate_anchors` printed a class count and drew a scatter plot as side
@@ -169,17 +175,26 @@ def test_anchors_per_grid_and_scales_are_the_callers(tmp_path):
 
 
 def test_boxes_too_small_after_letterboxing_are_dropped_and_counted():
-    annotations = [Annotated(np.asarray([
-        [0.0, 0.0, 100.0, 100.0],
-        [0.0, 0.0, 0.5, 0.5],        # sub-pixel once the letterbox shrinks it
-        [0.0, 0.0, 80.0, 80.0],
-    ]), 4000, 4000)]
+    annotations = [
+        Annotated(
+            np.asarray(
+                [
+                    [0.0, 0.0, 100.0, 100.0],
+                    [0.0, 0.0, 0.5, 0.5],  # sub-pixel once the letterbox shrinks it
+                    [0.0, 0.0, 80.0, 80.0],
+                ]
+            ),
+            4000,
+            4000,
+        )
+    ]
     fit = generate_anchors(annotations, anchors_per_grid=1, scales=1, seed=0)
     assert fit.boxes_dropped == 1
     assert fit.boxes_used == 2
 
 
 # --- borrowing someone else's -----------------------------------------------------------
+
 
 def test_coverage_says_whether_borrowed_anchors_fit():
     """The question to ask before using COCO's on a blood smear, answered in one number
@@ -206,6 +221,7 @@ def test_coverage_counts_the_boxes_their_best_anchor_barely_overlaps():
 
 # --- refusals ---------------------------------------------------------------------------
 
+
 def test_asking_for_more_anchors_than_there_are_distinct_shapes_is_refused():
     annotations = [Annotated(np.asarray([[0.0, 0.0, 10.0, 10.0]] * 50), 416, 416)]
     with pytest.raises(DetectionError, match="only 1 distinct"):
@@ -229,6 +245,7 @@ def test_fewer_than_one_anchor_is_refused():
 
 # --- the verification that covers the whole thing ---------------------------------------
 
+
 def test_the_pipeline_reproduces_cocos_published_anchors_and_grouping():
     """Plant COCO's nine anchors as clusters, refit from nothing, and expect COCO's
     anchors back in COCO's groups.
@@ -249,8 +266,11 @@ def test_the_pipeline_reproduces_cocos_published_anchors_and_grouping():
         recovered = sorted(tuple(round(v * 416) for v in pair) for pair in fit.anchors[grid])
         published = sorted(tuple(round(v * 416) for v in pair) for pair in COCO_ANCHORS[grid])
         for got, want in zip(recovered, published):
-            assert abs(got[0] - want[0]) <= 3 and abs(got[1] - want[1]) <= 3, \
-                (grid, recovered, published)
+            assert abs(got[0] - want[0]) <= 3 and abs(got[1] - want[1]) <= 3, (
+                grid,
+                recovered,
+                published,
+            )
 
 
 def test_sorting_by_width_would_not_reproduce_cocos_grouping():
@@ -259,8 +279,8 @@ def test_sorting_by_width_would_not_reproduce_cocos_grouping():
     by_width = sorted(flat, key=lambda p: -p[0])
     by_area = sorted(flat, key=lambda p: -(p[0] * p[1]))
 
-    width_groups = [sorted(by_width[i * 3:(i + 1) * 3]) for i in range(3)]
-    area_groups = [sorted(by_area[i * 3:(i + 1) * 3]) for i in range(3)]
+    width_groups = [sorted(by_width[i * 3 : (i + 1) * 3]) for i in range(3)]
+    area_groups = [sorted(by_area[i * 3 : (i + 1) * 3]) for i in range(3)]
     published = [sorted(group) for group in COCO_ANCHORS]
 
     assert area_groups == published
@@ -282,6 +302,7 @@ def test_the_anchors_it_produces_are_accepted_by_the_encoder():
 
 # --- shapes with their classes -----------------------------------------------------------
 
+
 def test_shape_table_and_box_shapes_are_the_same_arithmetic(tmp_path):
     """The reason they share an implementation. Two copies of the letterbox arithmetic is
     the duplication that reads as harmless and ends with a plot showing boxes in different
@@ -289,8 +310,10 @@ def test_shape_table_and_box_shapes_are_the_same_arithmetic(tmp_path):
     than like a bug."""
     from pyplatypus.detection import box_shapes, shape_table
 
-    annotations = [_annotation([(10, 20, 60, 80), (100, 30, 140, 70)], [0, 1], 200, 300),
-                   _annotation([(5, 5, 45, 25)], [1], 120, 160)]
+    annotations = [
+        _annotation([(10, 20, 60, 80), (100, 30, 140, 70)], [0, 1], 200, 300),
+        _annotation([(5, 5, 45, 25)], [1], 120, 160),
+    ]
 
     plain = box_shapes(annotations, input_shape=(416, 416))
     table = shape_table(annotations, labels=["a", "b"], input_shape=(416, 416))
@@ -313,8 +336,7 @@ def test_shape_table_carries_the_class_of_every_box():
 def test_shape_table_falls_back_to_the_index_when_no_names_are_given():
     from pyplatypus.detection import shape_table
 
-    table = shape_table([_annotation([(1, 1, 20, 20)], [3], 100, 100)],
-                        input_shape=(416, 416))
+    table = shape_table([_annotation([(1, 1, 20, 20)], [3], 100, 100)], input_shape=(416, 416))
     assert table["name"] == ["3"]
 
 
@@ -342,6 +364,10 @@ def _annotation(boxes, labels, height, width):
 
     from pyplatypus.detection import Annotation
 
-    return Annotation(path=Path("x.xml"), width=width, height=height,
-                      boxes=np.asarray(boxes, dtype=float),
-                      labels=np.asarray(labels, dtype=int))
+    return Annotation(
+        path=Path("x.xml"),
+        width=width,
+        height=height,
+        boxes=np.asarray(boxes, dtype=float),
+        labels=np.asarray(labels, dtype=int),
+    )

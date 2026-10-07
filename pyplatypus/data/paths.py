@@ -47,8 +47,9 @@ class Discovery:
         return len(self.samples)
 
 
-def _nested_dirs(root: Path, subdirs: tuple[str, str], only_images: bool
-                 ) -> tuple[list[Sample], list[tuple[str, str]]]:
+def _nested_dirs(
+    root: Path, subdirs: tuple[str, str], only_images: bool
+) -> tuple[list[Sample], list[tuple[str, str]]]:
     samples: list[Sample] = []
     skipped: list[tuple[str, str]] = []
 
@@ -77,9 +78,9 @@ def _nested_dirs(root: Path, subdirs: tuple[str, str], only_images: bool
     return samples, skipped
 
 
-def _config_file(path: Path, column_sep: str, only_images: bool,
-                 label_column: str = "masks"
-                 ) -> tuple[list[Sample], list[tuple[str, str]]]:
+def _config_file(
+    path: Path, column_sep: str, only_images: bool, label_column: str = "masks"
+) -> tuple[list[Sample], list[tuple[str, str]]]:
     with path.open(newline="") as handle:
         rows = list(csv.DictReader(handle))
 
@@ -90,9 +91,7 @@ def _config_file(path: Path, column_sep: str, only_images: bool,
         raise ConfigError(f"'{path}' needs an 'images' column; found: {found}")
     if not only_images and label_column not in rows[0]:
         found = ", ".join(rows[0].keys())
-        raise ConfigError(
-            f"'{path}' needs a '{label_column}' column; found: {found}"
-        )
+        raise ConfigError(f"'{path}' needs a '{label_column}' column; found: {found}")
 
     # Relative paths resolve against the CSV, not the working directory, so a config
     # file travels with its data instead of only working from one place.
@@ -126,10 +125,16 @@ def _config_file(path: Path, column_sep: str, only_images: bool,
     return samples, skipped
 
 
-def discover_samples(root: str | Path, *, mode: DataMode = DataMode.NESTED_DIRS,
-                     subdirs: tuple[str, str] = ("images", "masks"),
-                     column_sep: str = ";", only_images: bool = False,
-                     strict: bool = True, label_column: str = "masks") -> Discovery:
+def discover_samples(
+    root: str | Path,
+    *,
+    mode: DataMode = DataMode.NESTED_DIRS,
+    subdirs: tuple[str, str] = ("images", "masks"),
+    column_sep: str = ";",
+    only_images: bool = False,
+    strict: bool = True,
+    label_column: str = "masks",
+) -> Discovery:
     """List the samples under `root`, given only the layout.
 
     Separate from `discover` because finding files does not need a whole specification:
@@ -165,8 +170,9 @@ def discover_samples(root: str | Path, *, mode: DataMode = DataMode.NESTED_DIRS,
     return Discovery(samples=tuple(samples), skipped=tuple(skipped))
 
 
-def discover(root: str | Path, data: DataSpec, *, only_images: bool = False,
-             strict: bool = True) -> Discovery:
+def discover(
+    root: str | Path, data: DataSpec, *, only_images: bool = False, strict: bool = True
+) -> Discovery:
     """List the samples under `root`, which is one of the paths named in `data`.
 
     `DataSpec` rather than `SegmentationData`: finding files needs the layout and nothing
@@ -174,6 +180,11 @@ def discover(root: str | Path, data: DataSpec, *, only_images: bool = False,
     annotation files instead of masks.
     """
     return discover_samples(
-        root, mode=data.mode, subdirs=data.subdirs, column_sep=data.column_sep,
-        only_images=only_images, strict=strict, label_column=data.label_column,
+        root,
+        mode=data.mode,
+        subdirs=data.subdirs,
+        column_sep=data.column_sep,
+        only_images=only_images,
+        strict=strict,
+        label_column=data.label_column,
     )

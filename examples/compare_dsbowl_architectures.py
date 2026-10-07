@@ -35,14 +35,14 @@ def model(architecture: str, epochs: int, size: int, batch: int) -> dict:
         "batch_size": batch,
         "epochs": epochs,
         "loss": {"name": "cce_dice"},
-        "metrics": [{"name": "dice", "include_background": False},
-                    {"name": "iou", "include_background": False}],
+        "metrics": [
+            {"name": "dice", "include_background": False},
+            {"name": "iou", "include_background": False},
+        ],
         "optimizer": {"name": "adam", "learning_rate": 0.001},
         "callbacks": [
-            {"name": "reduce_lr_on_plateau", "monitor": "val_loss", "factor": 0.5,
-             "patience": 4},
-            {"name": "early_stopping", "monitor": "val_loss", "patience": 10,
-             "restore_best": True},
+            {"name": "reduce_lr_on_plateau", "monitor": "val_loss", "factor": 0.5, "patience": 4},
+            {"name": "early_stopping", "monitor": "val_loss", "patience": 10, "restore_best": True},
         ],
         "augmentation": [
             {"name": "HorizontalFlip", "params": {"p": 0.5}},
@@ -61,8 +61,9 @@ def main() -> None:
     parser.add_argument("--size", type=int, default=256)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument("--only", nargs="*", default=None,
-                        help="a subset of the architectures, for a smoke test")
+    parser.add_argument(
+        "--only", nargs="*", default=None, help="a subset of the architectures, for a smoke test"
+    )
     arguments = parser.parse_args()
 
     splits = Path(arguments.data) / "splits"
@@ -74,12 +75,19 @@ def main() -> None:
         )
 
     wanted = arguments.only or list(ARCHITECTURES)
-    spec = from_dict({
-        "data": {"train_path": str(train), "validation_path": str(validation),
-                 "colormap": [[0, 0, 0], [255, 255, 255]], "mode": "config_file"},
-        "models": [model(name, arguments.epochs, arguments.size, arguments.batch)
-                   for name in wanted],
-    })
+    spec = from_dict(
+        {
+            "data": {
+                "train_path": str(train),
+                "validation_path": str(validation),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                "mode": "config_file",
+            },
+            "models": [
+                model(name, arguments.epochs, arguments.size, arguments.batch) for name in wanted
+            ],
+        }
+    )
 
     engine = Engine(spec, num_workers=arguments.workers)
     histories = engine.fit(verbose=True)
@@ -91,39 +99,49 @@ def main() -> None:
         seconds = [record["seconds"] for record in history.records]
         cases = engine.evaluate_cases(name)
         distribution = {entry["metric"]: entry for entry in summarise_cases(cases)}
-        rows.append({
-            "model": name,
-            "parameters": row["parameters"],
-            "seconds_per_epoch": sum(seconds) / len(seconds),
-            "epochs_run": row["epochs_run"],
-            "dice_pooled": row["dice"],
-            "dice_mean": distribution["dice"]["mean"],
-            "dice_sd": distribution["dice"]["sd"],
-            "dice_median": distribution["dice"]["median"],
-            "dice_min": distribution["dice"]["min"],
-            "worst_case": distribution["dice"]["worst_case"],
-            "iou_mean": distribution["iou"]["mean"],
-        })
+        rows.append(
+            {
+                "model": name,
+                "parameters": row["parameters"],
+                "seconds_per_epoch": sum(seconds) / len(seconds),
+                "epochs_run": row["epochs_run"],
+                "dice_pooled": row["dice"],
+                "dice_mean": distribution["dice"]["mean"],
+                "dice_sd": distribution["dice"]["sd"],
+                "dice_median": distribution["dice"]["median"],
+                "dice_min": distribution["dice"]["min"],
+                "worst_case": distribution["dice"]["worst_case"],
+                "iou_mean": distribution["iou"]["mean"],
+            }
+        )
 
     print("\n" + "=" * 100)
-    print(f"{'model':18} {'params':>10} {'s/epoch':>8} {'epochs':>7} "
-          f"{'dice mean':>10} {'sd':>7} {'median':>8} {'min':>7}")
+    print(
+        f"{'model':18} {'params':>10} {'s/epoch':>8} {'epochs':>7} "
+        f"{'dice mean':>10} {'sd':>7} {'median':>8} {'min':>7}"
+    )
     print("-" * 100)
     for row in sorted(rows, key=lambda r: -r["dice_mean"]):
-        print(f"{row['model']:18} {row['parameters']:>10,} {row['seconds_per_epoch']:>8.1f} "
-              f"{row['epochs_run']:>7} {row['dice_mean']:>10.4f} {row['dice_sd']:>7.4f} "
-              f"{row['dice_median']:>8.4f} {row['dice_min']:>7.4f}")
+        print(
+            f"{row['model']:18} {row['parameters']:>10,} {row['seconds_per_epoch']:>8.1f} "
+            f"{row['epochs_run']:>7} {row['dice_mean']:>10.4f} {row['dice_sd']:>7.4f} "
+            f"{row['dice_median']:>8.4f} {row['dice_min']:>7.4f}"
+        )
     print("=" * 100)
 
     best = max(rows, key=lambda r: r["dice_mean"])
     cheapest = min(rows, key=lambda r: r["parameters"])
     spread = best["dice_mean"] - min(r["dice_mean"] for r in rows)
     print(f"\nbest by mean Dice : {best['model']} ({best['dice_mean']:.4f})")
-    print(f"fewest parameters : {cheapest['model']} ({cheapest['parameters']:,}, "
-          f"Dice {cheapest['dice_mean']:.4f})")
+    print(
+        f"fewest parameters : {cheapest['model']} ({cheapest['parameters']:,}, "
+        f"Dice {cheapest['dice_mean']:.4f})"
+    )
     print(f"spread across all : {spread:.4f}")
-    print("\nA spread smaller than the per-image sd means the architectures are not"
-          "\ndistinguishable on this data, and the cheapest one is the answer.")
+    print(
+        "\nA spread smaller than the per-image sd means the architectures are not"
+        "\ndistinguishable on this data, and the cheapest one is the answer."
+    )
 
     out = Path(arguments.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -135,7 +153,8 @@ def main() -> None:
     # the same thing are four promises nobody needed.
     for row in rows:
         path = engine.export_weights(
-            row["model"], out / f"dsbowl-{row['model'].replace('_', '-')}",
+            row["model"],
+            out / f"dsbowl-{row['model'].replace('_', '-')}",
             data="BBBC038v1 (2018 Data Science Bowl), stage1_train",
             data_source="https://data.broadinstitute.org/bbbc/BBBC038/stage1_train.zip",
             data_licence="CC0 1.0",

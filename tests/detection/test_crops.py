@@ -47,18 +47,21 @@ def test_context_grows_with_the_box_rather_than_by_a_fixed_number_of_pixels(grad
     """One value has to suit a platelet and a white cell, so it is a fraction of the box."""
     small = crop_boxes(gradient, [[10, 10, 12, 12]], context=0.5)[0]
     large = crop_boxes(gradient, [[10, 6, 16, 12]], context=0.5)[0]
-    assert small.shape[:2] == (4, 4)       # 2px box, 1px added each side
-    assert large.shape[:2] == (12, 12)     # 6px box, 3px each side
+    assert small.shape[:2] == (4, 4)  # 2px box, 1px added each side
+    assert large.shape[:2] == (12, 12)  # 6px box, 3px each side
     np.testing.assert_array_equal(small, gradient[9:13, 9:13])
     np.testing.assert_array_equal(large, gradient[3:15, 7:19])
 
 
 def test_context_of_zero_is_the_default_and_changes_nothing(gradient):
-    np.testing.assert_array_equal(crop_boxes(gradient, [[5, 5, 9, 9]])[0],
-                                  crop_boxes(gradient, [[5, 5, 9, 9]], context=0.0)[0])
+    np.testing.assert_array_equal(
+        crop_boxes(gradient, [[5, 5, 9, 9]])[0],
+        crop_boxes(gradient, [[5, 5, 9, 9]], context=0.0)[0],
+    )
 
 
 # --- bringing them to one size -----------------------------------------------------------
+
 
 def test_letterbox_preserves_the_aspect_and_pads_the_rest(gradient):
     """A 4-wide, 16-tall crop into a square: scaled by 12/16, so 3 columns of content and
@@ -93,6 +96,7 @@ def test_a_greyscale_image_without_a_channel_axis_is_accepted(gradient):
 
 
 # --- refusals ----------------------------------------------------------------------------
+
 
 def test_a_box_with_nothing_inside_the_frame_is_refused_by_index(gradient):
     """Clipping silently would hand back an empty array. A box outside the frame cannot

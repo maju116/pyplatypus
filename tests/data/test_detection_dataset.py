@@ -20,25 +20,23 @@ from pyplatypus.data.detection import DetectionDataError, DetectionDataset
 from pyplatypus.data.paths import discover_samples
 from pyplatypus.spec.detection import DetectionData, DetectionModel
 
-ANCHORS = (((0.35, 0.33), (0.25, 0.25)),
-           ((0.18, 0.18), (0.12, 0.12)),
-           ((0.08, 0.08), (0.05, 0.05)))
+ANCHORS = (((0.35, 0.33), (0.25, 0.25)), ((0.18, 0.18), (0.12, 0.12)), ((0.08, 0.08), (0.05, 0.05)))
 
 
 CLASSES = ["square", "bar"]
 
 
 def build(root, *, model_kwargs=None, data_kwargs=None, only_images=False):
-    data = DetectionData(train_path=str(root), validation_path=str(root),
-                         classes=CLASSES, **(data_kwargs or {}))
+    data = DetectionData(
+        train_path=str(root), validation_path=str(root), classes=CLASSES, **(data_kwargs or {})
+    )
     model = DetectionModel(name="d", input_shape=(128, 128), **(model_kwargs or {}))
-    samples = discover_samples(root, subdirs=data.subdirs,
-                               only_images=only_images).samples
-    return DetectionDataset(samples, model, data, anchors=ANCHORS,
-                            only_images=only_images)
+    samples = discover_samples(root, subdirs=data.subdirs, only_images=only_images).samples
+    return DetectionDataset(samples, model, data, anchors=ANCHORS, only_images=only_images)
 
 
 # --- the letterbox is the whole point ---------------------------------------------------
+
 
 def test_boxes_arrive_in_the_letterboxed_frame(tmp_path, voc_sample):
     """A 160-wide source into a 128-wide model: the scale is 0.8 and the padding is
@@ -78,10 +76,11 @@ def test_the_image_is_padded_rather_than_stretched(tmp_path, voc_sample):
     assert image[:pad].min() == pytest.approx(0.5)
     assert image[-pad:].max() == pytest.approx(0.5)
     # The middle is the photograph, which is not all one value.
-    assert image[pad + 2:-pad - 2].std() > 0.01
+    assert image[pad + 2 : -pad - 2].std() > 0.01
 
 
 # --- the boxes label the pixels they are drawn on ---------------------------------------
+
 
 def test_a_box_covers_the_object_it_labels(tmp_path, voc_sample):
     """The correspondence assertion. The fixture paints each box bright, so after
@@ -92,13 +91,14 @@ def test_a_box_covers_the_object_it_labels(tmp_path, voc_sample):
     example = build(tmp_path).read(0)
 
     x0, y0, x1, y1 = example.boxes[0].astype(int)
-    inside = example.image[y0 + 2:y1 - 2, x0 + 2:x1 - 2, 0]
-    outside = example.image[2:y0 - 4, 2:x0 - 4, 0]
+    inside = example.image[y0 + 2 : y1 - 2, x0 + 2 : x1 - 2, 0]
+    outside = example.image[2 : y0 - 4, 2 : x0 - 4, 0]
     assert inside.mean() > 0.7, "the box does not cover the object it labels"
     assert outside.mean() < 0.3
 
 
 # --- targets ----------------------------------------------------------------------------
+
 
 def test_one_sample_is_one_example_with_three_grids(tmp_path, voc_sample):
     voc_sample(tmp_path, "one", [(20, 24, 60, 64)], [0])
@@ -138,13 +138,13 @@ def test_only_images_asks_for_no_annotation(tmp_path, voc_sample):
 
 # --- the survey -------------------------------------------------------------------------
 
+
 def test_the_survey_counts_what_the_target_cannot_hold(tmp_path, voc_sample):
     """Two boxes of one shape whose centres fall in the same cell share a slot, so the
     second is dropped - never shown to the model and never counted as missed. Built here
     on purpose: at a 128 input the finest cell is 8 pixels, so two 24-pixel squares four
     pixels apart collide."""
-    voc_sample(tmp_path, "crowded",
-                     [(40, 40, 64, 64), (42, 42, 66, 66)], [0, 0])
+    voc_sample(tmp_path, "crowded", [(40, 40, 64, 64), (42, 42, 66, 66)], [0, 0])
     survey = build(tmp_path).survey()
 
     assert survey.images == 1
@@ -179,11 +179,11 @@ def test_a_degenerate_box_is_dropped_and_counted(tmp_path, voc_sample):
 
 # --- refusals ---------------------------------------------------------------------------
 
+
 def test_an_annotation_that_disagrees_with_its_image_is_refused(tmp_path, voc_sample):
     """The failure this exists for: a dataset is resized and the XML files are copied
     along unchanged. Every number stays plausible and every box lands somewhere else."""
-    voc_sample(tmp_path, "one", [(20, 24, 60, 64)], [0],
-                     declared_shape=(256, 320))
+    voc_sample(tmp_path, "one", [(20, 24, 60, 64)], [0], declared_shape=(256, 320))
     with pytest.raises(DetectionDataError, match="320x256 and the file is 160x128"):
         build(tmp_path).read(0)
 
@@ -223,6 +223,7 @@ def test_an_empty_dataset_is_refused(tmp_path):
 
 # --- the other annotation format --------------------------------------------------------
 
+
 def test_labelme_json_reads_the_same_way(tmp_path, voc_sample):
     """One pipeline, two formats. The boxes have to land in the same place, which is the
     claim worth checking - not that the reader returns something."""
@@ -230,16 +231,21 @@ def test_labelme_json_reads_the_same_way(tmp_path, voc_sample):
     voc_sample(tmp_path, "one", source, [0])
     (tmp_path / "one" / "annotations" / "one.xml").unlink()
     height, width = (128, 160)
-    (tmp_path / "one" / "annotations" / "one.json").write_text(json.dumps({
-        "imageHeight": height, "imageWidth": width, "imagePath": "one.png",
-        "shapes": [{"label": "square", "shape_type": "rectangle",
-                    "points": [[10, 12], [50, 60]]}],
-    }))
+    (tmp_path / "one" / "annotations" / "one.json").write_text(
+        json.dumps(
+            {
+                "imageHeight": height,
+                "imageWidth": width,
+                "imagePath": "one.png",
+                "shapes": [
+                    {"label": "square", "shape_type": "rectangle", "points": [[10, 12], [50, 60]]}
+                ],
+            }
+        )
+    )
 
     example = build(tmp_path, data_kwargs={"annotation_format": "labelme"}).read(0)
-    assert example.fit.inverse(example.boxes) == pytest.approx(
-        np.array(source, dtype=float)
-    )
+    assert example.fit.inverse(example.boxes) == pytest.approx(np.array(source, dtype=float))
 
 
 def test_the_coordinate_convention_moves_every_box(tmp_path, voc_sample):

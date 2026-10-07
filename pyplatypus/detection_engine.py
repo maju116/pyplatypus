@@ -90,17 +90,20 @@ class DetectionReport:
 
     def per_class(self) -> list[dict[str, Any]]:
         rows = []
-        for row, at_point in zip(self.half.per_class,
-                                 self.at_operating_point.per_class, strict=True):
-            rows.append({
-                "class": row["label"],
-                "average_precision": row["average_precision"],
-                "mean_matched_iou": row["mean_matched_iou"],
-                "n_truth": row["n_truth"],
-                "n_predicted": at_point["n_predicted"],
-                "precision": at_point["precision"],
-                "recall": at_point["recall"],
-            })
+        for row, at_point in zip(
+            self.half.per_class, self.at_operating_point.per_class, strict=True
+        ):
+            rows.append(
+                {
+                    "class": row["label"],
+                    "average_precision": row["average_precision"],
+                    "mean_matched_iou": row["mean_matched_iou"],
+                    "n_truth": row["n_truth"],
+                    "n_predicted": at_point["n_predicted"],
+                    "precision": at_point["precision"],
+                    "recall": at_point["recall"],
+                }
+            )
         return rows
 
 
@@ -131,9 +134,15 @@ class DetectionEngine(EngineBase):
     #: What a labelled split carries here, for the one message that names it.
     labels_are = "annotations"
 
-    def __init__(self, spec: DetectionSpec, *, device: str | None = None,
-                 num_workers: int = 0, strict_data: bool = True,
-                 accumulate: int = 1):
+    def __init__(
+        self,
+        spec: DetectionSpec,
+        *,
+        device: str | None = None,
+        num_workers: int = 0,
+        strict_data: bool = True,
+        accumulate: int = 1,
+    ):
         if not isinstance(spec, DetectionSpec):
             raise EngineError(
                 f"this engine trains detectors; the specification's task is "
@@ -150,7 +159,6 @@ class DetectionEngine(EngineBase):
         self._samples: dict[str, tuple[Sample, ...]]
         self._discover_splits(discover, strict=strict_data)
 
-
     def _has_any_labels(self) -> bool:
         """Whether the test split carries annotations for anything, without reading them."""
         from pyplatypus.spec.common import DataMode
@@ -161,18 +169,26 @@ class DetectionEngine(EngineBase):
                 return False
             first = path.read_text().splitlines()[:1]
             header = first[0] if first else ""
-            return self.spec.data.label_column in [
-                name.strip() for name in header.split(",")
-            ]
+            return self.spec.data.label_column in [name.strip() for name in header.split(",")]
         if not path.is_dir():
             return False
         wanted = self.spec.data.subdirs[1]
-        return any((entry / wanted).is_dir() and any((entry / wanted).iterdir())
-                   for entry in path.iterdir() if entry.is_dir())
+        return any(
+            (entry / wanted).is_dir() and any((entry / wanted).iterdir())
+            for entry in path.iterdir()
+            if entry.is_dir()
+        )
 
     # ------------------------------------------------------------------ data
-    def dataset(self, model: DetectionModel, split: str, *, anchors=None,
-                only_images: bool = False, augmented: bool = False) -> DetectionDataset:
+    def dataset(
+        self,
+        model: DetectionModel,
+        split: str,
+        *,
+        anchors=None,
+        only_images: bool = False,
+        augmented: bool = False,
+    ) -> DetectionDataset:
         if split not in self._samples:
             if split == "validation" and not self.spec.data.validation:
                 raise EngineError(
@@ -181,25 +197,40 @@ class DetectionEngine(EngineBase):
                     "`validation_path` or `split` and fit again."
                 )
             raise EngineError(
-                f"no '{split}' data in this spec; available: "
-                f"{', '.join(sorted(self._samples))}"
+                f"no '{split}' data in this spec; available: {', '.join(sorted(self._samples))}"
             )
-        augmenter = build_box_augmenter(
-            model.augmentation,
-            input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
-            min_visibility=model.min_visibility,
-        ) if augmented else None
+        augmenter = (
+            build_box_augmenter(
+                model.augmentation,
+                input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
+                min_visibility=model.min_visibility,
+            )
+            if augmented
+            else None
+        )
         return DetectionDataset(
-            self._samples[split], model, self.spec.data,
+            self._samples[split],
+            model,
+            self.spec.data,
             anchors=anchors if anchors is not None else self._anchors_for(model),
-            only_images=only_images, augmenter=augmenter,
+            only_images=only_images,
+            augmenter=augmenter,
         )
 
-    def loader(self, model: DetectionModel, split: str, *, anchors=None,
-               shuffle: bool = False, augmented: bool = False):
+    def loader(
+        self,
+        model: DetectionModel,
+        split: str,
+        *,
+        anchors=None,
+        shuffle: bool = False,
+        augmented: bool = False,
+    ):
         return make_detection_loader(
             self.dataset(model, split, anchors=anchors, augmented=augmented),
-            batch_size=model.batch_size, shuffle=shuffle, num_workers=self.num_workers,
+            batch_size=model.batch_size,
+            shuffle=shuffle,
+            num_workers=self.num_workers,
         )
 
     def _anchors_for(self, model: DetectionModel):
@@ -227,8 +258,10 @@ class DetectionEngine(EngineBase):
             return None
         dataset = self.dataset(model, "train", anchors=COCO_ANCHORS)
         return generate_anchors(
-            dataset.annotations(), anchors_per_grid=model.anchors_per_grid,
-            scales=3, input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
+            dataset.annotations(),
+            anchors_per_grid=model.anchors_per_grid,
+            scales=3,
+            input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
             seed=self.spec.seed if self.spec.seed is not None else 0,
         )
 
@@ -242,9 +275,10 @@ class DetectionEngine(EngineBase):
         run = self._run(model_name)
         self._needs_annotations(split)
         dataset = self.dataset(run.spec, split, anchors=run.anchors)
-        shapes = box_shapes(dataset.annotations(),
-                            input_shape=(int(run.spec.input_shape[0]),
-                                         int(run.spec.input_shape[1])))
+        shapes = box_shapes(
+            dataset.annotations(),
+            input_shape=(int(run.spec.input_shape[0]), int(run.spec.input_shape[1])),
+        )
         flat = [pair for group in run.anchors for pair in group]
         return anchor_coverage(shapes, flat)
 
@@ -266,7 +300,8 @@ class DetectionEngine(EngineBase):
         self._needs_annotations(split)
         dataset = self.dataset(run.spec, split, anchors=run.anchors)
         table = shape_table(
-            dataset.annotations(), labels=list(self.spec.data.classes),
+            dataset.annotations(),
+            labels=list(self.spec.data.classes),
             input_shape=(int(run.spec.input_shape[0]), int(run.spec.input_shape[1])),
         )
         return {
@@ -281,15 +316,16 @@ class DetectionEngine(EngineBase):
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
         for model_spec in self.spec.models:
             if verbose:
-                print(f"\n=== {model_spec.name} "
-                      f"({model_spec.architecture.value}) ===")
+                print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
 
             if model_spec.weights:
                 model_spec = self._adopt_from_weights(model_spec)
 
-            network = build_yolo3(n_class=self.spec.data.n_class,
-                                  anchors_per_grid=model_spec.anchors_per_grid,
-                                  in_channels=model_spec.channels)
+            network = build_yolo3(
+                n_class=self.spec.data.n_class,
+                anchors_per_grid=model_spec.anchors_per_grid,
+                in_channels=model_spec.channels,
+            )
 
             if model_spec.weights:
                 # The anchors come with the weights, because the weights only mean
@@ -304,15 +340,27 @@ class DetectionEngine(EngineBase):
                 fit = self.fit_anchors(model_spec) if model_spec.fit else None
                 anchors = fit.anchors if fit is not None else self._anchors_for(model_spec)
                 if verbose and fit is not None:
-                    print(f"anchors fitted to {fit.boxes_used} boxes, mean IoU "
-                          f"{fit.mean_iou:.4f} ({fit.boxes_dropped} dropped as degenerate)")
+                    print(
+                        f"anchors fitted to {fit.boxes_used} boxes, mean IoU "
+                        f"{fit.mean_iou:.4f} ({fit.boxes_dropped} dropped as degenerate)"
+                    )
 
             trainer = DetectionTrainer(
-                network, model_spec, anchors=anchors, n_class=self.spec.data.n_class,
-                device=self.device, accumulate=self.accumulate,
+                network,
+                model_spec,
+                anchors=anchors,
+                n_class=self.spec.data.n_class,
+                device=self.device,
+                accumulate=self.accumulate,
             )
-            run = DetectorRun(name=model_spec.name, spec=model_spec, model=trainer.model,
-                              trainer=trainer, anchors=anchors, anchor_fit=fit)
+            run = DetectorRun(
+                name=model_spec.name,
+                spec=model_spec,
+                model=trainer.model,
+                trainer=trainer,
+                anchors=anchors,
+                anchor_fit=fit,
+            )
             self.runs[model_spec.name] = run
 
             if model_spec.fit:
@@ -320,12 +368,18 @@ class DetectionEngine(EngineBase):
                 run.history = trainer.fit(
                     # Augmented for training and never for validation: measuring a model
                     # on distorted data measures the distortion.
-                    self.loader(model_spec, "train", anchors=anchors, augmented=True,
-                                shuffle=self.spec.data.shuffle),
+                    self.loader(
+                        model_spec,
+                        "train",
+                        anchors=anchors,
+                        augmented=True,
+                        shuffle=self.spec.data.shuffle,
+                    ),
                     # None when the run says it has no validation set; `fit` has always
                     # taken an optional loader, so the history simply has no `val_` columns.
                     self.loader(model_spec, "validation", anchors=anchors)
-                    if "validation" in self._samples else None,
+                    if "validation" in self._samples
+                    else None,
                     verbose=verbose,
                 )
                 run.trained = True
@@ -363,9 +417,11 @@ class DetectionEngine(EngineBase):
         """What the target can hold, before an epoch is spent."""
         survey = self.dataset(run.spec, "train", anchors=run.anchors).survey()
         if verbose:
-            print(f"targets: {survey.placed} boxes placed, {survey.unplaced} could not be "
-                  f"({survey.unplaced_fraction:.1%}), {survey.dropped} dropped as "
-                  f"degenerate")
+            print(
+                f"targets: {survey.placed} boxes placed, {survey.unplaced} could not be "
+                f"({survey.unplaced_fraction:.1%}), {survey.dropped} dropped as "
+                f"degenerate"
+            )
         if survey.unplaced_fraction > _UNPLACED_WARNING:
             import warnings
 
@@ -381,8 +437,9 @@ class DetectionEngine(EngineBase):
             )
         return survey
 
-    def _load_weights(self, model: torch.nn.Module, reference: str,
-                      spec: DetectionModel) -> dict | None:
+    def _load_weights(
+        self, model: torch.nn.Module, reference: str, spec: DetectionModel
+    ) -> dict | None:
         """Load, checking the two things the model specification cannot answer itself.
 
         `n_class` sets the head's width and lives on the data; the class *names* decide
@@ -392,10 +449,15 @@ class DetectionEngine(EngineBase):
         """
         from pyplatypus.weights import load_into
 
-        return load_into(model, reference, spec, extra={
-            "n_class": self.spec.data.n_class,
-            "classes": list(self.spec.data.classes),
-        })
+        return load_into(
+            model,
+            reference,
+            spec,
+            extra={
+                "n_class": self.spec.data.n_class,
+                "classes": list(self.spec.data.classes),
+            },
+        )
 
     #: `anchors_per_grid` decides the shape of every head, and a published detector knows
     #: its own. Not `input_shape` or `channels`, for the reason the segmentation engine
@@ -416,11 +478,14 @@ class DetectionEngine(EngineBase):
         try:
             sidecar = describe(resolve_weights(model_spec.weights))
         except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
-            return model_spec          # told with the message it has always given.
+            return model_spec  # told with the message it has always given.
         if not sidecar:
             return model_spec
-        adopted = {field: sidecar[field] for field in self.ADOPTABLE
-                   if field in sidecar and field not in model_spec.model_fields_set}
+        adopted = {
+            field: sidecar[field]
+            for field in self.ADOPTABLE
+            if field in sidecar and field not in model_spec.model_fields_set
+        }
         if not adopted:
             return model_spec
         return type(model_spec).model_validate({**model_spec.model_dump(), **adopted})
@@ -442,8 +507,7 @@ class DetectionEngine(EngineBase):
                 f"Weights written by DetectionEngine.export_weights record them in the "
                 f"sidecar beside the file; one converted from elsewhere needs them added."
             )
-        anchors = tuple(tuple((float(w), float(h)) for w, h in group)
-                        for group in recorded)
+        anchors = tuple(tuple((float(w), float(h)) for w, h in group) for group in recorded)
         widths = {len(group) for group in anchors}
         if widths != {spec.anchors_per_grid}:
             raise EngineError(
@@ -465,8 +529,9 @@ class DetectionEngine(EngineBase):
         remember.
         """
         run = self._run(model_name)
-        dataset = self.dataset(run.spec, split, anchors=run.anchors,
-                               only_images=split not in self.labelled)
+        dataset = self.dataset(
+            run.spec, split, anchors=run.anchors, only_images=split not in self.labelled
+        )
         from pyplatypus.training.torch_data import to_channels_first
 
         out = []
@@ -474,27 +539,36 @@ class DetectionEngine(EngineBase):
             example = dataset.read(index)
             outputs = run.trainer.raw_outputs(to_channels_first(example.image))
             boxes, scores, labels = decode(
-                outputs, anchors=run.anchors,
+                outputs,
+                anchors=run.anchors,
                 input_shape=(int(run.spec.input_shape[0]), int(run.spec.input_shape[1])),
                 n_class=self.spec.data.n_class,
-                objectness=run.spec.score_threshold, raw=True,
+                objectness=run.spec.score_threshold,
+                raw=True,
             )
-            keep = non_max_suppression(boxes, scores, labels,
-                                       iou_threshold=run.spec.nms_threshold)
-            out.append({
-                "key": dataset.samples[index].key,
-                "boxes": example.fit.inverse(boxes[keep]) if len(keep)
-                         else np.zeros((0, 4)),
-                "scores": scores[keep],
-                "labels": labels[keep],
-                "names": [self.spec.data.classes[i] for i in labels[keep]],
-            })
+            keep = non_max_suppression(boxes, scores, labels, iou_threshold=run.spec.nms_threshold)
+            out.append(
+                {
+                    "key": dataset.samples[index].key,
+                    "boxes": example.fit.inverse(boxes[keep]) if len(keep) else np.zeros((0, 4)),
+                    "scores": scores[keep],
+                    "labels": labels[keep],
+                    "names": [self.spec.data.classes[i] for i in labels[keep]],
+                }
+            )
         return out
 
-    def crops(self, model_name: str, split: str = "test", *,
-              score_threshold: float | None = None, context: float = 0.0,
-              size: tuple[int, int] | None = None, fit: str = "letterbox",
-              fill: float = 0.5) -> list[dict[str, Any]]:
+    def crops(
+        self,
+        model_name: str,
+        split: str = "test",
+        *,
+        score_threshold: float | None = None,
+        context: float = 0.0,
+        size: tuple[int, int] | None = None,
+        fit: str = "letterbox",
+        fill: float = 0.5,
+    ) -> list[dict[str, Any]]:
         """Every detection cut out of the image it was found in.
 
         The pipeline this is for is a detector followed by a classifier it does not
@@ -529,8 +603,9 @@ class DetectionEngine(EngineBase):
 
         run = self._run(model_name)
         cut = run.spec.operating_point if score_threshold is None else float(score_threshold)
-        dataset = self.dataset(run.spec, split, anchors=run.anchors,
-                               only_images=split not in self.labelled)
+        dataset = self.dataset(
+            run.spec, split, anchors=run.anchors, only_images=split not in self.labelled
+        )
 
         # One pass over the sample list rather than a scan per image: a split with a
         # thousand images would otherwise be a million comparisons to find each one.
@@ -550,16 +625,19 @@ class DetectionEngine(EngineBase):
             boxes = clip_boxes(found["boxes"][keep], image.shape[:2])
             boxes, kept_index, dropped = drop_degenerate(boxes, keep)
 
-            out.append({
-                "key": found["key"],
-                "crops": crop_boxes(image, boxes, context=context, size=size, fit=fit,
-                                    fill=fill),
-                "boxes": boxes,
-                "scores": found["scores"][kept_index],
-                "labels": found["labels"][kept_index],
-                "names": [found["names"][i] for i in kept_index],
-                "dropped": dropped,
-            })
+            out.append(
+                {
+                    "key": found["key"],
+                    "crops": crop_boxes(
+                        image, boxes, context=context, size=size, fit=fit, fill=fill
+                    ),
+                    "boxes": boxes,
+                    "scores": found["scores"][kept_index],
+                    "labels": found["labels"][kept_index],
+                    "names": [found["names"][i] for i in kept_index],
+                    "dropped": dropped,
+                }
+            )
         return out
 
     # ------------------------------------------------------------------ evaluate
@@ -582,11 +660,9 @@ class DetectionEngine(EngineBase):
         """
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
-        return [self.report(name, split).as_row(run)
-                for name, run in self.runs.items()]
+        return [self.report(name, split).as_row(run) for name, run in self.runs.items()]
 
-    def evaluate_classes(self, model_name: str, split: str = "validation"
-                         ) -> list[dict[str, Any]]:
+    def evaluate_classes(self, model_name: str, split: str = "validation") -> list[dict[str, Any]]:
         """One row per class instead of one row per model.
 
         The row that matters on an unbalanced dataset, which is most of them: BCCD has
@@ -595,9 +671,9 @@ class DetectionEngine(EngineBase):
         """
         return self.report(model_name, split).per_class()
 
-    def evaluate_images(self, model_name: str, split: str = "validation",
-                        score_threshold: float | None = None
-                        ) -> list[dict[str, Any]]:
+    def evaluate_images(
+        self, model_name: str, split: str = "validation", score_threshold: float | None = None
+    ) -> list[dict[str, Any]]:
         """One row per image instead of one row per model or per class.
 
         The question a table of averages cannot answer: *which* images it fails on. The
@@ -624,10 +700,10 @@ class DetectionEngine(EngineBase):
         predictions = self.predict(model_name, split)
         dataset = self.dataset(run.spec, split, anchors=run.anchors)
         truths = [dataset.annotation(index).as_truth() for index in range(len(dataset))]
-        point = (run.spec.operating_point if score_threshold is None
-                 else float(score_threshold))
+        point = run.spec.operating_point if score_threshold is None else float(score_threshold)
         return image_report(
-            predictions, truths,
+            predictions,
+            truths,
             labels=list(self.spec.data.classes),
             score_threshold=point,
             keys=[sample.key for sample in dataset.samples],
@@ -647,8 +723,9 @@ class DetectionEngine(EngineBase):
         let the caller hold it.
         """
         half, coco, point = self._reports(model_name, split)
-        return DetectionReport(model=model_name, split=split, half=half, coco=coco,
-                               at_operating_point=point)
+        return DetectionReport(
+            model=model_name, split=split, half=half, coco=coco, at_operating_point=point
+        )
 
     def _reports(self, model_name: str, split: str):
         """The three reports every detection table is read off.
@@ -666,13 +743,24 @@ class DetectionEngine(EngineBase):
         truths = [dataset.annotation(index).as_truth() for index in range(len(dataset))]
         classes = list(self.spec.data.classes)
         return (
-            detection_report(predictions, truths, labels=classes,
-                             iou_thresholds=(0.5,), interpolation="101"),
-            detection_report(predictions, truths, labels=classes,
-                             iou_thresholds=COCO_THRESHOLDS, interpolation="101"),
-            detection_report(predictions, truths, labels=classes,
-                             iou_thresholds=(0.5,), interpolation="101",
-                             score_threshold=run.spec.operating_point),
+            detection_report(
+                predictions, truths, labels=classes, iou_thresholds=(0.5,), interpolation="101"
+            ),
+            detection_report(
+                predictions,
+                truths,
+                labels=classes,
+                iou_thresholds=COCO_THRESHOLDS,
+                interpolation="101",
+            ),
+            detection_report(
+                predictions,
+                truths,
+                labels=classes,
+                iou_thresholds=(0.5,),
+                interpolation="101",
+                score_threshold=run.spec.operating_point,
+            ),
         )
 
     # ------------------------------------------------------------------ odds and ends
@@ -714,11 +802,8 @@ class DetectionEngine(EngineBase):
     def best_model(self, key: str = "map_50", split: str = "validation") -> str:
         table = self.evaluate(split)
         if key not in table[0]:
-            available = ", ".join(k for k, v in table[0].items()
-                                  if isinstance(v, (int, float)))
-            raise EngineError(
-                f"no column '{key}' in the evaluation table; available: {available}"
-            )
+            available = ", ".join(k for k, v in table[0].items() if isinstance(v, (int, float)))
+            raise EngineError(f"no column '{key}' in the evaluation table; available: {available}")
         if any(row[key] is None for row in table):
             raise EngineError(
                 f"'{key}' is undefined for at least one model, so they cannot be ranked "
@@ -740,6 +825,4 @@ def build_engine(spec: PlatypusSpec, **kwargs):
         return DetectionEngine(spec, **kwargs)
     if isinstance(spec, SegmentationSpec):
         return Engine(spec, **kwargs)
-    raise EngineError(
-        f"no engine for task '{getattr(spec, 'task', '?')}'"
-    )
+    raise EngineError(f"no engine for task '{getattr(spec, 'task', '?')}'")

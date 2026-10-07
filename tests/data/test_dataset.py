@@ -45,7 +45,7 @@ def test_tiling_multiplies_the_examples(nested_root, binary_data):
     data = SegmentationDataset(samples, model, binary_data)
     assert len(data) == 3 * 4
     image, mask = data[0]
-    assert image.shape == (64, 64, 3)      # the tile is input_shape
+    assert image.shape == (64, 64, 3)  # the tile is input_shape
     assert mask.shape == (64, 64, 2)
 
 
@@ -53,7 +53,7 @@ def test_tiles_of_one_sample_are_consecutive(nested_root, binary_data):
     samples = discover(nested_root, binary_data).samples
     data = SegmentationDataset(samples, make_model(splits=(2, 2)), binary_data)
     assert len(data) == 12
-    data[0], data[3]        # same source sample
+    data[0], data[3]  # same source sample
     assert len(data._cache) == 1
 
 
@@ -104,7 +104,7 @@ def test_the_pipeline_serves_volumes(volume_root, volume_data):
     image, mask = dataset[0]
     assert image.shape == (8, 8, 4, 3)
     assert mask.shape == (8, 8, 4, 2)
-    assert mask.sum(axis=-1).min() == 1.0          # every voxel belongs to exactly one class
+    assert mask.sum(axis=-1).min() == 1.0  # every voxel belongs to exactly one class
 
 
 def test_volume_patches_come_out_of_the_same_tiling(volume_root, volume_data):

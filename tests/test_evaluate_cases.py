@@ -25,23 +25,35 @@ def patients(tmp_path):
         for index in range(3):
             key = f"patient{patient:02d}_slice{index:03d}"
             mask = np.zeros((32, 32, 3), np.uint8)
-            mask[6 + patient:18 + patient, 8:24] = 255
+            mask[6 + patient : 18 + patient, 8:24] = 255
             write_png(root / key / "images" / "a.png", mask // 2)
             write_png(root / key / "masks" / "a.png", mask)
     return root
 
 
 def spec_for(root, **model):
-    block = {"name": "tiny", "input_shape": [32, 32], "blocks": 2,
-             "filters": 4, "batch_size": 2, "epochs": 1,
-             "metrics": [{"name": "dice"}]}
+    block = {
+        "name": "tiny",
+        "input_shape": [32, 32],
+        "blocks": 2,
+        "filters": 4,
+        "batch_size": 2,
+        "epochs": 1,
+        "metrics": [{"name": "dice"}],
+    }
     block.update(model)
-    return from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root),
-                 "colormap": [[0, 0, 0], [255, 255, 255]], "shuffle": False},
-        "models": [block],
-    })
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                "shuffle": False,
+            },
+            "models": [block],
+        }
+    )
 
 
 def test_one_row_per_case_with_the_metrics_asked_for(patients):
@@ -96,10 +108,16 @@ def test_tiles_are_summed_into_the_whole_image_not_averaged(patients):
 
         # Reassemble the tiles into whole images - the 2x2 grid came out row-major - and
         # score once, which is what the reported number must equal.
-        grid_prediction = torch.cat([torch.cat([hard[0], hard[1]], dim=1),
-                                     torch.cat([hard[2], hard[3]], dim=1)], dim=0)
-        grid_target = torch.cat([torch.cat([batch_y[0], batch_y[1]], dim=2),
-                                 torch.cat([batch_y[2], batch_y[3]], dim=2)], dim=1)
+        grid_prediction = torch.cat(
+            [torch.cat([hard[0], hard[1]], dim=1), torch.cat([hard[2], hard[3]], dim=1)], dim=0
+        )
+        grid_target = torch.cat(
+            [
+                torch.cat([batch_y[0], batch_y[1]], dim=2),
+                torch.cat([batch_y[2], batch_y[3]], dim=2),
+            ],
+            dim=1,
+        )
         whole = metric(
             torch.nn.functional.one_hot(grid_prediction, 2).permute(2, 0, 1)[None].float(),
             grid_target[None],
@@ -166,10 +184,12 @@ def test_the_spread_of_one_case_is_unknown_rather_than_zero():
 
 
 def test_grouped_rows_are_summarised_by_group():
-    summary = summarise_cases([
-        {"group": "patient01", "dice": 0.4},
-        {"group": "patient02", "dice": 0.8},
-    ])[0]
+    summary = summarise_cases(
+        [
+            {"group": "patient01", "dice": 0.4},
+            {"group": "patient02", "dice": 0.8},
+        ]
+    )[0]
     assert summary["worst_group"] == "patient01"
 
 

@@ -26,9 +26,14 @@ class ImageError(PlatypusError):
     kind = "image_error"
 
 
-def read_image(path: str | Path, *, channels: int = 3,
-               size: tuple[int, ...] | None = None,
-               nearest: bool = False, dicom_window="auto") -> np.ndarray:
+def read_image(
+    path: str | Path,
+    *,
+    channels: int = 3,
+    size: tuple[int, ...] | None = None,
+    nearest: bool = False,
+    dicom_window="auto",
+) -> np.ndarray:
     """Read one image or volume as a channels-last array.
 
     Scaled to 0-1 for anything read in real units (DICOM, NIfTI) and left at 0-255 for
@@ -47,16 +52,16 @@ def read_image(path: str | Path, *, channels: int = 3,
     # A directory of slices is one volume, which is how data leaves a hospital. Handled here
     # so a CSV can name a series directory in the same column that names a file.
     if looks_like_dicom_series(path):
-        return read_dicom_series(path, window=dicom_window, channels=channels, size=size,
-                                 nearest=nearest)
+        return read_dicom_series(
+            path, window=dicom_window, channels=channels, size=size, nearest=nearest
+        )
 
     # A volume asks for a different reader, not a different pipeline. Dispatching here keeps
     # every caller - the dataset, the plotting helpers, the R surface - reading "whatever is
     # at this path, the way training would", which is the only way a picture of a prediction
     # can be trusted to show what the model saw.
     if looks_like_volume(path):
-        return read_volume(path, window=dicom_window, size=size, nearest=nearest,
-                           channels=channels)
+        return read_volume(path, window=dicom_window, size=size, nearest=nearest, channels=channels)
 
     if looks_like_dicom(path):
         array = read_dicom(path, window=dicom_window, channels=channels)
@@ -73,9 +78,7 @@ def read_image(path: str | Path, *, channels: int = 3,
             picture = handle.convert(mode)
             if size is not None:
                 if len(size) != 2:
-                    raise ImageError(
-                        f"2D readers take a (height, width), got {tuple(size)}"
-                    )
+                    raise ImageError(f"2D readers take a (height, width), got {tuple(size)}")
                 resample = Image.Resampling.NEAREST if nearest else Image.Resampling.BILINEAR
                 picture = picture.resize((size[1], size[0]), resample=resample)
             array = np.asarray(picture, dtype=np.uint8)
@@ -123,14 +126,12 @@ def spatial_shape(path: str | Path) -> tuple[int, ...]:
     return (height, width)
 
 
-def resize_image(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = False
-                 ) -> np.ndarray:
+def resize_image(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = False) -> np.ndarray:
     """Resize a channels-last 2D float array. The rank-2 counterpart of `resize_volume`."""
     return _resize_array(array, tuple(size), nearest=nearest)
 
 
-def _resize_array(array: np.ndarray, size: tuple[int, ...], *, nearest: bool
-                  ) -> np.ndarray:
+def _resize_array(array: np.ndarray, size: tuple[int, ...], *, nearest: bool) -> np.ndarray:
     """Resize a float array through PIL, one channel at a time.
 
     DICOM arrives as real values rather than bytes, so it cannot go through the 8-bit path
@@ -141,8 +142,9 @@ def _resize_array(array: np.ndarray, size: tuple[int, ...], *, nearest: bool
     resample = Image.Resampling.NEAREST if nearest else Image.Resampling.BILINEAR
     channels = [
         np.asarray(
-            Image.fromarray(array[..., c].astype(np.float32), mode="F")
-            .resize((size[1], size[0]), resample=resample),
+            Image.fromarray(array[..., c].astype(np.float32), mode="F").resize(
+                (size[1], size[0]), resample=resample
+            ),
             dtype=np.float32,
         )
         for c in range(array.shape[-1])
@@ -172,9 +174,7 @@ def tile(array: np.ndarray, splits: tuple[int, ...]) -> np.ndarray:
         )
     bad = [(size, n) for size, n in zip(spatial, splits, strict=True) if size % n]
     if bad:
-        raise ImageError(
-            f"cannot cut {spatial} into {splits}: every dimension must divide exactly"
-        )
+        raise ImageError(f"cannot cut {spatial} into {splits}: every dimension must divide exactly")
 
     tile_shape = tuple(size // n for size, n in zip(spatial, splits, strict=True))
     channels = array.shape[-1]
@@ -193,13 +193,10 @@ def stitch(tiles: np.ndarray, splits: tuple[int, ...]) -> np.ndarray:
     rank = len(splits)
     expected = math.prod(splits)
     if tiles.shape[0] != expected:
-        raise ImageError(
-            f"splits {splits} needs {expected} tiles, got {tiles.shape[0]}"
-        )
+        raise ImageError(f"splits {splits} needs {expected} tiles, got {tiles.shape[0]}")
     if tiles.ndim != rank + 2:
         raise ImageError(
-            f"expected tiles shaped (n, {'x'.join('t' * rank)}, channels), "
-            f"got {tiles.shape}"
+            f"expected tiles shaped (n, {'x'.join('t' * rank)}, channels), got {tiles.shape}"
         )
 
     tile_shape = tiles.shape[1:-1]

@@ -15,9 +15,14 @@ MODELS = [{"name": "m", "input_shape": [32, 32]}]
 
 
 def build(**data):
-    return from_dict({"task": "semantic_segmentation",
-                      "data": {"train_path": "t", "colormap": COLORMAP, **data},
-                      "models": MODELS}, check_paths=False)
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {"train_path": "t", "colormap": COLORMAP, **data},
+            "models": MODELS,
+        },
+        check_paths=False,
+    )
 
 
 def test_one_folder_and_a_split_is_enough():
@@ -27,7 +32,7 @@ def test_one_folder_and_a_split_is_enough():
 
 
 def test_neither_is_refused_and_the_refusal_names_the_way_out():
-    """"Field required" was true and useless. The answer is a split, so the refusal says so
+    """ "Field required" was true and useless. The answer is a split, so the refusal says so
     - and names `group_by` while it has the reader's attention, because that is the choice
     nobody knows they are making."""
     with pytest.raises(ConfigError) as caught:

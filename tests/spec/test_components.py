@@ -5,17 +5,38 @@ import pytest
 from pyplatypus import ConfigError, from_dict
 
 
-@pytest.mark.parametrize("name", [
-    "iou", "dice", "cce", "cce_dice", "focal", "tversky", "focal_tversky", "combo", "lovasz",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "iou",
+        "dice",
+        "cce",
+        "cce_dice",
+        "focal",
+        "tversky",
+        "focal_tversky",
+        "combo",
+        "lovasz",
+    ],
+)
 def test_every_loss_is_reachable(config, name):
     config["models"][0]["loss"] = {"name": name}
     assert from_dict(config).models[0].loss.name == name
 
 
-@pytest.mark.parametrize("name", [
-    "adam", "adamw", "sgd", "rmsprop", "adagrad", "adadelta", "adamax", "nadam",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "adam",
+        "adamw",
+        "sgd",
+        "rmsprop",
+        "adagrad",
+        "adadelta",
+        "adamax",
+        "nadam",
+    ],
+)
 def test_every_optimiser_is_reachable(config, name):
     config["models"][0]["optimizer"] = {"name": name}
     assert from_dict(config).models[0].optimizer.name == name

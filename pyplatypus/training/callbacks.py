@@ -105,8 +105,13 @@ class _Watcher(Callback):
 
 
 class EarlyStopping(_Watcher):
-    def __init__(self, monitor: str = "val_loss", patience: int = 10,
-                 min_delta: float = 0.0, restore_best: bool = True):
+    def __init__(
+        self,
+        monitor: str = "val_loss",
+        patience: int = 10,
+        min_delta: float = 0.0,
+        restore_best: bool = True,
+    ):
         super().__init__(monitor, min_delta)
         self.patience = patience
         self.restore_best = restore_best
@@ -158,8 +163,9 @@ class ModelCheckpoint(_Watcher):
 
 
 class ReduceLrOnPlateau(_Watcher):
-    def __init__(self, monitor: str = "val_loss", factor: float = 0.1,
-                 patience: int = 5, min_lr: float = 0.0):
+    def __init__(
+        self, monitor: str = "val_loss", factor: float = 0.1, patience: int = 5, min_lr: float = 0.0
+    ):
         super().__init__(monitor)
         self.factor = factor
         self.patience = patience
@@ -301,8 +307,7 @@ class Swa(Callback):
             return
         if not any(isinstance(m, _BATCH_NORM) for m in state.model.modules()):
             return
-        update_bn(state.train_loader, state.model,
-                  device=next(state.model.parameters()).device)
+        update_bn(state.train_loader, state.model, device=next(state.model.parameters()).device)
 
 
 class CsvLogger(Callback):
@@ -340,11 +345,9 @@ class TerminateOnNaN(Callback):
 
 
 _BUILDERS: dict[type, Any] = {
-    EarlyStoppingSpec: lambda s: EarlyStopping(s.monitor, s.patience, s.min_delta,
-                                               s.restore_best),
+    EarlyStoppingSpec: lambda s: EarlyStopping(s.monitor, s.patience, s.min_delta, s.restore_best),
     ModelCheckpointSpec: lambda s: ModelCheckpoint(s.path, s.monitor, s.save_best_only),
-    ReduceLrOnPlateauSpec: lambda s: ReduceLrOnPlateau(s.monitor, s.factor, s.patience,
-                                                       s.min_lr),
+    ReduceLrOnPlateauSpec: lambda s: ReduceLrOnPlateau(s.monitor, s.factor, s.patience, s.min_lr),
     CosineAnnealingSpec: lambda s: CosineAnnealing(s.min_lr, s.epochs),
     SwaSpec: lambda s: Swa(s.start, s.learning_rate),
     CsvLoggerSpec: lambda s: CsvLogger(s.path),

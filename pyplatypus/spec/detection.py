@@ -259,8 +259,7 @@ class DetectionModel(ModelSpec):
         head's width, so weights with a different one cannot be loaded at all. `n_class`
         sets it too and is not here, because the model does not hold it - the engine adds
         it, from the data's `classes`."""
-        return {**super().weights_fingerprint(),
-                "anchors_per_grid": self.anchors_per_grid}
+        return {**super().weights_fingerprint(), "anchors_per_grid": self.anchors_per_grid}
 
     min_visibility: float = Field(
         0.25,

@@ -93,19 +93,28 @@ class Yolo3Loss(nn.Module):
     or too small with no other symptom.
     """
 
-    def __init__(self, *, anchors=COCO_ANCHORS, n_class: int = 80,
-                 input_shape: tuple[int, int] = (416, 416),
-                 ignore_threshold: float = 0.5, box_loss: str = "offsets",
-                 coordinate_weight: float = 1.0,
-                 objectness_weight: float = 1.0, no_object_weight: float = 1.0,
-                 class_weight: float = 1.0, strides: tuple[int, ...] = STRIDES):
+    def __init__(
+        self,
+        *,
+        anchors=COCO_ANCHORS,
+        n_class: int = 80,
+        input_shape: tuple[int, int] = (416, 416),
+        ignore_threshold: float = 0.5,
+        box_loss: str = "offsets",
+        coordinate_weight: float = 1.0,
+        objectness_weight: float = 1.0,
+        no_object_weight: float = 1.0,
+        class_weight: float = 1.0,
+        strides: tuple[int, ...] = STRIDES,
+    ):
         super().__init__()
         if not 0 < ignore_threshold <= 1:
             raise DetectionError(
                 f"ignore_threshold must be above 0 and at most 1; got {ignore_threshold}"
             )
-        self.anchors = tuple(tuple(tuple(float(v) for v in pair) for pair in group)
-                             for group in anchors)
+        self.anchors = tuple(
+            tuple(tuple(float(v) for v in pair) for pair in group) for group in anchors
+        )
         self.per_grid = len(self.anchors[0])
         if any(len(group) != self.per_grid for group in self.anchors):
             raise DetectionError(
@@ -116,9 +125,7 @@ class Yolo3Loss(nn.Module):
         self.input_shape = (int(input_shape[0]), int(input_shape[1]))
         self.ignore_threshold = float(ignore_threshold)
         if box_loss not in ("offsets", "giou"):
-            raise DetectionError(
-                f"box_loss is 'offsets' or 'giou'; got {box_loss!r}"
-            )
+            raise DetectionError(f"box_loss is 'offsets' or 'giou'; got {box_loss!r}")
         self.box_loss = box_loss
         self.weights = {
             "coordinates": float(coordinate_weight),
@@ -127,19 +134,16 @@ class Yolo3Loss(nn.Module):
             "classes": float(class_weight),
         }
         self.strides = strides
-        self.shapes = grid_shapes(self.input_shape, scales=len(self.anchors),
-                                  strides=strides)
+        self.shapes = grid_shapes(self.input_shape, scales=len(self.anchors), strides=strides)
 
     def forward(self, predictions, targets) -> LossParts:
         if len(predictions) != len(self.anchors):
             raise DetectionError(
-                f"{len(predictions)} grids predicted but the anchors describe "
-                f"{len(self.anchors)}"
+                f"{len(predictions)} grids predicted but the anchors describe {len(self.anchors)}"
             )
         if len(targets) != len(self.anchors):
             raise DetectionError(
-                f"{len(targets)} grids of target but the anchors describe "
-                f"{len(self.anchors)}"
+                f"{len(targets)} grids of target but the anchors describe {len(self.anchors)}"
             )
 
         device = predictions[0].device
@@ -163,16 +167,24 @@ class Yolo3Loss(nn.Module):
             no_object = no_object + parts[2]
             classes = classes + parts[3]
 
-        total = (self.weights["coordinates"] * coordinates
-                 + self.weights["objectness"] * objectness
-                 + self.weights["no_object"] * no_object
-                 + self.weights["classes"] * classes)
-        return LossParts(total=total, coordinates=coordinates, objectness=objectness,
-                         no_object=no_object, classes=classes)
+        total = (
+            self.weights["coordinates"] * coordinates
+            + self.weights["objectness"] * objectness
+            + self.weights["no_object"] * no_object
+            + self.weights["classes"] * classes
+        )
+        return LossParts(
+            total=total,
+            coordinates=coordinates,
+            objectness=objectness,
+            no_object=no_object,
+            classes=classes,
+        )
 
     # ------------------------------------------------------------------ internals
-    def _one_grid(self, grid: int, prediction: torch.Tensor, target: torch.Tensor,
-                  truth: list[torch.Tensor]):
+    def _one_grid(
+        self, grid: int, prediction: torch.Tensor, target: torch.Tensor, truth: list[torch.Tensor]
+    ):
         device = prediction.device
         anchors = torch.tensor(self.anchors[grid], dtype=prediction.dtype, device=device)
 
@@ -192,8 +204,7 @@ class Yolo3Loss(nn.Module):
 
         if has_object.any():
             if self.box_loss == "giou":
-                coordinates = self._giou_term(grid, prediction, target, has_object,
-                                              anchors) / count
+                coordinates = self._giou_term(grid, prediction, target, has_object, anchors) / count
             else:
                 offset_loss = F.binary_cross_entropy_with_logits(
                     offsets[has_object], target_offsets[has_object], reduction="none"
@@ -202,14 +213,20 @@ class Yolo3Loss(nn.Module):
                     sizes[has_object], target_sizes[has_object], reduction="none"
                 ).sum(dim=-1)
                 coordinates = ((offset_loss + size_loss) * scale).sum() / count
-            classes = F.binary_cross_entropy_with_logits(
-                prediction[has_object][..., 5:], target[has_object][..., 5:],
-                reduction="sum"
-            ) / count
-            objectness = F.binary_cross_entropy_with_logits(
-                prediction[..., 4][has_object], torch.ones_like(prediction[..., 4][has_object]),
-                reduction="sum"
-            ) / count
+            classes = (
+                F.binary_cross_entropy_with_logits(
+                    prediction[has_object][..., 5:], target[has_object][..., 5:], reduction="sum"
+                )
+                / count
+            )
+            objectness = (
+                F.binary_cross_entropy_with_logits(
+                    prediction[..., 4][has_object],
+                    torch.ones_like(prediction[..., 4][has_object]),
+                    reduction="sum",
+                )
+                / count
+            )
         else:
             coordinates = torch.zeros((), device=device)
             classes = torch.zeros((), device=device)
@@ -225,16 +242,23 @@ class Yolo3Loss(nn.Module):
             # against a coordinate loss of 5.5, and nothing else could be heard. As a mean
             # the four terms are comparable and `no_object_weight` means something.
             no_object = F.binary_cross_entropy_with_logits(
-                prediction[..., 4][punish], torch.zeros_like(prediction[..., 4][punish]),
-                reduction="mean"
+                prediction[..., 4][punish],
+                torch.zeros_like(prediction[..., 4][punish]),
+                reduction="mean",
             )
         else:
             no_object = torch.zeros((), device=device)
 
         return coordinates, objectness, no_object, classes
 
-    def _giou_term(self, grid: int, prediction: torch.Tensor, target: torch.Tensor,
-                   has_object: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
+    def _giou_term(
+        self,
+        grid: int,
+        prediction: torch.Tensor,
+        target: torch.Tensor,
+        has_object: torch.Tensor,
+        anchors: torch.Tensor,
+    ) -> torch.Tensor:
         """`1 - GIoU` summed over the supervised positions, with gradient.
 
         Decoded only where there is something to locate, rather than over the whole grid
@@ -267,23 +291,35 @@ class Yolo3Loss(nn.Module):
             # and a box 22,000 times its anchor carries no information worth a gradient.
             width = torch.exp(log_w.clamp(max=10)) * anchor_w
             height = torch.exp(log_h.clamp(max=10)) * anchor_h
-            return torch.stack([centre_x - width / 2, centre_y - height / 2,
-                                centre_x + width / 2, centre_y + height / 2], dim=-1)
+            return torch.stack(
+                [
+                    centre_x - width / 2,
+                    centre_y - height / 2,
+                    centre_x + width / 2,
+                    centre_y + height / 2,
+                ],
+                dim=-1,
+            )
 
-        predicted = corners(torch.sigmoid(chosen[..., 0]), torch.sigmoid(chosen[..., 1]),
-                            chosen[..., 2], chosen[..., 3])
+        predicted = corners(
+            torch.sigmoid(chosen[..., 0]),
+            torch.sigmoid(chosen[..., 1]),
+            chosen[..., 2],
+            chosen[..., 3],
+        )
         truth = corners(wanted[..., 0], wanted[..., 1], wanted[..., 2], wanted[..., 3])
         return (1.0 - _giou(predicted, truth)).sum()
 
-    def _ignore_mask(self, grid: int, prediction: torch.Tensor,
-                     truth: list[torch.Tensor]) -> torch.Tensor:
+    def _ignore_mask(
+        self, grid: int, prediction: torch.Tensor, truth: list[torch.Tensor]
+    ) -> torch.Tensor:
         """Which empty cells are predicting something real and must be left alone.
 
         Computed without gradient on purpose: this decides *whether* a position is
         supervised, and a decision is not a quantity to differentiate through.
         """
         with torch.no_grad():
-            boxes = self._decode_boxes(grid, prediction)       # (n, h, w, a, 4)
+            boxes = self._decode_boxes(grid, prediction)  # (n, h, w, a, 4)
             batch = boxes.shape[0]
             mask = torch.zeros(boxes.shape[:-1], dtype=torch.bool, device=boxes.device)
             for index in range(batch):
@@ -297,8 +333,8 @@ class Yolo3Loss(nn.Module):
                 # to 45 objects, which is where this ran out of memory at batch 8. The
                 # chunk bounds it without changing the answer.
                 for start in range(0, len(flat), _IOU_CHUNK):
-                    piece = flat[start:start + _IOU_CHUNK]
-                    best[start:start + _IOU_CHUNK] = _iou(piece, truths).max(dim=1).values
+                    piece = flat[start : start + _IOU_CHUNK]
+                    best[start : start + _IOU_CHUNK] = _iou(piece, truths).max(dim=1).values
                 mask[index] = (best > self.ignore_threshold).reshape(boxes.shape[1:-1])
             return mask
 
@@ -314,8 +350,15 @@ class Yolo3Loss(nn.Module):
         centre_y = (torch.sigmoid(prediction[..., 1]) + rows) / grid_h
         width = torch.exp(prediction[..., 2].clamp(max=10)) * anchors[:, 0]
         height = torch.exp(prediction[..., 3].clamp(max=10)) * anchors[:, 1]
-        return torch.stack([centre_x - width / 2, centre_y - height / 2,
-                            centre_x + width / 2, centre_y + height / 2], dim=-1)
+        return torch.stack(
+            [
+                centre_x - width / 2,
+                centre_y - height / 2,
+                centre_x + width / 2,
+                centre_y + height / 2,
+            ],
+            dim=-1,
+        )
 
     def _truth_boxes(self, targets) -> list[torch.Tensor]:
         """The batch's true boxes in normalised corner form, read back out of the targets."""
@@ -323,8 +366,7 @@ class Yolo3Loss(nn.Module):
         out = [[] for _ in range(batch)]
         for grid, target in enumerate(targets):
             grid_h, grid_w = self.shapes[grid]
-            anchors = torch.tensor(self.anchors[grid], dtype=target.dtype,
-                                   device=target.device)
+            anchors = torch.tensor(self.anchors[grid], dtype=target.dtype, device=target.device)
             index = (target[..., 4] > 0.5).nonzero(as_tuple=False)
             for image, row, column, slot in index.tolist():
                 values = target[image, row, column, slot]
@@ -332,10 +374,20 @@ class Yolo3Loss(nn.Module):
                 centre_y = (values[1] + row) / grid_h
                 width = torch.exp(values[2]) * anchors[slot, 0]
                 height = torch.exp(values[3]) * anchors[slot, 1]
-                out[image].append(torch.stack([centre_x - width / 2, centre_y - height / 2,
-                                               centre_x + width / 2, centre_y + height / 2]))
-        return [torch.stack(rows) if rows else torch.zeros((0, 4), device=targets[0].device)
-                for rows in out]
+                out[image].append(
+                    torch.stack(
+                        [
+                            centre_x - width / 2,
+                            centre_y - height / 2,
+                            centre_x + width / 2,
+                            centre_y + height / 2,
+                        ]
+                    )
+                )
+        return [
+            torch.stack(rows) if rows else torch.zeros((0, 4), device=targets[0].device)
+            for rows in out
+        ]
 
 
 #: How many predicted boxes to compare against the truths at once. The pairwise matrix is
@@ -370,11 +422,14 @@ def _giou(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
     bx1, by1, bx2, by2 = b.unbind(-1)
     area_a = (ax2 - ax1).clamp(min=0) * (ay2 - ay1).clamp(min=0)
     area_b = (bx2 - bx1).clamp(min=0) * (by2 - by1).clamp(min=0)
-    overlap = ((torch.minimum(ax2, bx2) - torch.maximum(ax1, bx1)).clamp(min=0)
-               * (torch.minimum(ay2, by2) - torch.maximum(ay1, by1)).clamp(min=0))
+    overlap = (torch.minimum(ax2, bx2) - torch.maximum(ax1, bx1)).clamp(min=0) * (
+        torch.minimum(ay2, by2) - torch.maximum(ay1, by1)
+    ).clamp(min=0)
     union = area_a + area_b - overlap
-    enclosing = ((torch.maximum(ax2, bx2) - torch.minimum(ax1, bx1))
-                 * (torch.maximum(ay2, by2) - torch.minimum(ay1, by1))).clamp(min=eps)
+    enclosing = (
+        (torch.maximum(ax2, bx2) - torch.minimum(ax1, bx1))
+        * (torch.maximum(ay2, by2) - torch.minimum(ay1, by1))
+    ).clamp(min=eps)
     return overlap / union.clamp(min=eps) - (enclosing - union) / enclosing
 
 

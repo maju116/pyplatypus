@@ -21,7 +21,7 @@ from pyplatypus.objectives import functional as f
 
 @pytest.fixture
 def worked_example():
-    target = torch.tensor([[[0.0, 0, 1, 1], [1.0, 1, 0, 0]]])       # (1, 2, 4)
+    target = torch.tensor([[[0.0, 0, 1, 1], [1.0, 1, 0, 0]]])  # (1, 2, 4)
     prediction = torch.tensor([[[0.0, 1, 1, 1], [1.0, 0, 0, 0]]])
     return prediction, target
 
@@ -68,7 +68,7 @@ def test_tversky_at_half_is_exactly_dice(worked_example):
 
 def test_tversky_alpha_weights_false_negatives(worked_example):
     """class 1 has the false negative: 1/(1 + 0.7*1 + 0.3*0) = 1/1.7
-       class 0 has the false positive: 2/(2 + 0.7*0 + 0.3*1) = 2/2.3"""
+    class 0 has the false positive: 2/(2 + 0.7*0 + 0.3*1) = 2/2.3"""
     prediction, target = worked_example
     tversky = f.tversky_coefficient(prediction, target, alpha=0.7, smooth=0.0)
     assert tversky[0, 1].item() == pytest.approx(1 / 1.7)
@@ -102,9 +102,7 @@ def test_focal_down_weights_the_easy_pixels():
     """At p = 0.5 the factor is (1 - 0.5)^2 = 0.25, so focal is a quarter of CE."""
     logits = torch.zeros(1, 2, 4)
     target = torch.tensor([[[0.0, 0, 1, 1], [1.0, 1, 0, 0]]])
-    assert f.focal(logits, target, gamma=2.0).item() == pytest.approx(
-        0.25 * 0.6931471, abs=1e-6
-    )
+    assert f.focal(logits, target, gamma=2.0).item() == pytest.approx(0.25 * 0.6931471, abs=1e-6)
 
 
 def test_a_perfect_prediction_scores_one():
@@ -115,14 +113,14 @@ def test_a_perfect_prediction_scores_one():
 
 def test_lovasz_is_zero_for_a_perfect_prediction():
     target = f.as_onehot(torch.randint(0, 2, (1, 8, 8)), 2)
-    logits = (target - 0.5) * 40          # saturates softmax to ~0/1
+    logits = (target - 0.5) * 40  # saturates softmax to ~0/1
     assert f.lovasz_softmax(logits, target).item() == pytest.approx(0.0, abs=1e-4)
 
 
 def test_lovasz_skips_classes_that_are_absent():
     """Scoring an absent class as perfect would quietly inflate the loss's opinion."""
     target = torch.zeros(1, 3, 16)
-    target[:, 0] = 1.0                     # only the background is present
+    target[:, 0] = 1.0  # only the background is present
     logits = (target - 0.5) * 40
     assert f.lovasz_softmax(logits, target).item() == pytest.approx(0.0, abs=1e-4)
 

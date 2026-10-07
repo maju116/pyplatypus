@@ -63,15 +63,17 @@ class ConfigError(PlatypusError):
 
     kind = "config_error"
 
-    def __init__(self, message: str, problems: list[dict[str, str]] | None = None,
-                 source: str | None = None):
+    def __init__(
+        self, message: str, problems: list[dict[str, str]] | None = None, source: str | None = None
+    ):
         self.problems = problems or []
         self.source = source
         super().__init__(message)
 
     @classmethod
-    def from_validation_error(cls, error: ValidationError, source: str | None = None, *,
-                              drop_prefix: str | None = None) -> ConfigError:
+    def from_validation_error(
+        cls, error: ValidationError, source: str | None = None, *, drop_prefix: str | None = None
+    ) -> ConfigError:
         problems = []
         for raw in error.errors():
             message = raw.get("msg", "invalid value")
@@ -92,8 +94,7 @@ class ConfigError(PlatypusError):
         noun = "problem" if count == 1 else "problems"
         header = f"The configuration{where} has {count} {noun}:"
         body = "\n".join(
-            f"  - {p['where']}: {p['problem']}"
-            + (f" (got {p['got']})" if "got" in p else "")
+            f"  - {p['where']}: {p['problem']}" + (f" (got {p['got']})" if "got" in p else "")
             for p in problems
         )
         return cls(f"{header}\n{body}", problems=problems, source=source)

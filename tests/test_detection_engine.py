@@ -47,15 +47,27 @@ def trained(tmp_path_factory, make_detection_split):
     make_detection_split(root / "train", "train", 8, seed=0)
     make_detection_split(root / "valid", "valid", 4, seed=1)
 
-    spec = from_dict({
-        "task": "object_detection", "seed": 1,
-        "data": {"train_path": str(root / "train"),
-                 "validation_path": str(root / "valid"),
-                 "classes": ["square", "bar"]},
-        "models": [{"name": "d", "input_shape": [128, 128], "epochs": 2,
-                    "batch_size": 2, "anchors_per_grid": 2,
-                    "optimizer": {"name": "adam", "learning_rate": 1e-3}}],
-    })
+    spec = from_dict(
+        {
+            "task": "object_detection",
+            "seed": 1,
+            "data": {
+                "train_path": str(root / "train"),
+                "validation_path": str(root / "valid"),
+                "classes": ["square", "bar"],
+            },
+            "models": [
+                {
+                    "name": "d",
+                    "input_shape": [128, 128],
+                    "epochs": 2,
+                    "batch_size": 2,
+                    "anchors_per_grid": 2,
+                    "optimizer": {"name": "adam", "learning_rate": 1e-3},
+                }
+            ],
+        }
+    )
     engine = build_engine(spec, device="cpu")
     with warnings.catch_warnings():
         warnings.simplefilter("error")
@@ -65,10 +77,10 @@ def trained(tmp_path_factory, make_detection_split):
 
 # --- which engine ------------------------------------------------------------------------
 
+
 def test_build_engine_follows_the_task(detection_config, config, nested_root):
     """Holding a spec is enough; the caller never has to ask which task it is."""
-    assert isinstance(build_engine(from_dict(detection_config), device="cpu"),
-                      DetectionEngine)
+    assert isinstance(build_engine(from_dict(detection_config), device="cpu"), DetectionEngine)
 
     config["data"]["train_path"] = str(nested_root)
     config["data"]["validation_path"] = str(nested_root)
@@ -89,6 +101,7 @@ def test_the_splits_are_found(engine):
 
 # --- anchors -----------------------------------------------------------------------------
 
+
 def test_anchors_are_fitted_to_the_training_boxes(trained):
     """Unset in the spec means fitted, and the fit is recorded on the run - which is the
     only place they exist afterwards, and the thing a detector cannot be reloaded without.
@@ -106,9 +119,11 @@ def test_anchors_given_in_the_spec_are_not_refitted(detection_config):
     """A spec that names anchors is reproducible from the spec alone, so nothing should
     quietly replace them - and `anchor_fit` staying None is how a reader can tell which
     of the two happened."""
-    given = [[[0.30, 0.30], [0.20, 0.20]],
-             [[0.16, 0.16], [0.12, 0.12]],
-             [[0.08, 0.08], [0.05, 0.05]]]
+    given = [
+        [[0.30, 0.30], [0.20, 0.20]],
+        [[0.16, 0.16], [0.12, 0.12]],
+        [[0.08, 0.08], [0.05, 0.05]],
+    ]
     detection_config["models"][0]["anchors"] = given
     engine = build_engine(from_dict(detection_config), device="cpu")
     engine.fit()
@@ -130,6 +145,7 @@ def test_anchor_coverage_can_be_asked_of_a_split_they_were_not_fitted_on(trained
 
 # --- the survey --------------------------------------------------------------------------
 
+
 def test_the_targets_are_surveyed_before_training(trained):
     survey = trained.runs["d"].survey
     assert survey is not None
@@ -138,8 +154,7 @@ def test_the_targets_are_surveyed_before_training(trained):
     assert survey.placed + survey.unplaced == survey.total
 
 
-def test_a_dataset_the_encoder_cannot_represent_warns(detection_config, detection_root,
-                                                      voc_sample):
+def test_a_dataset_the_encoder_cannot_represent_warns(detection_config, detection_root, voc_sample):
     """Two boxes of one shape in one cell share a slot, so the second is never shown to
     the model and never counted as missed. Warned rather than refused: it is a property of
     the data meeting the input size, and the fix is the user's choice of either."""
@@ -147,10 +162,17 @@ def test_a_dataset_the_encoder_cannot_represent_warns(detection_config, detectio
     # otherwise, correctly - with one colliding pair in every image.
     crowded = detection_root / "crowded"
     for n in range(4):
-        voc_sample(crowded, f"c_{n}",
-                   [(40, 40, 64 + n, 64 + n), (42, 42, 66 + n, 66 + n),
-                    (10, 90, 30 + n, 110), (70, 10, 100, 24 + n)],
-                   [0, 0, 0, 1])
+        voc_sample(
+            crowded,
+            f"c_{n}",
+            [
+                (40, 40, 64 + n, 64 + n),
+                (42, 42, 66 + n, 66 + n),
+                (10, 90, 30 + n, 110),
+                (70, 10, 100, 24 + n),
+            ],
+            [0, 0, 0, 1],
+        )
     detection_config["data"]["train_path"] = str(crowded)
     engine = build_engine(from_dict(detection_config), device="cpu")
 
@@ -160,6 +182,7 @@ def test_a_dataset_the_encoder_cannot_represent_warns(detection_config, detectio
 
 # --- training ----------------------------------------------------------------------------
 
+
 def test_fit_reports_the_four_parts_for_train_and_validation(trained):
     """A YOLOv3 total means nothing alone: it has a floor above zero that depends on the
     data, so `coordinates 5.93 / objectness 0.001` is the difference between a model that
@@ -168,8 +191,10 @@ def test_fit_reports_the_four_parts_for_train_and_validation(trained):
     assert len(history) == 2
     columns = set(history.columns)
     for prefix in ("train", "val"):
-        assert {f"{prefix}_{part}" for part in
-                ("loss", "coordinates", "objectness", "no_object", "classes")} <= columns
+        assert {
+            f"{prefix}_{part}"
+            for part in ("loss", "coordinates", "objectness", "no_object", "classes")
+        } <= columns
 
 
 def test_a_callback_watching_the_validation_loss_works(detection_config):
@@ -194,6 +219,7 @@ def test_accumulation_does_not_change_the_shape_of_a_run(detection_config):
 
 
 # --- scoring -----------------------------------------------------------------------------
+
 
 def test_the_comparison_table_has_detections_columns(trained):
     row = trained.evaluate("validation")[0]
@@ -227,8 +253,8 @@ def test_one_row_per_image_keyed_by_the_sample(trained):
     assert len(rows) == trained.split_sizes()["validation"]
 
     keys = [row["key"] for row in rows]
-    assert len(set(keys)) == len(keys)          # a row you can find again
-    assert sum(row["n_truth"] for row in rows) == 8   # the split's own count
+    assert len(set(keys)) == len(keys)  # a row you can find again
+    assert sum(row["n_truth"] for row in rows) == 8  # the split's own count
 
     for row in rows:
         assert row["missed"] == row["n_truth"] - row["matched"]
@@ -276,8 +302,9 @@ def test_one_report_serves_both_tables(trained, monkeypatch):
     saving is the only reason `report` is public."""
     passes = []
     original = trained.predict
-    monkeypatch.setattr(trained, "predict",
-                        lambda *a, **k: (passes.append(1), original(*a, **k))[1])
+    monkeypatch.setattr(
+        trained, "predict", lambda *a, **k: (passes.append(1), original(*a, **k))[1]
+    )
 
     measured = trained.report("d", "validation")
     row = measured.as_row(trained.runs["d"])
@@ -309,6 +336,7 @@ def test_best_model_ranks_on_average_precision(trained):
 
 # --- predictions -------------------------------------------------------------------------
 
+
 def test_predict_returns_one_entry_per_image_with_names(trained):
     predictions = trained.predict("d", "validation")
     assert isinstance(predictions, list)
@@ -336,8 +364,13 @@ def test_predictions_come_back_in_the_source_images_own_pixels(trained, monkeypa
     example = dataset.read(0)
     source_box = example.annotation.boxes[0]
 
-    encoded = encode(example.boxes[:1], example.labels[:1], anchors=run.anchors,
-                     input_shape=(128, 128), n_class=2)
+    encoded = encode(
+        example.boxes[:1],
+        example.labels[:1],
+        anchors=run.anchors,
+        input_shape=(128, 128),
+        n_class=2,
+    )
 
     def logits_for_that_box(_image):
         """The raw outputs a model would have to emit to reproduce this target exactly.
@@ -370,7 +403,8 @@ def test_predictions_come_back_in_the_source_images_own_pixels(trained, monkeypa
 
 
 def test_a_test_split_without_annotations_can_be_predicted_but_not_scored(
-        detection_config, detection_root, voc_sample):
+    detection_config, detection_root, voc_sample
+):
     """Both halves matter. Scoring an unlabelled split against empty truth would report
     zero, which is a different statement from "there is nothing to score against"."""
     held_out = detection_root / "test"
@@ -389,7 +423,8 @@ def test_a_test_split_without_annotations_can_be_predicted_but_not_scored(
 
 
 def test_a_test_split_with_some_annotations_missing_is_an_error(
-        detection_config, detection_root, voc_sample):
+    detection_config, detection_root, voc_sample
+):
     """Not the same thing as an unlabelled split, and the difference matters.
 
     Falling back to images-only whenever labelled discovery failed would turn a split with
@@ -410,6 +445,7 @@ def test_a_test_split_with_some_annotations_missing_is_an_error(
 
 
 # --- augmentation -------------------------------------------------------------------------
+
 
 def test_training_is_augmented_and_validation_is_not(detection_config):
     """Measuring a model on distorted data measures the distortion, so validation is never
@@ -450,8 +486,9 @@ def test_augmentation_moves_the_boxes_with_the_image(detection_config):
     for box in reference.boxes:
         x0, y0, x1, y1 = box
         moved = (width - x1, y0, width - x0, y1)
-        patch = image[int(moved[1]) + 2:int(moved[3]) - 2,
-                      int(moved[0]) + 2:int(moved[2]) - 2, 0]
+        patch = image[
+            int(moved[1]) + 2 : int(moved[3]) - 2, int(moved[0]) + 2 : int(moved[2]) - 2, 0
+        ]
         assert patch.size > 0
         assert patch.mean() > 0.4, "the box no longer covers its object"
 
@@ -504,8 +541,8 @@ def test_a_detector_trains_with_augmentation(detection_config):
 
 # --- the picture of the anchor fit --------------------------------------------------------
 
-def test_box_shapes_returns_the_cloud_and_the_anchors_in_one_frame(trained,
-                                                                   detection_classes):
+
+def test_box_shapes_returns_the_cloud_and_the_anchors_in_one_frame(trained, detection_classes):
     """Everything a plot of the anchor fit needs, in one call and one set of coordinates.
     Widths and heights from one place and anchors from another is how a picture comes to
     show boxes in different places from where the anchors were fitted to them."""
@@ -517,7 +554,7 @@ def test_box_shapes_returns_the_cloud_and_the_anchors_in_one_frame(trained,
     assert np.asarray(shapes["anchors"]).shape == (3, 2, 2)
 
     boxes = shapes["boxes"]
-    assert len(boxes["width"]) == 16        # eight images, two boxes each
+    assert len(boxes["width"]) == 16  # eight images, two boxes each
     assert set(boxes["name"]) == set(detection_classes)
     assert all(0 < w <= 1 for w in boxes["width"])
     assert all(0 < h <= 1 for h in boxes["height"])
@@ -539,8 +576,9 @@ def test_the_cloud_and_the_anchors_are_in_the_same_coordinates(trained):
     assert anchors[:, 1].max() <= cloud[:, 1].max() * 2.0
 
 
-def test_box_shapes_refuses_a_split_with_no_annotations(trained, detection_config,
-                                                        detection_root, voc_sample):
+def test_box_shapes_refuses_a_split_with_no_annotations(
+    trained, detection_config, detection_root, voc_sample
+):
     """A cloud of boxes needs boxes."""
     held_out = detection_root / "unlabelled"
     for n in range(2):
@@ -556,6 +594,7 @@ def test_box_shapes_refuses_a_split_with_no_annotations(trained, detection_confi
 
 # --- weights -----------------------------------------------------------------------------
 
+
 def test_exported_weights_carry_the_anchors(trained, tmp_path):
     """Not optional metadata. The same weights read with other anchors decode every box
     scaled by a fixed factor - plausible boxes, plausible scores, wrong places."""
@@ -568,15 +607,15 @@ def test_exported_weights_carry_the_anchors(trained, tmp_path):
     assert sidecar["anchors_per_grid"] == 2
     assert sidecar["classes"] == ["square", "bar"]
     assert np.asarray(sidecar["anchors"]).shape == (3, 2, 2)
-    assert sidecar["anchors"] == [[list(pair) for pair in group]
-                                  for group in trained.runs["d"].anchors]
+    assert sidecar["anchors"] == [
+        [list(pair) for pair in group] for group in trained.runs["d"].anchors
+    ]
     # `blocks` and `filters` identify a U-shaped model and say nothing about a detector.
     assert "blocks" not in sidecar
     assert "n_class" not in sidecar
 
 
-def test_a_reloaded_detector_predicts_the_same_boxes(trained, detection_config,
-                                                     tmp_path):
+def test_a_reloaded_detector_predicts_the_same_boxes(trained, detection_config, tmp_path):
     """The claim that matters, and the reason loading adopts the anchors from the file.
 
     Export, then load into an engine whose specification names **no** anchors at all, and
@@ -595,7 +634,9 @@ def test_a_reloaded_detector_predicts_the_same_boxes(trained, detection_config,
         "classes": list(trained.spec.data.classes),
     }
     detection_config["models"][0] = {
-        **detection_config["models"][0], "weights": str(written), "fit": False,
+        **detection_config["models"][0],
+        "weights": str(written),
+        "fit": False,
     }
     reloaded = build_engine(from_dict(detection_config), device="cpu")
     reloaded.fit()
@@ -631,16 +672,18 @@ def test_weights_without_anchors_are_refused(trained, detection_config, tmp_path
         "classes": list(trained.spec.data.classes),
     }
     detection_config["models"][0] = {
-        **detection_config["models"][0], "weights": str(written), "fit": False,
+        **detection_config["models"][0],
+        "weights": str(written),
+        "fit": False,
     }
     engine = build_engine(from_dict(detection_config), device="cpu")
     with pytest.raises(EngineError, match="carries no anchors"):
         engine.fit()
 
 
-def test_weights_trained_on_differently_named_classes_are_refused(trained,
-                                                                  detection_config,
-                                                                  tmp_path):
+def test_weights_trained_on_differently_named_classes_are_refused(
+    trained, detection_config, tmp_path
+):
     """Same count, different meaning. This loads cleanly into torch and labels every box
     wrongly, which is the detection counterpart of weights trained on another colormap:
     the shapes agree and the answer is nonsense."""
@@ -651,10 +694,12 @@ def test_weights_trained_on_differently_named_classes_are_refused(trained,
     detection_config["data"] = {
         "train_path": trained.spec.data.train_path,
         "validation_path": trained.spec.data.validation_path,
-        "classes": ["bar", "square"],          # the same two, swapped
+        "classes": ["bar", "square"],  # the same two, swapped
     }
     detection_config["models"][0] = {
-        **detection_config["models"][0], "weights": str(written), "fit": False,
+        **detection_config["models"][0],
+        "weights": str(written),
+        "fit": False,
     }
     engine = build_engine(from_dict(detection_config), device="cpu")
     with pytest.raises(WeightsError) as caught:
@@ -679,16 +724,16 @@ def test_naming_both_weights_and_anchors_is_refused(detection_config, tmp_path):
         from_dict(detection_config)
 
 
-
-
 # --- crops -------------------------------------------------------------------------------
+
 
 def test_the_source_image_is_the_native_one_and_read_is_the_letterboxed_one(trained):
     """The two sizes have to differ for anything below to mean anything: the fixture's
     images are 128x160 and the model sees 128x128, so a crop taken from the wrong one is
     0.8 of the size it should be."""
-    dataset = trained.dataset(trained.spec.models[0], "validation",
-                              anchors=trained.runs["d"].anchors)
+    dataset = trained.dataset(
+        trained.spec.models[0], "validation", anchors=trained.runs["d"].anchors
+    )
     assert dataset.source_image(0).shape[:2] == (128, 160)
     assert dataset.read(0).image.shape[:2] == (128, 128)
 

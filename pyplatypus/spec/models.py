@@ -136,7 +136,6 @@ class ModelSpec(SpecModel):
 class SegmentationModel(ModelSpec):
     architecture: Architecture = Architecture.U_NET
 
-
     blocks: int = Field(4, ge=1, le=8)
     filters: int = Field(16, ge=1)
     block_width: int = Field(2, ge=1, le=4, description="Convolutions per block.")
@@ -145,9 +144,7 @@ class SegmentationModel(ModelSpec):
     batch_normalization: bool = True
     separable_conv: bool = False
     spatial_dropout: bool = True
-    upsample: bool = Field(
-        False, description="Upsample+conv instead of transposed convolution."
-    )
+    upsample: bool = Field(False, description="Upsample+conv instead of transposed convolution.")
     deep_supervision: bool = False
     activation: Activation = Activation.RELU
     initialiser: Initialiser = Initialiser.HE_NORMAL
@@ -255,7 +252,7 @@ class SegmentationModel(ModelSpec):
         """Every block halves each spatial dimension; a size that will not halve cleanly
         produces shape mismatches deep in the decoder, which is a miserable error to
         debug. Catching it here costs nothing."""
-        divisor = 2 ** self.blocks
+        divisor = 2**self.blocks
         bad = [size for size in self.input_shape if size % divisor]
         if bad:
             raise ValueError(
@@ -268,14 +265,16 @@ class SegmentationModel(ModelSpec):
         # Without `n_class`: the data decides how many classes there are, so the model has
         # nothing to say about it. The engine contributes it through `_class_fingerprint`,
         # along with the colormap or labels it came from.
-        return {**super().weights_fingerprint(),
-                "blocks": self.blocks, "filters": self.filters}
+        return {**super().weights_fingerprint(), "blocks": self.blocks, "filters": self.filters}
 
     @property
     def monitorable(self) -> set[str]:
         """The loss, plus every metric this model was asked for."""
-        return super().monitorable | {f"val_{m.name}" for m in self.metrics} \
+        return (
+            super().monitorable
+            | {f"val_{m.name}" for m in self.metrics}
             | {f"train_{m.name}" for m in self.metrics}
+        )
 
     @model_validator(mode="after")
     def pretrained_needs_an_encoder(self):
@@ -293,8 +292,10 @@ class SegmentationModel(ModelSpec):
     def encoder_settings_need_an_encoder(self):
         """Both of these address one problem - a random decoder's gradients arriving at
         transferred weights - so neither means anything without transferred weights."""
-        for field, value in (("encoder_learning_rate", self.encoder_learning_rate),
-                             ("freeze_encoder", self.freeze_encoder or None)):
+        for field, value in (
+            ("encoder_learning_rate", self.encoder_learning_rate),
+            ("freeze_encoder", self.freeze_encoder or None),
+        ):
             if value is not None and self.encoder is None:
                 raise ValueError(
                     f"{field} needs `encoder` to name a backbone; there is nothing "

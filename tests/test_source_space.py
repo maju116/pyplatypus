@@ -33,16 +33,32 @@ def write_case(root, name, shape, spacing, block):
 
 
 def engine_for(root, **data):
-    block = {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
-             "window": "soft_tissue", "shuffle": False}
+    block = {
+        "train_path": str(root),
+        "validation_path": str(root),
+        "labels": [0, 1],
+        "window": "soft_tissue",
+        "shuffle": False,
+    }
     block.update(data)
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": block,
-        "models": [{"name": "m", "input_shape": [32, 32, 32], "channels": 1,
-                    "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
-                    "metrics": [{"name": "dice"}]}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": block,
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [32, 32, 32],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 1,
+                    "epochs": 1,
+                    "metrics": [{"name": "dice"}],
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     engine.fit()
     return engine
@@ -113,20 +129,36 @@ def test_the_returned_mask_covers_the_anatomy_in_the_source_scan(tmp_path):
     down.
     """
     root = tmp_path / "cases"
-    block = np.s_[8:20, 24:44, 4:14]          # deliberately off-centre and not a cube
+    block = np.s_[8:20, 24:44, 4:14]  # deliberately off-centre and not a cube
     for name in ("a", "b", "c", "d"):
         write_case(root, name, (48, 48, 24), (1.0, 1.0, 2.0), block)
 
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
-                 "window": "soft_tissue", "target_spacing": (1.0, 1.0, 1.0),
-                 "shuffle": False},
-        "models": [{"name": "m", "input_shape": [48, 48, 48], "channels": 1,
-                    "blocks": 2, "filters": 8, "batch_size": 2, "epochs": 20,
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "labels": [0, 1],
+                "window": "soft_tissue",
+                "target_spacing": (1.0, 1.0, 1.0),
+                "shuffle": False,
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [48, 48, 48],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 8,
+                    "batch_size": 2,
+                    "epochs": 20,
                     "loss": {"name": "dice"},
-                    "metrics": [{"name": "dice", "include_background": False}]}],
-    })
+                    "metrics": [{"name": "dice", "include_background": False}],
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     engine.fit()
 
@@ -164,14 +196,30 @@ def test_the_round_trip_keeps_a_mask_where_it_was(tmp_path):
     # test. With a smaller input_shape most of this block falls outside the crop and the round
     # trip legitimately loses it, which is what the first version of this test measured: 0.89,
     # and honest.
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(root), "validation_path": str(root), "labels": [0, 1],
-                 "window": "soft_tissue", "target_spacing": (1.0, 1.0, 1.0),
-                 "shuffle": False},
-        "models": [{"name": "m", "input_shape": [48, 48, 48], "channels": 1,
-                    "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "labels": [0, 1],
+                "window": "soft_tissue",
+                "target_spacing": (1.0, 1.0, 1.0),
+                "shuffle": False,
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [48, 48, 48],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 1,
+                    "epochs": 1,
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     engine.fit()
     sample = engine._samples["validation"][0]

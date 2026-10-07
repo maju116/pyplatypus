@@ -41,11 +41,21 @@ def tiny_root(tmp_path):
 def final_loss(root, seed):
     config = {
         "task": "semantic_segmentation",
-        "data": {"train_path": str(root / "train"),
-                 "validation_path": str(root / "valid"),
-                 "colormap": [[0, 0, 0], [255, 255, 255]]},
-        "models": [{"name": "u", "input_shape": [32, 32], "blocks": 2, "filters": 4,
-                    "epochs": 2, "batch_size": 2}],
+        "data": {
+            "train_path": str(root / "train"),
+            "validation_path": str(root / "valid"),
+            "colormap": [[0, 0, 0], [255, 255, 255]],
+        },
+        "models": [
+            {
+                "name": "u",
+                "input_shape": [32, 32],
+                "blocks": 2,
+                "filters": 4,
+                "epochs": 2,
+                "batch_size": 2,
+            }
+        ],
     }
     if seed is not None:
         config["seed"] = seed

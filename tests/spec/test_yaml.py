@@ -76,6 +76,7 @@ def test_empty_yaml_says_so(tmp_path):
 
 # --- the same file format, the other task -----------------------------------------------
 
+
 def test_a_detection_experiment_reads_from_the_same_file_format(detection_yaml_file):
     """One format, two tasks. The settings in this file were command-line flags during the
     BCCD run, which is what "detection is in the spec" has to mean to be worth anything."""

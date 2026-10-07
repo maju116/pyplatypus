@@ -21,8 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # populate_by_name so a field with an alias can still be given by its real name from
 # Python. Without it, `SegmentationData(window="lung")` would be rejected while the
 # YAML key worked, which is the sort of asymmetry nobody can guess.
-STRICT = ConfigDict(extra="forbid", frozen=True, validate_default=True,
-                    populate_by_name=True)
+STRICT = ConfigDict(extra="forbid", frozen=True, validate_default=True, populate_by_name=True)
 
 
 class SpecModel(BaseModel):
@@ -31,8 +30,11 @@ class SpecModel(BaseModel):
 
 SpatialShape = Annotated[
     tuple[int, ...],
-    Field(min_length=2, max_length=3,
-          description="Spatial size: (height, width) in 2D, (depth, height, width) in 3D."),
+    Field(
+        min_length=2,
+        max_length=3,
+        description="Spatial size: (height, width) in 2D, (depth, height, width) in 3D.",
+    ),
 ]
 
 
@@ -76,7 +78,6 @@ class Activation(str, Enum):
     GELU = "gelu"
     SILU = "silu"
     TANH = "tanh"
-
 
 
 # The windows radiologists actually use, as (centre, width) in Hounsfield units. Naming

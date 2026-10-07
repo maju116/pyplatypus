@@ -48,7 +48,7 @@ def test_a_geometric_transform_moves_a_volume_and_its_mask_together():
 
     assert moved_volume.shape == volume.shape
     assert moved_mask.shape == mask.shape
-    assert not np.array_equal(moved_volume, volume)          # something happened
+    assert not np.array_equal(moved_volume, volume)  # something happened
     # And the mask still marks exactly where the bright voxels are.
     bright = moved_volume[..., 0] > 0.5
     assert np.array_equal(bright, moved_mask.astype(bool))
@@ -68,7 +68,7 @@ def test_every_slice_gets_the_same_geometry():
     this is the test that says so."""
     augmenter = build_augmenter(steps("Affine"), rank=3)
     volume = np.zeros((4, 8, 8, 1), dtype=np.float32)
-    volume[:, 2:5, 2:5] = 1.0                                # identical in every slice
+    volume[:, 2:5, 2:5] = 1.0  # identical in every slice
     out, _ = augmenter(volume)
     first = out[0, ..., 0]
     assert all(np.array_equal(out[index, ..., 0], first) for index in range(1, 4))
@@ -152,17 +152,34 @@ def test_a_3d_model_trains_with_augmentation(volume_root):
     pytest.importorskip("nibabel")
     from pyplatypus import Engine, from_dict
 
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
-                 "labels": [0, 1], "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "channels": 1,
-                    "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(volume_root),
+                "validation_path": str(volume_root),
+                "labels": [0, 1],
+                "shuffle": False,
+            },
+            "models": [
+                {
+                    "name": "unet3d",
+                    "input_shape": [8, 8, 4],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 1,
+                    "epochs": 1,
                     "metrics": [{"name": "dice"}],
-                    "augmentation": [{"name": "HorizontalFlip"},
-                                     {"name": "VerticalFlip"},
-                                     {"name": "CubicSymmetry"}]}],
-    })
+                    "augmentation": [
+                        {"name": "HorizontalFlip"},
+                        {"name": "VerticalFlip"},
+                        {"name": "CubicSymmetry"},
+                    ],
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     history = engine.fit()["unet3d"]
     assert len(history) == 1
@@ -175,14 +192,28 @@ def test_validation_is_not_augmented(volume_root):
     pytest.importorskip("nibabel")
     from pyplatypus import Engine, from_dict
 
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
-                 "labels": [0, 1]},
-        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "channels": 1,
-                    "blocks": 2, "filters": 4, "batch_size": 1, "epochs": 1,
-                    "augmentation": [{"name": "HorizontalFlip"}]}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(volume_root),
+                "validation_path": str(volume_root),
+                "labels": [0, 1],
+            },
+            "models": [
+                {
+                    "name": "unet3d",
+                    "input_shape": [8, 8, 4],
+                    "channels": 1,
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 1,
+                    "epochs": 1,
+                    "augmentation": [{"name": "HorizontalFlip"}],
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     train = engine.dataset(spec.models[0], "train", augmented=True)
     validation = engine.dataset(spec.models[0], "validation")
@@ -201,8 +232,7 @@ def test_a_crop_larger_than_the_probe_is_not_refused_for_the_wrong_reason():
     """
     from pyplatypus.spec.components import AugmentationStep
 
-    crop = [AugmentationStep(name="RandomCrop3D",
-                             params={"size": (4, 16, 16), "p": 1.0})]
+    crop = [AugmentationStep(name="RandomCrop3D", params={"size": (4, 16, 16), "p": 1.0})]
     assert build_augmenter(crop, rank=3, input_shape=(8, 32, 32)) is not None
 
     # The 2D counterpart of this is a refusal, because albumentations' 2D crops raise

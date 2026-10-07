@@ -73,19 +73,21 @@ class DetectionMetrics:
     def as_rows(self) -> list[dict[str, Any]]:
         """One row per class plus an overall row, which is the shape R wants."""
         rows = list(self.per_class)
-        rows.append({
-            "label": "all",
-            "class": None,
-            "average_precision": self.mean_average_precision,
-            "n_truth": sum(row["n_truth"] for row in self.per_class),
-            "n_predicted": sum(row["n_predicted"] for row in self.per_class),
-            "true_positives": sum(row["true_positives"] for row in self.per_class),
-            "false_positives": sum(row["false_positives"] for row in self.per_class),
-            "false_negatives": sum(row["false_negatives"] for row in self.per_class),
-            "precision": None,
-            "recall": None,
-            "mean_matched_iou": self.mean_matched_iou,
-        })
+        rows.append(
+            {
+                "label": "all",
+                "class": None,
+                "average_precision": self.mean_average_precision,
+                "n_truth": sum(row["n_truth"] for row in self.per_class),
+                "n_predicted": sum(row["n_predicted"] for row in self.per_class),
+                "true_positives": sum(row["true_positives"] for row in self.per_class),
+                "false_positives": sum(row["false_positives"] for row in self.per_class),
+                "false_negatives": sum(row["false_negatives"] for row in self.per_class),
+                "precision": None,
+                "recall": None,
+                "mean_matched_iou": self.mean_matched_iou,
+            }
+        )
         return rows
 
 
@@ -133,13 +135,12 @@ def iou_matrix(a: Any, b: Any) -> np.ndarray:
     area_a = ((first[:, 2] - first[:, 0]) * (first[:, 3] - first[:, 1]))[:, None]
     area_b = ((second[:, 2] - second[:, 0]) * (second[:, 3] - second[:, 1]))[None, :]
     union = area_a + area_b - overlap
-    return np.divide(overlap, union, out=np.zeros_like(overlap, dtype=float),
-                     where=union > 0)
+    return np.divide(overlap, union, out=np.zeros_like(overlap, dtype=float), where=union > 0)
 
 
-def match_detections(pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *,
-                     iou_threshold: float = 0.5
-                     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def match_detections(
+    pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *, iou_threshold: float = 0.5
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Which predictions hit a truth, in descending order of score, and how well.
 
     Returns `(order, hit, overlap)`: the indices that sort the predictions by score, a
@@ -180,8 +181,9 @@ def match_detections(pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *,
     return order, hit, matched_at
 
 
-def average_precision(hit: Any, n_truth: int, *,
-                      interpolation: Interpolation = "all") -> float | None:
+def average_precision(
+    hit: Any, n_truth: int, *, interpolation: Interpolation = "all"
+) -> float | None:
     """Area under the precision-recall curve, for one class.
 
     `hit` is the boolean sequence from `match_detections`, in descending score order; the
@@ -197,9 +199,7 @@ def average_precision(hit: Any, n_truth: int, *,
       here because papers from that era quote it.
     """
     if interpolation not in ("all", "101", "11"):
-        raise DetectionError(
-            f"interpolation must be 'all', '101' or '11'; got {interpolation!r}"
-        )
+        raise DetectionError(f"interpolation must be 'all', '101' or '11'; got {interpolation!r}")
     if n_truth <= 0:
         return None
 
@@ -224,16 +224,21 @@ def average_precision(hit: Any, n_truth: int, *,
     levels = np.linspace(0, 1, 101) if interpolation == "101" else np.linspace(0, 1, 11)
     # For each level, the precision at the first recall that reaches it; 0 if none does.
     indices = np.searchsorted(recall, levels, side="left")
-    sampled = np.where(indices < len(envelope), envelope[np.minimum(indices, len(envelope) - 1)], 0.0)
+    sampled = np.where(
+        indices < len(envelope), envelope[np.minimum(indices, len(envelope) - 1)], 0.0
+    )
     return float(np.mean(sampled))
 
 
-def detection_report(predictions: Sequence[dict[str, Any]],
-                     truths: Sequence[dict[str, Any]], *,
-                     labels: Sequence[str] | None = None,
-                     iou_thresholds: Sequence[float] = (0.5,),
-                     interpolation: Interpolation = "all",
-                     score_threshold: float = 0.0) -> DetectionMetrics:
+def detection_report(
+    predictions: Sequence[dict[str, Any]],
+    truths: Sequence[dict[str, Any]],
+    *,
+    labels: Sequence[str] | None = None,
+    iou_thresholds: Sequence[float] = (0.5,),
+    interpolation: Interpolation = "all",
+    score_threshold: float = 0.0,
+) -> DetectionMetrics:
     """Score a whole dataset's detections.
 
     `predictions` and `truths` are one entry per image, in the same order, each a mapping
@@ -256,9 +261,7 @@ def detection_report(predictions: Sequence[dict[str, Any]],
         raise DetectionError("iou_thresholds is empty; give at least one, e.g. (0.5,)")
     for threshold in thresholds:
         if not 0 < threshold <= 1:
-            raise DetectionError(
-                f"an IoU threshold must be above 0 and at most 1; got {threshold}"
-            )
+            raise DetectionError(f"an IoU threshold must be above 0 and at most 1; got {threshold}")
 
     classes = _classes_present(predictions, truths, labels)
     rows: list[dict[str, Any]] = []
@@ -279,8 +282,9 @@ def detection_report(predictions: Sequence[dict[str, Any]],
             if len(p_boxes) == 0:
                 continue
             for threshold in thresholds:
-                order, hit, overlap = match_detections(p_boxes, p_scores, t_boxes,
-                                                       iou_threshold=threshold)
+                order, hit, overlap = match_detections(
+                    p_boxes, p_scores, t_boxes, iou_threshold=threshold
+                )
                 pooled_hits[threshold].append(hit)
                 if threshold == thresholds[0]:
                     pooled_scores.append(np.asarray(p_scores, dtype=float)[order])
@@ -293,65 +297,79 @@ def detection_report(predictions: Sequence[dict[str, Any]],
 
         per_threshold: list[float | None] = []
         for threshold in thresholds:
-            flags = (np.concatenate(pooled_hits[threshold]) if pooled_hits[threshold]
-                     else np.zeros(0, dtype=bool))
-            per_threshold.append(average_precision(flags[across] if flags.size else flags,
-                                                   n_truth, interpolation=interpolation))
+            flags = (
+                np.concatenate(pooled_hits[threshold])
+                if pooled_hits[threshold]
+                else np.zeros(0, dtype=bool)
+            )
+            per_threshold.append(
+                average_precision(
+                    flags[across] if flags.size else flags, n_truth, interpolation=interpolation
+                )
+            )
 
         known = [value for value in per_threshold if value is not None]
         averaged = float(np.mean(known)) if known else None
         if n_truth == 0:
             without_truth.append(index)
 
-        first = (np.concatenate(pooled_hits[thresholds[0]])
-                 if pooled_hits[thresholds[0]] else np.zeros(0, dtype=bool))
+        first = (
+            np.concatenate(pooled_hits[thresholds[0]])
+            if pooled_hits[thresholds[0]]
+            else np.zeros(0, dtype=bool)
+        )
         true_positives = int(first.sum())
         false_positives = int((~first).sum())
         false_negatives = int(max(n_truth - true_positives, 0))
 
-        overlaps_matched = (np.concatenate(pooled_overlaps) if pooled_overlaps
-                            else np.zeros(0))
-        rows.append({
-            "label": labels[index] if labels is not None and index < len(labels) else str(index),
-            "class": index,
-            "average_precision": averaged,
-            # How well the boxes that matched actually fit, at the lowest threshold.
-            "mean_matched_iou": (float(overlaps_matched.mean())
-                                 if overlaps_matched.size else None),
-            "n_truth": n_truth,
-            "n_predicted": n_predicted,
-            "true_positives": true_positives,
-            "false_positives": false_positives,
-            "false_negatives": false_negatives,
-            "precision": (true_positives / n_predicted) if n_predicted else None,
-            "recall": (true_positives / n_truth) if n_truth else None,
-        })
+        overlaps_matched = np.concatenate(pooled_overlaps) if pooled_overlaps else np.zeros(0)
+        rows.append(
+            {
+                "label": labels[index]
+                if labels is not None and index < len(labels)
+                else str(index),
+                "class": index,
+                "average_precision": averaged,
+                # How well the boxes that matched actually fit, at the lowest threshold.
+                "mean_matched_iou": (
+                    float(overlaps_matched.mean()) if overlaps_matched.size else None
+                ),
+                "n_truth": n_truth,
+                "n_predicted": n_predicted,
+                "true_positives": true_positives,
+                "false_positives": false_positives,
+                "false_negatives": false_negatives,
+                "precision": (true_positives / n_predicted) if n_predicted else None,
+                "recall": (true_positives / n_truth) if n_truth else None,
+            }
+        )
 
-    scored = [row["average_precision"] for row in rows
-              if row["average_precision"] is not None]
+    scored = [row["average_precision"] for row in rows if row["average_precision"] is not None]
     # Weighted by how many boxes matched, not a mean of per-class means: a class with two
     # matches should not weigh the same as one with eight hundred.
-    weights = [row["true_positives"] for row in rows
-               if row["mean_matched_iou"] is not None]
-    values = [row["mean_matched_iou"] for row in rows
-              if row["mean_matched_iou"] is not None]
+    weights = [row["true_positives"] for row in rows if row["mean_matched_iou"] is not None]
+    values = [row["mean_matched_iou"] for row in rows if row["mean_matched_iou"] is not None]
     return DetectionMetrics(
         mean_average_precision=float(np.mean(scored)) if scored else None,
         per_class=rows,
         iou_thresholds=thresholds,
         interpolation=interpolation,
         classes_without_truth=without_truth,
-        mean_matched_iou=(float(np.average(values, weights=weights))
-                          if values and sum(weights) else None),
+        mean_matched_iou=(
+            float(np.average(values, weights=weights)) if values and sum(weights) else None
+        ),
     )
 
 
-def image_report(predictions: Sequence[dict[str, Any]],
-                 truths: Sequence[dict[str, Any]], *,
-                 labels: Sequence[str] | None = None,
-                 iou_threshold: float = 0.5,
-                 score_threshold: float = 0.0,
-                 keys: Sequence[Any] | None = None) -> list[dict[str, Any]]:
+def image_report(
+    predictions: Sequence[dict[str, Any]],
+    truths: Sequence[dict[str, Any]],
+    *,
+    labels: Sequence[str] | None = None,
+    iou_threshold: float = 0.5,
+    score_threshold: float = 0.0,
+    keys: Sequence[Any] | None = None,
+) -> list[dict[str, Any]]:
     """One row per image: what was found, what was missed, and how well it fits.
 
     The detection counterpart of segmentation's per-case scores, and the answer to the
@@ -389,9 +407,7 @@ def image_report(predictions: Sequence[dict[str, Any]],
             f"{len(keys)} keys for {len(predictions)} images; there must be one each"
         )
     if not 0 < iou_threshold <= 1:
-        raise DetectionError(
-            f"an IoU threshold must be above 0 and at most 1; got {iou_threshold}"
-        )
+        raise DetectionError(f"an IoU threshold must be above 0 and at most 1; got {iou_threshold}")
 
     classes = _classes_present(predictions, truths, labels)
     rows: list[dict[str, Any]] = []
@@ -405,23 +421,26 @@ def image_report(predictions: Sequence[dict[str, Any]],
             n_predicted += len(boxes)
             if not len(boxes) or not len(truth_boxes):
                 continue
-            _, hit, at = match_detections(boxes, scores, truth_boxes,
-                                          iou_threshold=iou_threshold)
+            _, hit, at = match_detections(boxes, scores, truth_boxes, iou_threshold=iou_threshold)
             matched += int(hit.sum())
             overlaps.extend(float(value) for value in at[hit])
 
-        key = keys[position] if keys is not None else (
-            predicted.get("key", truth.get("key", position))
+        key = (
+            keys[position]
+            if keys is not None
+            else (predicted.get("key", truth.get("key", position)))
         )
-        rows.append({
-            "key": key,
-            "n_truth": n_truth,
-            "n_predicted": n_predicted,
-            "matched": matched,
-            "missed": n_truth - matched,
-            "spurious": n_predicted - matched,
-            "mean_matched_iou": float(np.mean(overlaps)) if overlaps else None,
-        })
+        rows.append(
+            {
+                "key": key,
+                "n_truth": n_truth,
+                "n_predicted": n_predicted,
+                "matched": matched,
+                "missed": n_truth - matched,
+                "spurious": n_predicted - matched,
+                "mean_matched_iou": float(np.mean(overlaps)) if overlaps else None,
+            }
+        )
     return rows
 
 
@@ -464,15 +483,12 @@ def _of_class_truth(entry: dict[str, Any], index: int) -> np.ndarray:
     labels = np.asarray(entry.get("labels", []), dtype=int).ravel()
     if len(boxes) != len(labels):
         raise DetectionError(
-            f"an image's truth has {len(boxes)} boxes and {len(labels)} labels; they must "
-            f"agree"
+            f"an image's truth has {len(boxes)} boxes and {len(labels)} labels; they must agree"
         )
     # Pascal VOC marks some objects `difficult` and its own evaluation leaves them out.
     # Honoured when present, because counting them makes a model look worse than the
     # benchmark it is being compared against.
     difficult = np.asarray(entry.get("difficult", np.zeros(len(boxes))), dtype=bool).ravel()
     if len(difficult) != len(boxes):
-        raise DetectionError(
-            f"`difficult` has {len(difficult)} entries for {len(boxes)} boxes"
-        )
+        raise DetectionError(f"`difficult` has {len(difficult)} entries for {len(boxes)} boxes")
     return boxes[(labels == index) & ~difficult]

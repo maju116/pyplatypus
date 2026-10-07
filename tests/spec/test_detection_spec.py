@@ -27,14 +27,16 @@ COCO_IN_PIXELS = [
 
 @pytest.fixture
 def detection_data():
-    return {"train_path": ".", "validation_path": ".",
-            "classes": ["RBC", "WBC", "Platelets"]}
+    return {"train_path": ".", "validation_path": ".", "classes": ["RBC", "WBC", "Platelets"]}
 
 
 @pytest.fixture
 def detection_config(detection_data):
-    return {"task": "object_detection", "data": detection_data,
-            "models": [{"name": "bccd", "input_shape": [416, 416]}]}
+    return {
+        "task": "object_detection",
+        "data": detection_data,
+        "models": [{"name": "bccd", "input_shape": [416, 416]}],
+    }
 
 
 def build(config):
@@ -42,6 +44,7 @@ def build(config):
 
 
 # --- the discriminator ------------------------------------------------------------------
+
 
 def test_a_configuration_without_a_task_is_a_segmentation_one(config):
     """Every configuration written before detection existed is a segmentation one, and
@@ -70,11 +73,14 @@ def test_an_unknown_task_lists_the_two_that_exist(detection_config):
     assert "Task." not in message
 
 
-def test_a_segmentation_field_in_a_detection_spec_is_refused(detection_config,
-                                                             detection_data):
+def test_a_segmentation_field_in_a_detection_spec_is_refused(detection_config, detection_data):
     with pytest.raises(ConfigError) as caught:
-        build({**detection_config,
-               "data": {**detection_data, "colormap": [[0, 0, 0], [255, 255, 255]]}})
+        build(
+            {
+                **detection_config,
+                "data": {**detection_data, "colormap": [[0, 0, 0], [255, 255, 255]]},
+            }
+        )
     problem = caught.value.problems[0]
     assert problem["where"] == "data.colormap"
     assert "not permitted" in problem["problem"]
@@ -91,8 +97,7 @@ def test_the_tag_is_not_reported_as_a_field(detection_config):
     """pydantic puts the matched tag at the head of every nested location, so an error
     reads 'detection.models[0]' - which looks like a field called `detection`."""
     with pytest.raises(ConfigError) as caught:
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [400, 400]}]})
+        build({**detection_config, "models": [{"name": "bccd", "input_shape": [400, 400]}]})
     assert caught.value.problems[0]["where"] == "models[0]"
 
 
@@ -105,6 +110,7 @@ def test_the_base_class_cannot_be_built_directly(config):
 
 # --- what detection needs that segmentation does not ------------------------------------
 
+
 def test_classes_decide_the_count_and_the_index(detection_config):
     spec = build(detection_config)
     assert spec.n_class == 3
@@ -115,15 +121,19 @@ def test_one_class_is_allowed_because_there_is_no_background(detection_data):
     """A segmentation colormap needs at least two entries, one of them the background. A
     region of an image holding no object is not a box, so a single-class detector is an
     ordinary thing to want."""
-    spec = build({"task": "object_detection", "data": {**detection_data, "classes": ["cell"]},
-                  "models": [{"name": "one", "input_shape": [416, 416]}]})
+    spec = build(
+        {
+            "task": "object_detection",
+            "data": {**detection_data, "classes": ["cell"]},
+            "models": [{"name": "one", "input_shape": [416, 416]}],
+        }
+    )
     assert spec.n_class == 1
 
 
 def test_duplicate_class_names_are_refused(detection_config, detection_data):
     with pytest.raises(ConfigError, match="distinct"):
-        build({**detection_config,
-               "data": {**detection_data, "classes": ["RBC", "RBC"]}})
+        build({**detection_config, "data": {**detection_data, "classes": ["RBC", "RBC"]}})
 
 
 def test_anchors_default_to_being_fitted(detection_config):
@@ -137,17 +147,23 @@ def test_anchors_are_fractions_and_pixels_say_so(detection_config):
     """The published COCO anchors are in pixels at a 416 input, so this is the mistake
     somebody makes once. The message has to name the conversion, not just the range."""
     with pytest.raises(ConfigError) as caught:
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416],
-                           "anchors": COCO_IN_PIXELS}]})
+        build(
+            {
+                **detection_config,
+                "models": [{"name": "bccd", "input_shape": [416, 416], "anchors": COCO_IN_PIXELS}],
+            }
+        )
     assert "times the input size" in str(caught.value)
 
 
 def test_anchors_in_fractions_are_accepted_and_come_back_as_tuples(detection_config):
     fractions = [[[w / 416, h / 416] for w, h in group] for group in COCO_IN_PIXELS]
-    spec = build({**detection_config,
-                  "models": [{"name": "bccd", "input_shape": [416, 416],
-                              "anchors": fractions}]})
+    spec = build(
+        {
+            **detection_config,
+            "models": [{"name": "bccd", "input_shape": [416, 416], "anchors": fractions}],
+        }
+    )
     anchors = spec.models[0].anchors_as_tuples
     assert len(anchors) == 3
     assert all(len(group) == 3 for group in anchors)
@@ -156,9 +172,18 @@ def test_anchors_in_fractions_are_accepted_and_come_back_as_tuples(detection_con
 
 def test_the_wrong_number_of_grids_is_refused(detection_config):
     with pytest.raises(ConfigError, match="3 groups"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416],
-                           "anchors": [[[0.1, 0.1]], [[0.2, 0.2]]]}]})
+        build(
+            {
+                **detection_config,
+                "models": [
+                    {
+                        "name": "bccd",
+                        "input_shape": [416, 416],
+                        "anchors": [[[0.1, 0.1]], [[0.2, 0.2]]],
+                    }
+                ],
+            }
+        )
 
 
 def test_grids_with_different_anchor_counts_are_refused(detection_config):
@@ -166,16 +191,30 @@ def test_grids_with_different_anchor_counts_are_refused(detection_config):
     be built at all - and the error belongs here rather than inside torch."""
     uneven = [[[0.5, 0.5], [0.4, 0.4]], [[0.2, 0.2]], [[0.1, 0.1]]]
     with pytest.raises(ConfigError, match="same number of anchors"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416], "anchors": uneven}]})
+        build(
+            {
+                **detection_config,
+                "models": [{"name": "bccd", "input_shape": [416, 416], "anchors": uneven}],
+            }
+        )
 
 
 def test_anchors_and_anchors_per_grid_must_agree(detection_config):
     given = [[[0.5, 0.5], [0.4, 0.4], [0.3, 0.3]]] * 3
     with pytest.raises(ConfigError, match="anchors_per_grid"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416],
-                           "anchors": given, "anchors_per_grid": 2}]})
+        build(
+            {
+                **detection_config,
+                "models": [
+                    {
+                        "name": "bccd",
+                        "input_shape": [416, 416],
+                        "anchors": given,
+                        "anchors_per_grid": 2,
+                    }
+                ],
+            }
+        )
 
 
 @pytest.mark.parametrize("size", [[400, 400], [416, 400], [417, 416], [480, 450]])
@@ -197,8 +236,7 @@ def test_detection_in_three_dimensions_is_refused(detection_config):
     """Refused while the spec is read, like `encoder` at rank 3: nothing is allocated and
     no weights are fetched before the answer is known."""
     with pytest.raises(ConfigError, match="detection is 2D"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [64, 64, 32]}]})
+        build({**detection_config, "models": [{"name": "bccd", "input_shape": [64, 64, 32]}]})
 
 
 def test_coordinates_default_to_the_voc_convention(detection_config):
@@ -211,14 +249,20 @@ def test_coordinates_cannot_be_set_for_labelme(detection_config, detection_data)
     """LabelMe stores continuous pixel coordinates, so accepting the field and ignoring it
     would leave someone believing they had changed how their boxes are read."""
     with pytest.raises(ConfigError, match="continuous pixel coordinates"):
-        build({**detection_config,
-               "data": {**detection_data, "annotation_format": "labelme",
-                        "coordinates": "zero_based"}})
+        build(
+            {
+                **detection_config,
+                "data": {
+                    **detection_data,
+                    "annotation_format": "labelme",
+                    "coordinates": "zero_based",
+                },
+            }
+        )
 
 
 def test_labelme_without_coordinates_is_fine(detection_config, detection_data):
-    spec = build({**detection_config,
-                  "data": {**detection_data, "annotation_format": "labelme"}})
+    spec = build({**detection_config, "data": {**detection_data, "annotation_format": "labelme"}})
     assert spec.data.annotation_format == "labelme"
 
 
@@ -231,12 +275,23 @@ def test_the_annotation_subdirectory_is_not_called_masks(detection_config):
 
 # --- what both tasks share ---------------------------------------------------------------
 
+
 def test_the_shared_fields_are_shared(detection_config):
-    spec = build({**detection_config,
-                  "seed": 7,
-                  "models": [{"name": "bccd", "input_shape": [416, 416],
-                              "epochs": 150, "batch_size": 4,
-                              "optimizer": {"name": "adamw", "learning_rate": 1e-4}}]})
+    spec = build(
+        {
+            **detection_config,
+            "seed": 7,
+            "models": [
+                {
+                    "name": "bccd",
+                    "input_shape": [416, 416],
+                    "epochs": 150,
+                    "batch_size": 4,
+                    "optimizer": {"name": "adamw", "learning_rate": 1e-4},
+                }
+            ],
+        }
+    )
     model = spec.models[0]
     assert (spec.seed, model.epochs, model.batch_size) == (7, 150, 4)
     assert model.optimizer.name == "adamw"
@@ -258,15 +313,24 @@ def test_not_fitting_needs_weights_at_either_task(detection_config):
     published detector and predict with it - and the base's message is the right one
     again."""
     with pytest.raises(ConfigError, match="fit=false only makes sense together with"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416], "fit": False}]})
+        build(
+            {
+                **detection_config,
+                "models": [{"name": "bccd", "input_shape": [416, 416], "fit": False}],
+            }
+        )
 
 
 def test_fit_false_with_weights_is_accepted(detection_config):
     """What a vignette opens with: boxes on an image before any training."""
-    spec = build({**detection_config,
-                  "models": [{"name": "bccd", "input_shape": [416, 416],
-                              "weights": "bccd-yolo3", "fit": False}]})
+    spec = build(
+        {
+            **detection_config,
+            "models": [
+                {"name": "bccd", "input_shape": [416, 416], "weights": "bccd-yolo3", "fit": False}
+            ],
+        }
+    )
     assert spec.models[0].fit is False
     assert spec.models[0].weights == "bccd-yolo3"
 
@@ -275,24 +339,49 @@ def test_naming_weights_and_anchors_is_refused(detection_config):
     """Two claims about one model with one of them untrue. Loading adopts the anchors
     recorded beside the weights, so anchors in the specification would describe nothing."""
     with pytest.raises(ConfigError, match="both `weights` and `anchors`"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416],
-                           "weights": "bccd-yolo3",
-                           "anchors": [[[0.3, 0.3], [0.2, 0.2], [0.1, 0.1]]] * 3}]})
+        build(
+            {
+                **detection_config,
+                "models": [
+                    {
+                        "name": "bccd",
+                        "input_shape": [416, 416],
+                        "weights": "bccd-yolo3",
+                        "anchors": [[[0.3, 0.3], [0.2, 0.2], [0.1, 0.1]]] * 3,
+                    }
+                ],
+            }
+        )
 
 
 def test_a_callback_can_only_watch_the_loss(detection_config):
     """Detection has no `metrics` field, so there is nothing else to watch yet. The
     message has to list what there is rather than say no."""
     with pytest.raises(ConfigError, match="val_dice"):
-        build({**detection_config,
-               "models": [{"name": "bccd", "input_shape": [416, 416],
-                           "callbacks": [{"name": "early_stopping",
-                                          "monitor": "val_dice"}]}]})
-    spec = build({**detection_config,
-                  "models": [{"name": "bccd", "input_shape": [416, 416],
-                              "callbacks": [{"name": "early_stopping",
-                                             "monitor": "val_loss"}]}]})
+        build(
+            {
+                **detection_config,
+                "models": [
+                    {
+                        "name": "bccd",
+                        "input_shape": [416, 416],
+                        "callbacks": [{"name": "early_stopping", "monitor": "val_dice"}],
+                    }
+                ],
+            }
+        )
+    spec = build(
+        {
+            **detection_config,
+            "models": [
+                {
+                    "name": "bccd",
+                    "input_shape": [416, 416],
+                    "callbacks": [{"name": "early_stopping", "monitor": "val_loss"}],
+                }
+            ],
+        }
+    )
     assert spec.models[0].callbacks[0].monitor == "val_loss"
 
 
@@ -302,21 +391,26 @@ def test_detection_offers_no_loss_or_metric_to_choose(detection_config):
     no field, so neither exists - and that has to stay deliberate rather than pending."""
     for field, value in (("loss", {"name": "dice"}), ("metrics", [{"name": "iou"}])):
         with pytest.raises(ConfigError) as caught:
-            build({**detection_config,
-                   "models": [{"name": "bccd", "input_shape": [416, 416], field: value}]})
+            build(
+                {
+                    **detection_config,
+                    "models": [{"name": "bccd", "input_shape": [416, 416], field: value}],
+                }
+            )
         assert caught.value.problems[0]["where"] == f"models[0].{field}"
 
 
 def test_thresholds_are_separate_because_they_answer_different_questions(detection_config):
     spec = build(detection_config)
     model = spec.models[0]
-    assert model.score_threshold == 0.01       # what is computed at all
-    assert model.operating_point == 0.5        # where precision and recall are read
-    assert model.nms_threshold == 0.45         # when two boxes are one object
-    assert model.ignore_threshold == 0.5       # which cells go unsupervised
+    assert model.score_threshold == 0.01  # what is computed at all
+    assert model.operating_point == 0.5  # where precision and recall are read
+    assert model.nms_threshold == 0.45  # when two boxes are one object
+    assert model.ignore_threshold == 0.5  # which cells go unsupervised
 
 
 # --- the engine does not pretend ---------------------------------------------------------
+
 
 def test_the_engine_refuses_a_detection_spec(detection_config, tmp_path):
     """The spec validates and nothing trains from it yet. Saying so plainly beats failing
@@ -325,8 +419,15 @@ def test_the_engine_refuses_a_detection_spec(detection_config, tmp_path):
     from pyplatypus import Engine
     from pyplatypus.engine import EngineError
 
-    spec = build({**detection_config,
-                  "data": {"train_path": str(tmp_path), "validation_path": str(tmp_path),
-                           "classes": ["RBC"]}})
+    spec = build(
+        {
+            **detection_config,
+            "data": {
+                "train_path": str(tmp_path),
+                "validation_path": str(tmp_path),
+                "classes": ["RBC"],
+            },
+        }
+    )
     with pytest.raises(EngineError, match="trains segmentation"):
         Engine(spec)

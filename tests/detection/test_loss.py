@@ -15,14 +15,11 @@ from pyplatypus.detection.encode import encode
 from pyplatypus.detection.loss import Yolo3Loss
 from pyplatypus.detection.metrics import DetectionError
 
-ANCHORS = (((0.25, 0.25), (0.15, 0.30)),
-           ((0.10, 0.10), (0.06, 0.12)),
-           ((0.04, 0.04), (0.02, 0.05)))
+ANCHORS = (((0.25, 0.25), (0.15, 0.30)), ((0.10, 0.10), (0.06, 0.12)), ((0.04, 0.04), (0.02, 0.05)))
 
 
 def targets_for(boxes, labels, *, n_class=3, size=416, anchors=ANCHORS):
-    encoded = encode(boxes, labels, anchors=anchors, input_shape=(size, size),
-                     n_class=n_class)
+    encoded = encode(boxes, labels, anchors=anchors, input_shape=(size, size), n_class=n_class)
     return [torch.from_numpy(t)[None] for t in encoded.targets]
 
 
@@ -48,6 +45,7 @@ def perfect(targets, big=12.0):
 
 # --- what "optimal" means here ----------------------------------------------------------
 
+
 def test_the_gradient_vanishes_at_the_optimum():
     """Which is the property that matters for training, and the one to assert - not a loss
     of zero, which cross-entropy against a soft target cannot reach."""
@@ -65,11 +63,11 @@ def test_the_floor_is_the_targets_own_entropy():
     -p ln p - (1-p) ln(1-p)."""
     for value in (0.25, 0.5, 0.75):
         target = torch.tensor([value])
-        at_optimum = F.binary_cross_entropy_with_logits(
-            torch.logit(target), target
+        at_optimum = F.binary_cross_entropy_with_logits(torch.logit(target), target).item()
+        entropy = -(
+            value * torch.log(torch.tensor(value))
+            + (1 - value) * torch.log(torch.tensor(1 - value))
         ).item()
-        entropy = -(value * torch.log(torch.tensor(value))
-                    + (1 - value) * torch.log(torch.tensor(1 - value))).item()
         assert at_optimum == pytest.approx(entropy, abs=1e-6)
 
 
@@ -100,6 +98,7 @@ def test_the_loss_falls_as_a_prediction_approaches_the_target():
 
 # --- the four terms are on a comparable scale -------------------------------------------
 
+
 def test_the_no_object_term_does_not_swamp_the_others():
     """The first version divided this by the object count while summing it over thousands
     of empty cells, so one object gave a no-object loss of 4915 against a coordinate loss
@@ -120,11 +119,8 @@ def test_the_parts_are_reported_separately():
     """One number cannot say what is wrong: a run whose coordinate loss falls while its
     objectness does not is finding the right places and refusing to commit."""
     targets = targets_for([[40, 40, 140, 140]], [0])
-    parts = Yolo3Loss(anchors=ANCHORS, n_class=3)(
-        [torch.zeros_like(t) for t in targets], targets
-    )
-    assert set(parts.as_dict()) == {"loss", "coordinates", "objectness", "no_object",
-                                    "classes"}
+    parts = Yolo3Loss(anchors=ANCHORS, n_class=3)([torch.zeros_like(t) for t in targets], targets)
+    assert set(parts.as_dict()) == {"loss", "coordinates", "objectness", "no_object", "classes"}
     assert parts.total == pytest.approx(
         parts.coordinates + parts.objectness + parts.no_object + parts.classes
     )
@@ -144,6 +140,7 @@ def test_small_boxes_are_weighted_up():
 
 
 # --- the ignore mask --------------------------------------------------------------------
+
 
 def test_a_cell_predicting_the_real_object_is_left_alone():
     """The detail most reimplementations drop. A cell beside the assigned one often
@@ -215,14 +212,19 @@ def test_chunking_the_overlaps_does_not_change_the_mask(monkeypatch):
     """
     import pyplatypus.detection.loss as module
 
-    boxes = [[40, 40, 140, 140], [200, 210, 260, 280], [300, 20, 390, 100],
-             [10, 300, 120, 400], [180, 180, 200, 205]]
+    boxes = [
+        [40, 40, 140, 140],
+        [200, 210, 260, 280],
+        [300, 20, 390, 100],
+        [10, 300, 120, 400],
+        [180, 180, 200, 205],
+    ]
     targets = targets_for(boxes, [0, 1, 2, 0, 1])
     loss = Yolo3Loss(anchors=ANCHORS, n_class=3, ignore_threshold=0.3)
     truth = loss._truth_boxes(targets)
     predictions = [p * 0.3 for p in perfect(targets)]
 
-    monkeypatch.setattr(module, "_IOU_CHUNK", 10 ** 9)
+    monkeypatch.setattr(module, "_IOU_CHUNK", 10**9)
     whole = [loss._ignore_mask(i, predictions[i], truth) for i in range(3)]
     monkeypatch.setattr(module, "_IOU_CHUNK", 7)
     chunked = [loss._ignore_mask(i, predictions[i], truth) for i in range(3)]
@@ -233,6 +235,7 @@ def test_chunking_the_overlaps_does_not_change_the_mask(monkeypatch):
 
 
 # --- truth recovered from the targets ---------------------------------------------------
+
 
 def test_the_truth_boxes_are_read_back_out_of_the_targets():
     """So the loss needs nothing the model's own target does not already carry - which
@@ -262,6 +265,7 @@ def test_an_image_with_nothing_in_it_contributes_only_background():
 
 # --- refusals ---------------------------------------------------------------------------
 
+
 def test_a_grid_count_that_does_not_match_the_anchors_is_refused():
     targets = targets_for([[40, 40, 140, 140]], [0])
     loss = Yolo3Loss(anchors=ANCHORS, n_class=3)
@@ -285,11 +289,11 @@ def test_an_impossible_ignore_threshold_is_refused(threshold):
 
 def test_unequal_anchor_counts_are_refused():
     with pytest.raises(DetectionError, match="same number of anchors"):
-        Yolo3Loss(anchors=(((0.2, 0.2), (0.3, 0.3)), ((0.1, 0.1),), ((0.05, 0.05),)),
-                  n_class=1)
+        Yolo3Loss(anchors=(((0.2, 0.2), (0.3, 0.3)), ((0.1, 0.1),), ((0.05, 0.05),)), n_class=1)
 
 
 # --- the join with the model -------------------------------------------------------------
+
 
 def test_the_model_and_the_loss_fit_together_and_training_reduces_it():
     """The join nobody tests until a training run fails.

@@ -61,6 +61,7 @@ def _spread(total: int, count: int) -> list[int]:
         positions = sorted({round(i * step) for i in range(count)})
 
     order: list[int] = []
+
     def bisect(lo: int, hi: int) -> None:
         if lo > hi:
             return
@@ -109,9 +110,16 @@ class SegmentationDataset:
     samples x tiles and indexing walks the tiles of a sample before moving on.
     """
 
-    def __init__(self, samples: tuple[Sample, ...], model: SegmentationModel,
-                 data: SegmentationData, *, augmenter: Augmenter | None = None,
-                 only_images: bool = False, cache_size: int = 8):
+    def __init__(
+        self,
+        samples: tuple[Sample, ...],
+        model: SegmentationModel,
+        data: SegmentationData,
+        *,
+        augmenter: Augmenter | None = None,
+        only_images: bool = False,
+        cache_size: int = 8,
+    ):
         self.samples = samples
         self.model = model
         self.data = data
@@ -135,8 +143,9 @@ class SegmentationDataset:
 
         sample = self.samples[index]
         size = self.model.load_shape
-        image = self._read(sample.images, channels=self.model.channels, size=size,
-                           as_channels=True, key=sample.key)
+        image = self._read(
+            sample.images, channels=self.model.channels, size=size, as_channels=True, key=sample.key
+        )
 
         classes: np.ndarray | None = None
         if not self.only_images:
@@ -151,13 +160,22 @@ class SegmentationDataset:
                 # the mask covers the tissue.
                 # Never `as_channels`: a mask is one labelling of one anatomy, and
                 # four modalities do not come with four masks.
-                masks = [self._read(sample.masks, channels=mask_channels, size=size,
-                                    nearest=True, key=sample.key)]
+                masks = [
+                    self._read(
+                        sample.masks,
+                        channels=mask_channels,
+                        size=size,
+                        nearest=True,
+                        key=sample.key,
+                    )
+                ]
             else:
                 # 2D keeps one file per object - the Data Science Bowl ships a mask per
                 # nucleus - and unites them.
-                masks = [read_image(p, channels=mask_channels, size=size, nearest=True)
-                         for p in sample.masks]
+                masks = [
+                    read_image(p, channels=mask_channels, size=size, nearest=True)
+                    for p in sample.masks
+                ]
             united = unite_masks(masks)
             classes, _ = self._to_classes(united)
 
@@ -166,9 +184,16 @@ class SegmentationDataset:
             self._cache.popitem(last=False)
         return image, classes
 
-    def _read(self, paths: tuple, *, channels: int, size: tuple[int, ...],
-              nearest: bool = False, as_channels: bool = False,
-              key: str | None = None) -> np.ndarray:
+    def _read(
+        self,
+        paths: tuple,
+        *,
+        channels: int,
+        size: tuple[int, ...],
+        nearest: bool = False,
+        as_channels: bool = False,
+        key: str | None = None,
+    ) -> np.ndarray:
         """Read one sample's image files as one array.
 
         Three shapes of input, distinguished by what the data says rather than by guessing:
@@ -179,14 +204,14 @@ class SegmentationDataset:
         if as_channels and self.data.channels_from is not None and len(paths) > 1:
             ordered = match_channels(paths, self.data.channels_from, key=key)
             if self.model.rank == 3:
-                return self._read_volume_channels(ordered, size=size, nearest=nearest,
-                                                  key=key)
+                return self._read_volume_channels(ordered, size=size, nearest=nearest, key=key)
             # In 2D the files are bands of one scene and may legitimately arrive at different
             # resolutions - Sentinel ships 10 m and 20 m bands of the same tile - so each is
             # read at the wanted size and no geometry is being asserted.
             planes = [
-                read_image(path, channels=1, size=size, nearest=nearest,
-                           dicom_window=self.data.window)
+                read_image(
+                    path, channels=1, size=size, nearest=nearest, dicom_window=self.data.window
+                )
                 for path in ordered
             ]
             return np.concatenate(planes, axis=-1)
@@ -196,12 +221,16 @@ class SegmentationDataset:
 
             if self.data.target_spacing is not None:
                 return self._at_spacing(
-                    read_dicom_series(list(paths), window=self.data.window,
-                                      channels=channels, nearest=nearest),
-                    _series_spacing(paths), size=size, nearest=nearest,
+                    read_dicom_series(
+                        list(paths), window=self.data.window, channels=channels, nearest=nearest
+                    ),
+                    _series_spacing(paths),
+                    size=size,
+                    nearest=nearest,
                 )
-            return read_dicom_series(list(paths), window=self.data.window,
-                                     channels=channels, size=size, nearest=nearest)
+            return read_dicom_series(
+                list(paths), window=self.data.window, channels=channels, size=size, nearest=nearest
+            )
 
         if len(paths) > 1 and self.model.rank == 3:
             raise DataError(
@@ -213,8 +242,9 @@ class SegmentationDataset:
             )
         return self._read_one(paths[0], channels=channels, size=size, nearest=nearest)
 
-    def _read_volume_channels(self, ordered: tuple, *, size: tuple[int, ...],
-                              nearest: bool, key: str | None) -> np.ndarray:
+    def _read_volume_channels(
+        self, ordered: tuple, *, size: tuple[int, ...], nearest: bool, key: str | None
+    ) -> np.ndarray:
         """Stack one volume per channel, checking they describe the same anatomy first.
 
         Read at native resolution and compared before anything is resized, because resizing
@@ -227,8 +257,9 @@ class SegmentationDataset:
 
         planes, spacings = [], []
         for path in ordered:
-            planes.append(read_image(path, channels=1, nearest=nearest,
-                                     dicom_window=self.data.window))
+            planes.append(
+                read_image(path, channels=1, nearest=nearest, dicom_window=self.data.window)
+            )
             if self.data.target_spacing is not None:
                 spacings.append(volume_spacing(path))
 
@@ -259,21 +290,24 @@ class SegmentationDataset:
 
         return resize_volume(stacked, size, nearest=nearest)
 
-    def _read_one(self, path, *, channels: int, size: tuple[int, ...],
-                  nearest: bool = False) -> np.ndarray:
+    def _read_one(
+        self, path, *, channels: int, size: tuple[int, ...], nearest: bool = False
+    ) -> np.ndarray:
         """One file, resampled to the wanted voxel size when that was asked for."""
         if self.model.rank == 3 and self.data.target_spacing is not None:
             from pyplatypus.data.volumes import volume_spacing
 
-            volume = read_image(path, channels=channels, nearest=nearest,
-                                dicom_window=self.data.window)
-            return self._at_spacing(volume, volume_spacing(path), size=size,
-                                    nearest=nearest)
-        return read_image(path, channels=channels, size=size, nearest=nearest,
-                          dicom_window=self.data.window)
+            volume = read_image(
+                path, channels=channels, nearest=nearest, dicom_window=self.data.window
+            )
+            return self._at_spacing(volume, volume_spacing(path), size=size, nearest=nearest)
+        return read_image(
+            path, channels=channels, size=size, nearest=nearest, dicom_window=self.data.window
+        )
 
-    def _at_spacing(self, volume: np.ndarray, spacing, *, size: tuple[int, ...],
-                    nearest: bool) -> np.ndarray:
+    def _at_spacing(
+        self, volume: np.ndarray, spacing, *, size: tuple[int, ...], nearest: bool
+    ) -> np.ndarray:
         """Resample to `target_spacing`, then fit to `size` by cropping or padding.
 
         The order matters. Reading straight to `size` resizes each volume into the same box, so
@@ -284,8 +318,7 @@ class SegmentationDataset:
         """
         from pyplatypus.data.volumes import crop_or_pad, resample_to_spacing
 
-        resampled = resample_to_spacing(volume, spacing, self.data.target_spacing,
-                                        nearest=nearest)
+        resampled = resample_to_spacing(volume, spacing, self.data.target_spacing, nearest=nearest)
         return crop_or_pad(resampled, size)
 
     def _to_classes(self, mask: np.ndarray) -> tuple[np.ndarray, float]:
@@ -371,12 +404,19 @@ class SegmentationDataset:
                 break
             sample = self.samples[index]
             if self.model.rank == 3:
-                masks = [self._read(sample.masks, channels=mask_channels,
-                                    size=self.model.load_shape, nearest=True)]
+                masks = [
+                    self._read(
+                        sample.masks,
+                        channels=mask_channels,
+                        size=self.model.load_shape,
+                        nearest=True,
+                    )
+                ]
             else:
-                masks = [read_image(p, channels=mask_channels, size=self.model.load_shape,
-                                    nearest=True)
-                         for p in sample.masks]
+                masks = [
+                    read_image(p, channels=mask_channels, size=self.model.load_shape, nearest=True)
+                    for p in sample.masks
+                ]
             classes, fraction = self._to_classes(unite_masks(masks))
             unmatched.append(fraction)
             seen.update(int(value) for value in np.unique(classes))

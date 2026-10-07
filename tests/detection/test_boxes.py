@@ -43,7 +43,7 @@ def test_forward_and_inverse_are_exact_inverses(source):
 def test_a_box_in_the_padding_comes_back_inside_the_image():
     """A prediction can land in the padding, which is not a place."""
     fit = Letterbox.fit((480, 640), (416, 416))
-    inside = fit.inverse([[0, 0, 416, 20]])[0]      # entirely in the top band
+    inside = fit.inverse([[0, 0, 416, 20]])[0]  # entirely in the top band
     assert inside[1] >= 0 and inside[3] >= 0
     assert inside[3] <= 480
 

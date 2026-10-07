@@ -5,11 +5,14 @@ from pyplatypus.data import read_image, stitch, tile, to_float
 from pyplatypus.data.images import ImageError
 
 
-@pytest.mark.parametrize("shape,splits", [
-    ((256, 384, 3), (2, 3)),
-    ((8, 8, 1), (4, 2)),
-    ((64, 64, 64, 1), (2, 2, 2)),   # 3D, same code
-])
+@pytest.mark.parametrize(
+    "shape,splits",
+    [
+        ((256, 384, 3), (2, 3)),
+        ((8, 8, 1), (4, 2)),
+        ((64, 64, 64, 1), (2, 2, 2)),  # 3D, same code
+    ],
+)
 def test_tile_and_stitch_are_exact_inverses(shape, splits):
     """This is the guarantee the old package never had: what was cut up comes back."""
     original = np.arange(np.prod(shape), dtype=np.float32).reshape(shape)
@@ -57,7 +60,7 @@ def test_masks_are_resized_without_inventing_colours(tmp_path):
     nearest = read_image(tmp_path / "m.png", channels=3, size=(33, 33), nearest=True)
     smooth = read_image(tmp_path / "m.png", channels=3, size=(33, 33), nearest=False)
     assert set(np.unique(nearest)) == {0, 255}
-    assert len(np.unique(smooth)) > 2      # interpolation blends, which would break classes
+    assert len(np.unique(smooth)) > 2  # interpolation blends, which would break classes
 
 
 def test_greyscale_gets_a_channel_axis(tmp_path):

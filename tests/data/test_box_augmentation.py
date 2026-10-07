@@ -27,8 +27,7 @@ SIZE = 96
 
 def steps(*named):
     """`[("HorizontalFlip", {}), ...]` as the spec would carry it, always applied."""
-    return [AugmentationStep(name=name, params={**params, "p": 1.0})
-            for name, params in named]
+    return [AugmentationStep(name=name, params={**params, "p": 1.0}) for name, params in named]
 
 
 def measured(image):
@@ -92,8 +91,9 @@ def ids_for(cases):
 @pytest.mark.parametrize(("name", "params"), EXACT, ids=ids_for(EXACT))
 def test_an_exact_transform_puts_the_box_exactly_where_the_pixels_are(name, params):
     for seed in range(DRAWS):
-        augmenter = build_box_augmenter(steps((name, params)), input_shape=(SIZE, SIZE),
-                                        min_visibility=0.0, seed=seed)
+        augmenter = build_box_augmenter(
+            steps((name, params)), input_shape=(SIZE, SIZE), min_visibility=0.0, seed=seed
+        )
         image, boxes, labels = bright_square()
         out_image, out_boxes, out_labels = augmenter(image, boxes, labels)
         where = measured(out_image)
@@ -121,25 +121,25 @@ def test_a_warping_transform_still_bounds_the_object(name, params):
     background.
     """
     for seed in range(DRAWS):
-        augmenter = build_box_augmenter(steps((name, params)), input_shape=(SIZE, SIZE),
-                                        min_visibility=0.0, seed=seed)
+        augmenter = build_box_augmenter(
+            steps((name, params)), input_shape=(SIZE, SIZE), min_visibility=0.0, seed=seed
+        )
         image, boxes, labels = bright_square()
         out_image, out_boxes, _ = augmenter(image, boxes, labels)
         where = measured(out_image)
         if len(out_boxes) == 0 or where is None:
             continue
         got = out_boxes[0]
-        outside = max(got[0] - where[0], got[1] - where[1],
-                      where[2] - got[2], where[3] - got[3], 0.0)
-        slack = max(where[0] - got[0], where[1] - got[1],
-                    got[2] - where[2], got[3] - where[3], 0.0)
+        outside = max(
+            got[0] - where[0], got[1] - where[1], where[2] - got[2], where[3] - got[3], 0.0
+        )
+        slack = max(where[0] - got[0], where[1] - got[1], got[2] - where[2], got[3] - where[3], 0.0)
         assert outside <= WARP_TOLERANCE, (
             f"{name} seed {seed}: {outside:.2f} px of the object is outside the box "
             f"{got} - the box no longer covers what it labels"
         )
         assert slack <= WARP_TOLERANCE, (
-            f"{name} seed {seed}: the box {got} is {slack:.2f} px larger than the object "
-            f"at {where}"
+            f"{name} seed {seed}: the box {got} is {slack:.2f} px larger than the object at {where}"
         )
 
 
@@ -158,16 +158,15 @@ def test_labels_follow_their_boxes():
     """Three boxes of three classes, flipped. The order albumentations returns them in is
     its own business; what must hold is that each label still belongs to its box."""
     image = np.zeros((SIZE, SIZE, 3), np.float32)
-    boxes = np.array([[4.0, 4.0, 20.0, 20.0],
-                      [40.0, 40.0, 60.0, 60.0],
-                      [70.0, 10.0, 90.0, 30.0]])
+    boxes = np.array([[4.0, 4.0, 20.0, 20.0], [40.0, 40.0, 60.0, 60.0], [70.0, 10.0, 90.0, 30.0]])
     labels = np.array([0, 1, 2])
-    augmenter = build_box_augmenter(steps(("HorizontalFlip", {})), input_shape=(SIZE, SIZE), min_visibility=0.0)
+    augmenter = build_box_augmenter(
+        steps(("HorizontalFlip", {})), input_shape=(SIZE, SIZE), min_visibility=0.0
+    )
     _, out_boxes, out_labels = augmenter(image, boxes, labels)
 
     assert len(out_boxes) == 3
-    pairs = {int(label): tuple(np.round(box, 3))
-             for label, box in zip(out_labels, out_boxes)}
+    pairs = {int(label): tuple(np.round(box, 3)) for label, box in zip(out_labels, out_boxes)}
     for index, box in enumerate(boxes):
         expected = (SIZE - box[2], box[1], SIZE - box[0], box[3])
         assert pairs[index] == pytest.approx(expected)
@@ -184,8 +183,7 @@ def test_an_intensity_transform_leaves_the_boxes_where_they_are():
     intermittently is worse than no test, because the failure reads as a real one.
     """
     augmenter = build_box_augmenter(
-        steps(("RandomBrightnessContrast",
-               {"brightness_limit": (0.5, 0.5), "contrast_limit": 0})),
+        steps(("RandomBrightnessContrast", {"brightness_limit": (0.5, 0.5), "contrast_limit": 0})),
         input_shape=(SIZE, SIZE),
     )
     image, boxes, labels = bright_square()
@@ -195,6 +193,7 @@ def test_an_intensity_transform_leaves_the_boxes_where_they_are():
 
 
 # --- what happens to a box a crop cuts away ---------------------------------------------
+
 
 def test_min_visibility_drops_a_box_that_keeps_almost_nothing():
     """The direction is what this asserts, not the number. A box keeping a sliver of its
@@ -218,7 +217,8 @@ def test_a_box_that_survives_a_crop_is_clipped_to_the_frame():
     boxes = np.array([[20.0, 20.0, 80.0, 50.0]])
     augmenter = build_box_augmenter(
         steps(("Crop", {"x_min": 0, "y_min": 0, "x_max": 60, "y_max": 96})),
-        input_shape=(SIZE, SIZE), min_visibility=0.25,
+        input_shape=(SIZE, SIZE),
+        min_visibility=0.25,
     )
     _, out_boxes, _ = augmenter(image, boxes, np.array([0]))
     assert len(out_boxes) == 1
@@ -231,8 +231,7 @@ def test_an_image_with_no_boxes_still_goes_through():
     augmenter = build_box_augmenter(steps(("HorizontalFlip", {})), input_shape=(SIZE, SIZE))
     image = np.zeros((SIZE, SIZE, 3), np.float32)
     image[:, :10] = 1.0
-    out_image, out_boxes, out_labels = augmenter(image, np.zeros((0, 4)),
-                                                 np.zeros(0, dtype=int))
+    out_image, out_boxes, out_labels = augmenter(image, np.zeros((0, 4)), np.zeros(0, dtype=int))
     assert out_boxes.shape == (0, 4)
     assert out_labels.shape == (0,)
     assert out_image[:, -10:].mean() > 0.9, "the image was flipped"
@@ -250,6 +249,7 @@ def test_a_box_sitting_a_hair_outside_the_frame_does_not_stop_the_run():
 
 
 # --- refusals ---------------------------------------------------------------------------
+
 
 def test_an_unknown_transform_is_refused_while_the_spec_is_read():
     """Earlier than this file, and better: `AugmentationStep` checks the name against what

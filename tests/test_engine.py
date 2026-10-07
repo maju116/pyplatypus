@@ -18,12 +18,25 @@ def two_model_config(nested_root):
             "shuffle": False,
         },
         "models": [
-            {"name": "unet", "input_shape": [32, 32], "blocks": 2,
-             "filters": 4, "batch_size": 2, "epochs": 2,
-             "metrics": [{"name": "dice"}]},
-            {"name": "linknet", "architecture": "linknet", "input_shape": [32, 32],
-             "blocks": 2, "filters": 4, "batch_size": 2, "epochs": 2,
-             "metrics": [{"name": "dice"}]},
+            {
+                "name": "unet",
+                "input_shape": [32, 32],
+                "blocks": 2,
+                "filters": 4,
+                "batch_size": 2,
+                "epochs": 2,
+                "metrics": [{"name": "dice"}],
+            },
+            {
+                "name": "linknet",
+                "architecture": "linknet",
+                "input_shape": [32, 32],
+                "blocks": 2,
+                "filters": 4,
+                "batch_size": 2,
+                "epochs": 2,
+                "metrics": [{"name": "dice"}],
+            },
         ],
     }
 
@@ -59,7 +72,7 @@ def test_best_model_reads_the_table(two_model_config):
     engine = Engine(from_dict(two_model_config), device="cpu")
     engine.fit()
     assert engine.best_model("dice") in {"unet", "linknet"}
-    assert engine.best_model("loss") in {"unet", "linknet"}   # same loss, so comparable
+    assert engine.best_model("loss") in {"unet", "linknet"}  # same loss, so comparable
 
 
 def test_ranking_by_loss_is_refused_when_the_losses_differ(two_model_config):
@@ -71,7 +84,7 @@ def test_ranking_by_loss_is_refused_when_the_losses_differ(two_model_config):
     engine.fit()
     with pytest.raises(EngineError, match="different losses"):
         engine.best_model("loss")
-    assert engine.best_model("dice") in {"unet", "linknet"}   # metrics stay comparable
+    assert engine.best_model("dice") in {"unet", "linknet"}  # metrics stay comparable
 
 
 def test_the_table_names_the_loss_each_model_used(two_model_config):
@@ -115,8 +128,9 @@ def test_a_model_can_load_weights_and_skip_training(two_model_config, tmp_path):
     checkpoint = tmp_path / "unet.pt"
     torch.save(engine.runs["unet"].model.state_dict(), checkpoint)
 
-    two_model_config["models"] = [dict(two_model_config["models"][0],
-                                       fit=False, weights=str(checkpoint))]
+    two_model_config["models"] = [
+        dict(two_model_config["models"][0], fit=False, weights=str(checkpoint))
+    ]
     reloaded = Engine(from_dict(two_model_config), device="cpu")
     histories = reloaded.fit()
     assert len(histories["unet"]) == 0
@@ -124,8 +138,7 @@ def test_a_model_can_load_weights_and_skip_training(two_model_config, tmp_path):
     original = engine.runs["unet"].model.state_dict()
     restored = reloaded.runs["unet"].model.state_dict()
     assert set(original) == set(restored)
-    assert all(torch.allclose(original[k].float(), restored[k].cpu().float())
-               for k in original)
+    assert all(torch.allclose(original[k].float(), restored[k].cpu().float()) for k in original)
     assert reloaded.evaluate()[0]["dice"] >= 0.0
 
 
@@ -134,8 +147,9 @@ def test_an_unknown_weights_name_lists_the_published_ones(two_model_config):
     happens instead: an unknown name is refused and the known ones are listed."""
     from pyplatypus.weights import WeightsError
 
-    two_model_config["models"] = [dict(two_model_config["models"][0],
-                                       fit=False, weights="dsbowl2018")]
+    two_model_config["models"] = [
+        dict(two_model_config["models"][0], fit=False, weights="dsbowl2018")
+    ]
     engine = Engine(from_dict(two_model_config), device="cpu")
     with pytest.raises(WeightsError, match="no published weights called"):
         engine.fit()
@@ -168,14 +182,29 @@ def test_a_3d_spec_trains(volume_root):
     three entries and the data is volumes with label maps.
     """
     pytest.importorskip("nibabel")
-    spec = from_dict({
-        "task": "semantic_segmentation",
-        "data": {"train_path": str(volume_root), "validation_path": str(volume_root),
-                 "labels": [0, 1], "shuffle": False},
-        "models": [{"name": "unet3d", "input_shape": [8, 8, 4], "blocks": 2,
-                    "filters": 4, "batch_size": 1, "epochs": 1, "channels": 1,
-                    "metrics": [{"name": "dice"}]}],
-    })
+    spec = from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(volume_root),
+                "validation_path": str(volume_root),
+                "labels": [0, 1],
+                "shuffle": False,
+            },
+            "models": [
+                {
+                    "name": "unet3d",
+                    "input_shape": [8, 8, 4],
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 1,
+                    "epochs": 1,
+                    "channels": 1,
+                    "metrics": [{"name": "dice"}],
+                }
+            ],
+        }
+    )
     engine = Engine(spec, device="cpu")
     history = engine.fit()["unet3d"]
 

@@ -71,43 +71,56 @@ def specification(train: str, validation: str, epochs: int, size: int) -> dict:
             "colormap": [[0, 0, 0], [255, 255, 255]],
             "mode": "config_file",
         },
-        "models": [{
-            "name": "dsbowl-unet",
-            "architecture": "u_net",
-            "input_shape": [size, size],
-            "channels": 3,
-            "n_class": 2,
-            "blocks": 4,
-            "filters": 16,
-            "batch_size": 8,
-            "epochs": epochs,
-            "loss": {"name": "cce_dice"},
-            "metrics": [{"name": "dice", "include_background": False},
-                        {"name": "iou", "include_background": False}],
-            "optimizer": {"name": "adam", "learning_rate": 0.001},
-            "callbacks": [
-                {"name": "reduce_lr_on_plateau", "monitor": "val_loss", "factor": 0.5,
-                 "patience": 4},
-                {"name": "early_stopping", "monitor": "val_loss", "patience": 10,
-                 "restore_best": True},
-            ],
-            "augmentation": [
-                # A transform's own arguments live under `params`, which is what keeps the spec
-                # free of albumentations' API: the names are checked against the installed
-                # version, the parameters are passed through untouched.
-                {"name": "HorizontalFlip", "params": {"p": 0.5}},
-                {"name": "VerticalFlip", "params": {"p": 0.5}},
-                {"name": "RandomRotate90", "params": {"p": 0.5}},
-                {"name": "RandomBrightnessContrast", "params": {"p": 0.3}},
-            ],
-        }],
+        "models": [
+            {
+                "name": "dsbowl-unet",
+                "architecture": "u_net",
+                "input_shape": [size, size],
+                "channels": 3,
+                "n_class": 2,
+                "blocks": 4,
+                "filters": 16,
+                "batch_size": 8,
+                "epochs": epochs,
+                "loss": {"name": "cce_dice"},
+                "metrics": [
+                    {"name": "dice", "include_background": False},
+                    {"name": "iou", "include_background": False},
+                ],
+                "optimizer": {"name": "adam", "learning_rate": 0.001},
+                "callbacks": [
+                    {
+                        "name": "reduce_lr_on_plateau",
+                        "monitor": "val_loss",
+                        "factor": 0.5,
+                        "patience": 4,
+                    },
+                    {
+                        "name": "early_stopping",
+                        "monitor": "val_loss",
+                        "patience": 10,
+                        "restore_best": True,
+                    },
+                ],
+                "augmentation": [
+                    # A transform's own arguments live under `params`, which is what keeps the spec
+                    # free of albumentations' API: the names are checked against the installed
+                    # version, the parameters are passed through untouched.
+                    {"name": "HorizontalFlip", "params": {"p": 0.5}},
+                    {"name": "VerticalFlip", "params": {"p": 0.5}},
+                    {"name": "RandomRotate90", "params": {"p": 0.5}},
+                    {"name": "RandomBrightnessContrast", "params": {"p": 0.3}},
+                ],
+            }
+        ],
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data", default="examples/data/bbbc038",
-                        help="where to download and unpack the images")
+    parser.add_argument(
+        "--data", default="examples/data/bbbc038", help="where to download and unpack the images"
+    )
     parser.add_argument("--out", default="weights", help="where to write the weights")
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--size", type=int, default=256)
@@ -123,27 +136,37 @@ def main() -> None:
     # dataset is unrelated fields of view, not slices of one patient - so no grouping is needed.
     from pyplatypus import split_dataset
 
-    split = split_dataset(root, Path(arguments.data) / "splits",
-                          fractions=(0.8, 0.2), seed=arguments.seed)
+    split = split_dataset(
+        root, Path(arguments.data) / "splits", fractions=(0.8, 0.2), seed=arguments.seed
+    )
     print("split:", json.dumps(split["samples"]))
 
-    spec = from_dict(specification(split["paths"]["train"], split["paths"]["validation"],
-                                   arguments.epochs, arguments.size))
+    spec = from_dict(
+        specification(
+            split["paths"]["train"], split["paths"]["validation"], arguments.epochs, arguments.size
+        )
+    )
     engine = Engine(spec, device=arguments.device, num_workers=arguments.workers)
     engine.fit(verbose=True)
 
     print("\n--- the split as one number ---")
     for row in engine.evaluate():
-        print({key: round(value, 4) if isinstance(value, float) else value
-               for key, value in row.items()})
+        print(
+            {
+                key: round(value, 4) if isinstance(value, float) else value
+                for key, value in row.items()
+            }
+        )
 
     print("\n--- per image ---")
     cases = engine.evaluate_cases("dsbowl-unet")
     distribution = summarise_cases(cases)
     for row in distribution:
-        print(f"  {row['metric']}: n={row['n']} mean={row['mean']:.4f} "
-              f"sd={row['sd']:.4f} median={row['median']:.4f} min={row['min']:.4f} "
-              f"worst={row['worst_case']}")
+        print(
+            f"  {row['metric']}: n={row['n']} mean={row['mean']:.4f} "
+            f"sd={row['sd']:.4f} median={row['median']:.4f} min={row['min']:.4f} "
+            f"worst={row['worst_case']}"
+        )
 
     worst = sorted(cases, key=lambda row: row["dice"])[:5]
     for row in worst:
@@ -153,7 +176,8 @@ def main() -> None:
     # validation distribution rather than the mean alone, because a mean hides the failures and
     # somebody deciding whether to use these is entitled to see them.
     path = engine.export_weights(
-        "dsbowl-unet", Path(arguments.out) / "dsbowl-unet",
+        "dsbowl-unet",
+        Path(arguments.out) / "dsbowl-unet",
         data="BBBC038v1 (2018 Data Science Bowl), stage1_train",
         data_source=SOURCE,
         data_licence="CC0 1.0",

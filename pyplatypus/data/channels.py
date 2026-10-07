@@ -29,8 +29,9 @@ class ChannelError(PlatypusError):
     kind = "channel_error"
 
 
-def match_channels(paths: tuple[Path, ...] | list, patterns: list[str],
-                   *, key: str | None = None) -> tuple[Path, ...]:
+def match_channels(
+    paths: tuple[Path, ...] | list, patterns: list[str], *, key: str | None = None
+) -> tuple[Path, ...]:
     """The sample's files in channel order, one per pattern.
 
     Patterns are regular expressions searched against each file's name. `key` names the sample
@@ -45,8 +46,7 @@ def match_channels(paths: tuple[Path, ...] | list, patterns: list[str],
             matcher = re.compile(pattern)
         except re.error as error:
             raise ChannelError(
-                f"channel {position} pattern '{pattern}' is not a valid regular "
-                f"expression: {error}"
+                f"channel {position} pattern '{pattern}' is not a valid regular expression: {error}"
             ) from None
 
         hits = [path for path in files if matcher.search(path.name)]

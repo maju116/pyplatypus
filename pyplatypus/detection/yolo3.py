@@ -40,11 +40,24 @@ class DarknetConv(nn.Module):
     expect would be silently ignored.
     """
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int,
-                 stride: int = 1, *, batch_norm: bool = True):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        stride: int = 1,
+        *,
+        batch_norm: bool = True,
+    ):
         super().__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride,
-                              padding=kernel_size // 2, bias=not batch_norm)
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=stride,
+            padding=kernel_size // 2,
+            bias=not batch_norm,
+        )
         self.norm = nn.BatchNorm2d(out_channels) if batch_norm else None
         self.activation = nn.LeakyReLU(LEAKY_SLOPE, inplace=True) if batch_norm else None
 
@@ -128,8 +141,7 @@ class YoloHead(nn.Module):
     def __init__(self, channels: int, anchors: int, n_class: int):
         super().__init__()
         self.widen = DarknetConv(channels, channels * 2, 3)
-        self.predict = DarknetConv(channels * 2, anchors * (5 + n_class), 1,
-                                   batch_norm=False)
+        self.predict = DarknetConv(channels * 2, anchors * (5 + n_class), 1, batch_norm=False)
         self.anchors = anchors
         self.n_class = n_class
 
@@ -150,15 +162,12 @@ class Yolo3(nn.Module):
     space, as `decode(..., raw=True)` expects.
     """
 
-    def __init__(self, *, n_class: int = 80, anchors_per_grid: int = 3,
-                 in_channels: int = 3):
+    def __init__(self, *, n_class: int = 80, anchors_per_grid: int = 3, in_channels: int = 3):
         super().__init__()
         if n_class < 1:
             raise DetectionError(f"n_class must be at least 1; got {n_class}")
         if anchors_per_grid < 1:
-            raise DetectionError(
-                f"anchors_per_grid must be at least 1; got {anchors_per_grid}"
-            )
+            raise DetectionError(f"anchors_per_grid must be at least 1; got {anchors_per_grid}")
         self.n_class = n_class
         self.anchors_per_grid = anchors_per_grid
         self.in_channels = in_channels
@@ -185,8 +194,7 @@ class Yolo3(nn.Module):
             )
         if x.shape[1] != self.in_channels:
             raise DetectionError(
-                f"this model takes {self.in_channels} channels and the batch has "
-                f"{x.shape[1]}"
+                f"this model takes {self.in_channels} channels and the batch has {x.shape[1]}"
             )
         height, width = x.shape[2], x.shape[3]
         if height % 32 or width % 32:
@@ -214,8 +222,6 @@ class Yolo3(nn.Module):
         return grid_shapes(input_shape, scales=3, strides=STRIDES)
 
 
-def build_yolo3(*, n_class: int = 80, anchors_per_grid: int = 3,
-                in_channels: int = 3) -> Yolo3:
+def build_yolo3(*, n_class: int = 80, anchors_per_grid: int = 3, in_channels: int = 3) -> Yolo3:
     """The one entry point, matching `build_model` on the segmentation side."""
-    return Yolo3(n_class=n_class, anchors_per_grid=anchors_per_grid,
-                 in_channels=in_channels)
+    return Yolo3(n_class=n_class, anchors_per_grid=anchors_per_grid, in_channels=in_channels)

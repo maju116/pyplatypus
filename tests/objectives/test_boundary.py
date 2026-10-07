@@ -29,7 +29,7 @@ def square(shape=(16, 16), side=6):
 def ball(shape, radius):
     centre = tuple(s // 2 for s in shape)
     grids = np.ogrid[tuple(slice(0, s) for s in shape)]
-    inside = sum((g - c) ** 2 for g, c in zip(grids, centre)) <= radius ** 2
+    inside = sum((g - c) ** 2 for g, c in zip(grids, centre)) <= radius**2
     out = np.zeros((*shape, 2), np.float32)
     out[..., 1] = inside
     out[..., 0] = ~inside
@@ -38,10 +38,11 @@ def ball(shape, radius):
 
 # --- the transform -----------------------------------------------------------------------
 
+
 def test_the_distance_is_negative_inside_and_positive_outside():
     distance = signed_distance(square())
-    assert distance[8, 8, 1] < 0          # the middle of the square
-    assert distance[0, 0, 1] > 0          # a corner, far outside it
+    assert distance[8, 8, 1] < 0  # the middle of the square
+    assert distance[0, 0, 1] > 0  # a corner, far outside it
     assert distance.shape == (16, 16, 2)
 
 
@@ -57,7 +58,7 @@ def test_a_class_that_is_absent_has_no_boundary_and_is_left_at_zero():
     """Any other filling would be a number the loss then acts on, and there is nothing to
     be near or far from."""
     mask = np.zeros((8, 8, 3), np.float32)
-    mask[..., 0] = 1                      # class 1 and 2 never appear
+    mask[..., 0] = 1  # class 1 and 2 never appear
     distance = signed_distance(mask)
     assert np.all(distance[..., 1] == 0)
     assert np.all(distance[..., 2] == 0)
@@ -81,6 +82,7 @@ def test_a_mask_without_a_class_axis_is_refused():
 
 
 # --- the property the loss exists for ------------------------------------------------------
+
 
 def test_at_equal_overlap_the_surface_term_prefers_under_to_over_segmentation():
     """The asymmetry Dice does not see, and the reason this loss is here.
@@ -110,6 +112,7 @@ def test_at_equal_overlap_the_surface_term_prefers_under_to_over_segmentation():
 
 # --- the loss ------------------------------------------------------------------------------
 
+
 def _tensors(mask):
     """Channels-first, as the trainer hands them over."""
     t = torch.from_numpy(np.moveaxis(mask, -1, 0))[None]
@@ -125,6 +128,7 @@ def test_the_loss_is_the_weighted_sum_of_its_two_terms():
     whole = build_loss(BoundaryLoss(region=DiceLoss(), alpha=0.25))
 
     from pyplatypus.objectives import functional as f
+
     surface = (f.probabilities(logits) * distance).mean()
     expected = 0.25 * region(logits, target) + 0.75 * surface
     assert float(whole(logits, target, distance)) == pytest.approx(float(expected))
@@ -159,6 +163,7 @@ def test_alpha_excludes_both_ends():
     much of the object was found, and the term alone is minimised by a confident prediction
     deep inside a shrunken one."""
     from pydantic import ValidationError
+
     for bad in (0.0, 1.0, -0.1, 1.5):
         with pytest.raises(ValidationError):
             BoundaryLoss(alpha=bad)
@@ -168,6 +173,7 @@ def test_a_boundary_loss_cannot_be_its_own_region_term():
     """Two surface terms with no region term holding either down. Refused by the type
     rather than by a check, since `region` is the union without this one in it."""
     from pydantic import ValidationError
+
     with pytest.raises(ValidationError):
         BoundaryLoss(region={"name": "boundary"})
 

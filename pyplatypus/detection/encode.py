@@ -69,8 +69,9 @@ class Encoding:
         return tuple(target.shape for target in self.targets)
 
 
-def grid_shapes(input_shape: tuple[int, int], scales: int = 3,
-                strides: tuple[int, ...] = STRIDES) -> tuple[tuple[int, int], ...]:
+def grid_shapes(
+    input_shape: tuple[int, int], scales: int = 3, strides: tuple[int, ...] = STRIDES
+) -> tuple[tuple[int, int], ...]:
     """The cell counts for an input size, coarsest first.
 
     Refuses a size the strides do not divide, rather than rounding: a grid that does not
@@ -90,8 +91,15 @@ def grid_shapes(input_shape: tuple[int, int], scales: int = 3,
     return tuple(out)
 
 
-def encode(boxes, labels, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] = (416, 416),
-           n_class: int = 80, strides: tuple[int, ...] = STRIDES) -> Encoding:
+def encode(
+    boxes,
+    labels,
+    *,
+    anchors=COCO_ANCHORS,
+    input_shape: tuple[int, int] = (416, 416),
+    n_class: int = 80,
+    strides: tuple[int, ...] = STRIDES,
+) -> Encoding:
     """Boxes in input-pixel coordinates to one target array per grid.
 
     Each target is `(grid_h, grid_w, anchors_per_grid, 5 + n_class)`: the within-cell
@@ -101,11 +109,13 @@ def encode(boxes, labels, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] 
     shapes = grid_shapes(input_shape, scales=len(anchors), strides=strides)
     height, width = int(input_shape[0]), int(input_shape[1])
 
-    targets = [np.zeros((gh, gw, per_grid, 5 + n_class), dtype=np.float32)
-               for gh, gw in shapes]
+    targets = [np.zeros((gh, gw, per_grid, 5 + n_class), dtype=np.float32) for gh, gw in shapes]
 
-    array = np.asarray(boxes, dtype=float).reshape(-1, 4) if np.size(boxes) else \
-        np.zeros((0, 4), dtype=float)
+    array = (
+        np.asarray(boxes, dtype=float).reshape(-1, 4)
+        if np.size(boxes)
+        else np.zeros((0, 4), dtype=float)
+    )
     tags = np.asarray(labels, dtype=int).ravel()
     if len(array) != len(tags):
         raise DetectionError(f"{len(array)} boxes and {len(tags)} labels; they must agree")
@@ -131,9 +141,7 @@ def encode(boxes, labels, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] 
     # Shape-only IoU: both the box and each anchor at the origin, because an anchor has no
     # position and matching on position would assign by where an object is, not what it is.
     shifted = np.stack([np.zeros_like(box_w), np.zeros_like(box_h), box_w, box_h], axis=1)
-    anchor_boxes = np.concatenate(
-        [np.zeros((len(flat_anchors), 2)), flat_anchors], axis=1
-    )
+    anchor_boxes = np.concatenate([np.zeros((len(flat_anchors), 2)), flat_anchors], axis=1)
     best = np.argmax(iou_matrix(shifted, anchor_boxes), axis=1)
 
     placed = unplaced = 0
@@ -165,9 +173,16 @@ def encode(boxes, labels, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] 
     return Encoding(tuple(targets), placed=placed, unplaced=unplaced)
 
 
-def decode(targets, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] = (416, 416),
-           n_class: int = 80, objectness: float = 0.5, strides: tuple[int, ...] = STRIDES,
-           raw: bool = False):
+def decode(
+    targets,
+    *,
+    anchors=COCO_ANCHORS,
+    input_shape: tuple[int, int] = (416, 416),
+    n_class: int = 80,
+    objectness: float = 0.5,
+    strides: tuple[int, ...] = STRIDES,
+    raw: bool = False,
+):
     """Target or prediction arrays back to boxes, scores and labels in input pixels.
 
     `raw=True` treats the arrays as a network's output - offsets and objectness still in
@@ -179,9 +194,7 @@ def decode(targets, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] = (416
     shapes = grid_shapes(input_shape, scales=len(anchors), strides=strides)
     height, width = int(input_shape[0]), int(input_shape[1])
     if len(targets) != len(shapes):
-        raise DetectionError(
-            f"{len(targets)} grids given but the anchors describe {len(shapes)}"
-        )
+        raise DetectionError(f"{len(targets)} grids given but the anchors describe {len(shapes)}")
 
     boxes, scores, labels = [], [], []
     for grid, array in enumerate(targets):
@@ -214,17 +227,27 @@ def decode(targets, *, anchors=COCO_ANCHORS, input_shape: tuple[int, int] = (416
         if raw:
             class_scores = _sigmoid(class_scores)
 
-        boxes.append(np.stack([centre_x - box_w / 2, centre_y - box_h / 2,
-                               centre_x + box_w / 2, centre_y + box_h / 2], axis=1))
+        boxes.append(
+            np.stack(
+                [
+                    centre_x - box_w / 2,
+                    centre_y - box_h / 2,
+                    centre_x + box_w / 2,
+                    centre_y + box_h / 2,
+                ],
+                axis=1,
+            )
+        )
         labels.append(np.argmax(class_scores, axis=1))
-        scores.append(confidence[rows, columns, slots] *
-                      np.max(class_scores, axis=1) if raw
-                      else confidence[rows, columns, slots])
+        scores.append(
+            confidence[rows, columns, slots] * np.max(class_scores, axis=1)
+            if raw
+            else confidence[rows, columns, slots]
+        )
 
     if not boxes:
         return (np.zeros((0, 4)), np.zeros(0), np.zeros(0, dtype=int))
-    return (np.concatenate(boxes), np.concatenate(scores),
-            np.concatenate(labels).astype(int))
+    return (np.concatenate(boxes), np.concatenate(scores), np.concatenate(labels).astype(int))
 
 
 def _flatten_anchors(anchors) -> tuple[np.ndarray, int]:

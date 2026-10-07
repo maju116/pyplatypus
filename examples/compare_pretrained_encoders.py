@@ -45,32 +45,46 @@ def configurations(backbone: str, rate: float, freeze: int) -> list[tuple[str, d
 
 
 def run(arguments, seed: int, extra: dict) -> tuple[dict, float, int, int]:
-    spec = from_dict({
-        "seed": seed,
-        "data": {"train_path": arguments.train, "validation_path": arguments.validation,
-                 "colormap": [[0, 0, 0], [255, 255, 255]], "mode": arguments.mode},
-        "models": [{
-            "name": "m",
-            "architecture": "u_net",
-            "input_shape": [arguments.size, arguments.size],
-            "channels": arguments.channels,
-            "n_class": arguments.n_class,
-            "blocks": 4,
-            "filters": 16,
-            "batch_size": arguments.batch,
-            "epochs": arguments.epochs,
-            "loss": {"name": arguments.loss},
-            "metrics": [{"name": "dice", "include_background": False}],
-            "optimizer": {"name": "adam", "learning_rate": arguments.rate},
-            # Early stopping on the metric, with the best weights restored, so each
-            # configuration is judged at its best rather than at whatever epoch the loop
-            # happened to stop on. Without it the comparison measures how fast each one
-            # overfits, which is a different question.
-            "callbacks": [{"name": "early_stopping", "monitor": "val_dice",
-                           "patience": arguments.patience, "restore_best": True}],
-            **extra,
-        }],
-    })
+    spec = from_dict(
+        {
+            "seed": seed,
+            "data": {
+                "train_path": arguments.train,
+                "validation_path": arguments.validation,
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                "mode": arguments.mode,
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "architecture": "u_net",
+                    "input_shape": [arguments.size, arguments.size],
+                    "channels": arguments.channels,
+                    "n_class": arguments.n_class,
+                    "blocks": 4,
+                    "filters": 16,
+                    "batch_size": arguments.batch,
+                    "epochs": arguments.epochs,
+                    "loss": {"name": arguments.loss},
+                    "metrics": [{"name": "dice", "include_background": False}],
+                    "optimizer": {"name": "adam", "learning_rate": arguments.rate},
+                    # Early stopping on the metric, with the best weights restored, so each
+                    # configuration is judged at its best rather than at whatever epoch the loop
+                    # happened to stop on. Without it the comparison measures how fast each one
+                    # overfits, which is a different question.
+                    "callbacks": [
+                        {
+                            "name": "early_stopping",
+                            "monitor": "val_dice",
+                            "patience": arguments.patience,
+                            "restore_best": True,
+                        }
+                    ],
+                    **extra,
+                }
+            ],
+        }
+    )
     engine = Engine(spec, num_workers=arguments.workers)
     history = engine.fit(verbose=False)["m"]
     distribution = {row["metric"]: row for row in summarise_cases(engine.evaluate_cases("m"))}
@@ -79,8 +93,9 @@ def run(arguments, seed: int, extra: dict) -> tuple[dict, float, int, int]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--train", required=True, help="training CSV or directory")
     parser.add_argument("--validation", required=True, help="validation CSV or directory")
     parser.add_argument("--mode", default="config_file", choices=["config_file", "nested_dirs"])
@@ -109,32 +124,42 @@ def main() -> None:
             worst.append(dice["min"])
             bests.append(best)
             epochs.append(ran)
-            print(f"    {label:28} seed {seed}: dice {dice['mean']:.4f}  "
-                  f"worst {dice['min']:.3f}  best val {best:.4f}  {ran} epochs", flush=True)
-        rows.append({
-            "config": label,
-            "mean": statistics.mean(means),
-            # With one seed this is undefined, and that is worth saying rather than hiding:
-            # the whole reason for several seeds is that the spread is the thing to compare
-            # a difference against.
-            "seed_sd": statistics.stdev(means) if len(means) > 1 else None,
-            "runs": means,
-            "worst": statistics.mean(worst),
-            "best_val": statistics.mean(bests),
-            "epochs": epochs,
-            "parameters": parameters,
-            "seconds": time.time() - started,
-        })
+            print(
+                f"    {label:28} seed {seed}: dice {dice['mean']:.4f}  "
+                f"worst {dice['min']:.3f}  best val {best:.4f}  {ran} epochs",
+                flush=True,
+            )
+        rows.append(
+            {
+                "config": label,
+                "mean": statistics.mean(means),
+                # With one seed this is undefined, and that is worth saying rather than hiding:
+                # the whole reason for several seeds is that the spread is the thing to compare
+                # a difference against.
+                "seed_sd": statistics.stdev(means) if len(means) > 1 else None,
+                "runs": means,
+                "worst": statistics.mean(worst),
+                "best_val": statistics.mean(bests),
+                "epochs": epochs,
+                "parameters": parameters,
+                "seconds": time.time() - started,
+            }
+        )
         spread = rows[-1]["seed_sd"]
-        print(f"{label:30} dice {rows[-1]['mean']:.4f}"
-              f"{f' +/- {spread:.4f}' if spread is not None else ' (one seed)'}"
-              f"  epochs {epochs}  {rows[-1]['seconds']:.0f}s", flush=True)
+        print(
+            f"{label:30} dice {rows[-1]['mean']:.4f}"
+            f"{f' +/- {spread:.4f}' if spread is not None else ' (one seed)'}"
+            f"  epochs {epochs}  {rows[-1]['seconds']:.0f}s",
+            flush=True,
+        )
 
     print("\n" + "=" * 96)
     for row in sorted(rows, key=lambda r: -r["mean"]):
         spread = f"+/- {row['seed_sd']:.4f}" if row["seed_sd"] is not None else "(one seed)"
-        print(f"{row['config']:30} {row['mean']:.4f} {spread:12} "
-              f"{row['parameters']:>10,}  epochs {row['epochs']}")
+        print(
+            f"{row['config']:30} {row['mean']:.4f} {spread:12} "
+            f"{row['parameters']:>10,}  epochs {row['epochs']}"
+        )
     print("=" * 96)
 
     best = max(rows, key=lambda r: r["mean"])

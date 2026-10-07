@@ -43,25 +43,26 @@ def test_metrics_use_hard_predictions_not_probabilities():
 
     hard = build_metric(DiceMetric(smooth=0.0))(hesitant, target).item()
     soft = f.dice_coefficient(f.probabilities(hesitant), target, smooth=0.0).mean().item()
-    assert hard == pytest.approx(1.0)      # the argmax is in fact correct
-    assert soft < 0.6                      # the probabilities are barely off a coin flip
+    assert hard == pytest.approx(1.0)  # the argmax is in fact correct
+    assert soft < 0.6  # the probabilities are barely off a coin flip
 
 
 def test_excluding_the_background_changes_the_number():
     """In medical images the background is most of the picture, so averaging it in
     flatters the score. Papers report foreground only."""
     target = torch.zeros(1, 2, 100)
-    target[:, 0, :95] = 1.0                # 95% background
+    target[:, 0, :95] = 1.0  # 95% background
     target[:, 1, 95:] = 1.0
     logits = torch.full((1, 2, 100), -1.0)
-    logits[:, 0] = 1.0                     # predicts background everywhere
+    logits[:, 0] = 1.0  # predicts background everywhere
 
     with_background = build_metric(DiceMetric(smooth=0.0))(logits, target).item()
-    foreground_only = build_metric(
-        DiceMetric(smooth=0.0, include_background=False))(logits, target).item()
+    foreground_only = build_metric(DiceMetric(smooth=0.0, include_background=False))(
+        logits, target
+    ).item()
 
-    assert foreground_only == pytest.approx(0.0)     # missed every nucleus
-    assert with_background > 0.48                    # yet looks like a passing grade
+    assert foreground_only == pytest.approx(0.0)  # missed every nucleus
+    assert with_background > 0.48  # yet looks like a passing grade
 
 
 def test_dropping_the_background_needs_a_second_class():
@@ -79,18 +80,17 @@ def test_tversky_at_half_is_dice_at_twice_the_smoothing():
     logits = torch.randn(2, 2, 16, 16)
 
     tversky = build_metric(TverskyMetric(alpha=0.5, smooth=0.0))(logits, target).item()
-    assert tversky == pytest.approx(
-        build_metric(DiceMetric(smooth=0.0))(logits, target).item()
-    )
-    assert build_metric(TverskyMetric(alpha=0.5, smooth=1.0))(logits, target).item() == \
-        pytest.approx(build_metric(DiceMetric(smooth=2.0))(logits, target).item())
+    assert tversky == pytest.approx(build_metric(DiceMetric(smooth=0.0))(logits, target).item())
+    assert build_metric(TverskyMetric(alpha=0.5, smooth=1.0))(
+        logits, target
+    ).item() == pytest.approx(build_metric(DiceMetric(smooth=2.0))(logits, target).item())
 
 
 def test_smoothing_hands_an_absent_class_a_perfect_score():
     """The reason metrics may use smooth=0 while losses may not: a class that appears
     nowhere scores 1.0 with smoothing, which quietly lifts the average."""
     target = torch.zeros(1, 2, 16)
-    target[:, 0] = 1.0                      # class 1 is absent from both
+    target[:, 0] = 1.0  # class 1 is absent from both
     logits = torch.tensor([[[5.0] * 16, [-5.0] * 16]])
 
     smoothed = build_metric(DiceMetric(smooth=1.0))(logits, target).item()

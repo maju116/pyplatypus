@@ -31,6 +31,7 @@ def voc_file(path, objects, *, width=640, height=480):
 
 # --- the one-pixel question -------------------------------------------------------------
 
+
 def test_voc_indices_become_the_right_width(tmp_path):
     """Pascal VOC stores 1-based inclusive indices, so pixels 1 to 10 is ten pixels wide.
     Reading `xmax - xmin` gives nine, and the box's area is 81% of the truth."""
@@ -51,8 +52,12 @@ def test_a_zero_minimum_proves_the_file_is_not_one_based(tmp_path):
     with pytest.raises(DetectionError, match="coordinates='zero_based'"):
         read_voc(file, LABELS)
     # Which works, and leaves the numbers alone.
-    assert read_voc(file, LABELS, coordinates="zero_based").boxes[0].tolist() == \
-        [0.0, 5.0, 10.0, 15.0]
+    assert read_voc(file, LABELS, coordinates="zero_based").boxes[0].tolist() == [
+        0.0,
+        5.0,
+        10.0,
+        15.0,
+    ]
 
 
 def test_describe_reports_the_evidence_without_converting(tmp_path):
@@ -78,11 +83,15 @@ def test_describe_does_not_claim_proof_it_does_not_have(tmp_path):
 
 # --- reading ---------------------------------------------------------------------------
 
+
 def test_a_voc_file_reads_its_objects(tmp_path):
-    file = voc_file(tmp_path / "a.xml", [
-        ("RBC", (10, 20, 50, 60), False),
-        ("WBC", (100, 100, 200, 200), True),
-    ])
+    file = voc_file(
+        tmp_path / "a.xml",
+        [
+            ("RBC", (10, 20, 50, 60), False),
+            ("WBC", (100, 100, 200, 200), True),
+        ],
+    )
     annotation = read_voc(file, LABELS)
 
     assert (annotation.width, annotation.height) == (640, 480)
@@ -108,10 +117,13 @@ def test_an_unknown_class_is_refused_by_default(tmp_path):
 
 def test_an_unknown_class_can_be_skipped_on_purpose(tmp_path):
     """Which is how you train on two of a dataset's three classes."""
-    file = voc_file(tmp_path / "a.xml", [
-        ("Lymphocyte", (1, 1, 10, 10), False),
-        ("RBC", (20, 20, 30, 30), False),
-    ])
+    file = voc_file(
+        tmp_path / "a.xml",
+        [
+            ("Lymphocyte", (1, 1, 10, 10), False),
+            ("RBC", (20, 20, 30, 30), False),
+        ],
+    )
     annotation = read_voc(file, LABELS, strict_labels=False)
     assert annotation.labels.tolist() == [0]
 
@@ -124,11 +136,14 @@ def test_an_annotation_with_no_objects_is_a_result_not_an_error(tmp_path):
     assert annotation.labels.shape == (0,)
 
 
-@pytest.mark.parametrize("broken, match", [
-    ("<annotation><object/></annotation>", "no <size>"),
-    ("<annotation><size><width>10</width></size></annotation>", "no <height>"),
-    ("not xml at all", "not readable XML"),
-])
+@pytest.mark.parametrize(
+    "broken, match",
+    [
+        ("<annotation><object/></annotation>", "no <size>"),
+        ("<annotation><size><width>10</width></size></annotation>", "no <height>"),
+        ("not xml at all", "not readable XML"),
+    ],
+)
 def test_a_malformed_file_says_what_is_wrong(tmp_path, broken, match):
     file = tmp_path / "a.xml"
     file.write_text(broken)
@@ -149,21 +164,31 @@ def test_a_non_numeric_coordinate_names_the_tag(tmp_path):
 
 # --- LabelMe ---------------------------------------------------------------------------
 
+
 def labelme_file(path, shapes, *, width=640, height=480):
-    path.write_text(json.dumps({
-        "imagePath": f"{path.stem}.jpg",
-        "imageWidth": width, "imageHeight": height,
-        "shapes": shapes,
-    }))
+    path.write_text(
+        json.dumps(
+            {
+                "imagePath": f"{path.stem}.jpg",
+                "imageWidth": width,
+                "imageHeight": height,
+                "shapes": shapes,
+            }
+        )
+    )
     return path
 
 
 def test_a_labelme_rectangle_reads_in_either_corner_order(tmp_path):
     """LabelMe gives two opposite corners in no guaranteed order."""
-    forwards = labelme_file(tmp_path / "a.json", [
-        {"label": "WBC", "points": [[10, 20], [50, 60]], "shape_type": "rectangle"}])
-    backwards = labelme_file(tmp_path / "b.json", [
-        {"label": "WBC", "points": [[50, 60], [10, 20]], "shape_type": "rectangle"}])
+    forwards = labelme_file(
+        tmp_path / "a.json",
+        [{"label": "WBC", "points": [[10, 20], [50, 60]], "shape_type": "rectangle"}],
+    )
+    backwards = labelme_file(
+        tmp_path / "b.json",
+        [{"label": "WBC", "points": [[50, 60], [10, 20]], "shape_type": "rectangle"}],
+    )
 
     assert read_labelme(forwards, LABELS).boxes[0].tolist() == [10, 20, 50, 60]
     assert read_labelme(backwards, LABELS).boxes[0].tolist() == [10, 20, 50, 60]
@@ -171,23 +196,33 @@ def test_a_labelme_rectangle_reads_in_either_corner_order(tmp_path):
 
 def test_a_polygon_becomes_its_bounding_box(tmp_path):
     """Which is the only reading detection can use, and is a loss: the shape goes."""
-    file = labelme_file(tmp_path / "a.json", [
-        {"label": "RBC", "points": [[10, 10], [30, 5], [40, 25], [15, 30]],
-         "shape_type": "polygon"}])
+    file = labelme_file(
+        tmp_path / "a.json",
+        [
+            {
+                "label": "RBC",
+                "points": [[10, 10], [30, 5], [40, 25], [15, 30]],
+                "shape_type": "polygon",
+            }
+        ],
+    )
     assert read_labelme(file, LABELS).boxes[0].tolist() == [10, 5, 40, 30]
 
 
 def test_labelme_coordinates_are_left_alone(tmp_path):
     """They are already continuous, so the VOC correction would be wrong here."""
-    file = labelme_file(tmp_path / "a.json", [
-        {"label": "RBC", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"}])
+    file = labelme_file(
+        tmp_path / "a.json",
+        [{"label": "RBC", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"}],
+    )
     box = read_labelme(file, LABELS).boxes[0]
     assert box.tolist() == [1, 1, 10, 10]
 
 
 def test_a_labelme_shape_with_one_point_is_refused(tmp_path):
-    file = labelme_file(tmp_path / "a.json", [
-        {"label": "RBC", "points": [[10, 10]], "shape_type": "point"}])
+    file = labelme_file(
+        tmp_path / "a.json", [{"label": "RBC", "points": [[10, 10]], "shape_type": "point"}]
+    )
     with pytest.raises(DetectionError, match="at least two"):
         read_labelme(file, LABELS)
 
@@ -200,6 +235,7 @@ def test_labelme_without_a_frame_is_refused(tmp_path):
 
 
 # --- a directory -----------------------------------------------------------------------
+
 
 def test_a_directory_reads_in_sorted_order(tmp_path):
     """Sorted, so a split taken from the order is reproducible."""
@@ -215,7 +251,9 @@ def test_an_empty_directory_says_which_format_it_looked_for(tmp_path):
 
 
 def test_the_labelme_reader_is_reachable_from_the_directory_reader(tmp_path):
-    labelme_file(tmp_path / "a.json", [
-        {"label": "RBC", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"}])
+    labelme_file(
+        tmp_path / "a.json",
+        [{"label": "RBC", "points": [[1, 1], [10, 10]], "shape_type": "rectangle"}],
+    )
     out = read_annotations(tmp_path, LABELS, annotation_format="labelme")
     assert len(out) == 1 and out[0].labels.tolist() == [0]

@@ -96,7 +96,15 @@ class LovaszLoss(_Loss):
 #: terms with no region term holding either of them down, which is the one combination
 #: that cannot work.
 RegionLossSpec = Annotated[
-    IouLoss | DiceLoss | CceLoss | CceDiceLoss | FocalLoss | TverskyLoss | FocalTverskyLoss | ComboLoss | LovaszLoss,
+    IouLoss
+    | DiceLoss
+    | CceLoss
+    | CceDiceLoss
+    | FocalLoss
+    | TverskyLoss
+    | FocalTverskyLoss
+    | ComboLoss
+    | LovaszLoss,
     Field(discriminator="name"),
 ]
 
@@ -169,7 +177,16 @@ class BoundaryLoss(_Loss):
 
 
 LossSpec = Annotated[
-    IouLoss | DiceLoss | CceLoss | CceDiceLoss | FocalLoss | TverskyLoss | FocalTverskyLoss | ComboLoss | LovaszLoss | BoundaryLoss,
+    IouLoss
+    | DiceLoss
+    | CceLoss
+    | CceDiceLoss
+    | FocalLoss
+    | TverskyLoss
+    | FocalTverskyLoss
+    | ComboLoss
+    | LovaszLoss
+    | BoundaryLoss,
     Field(discriminator="name"),
 ]
 
@@ -182,7 +199,8 @@ class _Metric(SpecModel):
 
 class _Overlap(_Metric):
     smooth: float = Field(
-        1.0, ge=0,
+        1.0,
+        ge=0,
         description=(
             "Zero is allowed here, unlike in the losses. Smoothing inflates a reported "
             "score: a class absent from an image scores a perfect 1.0 with smooth>0. "
@@ -212,8 +230,7 @@ class TverskyMetric(_Overlap):
     alpha: float = Field(0.5, ge=0, le=1)
 
 
-MetricSpec = Annotated[IouMetric | DiceMetric | TverskyMetric,
-                       Field(discriminator="name")]
+MetricSpec = Annotated[IouMetric | DiceMetric | TverskyMetric, Field(discriminator="name")]
 
 # ----------------------------------------------------------------------- optimisers
 # torch's set, not TensorFlow's. Ftrl is gone because torch has no Ftrl.
@@ -416,8 +433,13 @@ class TerminateOnNaN(_Callback):
 
 
 CallbackSpec = Annotated[
-    EarlyStopping | ModelCheckpoint | ReduceLrOnPlateau | CosineAnnealing | Swa
-    | CsvLogger | TerminateOnNaN,
+    EarlyStopping
+    | ModelCheckpoint
+    | ReduceLrOnPlateau
+    | CosineAnnealing
+    | Swa
+    | CsvLogger
+    | TerminateOnNaN,
     Field(discriminator="name"),
 ]
 
@@ -455,7 +477,8 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
         return frozenset()
 
     names = frozenset(
-        name for name in dir(albumentations)
+        name
+        for name in dir(albumentations)
         if name[:1].isupper() and not name.startswith(("Base", "Basic", "Dual"))
     )
     if rank != 3:

@@ -47,18 +47,34 @@ def check_rank(rank: int) -> int:
 
 
 def activation(kind: Activation) -> nn.Module:
-    return _ACTIVATION[kind](inplace=True) if kind in {
-        Activation.RELU, Activation.LEAKY_RELU, Activation.ELU, Activation.SELU,
-        Activation.SILU,
-    } else _ACTIVATION[kind]()
+    return (
+        _ACTIVATION[kind](inplace=True)
+        if kind
+        in {
+            Activation.RELU,
+            Activation.LEAKY_RELU,
+            Activation.ELU,
+            Activation.SELU,
+            Activation.SILU,
+        }
+        else _ACTIVATION[kind]()
+    )
 
 
 def initialise(module: nn.Module, how: Initialiser, kind: Activation) -> None:
     """He for ReLU-like activations, Glorot otherwise - applied to every convolution."""
-    gain_nonlinearity = "relu" if kind in {
-        Activation.RELU, Activation.LEAKY_RELU, Activation.ELU, Activation.SELU,
-        Activation.SILU,
-    } else "tanh"
+    gain_nonlinearity = (
+        "relu"
+        if kind
+        in {
+            Activation.RELU,
+            Activation.LEAKY_RELU,
+            Activation.ELU,
+            Activation.SELU,
+            Activation.SILU,
+        }
+        else "tanh"
+    )
     for layer in module.modules():
         if isinstance(layer, (*_CONV.values(), *_CONV_TRANSPOSE.values())):
             if how is Initialiser.HE_NORMAL:
@@ -73,15 +89,23 @@ def initialise(module: nn.Module, how: Initialiser, kind: Activation) -> None:
                 nn.init.zeros_(layer.bias)
 
 
-def convolution(rank: int, in_channels: int, out_channels: int, *, kernel_size: int = 3,
-                separable: bool = False, bias: bool = True) -> nn.Module:
+def convolution(
+    rank: int,
+    in_channels: int,
+    out_channels: int,
+    *,
+    kernel_size: int = 3,
+    separable: bool = False,
+    bias: bool = True,
+) -> nn.Module:
     conv = _CONV[rank]
     padding = kernel_size // 2
     if not separable:
         return conv(in_channels, out_channels, kernel_size, padding=padding, bias=bias)
     return nn.Sequential(
-        conv(in_channels, in_channels, kernel_size, padding=padding,
-             groups=in_channels, bias=False),
+        conv(
+            in_channels, in_channels, kernel_size, padding=padding, groups=in_channels, bias=False
+        ),
         conv(in_channels, out_channels, 1, bias=bias),
     )
 
@@ -98,8 +122,9 @@ def pooling(rank: int) -> nn.Module:
     return _POOL[rank](2)
 
 
-def upsample(rank: int, in_channels: int, out_channels: int, *, learned: bool = True,
-             separable: bool = False) -> nn.Module:
+def upsample(
+    rank: int, in_channels: int, out_channels: int, *, learned: bool = True, separable: bool = False
+) -> nn.Module:
     """Transposed convolution, or interpolation followed by a convolution."""
     if learned:
         return _CONV_TRANSPOSE[rank](in_channels, out_channels, 2, stride=2)
@@ -112,16 +137,26 @@ def upsample(rank: int, in_channels: int, out_channels: int, *, learned: bool = 
 class ConvBlock(nn.Module):
     """`width` convolutions, each optionally normalised, then activated."""
 
-    def __init__(self, rank: int, in_channels: int, out_channels: int, *, width: int = 2,
-                 batch_norm: bool = True, separable: bool = False,
-                 act: Activation = Activation.RELU, drop: float = 0.0,
-                 spatial_dropout: bool = True):
+    def __init__(
+        self,
+        rank: int,
+        in_channels: int,
+        out_channels: int,
+        *,
+        width: int = 2,
+        batch_norm: bool = True,
+        separable: bool = False,
+        act: Activation = Activation.RELU,
+        drop: float = 0.0,
+        spatial_dropout: bool = True,
+    ):
         super().__init__()
         layers: list[nn.Module] = []
         channels = in_channels
         for index in range(width):
-            layers.append(convolution(rank, channels, out_channels,
-                                      separable=separable, bias=not batch_norm))
+            layers.append(
+                convolution(rank, channels, out_channels, separable=separable, bias=not batch_norm)
+            )
             if batch_norm:
                 layers.append(_NORM[rank](out_channels))
             layers.append(activation(act))
@@ -141,7 +176,8 @@ class ResidualConvBlock(nn.Module):
         super().__init__()
         self.body = ConvBlock(rank, in_channels, out_channels, **kwargs)
         self.shortcut = (
-            nn.Identity() if in_channels == out_channels
+            nn.Identity()
+            if in_channels == out_channels
             else convolution(rank, in_channels, out_channels, kernel_size=1, bias=False)
         )
 

@@ -12,8 +12,7 @@ ARCHITECTURES = list(Architecture)
 
 
 def spec(**overrides):
-    base = {"name": "m", "input_shape": (64, 64), "channels": 3, 
-            "blocks": 3, "filters": 8}
+    base = {"name": "m", "input_shape": (64, 64), "channels": 3, "blocks": 3, "filters": 8}
     return SegmentationModel(**{**base, **overrides})
 
 
@@ -27,22 +26,26 @@ def test_every_architecture_preserves_the_input_size(architecture):
 @pytest.mark.parametrize("architecture", ARCHITECTURES)
 def test_every_architecture_works_in_3d(architecture):
     """PLAN.md rule 2. If this needs new code, the builder stopped being rank-generic."""
-    model = build_model(spec(architecture=architecture, input_shape=(32, 32, 32),
-                             channels=1, blocks=2), n_class=2)
+    model = build_model(
+        spec(architecture=architecture, input_shape=(32, 32, 32), channels=1, blocks=2), n_class=2
+    )
     out = model(torch.randn(1, 1, 32, 32, 32))
     assert out.shape == (1, 2, 32, 32, 32)
 
 
-@pytest.mark.parametrize("modifier", [
-    {"separable_conv": True},
-    {"upsample": True},
-    {"batch_normalization": False},
-    {"spatial_dropout": False, "dropout": 0.2},
-    {"block_width": 1},
-    {"block_width": 4},
-    {"activation": "gelu"},
-    {"initialiser": "glorot_uniform"},
-])
+@pytest.mark.parametrize(
+    "modifier",
+    [
+        {"separable_conv": True},
+        {"upsample": True},
+        {"batch_normalization": False},
+        {"spatial_dropout": False, "dropout": 0.2},
+        {"block_width": 1},
+        {"block_width": 4},
+        {"activation": "gelu"},
+        {"initialiser": "glorot_uniform"},
+    ],
+)
 @pytest.mark.parametrize("architecture", ARCHITECTURES)
 def test_modifiers_compose_with_every_architecture(architecture, modifier):
     """The point of replacing the boolean soup with an enum: 4 x 32 combinations that
@@ -53,28 +56,37 @@ def test_modifiers_compose_with_every_architecture(architecture, modifier):
 
 def test_separable_convolutions_are_much_cheaper():
     plain = sum(p.numel() for p in build_model(spec(), n_class=2).parameters())
-    separable = sum(p.numel() for p in build_model(spec(separable_conv=True), n_class=2).parameters())
+    separable = sum(
+        p.numel() for p in build_model(spec(separable_conv=True), n_class=2).parameters()
+    )
     assert separable < plain / 3
 
 
 def test_linknet_is_smaller_than_u_net():
     """Adding skips instead of concatenating halves the decoder's input width."""
     unet = sum(p.numel() for p in build_model(spec(), n_class=2).parameters())
-    linknet = sum(p.numel() for p in build_model(
-        spec(architecture=Architecture.LINKNET), n_class=2).parameters())
+    linknet = sum(
+        p.numel()
+        for p in build_model(spec(architecture=Architecture.LINKNET), n_class=2).parameters()
+    )
     assert linknet < unet
 
 
 def test_nested_architecture_is_larger():
     unet = sum(p.numel() for p in build_model(spec(), n_class=2).parameters())
-    nested = sum(p.numel() for p in build_model(
-        spec(architecture=Architecture.U_NET_PLUS_PLUS), n_class=2).parameters())
+    nested = sum(
+        p.numel()
+        for p in build_model(
+            spec(architecture=Architecture.U_NET_PLUS_PLUS), n_class=2
+        ).parameters()
+    )
     assert nested > unet
 
 
 def test_deep_supervision_returns_one_output_per_depth():
-    model = build_model(spec(architecture=Architecture.U_NET_PLUS_PLUS,
-                             deep_supervision=True), n_class=2)
+    model = build_model(
+        spec(architecture=Architecture.U_NET_PLUS_PLUS, deep_supervision=True), n_class=2
+    )
     outputs = model(torch.randn(1, 3, 64, 64))
     assert isinstance(outputs, tuple) and len(outputs) == 3
     assert all(o.shape == (1, 2, 64, 64) for o in outputs)
@@ -148,10 +160,12 @@ class StubEncoder(torch.nn.Module):
         self.drop_last = drop_last
         first_stride = 2 if stride_first else 1
         self.stem = torch.nn.Conv2d(3, widths[0], 3, stride=first_stride, padding=1)
-        self.rest = torch.nn.ModuleList([
-            torch.nn.Conv2d(widths[i], widths[i + 1], 3, stride=2, padding=1)
-            for i in range(len(widths) - 1)
-        ])
+        self.rest = torch.nn.ModuleList(
+            [
+                torch.nn.Conv2d(widths[i], widths[i + 1], 3, stride=2, padding=1)
+                for i in range(len(widths) - 1)
+            ]
+        )
 
     def forward(self, x):
         x = self.stem(x)
@@ -212,5 +226,9 @@ def test_verification_costs_one_tiny_forward_pass():
             seen.append(tuple(x.shape))
             return super().forward(x)
 
-    build_model(spec(input_shape=(256, 256), blocks=3), encoder=Watching(2, 3, blocks=3, filters=8), n_class=2)
+    build_model(
+        spec(input_shape=(256, 256), blocks=3),
+        encoder=Watching(2, 3, blocks=3, filters=8),
+        n_class=2,
+    )
     assert seen == [(1, 3, 8, 8)]
