@@ -114,6 +114,9 @@ website:
         contents:
         - reference/write_record.qmd
         - reference/read_record.qmd
+      - section: Looking at the results
+        contents:
+        - reference/drawing_style.qmd
       - section: When something is wrong
         contents:
         - reference/PlatypusError.qmd
@@ -222,6 +225,12 @@ quartodoc:
     contents:
     - write_record
     - read_record
+  - title: Looking at the results
+    desc: The decisions a drawing makes, held here so the R package and this one cannot disagree
+      about what red means. Until 0.8.0a1 this group existed only in the R package, because the
+      engine carried no plotting at all.
+    contents:
+    - drawing_style
   - title: When something is wrong
     desc: 'Three kinds, because they are three different problems: a configuration that cannot
       be read, an engine that cannot run it, and weights that do not belong to the model.
