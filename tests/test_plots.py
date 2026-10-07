@@ -95,9 +95,68 @@ def test_plot_masks_draws_agreement_only_when_both_are_given():
     ]
 
 
-def test_drawing_a_mask_without_a_colormap_is_refused():
-    with pytest.raises(PlatypusError, match="colormap"):
-        pyplatypus.plot_masks(image()[None], prediction=mask()[None])
+def test_the_default_colormap_is_the_two_class_one_r_also_defaults_to():
+    """No colormap draws the binary case rather than refusing, as `plot_masks()` does in R.
+
+    Checked by drawing the same masks twice: once with the default and once with the list
+    spelled out. Equal pictures is the assertion - a default that drew something else would
+    pass any test that only asked whether a figure came back.
+    """
+    default = pyplatypus.plot_masks(image()[None], prediction=mask()[None])
+    spelled = pyplatypus.plot_masks(
+        image()[None], prediction=mask()[None], colormap=[(0, 0, 0), (255, 255, 255)]
+    )
+    assert np.array_equal(
+        default.axes[1].get_images()[0].get_array(),
+        spelled.axes[1].get_images()[0].get_array(),
+    )
+
+
+def test_a_class_the_colormap_has_no_colour_for_is_refused():
+    """The two ways into a mask used to read this differently.
+
+    A one-hot mask with more channels than the colormap has colours was refused by name; an
+    index mask was clipped, so classes 2 and 3 were drawn in class 1's colour and nothing
+    said so. One function, one answer.
+    """
+    indices = np.zeros((1, 8, 8), dtype=int)
+    indices[0, 2, 2] = 3
+    with pytest.raises(PlatypusError, match="class 3 but the colormap defines 2"):
+        pyplatypus.plot_masks(image()[None], prediction=indices)
+
+    onehot = np.zeros((1, 8, 8, 4))
+    onehot[0, 2, 2, 3] = 1
+    with pytest.raises(PlatypusError, match="4 channels but the colormap defines 2"):
+        pyplatypus.plot_masks(image()[None], prediction=onehot)
+
+
+def test_a_volume_needs_a_slice_and_an_image_refuses_one():
+    """R refuses to draw a volume as one picture, and so does this.
+
+    The two mask layouts reach the plane by different axes - one-hot carries channels, an
+    index mask does not - so both are drawn here. A wrong axis would take a plane of the
+    right shape out of the wrong place, which is the failure no shape assertion sees.
+    """
+    volumes = np.zeros((2, 8, 8, 6, 3))
+    volumes[:, :, :, 3, :] = 0.5
+    onehot = np.zeros((2, 8, 8, 6, 2))
+    onehot[:, 2:5, 2:5, 3, 1] = 1
+    indices = onehot.argmax(axis=-1)
+
+    with pytest.raises(PlatypusError, match="volume shown as one picture"):
+        pyplatypus.plot_masks(volumes, prediction=onehot)
+
+    for prediction in (onehot, indices):
+        figure = pyplatypus.plot_masks(volumes, prediction=prediction, slice="middle")
+        drawn = figure.axes[1].get_images()[0].get_array()
+        assert drawn.shape == (8, 8, 3)
+        # The plane that holds the lesion, so a wrong axis shows background instead.
+        assert (drawn[2:5, 2:5] != drawn[0, 0]).any()
+
+    with pytest.raises(PlatypusError, match="outside 0..5"):
+        pyplatypus.plot_masks(volumes, prediction=onehot, slice=9)
+    with pytest.raises(PlatypusError, match="applies to volumes"):
+        pyplatypus.plot_masks(image()[None], prediction=mask()[None], slice="middle")
 
 
 def test_plot_boxes_honours_the_threshold_and_labels_what_it_draws():
@@ -116,6 +175,27 @@ def test_plot_boxes_honours_the_threshold_and_labels_what_it_draws():
     assert [text.get_text() for text in axis.texts] == ["cell 0.90"]
 
 
+def test_a_prediction_record_is_labelled_with_the_class_name():
+    """`predict` returns both, and only one of them is a name.
+
+    Its records carry the class indices under `labels` and the names under `names` - the
+    same record, two keys - so reading `labels` labelled every box of every real prediction
+    with an integer. The figure looked right and said `0 0.90`.
+    """
+    record = [
+        {
+            "key": "frame",
+            "boxes": [[1, 1, 5, 5]],
+            "scores": [0.9],
+            "labels": [0],
+            "names": ["RBC"],
+        }
+    ]
+
+    figure = pyplatypus.plot_boxes(image()[None], record)
+    assert [text.get_text() for text in figure.axes[0].texts] == ["RBC 0.90"]
+
+
 def test_plot_boxes_refuses_a_record_count_that_does_not_match():
     """A box drawn on the wrong frame is wrong in a way no score reports."""
     with pytest.raises(PlatypusError, match="record"):
@@ -129,7 +209,69 @@ def test_plot_anchors_draws_every_group_and_the_boxes_under_them():
     axis = figure.axes[0]
 
     assert len(axis.collections) == 3, "one for the boxes and one per anchor group"
-    assert axis.get_xscale() == "log", "linear axes collapse the smallest class into a corner"
+    # Linear by default, which is what R does. The log scale is worth having and is the
+    # caller's: a default that differed between the two packages would make the same call
+    # draw two different pictures, which is the whole thing `style.py` exists to stop.
+    assert axis.get_xscale() == "linear"
+    assert pyplatypus.plot_anchors([[(0.1, 0.1)]], log=True).axes[0].get_xscale() == "log"
+
+
+class _FakeDetector:
+    """A stand-in for a fitted detector, answering the one call the figure makes.
+
+    Not a trained engine: this asserts that `plot_anchors` asks `box_shapes` for both clouds
+    and draws what comes back, and training a 61.5-million-parameter network to find that
+    out would add ten seconds to the suite for no extra question answered. That the engine's
+    own numbers are right is `test_detection_engine.py`'s job.
+    """
+
+    def __init__(self):
+        self.asked = None
+
+    def box_shapes(self, model_name=None, split="train"):
+        self.asked = (model_name, split)
+        return {
+            "boxes": {
+                "width": [0.1, 0.2, 0.3, 0.4],
+                "height": [0.1, 0.2, 0.3, 0.4],
+                "label": [0, 0, 1, 1],
+                "name": ["RBC", "RBC", "WBC", "WBC"],
+            },
+            "anchors": [[[0.1, 0.1], [0.2, 0.2]], [[0.4, 0.4]]],
+            "anchors_were_fitted": True,
+            "input_shape": [416, 416],
+            "classes": ["RBC", "WBC"],
+        }
+
+
+def test_an_engine_is_the_second_way_in_and_the_classes_are_separated():
+    """R's `plot_anchors()` takes a fit; this takes the engine, and asks it for both clouds.
+
+    One cloud per class, because a figure in which every box is the same grey cannot show a
+    class the anchors have nothing near - which is the question the picture is drawn for.
+    """
+    detector = _FakeDetector()
+    figure = pyplatypus.plot_anchors(detector, split="validation")
+    axis = figure.axes[0]
+
+    assert detector.asked == (None, "validation"), "no name means the first model"
+    assert [collection.get_label() for collection in axis.collections] == [
+        "RBC",
+        "WBC",
+        "grid 1",
+        "grid 2",
+    ]
+    # What the figure says about itself, so a reader knows whether the anchors were fitted
+    # or declared, and in which coordinates the clouds are.
+    assert "4 boxes in 'validation'" in axis.get_title()
+    assert "3 anchors fitted to the training boxes" in axis.get_title()
+    assert "416 x 416" in axis.get_title()
+
+
+def test_an_engine_and_boxes_together_are_refused():
+    """Two answers to one question: the engine has the boxes it was asked about."""
+    with pytest.raises(PlatypusError, match="two answers to the same question"):
+        pyplatypus.plot_anchors(_FakeDetector(), boxes=np.full((4, 2), 0.2))
 
 
 def test_the_figures_are_returned_rather_than_shown_or_saved(tmp_path):

@@ -9,11 +9,11 @@ detection through `DetectionEngine`. `build_engine(spec)` returns the right one,
 a spec is enough.
 """
 
+from pyplatypus.data.images import read_image
 from pyplatypus.data.splits import split_dataset, split_samples
 from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
-from pyplatypus.runs import read_record, write_record
 from pyplatypus.plots import (
     overlay_agreement,
     overlay_mask,
@@ -21,7 +21,7 @@ from pyplatypus.plots import (
     plot_boxes,
     plot_masks,
 )
-from pyplatypus.style import drawing_style
+from pyplatypus.runs import read_record, write_record
 from pyplatypus.spec import (
     DetectionSpec,
     PlatypusSpec,
@@ -33,6 +33,7 @@ from pyplatypus.spec import (
     spec_schema,
     write_schema,
 )
+from pyplatypus.style import drawing_style
 from pyplatypus.weights import (
     WeightsError,
     available_weights,
@@ -65,6 +66,7 @@ __all__ = [
     "plot_anchors",
     "plot_boxes",
     "plot_masks",
+    "read_image",
     "read_record",
     "resolve_weights",
     "spec_schema",

@@ -1,9 +1,10 @@
 # The reference, grouped by what a person is doing - the one judgement on this site.
 #
-# The same eight groups as the R package's sidebar, where the two halves have the same
-# concept. Two of R's groups have no counterpart and are not invented: "Setting up" is the
-# reticulate bridge, which exists only there, and "Looking at the results" is plotting,
-# which the engine deliberately does not carry.
+# The same order as the R package's sidebar, where the two halves have the same concept,
+# each carrying the subset it has. "Setting up" is the reticulate bridge and exists only
+# there. "Looking at the results" was R's alone until 0.8.0a1, when the engine learnt to
+# draw; it is in both now, and the drawing decisions live in `pyplatypus/style.py` so the
+# two cannot come to disagree about what red means.
 #
 # `tools/build_reference.py` turns this into two things that must agree - quartodoc's
 # `sections` and the website sidebar - and `tests/test_reference_groups.py` asserts every
@@ -41,6 +42,7 @@ groups:
 
     '
   contents:
+  - read_image
   - split_dataset
   - split_samples
   - Engine.dataset

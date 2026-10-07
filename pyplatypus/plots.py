@@ -34,6 +34,7 @@ from pyplatypus.style import (
     BOX_COLOURS,
     BOX_LABEL_FORMAT,
     BOX_MIN_SCORE,
+    CLASS_COLOURS,
     OVERLAY_ALPHA,
 )
 
@@ -118,7 +119,16 @@ def overlay_mask(
         coloured = onehot_to_colours(classes, colormap)
     else:
         indices = classes.reshape(classes.shape[:2])
-        coloured = np.asarray(colormap, dtype=np.uint8)[np.clip(indices, 0, len(colormap) - 1)]
+        highest = int(indices.max(initial=0))
+        if highest >= len(colormap):
+            # The one-hot path above refuses this by name, and clipping here instead meant
+            # one function read the same mistake two ways: a four-class mask drawn with two
+            # colours showed classes 2 and 3 in class 1's colour and said nothing.
+            raise PlatypusError(
+                f"the mask holds class {highest} but the colormap defines {len(colormap)} "
+                "classes; drawing it would show one class in another's colour"
+            )
+        coloured = np.asarray(colormap, dtype=np.uint8)[indices]
     if coloured.shape[:2] != picture.shape[:2]:
         raise PlatypusError(
             f"the mask is {coloured.shape[:2]} and the image is {picture.shape[:2]}; "
@@ -205,6 +215,31 @@ def overlay_agreement(
     return np.clip(np.round(picture), 0, 255).astype(np.uint8)
 
 
+# The list R's `plot_masks()` takes as its default, under the same reasoning: a segmentation
+# figure is usually binary, and making every call carry the same five tokens buys nothing. It
+# is safe as a default only because a mask holding a class the colormap has no colour for is
+# now refused rather than drawn in a neighbour's colour.
+BINARY_COLORMAP: list[tuple[int, int, int]] = [(0, 0, 0), (255, 255, 255)]
+
+
+def _take_slice(array: np.ndarray | None, where: int | str, *, channels: bool):
+    """One plane out of a stack of volumes, along the last spatial axis.
+
+    Which axis that is cannot be guessed from the shape - a stack of volumes with channels and
+    a stack of volumes without them differ only in rank - so the caller states it, the same
+    way `save_volumes` states its contract per rank rather than inspecting the array.
+    """
+    if array is None:
+        return None
+    volume = np.asarray(array)
+    axis = -2 if channels else -1
+    depth = volume.shape[axis]
+    position = depth // 2 if where == "middle" else int(where)
+    if not 0 <= position < depth:
+        raise PlatypusError(f"slice {where} is outside 0..{depth - 1}")
+    return np.take(volume, position, axis=axis)
+
+
 def _foreground(mask: np.ndarray) -> np.ndarray:
     """Anything above class 0, whether the mask is indices or one-hot."""
     array = np.asarray(mask)
@@ -229,6 +264,7 @@ def plot_masks(
     which: list[int] | None = None,
     alpha: float = OVERLAY_ALPHA,
     labels: list[str] | None = None,
+    slice: int | str | None = None,
 ) -> Figure:
     """Images, their masks and where the two disagree, one row per image.
 
@@ -240,17 +276,22 @@ def plot_masks(
         images: one image or a stack, `[image] x height x width x channels`.
         prediction: one-hot or probabilities per image, or class indices.
         truth: the annotation, same shapes.
-        colormap: one colour per class, darkest first. Required to draw a mask.
+        colormap: one colour per class, darkest first. The default is black and white, the
+            two-class case, which is also what R defaults to.
         which: which images to draw. The default is the first four, because a montage of
             forty is not a figure anybody reads.
         alpha: how much of the tint shows.
         labels: a row label each. The default numbers them.
+        slice: which plane of a volume to draw, or `"middle"`. Required for volumes and
+            refused for images, because a volume shown as one picture is either a lie or a
+            projection nobody asked for. Volumes arrive as a stack, rank 5.
 
     Returns:
         A matplotlib `Figure`. Never shown and never saved - the caller decides.
 
     Raises:
-        PlatypusError: if a mask is given without a colormap, or the counts disagree.
+        PlatypusError: if a volume is given without a slice, a slice without a volume, or a
+            mask whose classes the colormap has no colours for.
 
     >>> import numpy as np
     >>> image = np.full((1, 8, 8, 3), 0.5)
@@ -259,14 +300,30 @@ def plot_masks(
     >>> [axis.get_title() for axis in figure.axes]
     ['image', 'truth', 'prediction', 'agreement']
     """
+    if np.asarray(images).ndim == 5:
+        if slice is None:
+            raise PlatypusError(
+                f"these are volumes {np.asarray(images).shape}; choose a slice to draw - "
+                '`slice="middle"` to start - because a volume shown as one picture is '
+                "either a lie or a projection nobody asked for"
+            )
+        # A mask carries a channel axis when it is one-hot and not when it holds indices, so
+        # the plane sits at a different axis in each. Stated per rank rather than guessed.
+        images = _take_slice(images, slice, channels=True)
+        if prediction is not None:
+            prediction = _take_slice(prediction, slice, channels=np.asarray(prediction).ndim == 5)
+        if truth is not None:
+            truth = _take_slice(truth, slice, channels=np.asarray(truth).ndim == 5)
+    elif slice is not None:
+        raise PlatypusError(
+            "`slice` applies to volumes, and these are images; a stack of volumes has rank 5"
+        )
+
     stack = _stack(images)
     if which is None:
         which = list(range(min(4, len(stack))))
-    if (prediction is not None or truth is not None) and colormap is None:
-        raise PlatypusError(
-            "drawing a mask needs `colormap`, the one the specification gave - without it "
-            "there is no way to know which colour a class is"
-        )
+    if colormap is None:
+        colormap = BINARY_COLORMAP
 
     columns = ["image"]
     if truth is not None:
@@ -357,7 +414,14 @@ def plot_boxes(
     if which is None:
         which = list(range(min(4, len(stack))))
 
-    figure = Figure(figsize=(4.0, 4.0 * len(which)), layout="constrained")
+    # Sized from the picture's own proportions rather than square. A detection frame is
+    # usually wider than it is tall - BCCD is 4:3 - and a square panel leaves the labels
+    # fighting each other over a picture that has been squeezed to fit it.
+    height, width = _as_picture(stack[which[0]]).shape[:2]
+    figure = Figure(
+        figsize=(6.4, 6.4 * height / width * len(which)),
+        layout="constrained",
+    )
     axes = figure.subplots(len(which), 1, squeeze=False)
     for row, index in enumerate(which):
         axis = axes[row][0]
@@ -368,13 +432,25 @@ def plot_boxes(
             _draw_boxes(axis, truth[index], chosen["truth"], None)
         _draw_boxes(axis, boxes[index], chosen["prediction"], min_score)
         axis.set_ylabel(labels[row] if labels else f"image {index + 1}")
+
+    if truth is not None:
+        # Only with both. Two colours need saying which is which; one colour, where every
+        # box is a prediction, would be a legend with one entry restating the caption.
+        handles = [
+            matplotlib.patches.Patch(edgecolor=chosen[name], facecolor="none", label=name)
+            for name in ("prediction", "truth")
+        ]
+        axes[0][0].legend(handles=handles, loc="upper right", fontsize=8)
     return figure
 
 
 def _draw_boxes(axis, record: dict[str, Any], colour: str, min_score: float | None) -> None:
     """One record's boxes onto one axis, labelled where there is a score to label with."""
     found = np.asarray(record.get("boxes", []), dtype=float).reshape(-1, 4)
-    names = list(record.get("labels", []))
+    # `predict` puts the class *indices* in `labels` and the names in `names`, so reading
+    # `labels` alone labelled every box of a real prediction with an integer. `names` first,
+    # then `labels` for a record somebody built by hand with strings in it.
+    names = list(record.get("names", record.get("labels", [])))
     scores = list(record.get("scores", []))
     for position, box in enumerate(found):
         score = scores[position] if position < len(scores) else None
@@ -402,39 +478,97 @@ def _draw_boxes(axis, record: dict[str, Any], colour: str, min_score: float | No
 
 
 def plot_anchors(
-    anchors: list[list[tuple[float, float]]],
+    anchors: Any,
     boxes: np.ndarray | None = None,
-    log: bool = True,
+    log: bool = False,
+    *,
+    model: str | None = None,
+    split: str = "train",
 ) -> Figure:
     """Fitted anchors against the box shapes they were fitted to.
 
+    Two ways in, the same two R has, where `plot_anchors()` takes a fit. Give a fitted
+    `DetectionEngine` and it asks the engine for both clouds in one call, colouring the
+    boxes by class; or give the anchors and the shapes yourself.
+
+    Handing it the engine is the safer of the two and not merely the shorter: widths from
+    one place and anchors from another is how a figure comes to show boxes in different
+    places from where the anchors were fitted to them, which looks like a bad fit and is a
+    bug. `box_shapes` returns both as fractions of the **letterboxed** input, which is the
+    convention the anchors were fitted in - taking the source image instead is what had a
+    coverage of 0.67 quoted for two years against a true 0.65.
+
     Args:
-        anchors: one group per grid, each a list of `(width, height)` pairs as fractions of
-            the input.
+        anchors: a fitted `DetectionEngine`, or one group of `(width, height)` pairs per
+            grid, as fractions of the input.
         boxes: the shapes themselves, `n x 2` of widths and heights, drawn underneath.
-        log: both axes on a log scale. Detection datasets span a wide range of sizes - a
-            BCCD platelet is about two fifths the side of a red cell - and on linear axes
-            the smallest class collapses into the corner.
+            Refused together with an engine, which already has them.
+        log: both axes on a log scale, off by default as in R. Detection datasets span a
+            wide range of sizes - a BCCD platelet is about two fifths the side of a red
+            cell - and a log scale spreads the classes a linear one crowds into the corner.
+        model: which detector, when an engine is given. The default is the first.
+        split: which split's boxes, when an engine is given. Worth drawing for a split the
+            anchors were *not* fitted on: it is the only way to see a class the anchors have
+            nothing near.
 
     Returns:
         A matplotlib `Figure`.
 
+    Raises:
+        PlatypusError: if both an engine and `boxes` are given.
+
     >>> figure = plot_anchors([[(0.1, 0.1), (0.2, 0.3)], [(0.4, 0.5)]])
     >>> len(figure.axes[0].collections), figure.axes[0].get_yscale()
-    (2, 'log')
+    (2, 'linear')
     """
+    subtitle = None
+    cloud: list[tuple[str, np.ndarray]] = []
+    if hasattr(anchors, "box_shapes"):
+        if boxes is not None:
+            raise PlatypusError(
+                "an engine carries its own boxes, so giving `boxes` as well leaves two "
+                "answers to the same question; drop it, or pass the anchors yourself"
+            )
+        report = anchors.box_shapes(model, split)
+        anchors = report["anchors"]
+        shapes = np.column_stack(
+            [np.asarray(report["boxes"]["width"]), np.asarray(report["boxes"]["height"])]
+        )
+        names = np.asarray(report["boxes"]["name"])
+        for name in dict.fromkeys(names.tolist()):
+            cloud.append((str(name), shapes[names == name]))
+        subtitle = (
+            f"{len(shapes)} boxes in '{split}', {sum(len(g) for g in anchors)} anchors "
+            + (
+                "fitted to the training boxes"
+                if report["anchors_were_fitted"]
+                else "given in the specification"
+            )
+            + f", as fractions of a {report['input_shape'][0]} x {report['input_shape'][1]} input"
+        )
+    elif boxes is not None:
+        cloud.append(("boxes", np.asarray(boxes, dtype=float).reshape(-1, 2)))
+
     figure = Figure(figsize=(5.0, 5.0), layout="constrained")
     axis = figure.subplots()
-    if boxes is not None:
-        shapes = np.asarray(boxes, dtype=float).reshape(-1, 2)
-        axis.scatter(shapes[:, 0], shapes[:, 1], s=6, alpha=0.3, color="#999999", label="boxes")
-    for group, pairs in enumerate(anchors):
+    for index, (label, group) in enumerate(cloud):
+        axis.scatter(
+            group[:, 0],
+            group[:, 1],
+            s=6,
+            alpha=0.35,
+            color="#999999" if label == "boxes" else CLASS_COLOURS[index % len(CLASS_COLOURS)],
+            label=label,
+        )
+    for group_index, pairs in enumerate(anchors):
         wide = np.asarray(pairs, dtype=float).reshape(-1, 2)
-        axis.scatter(wide[:, 0], wide[:, 1], s=70, marker="x", label=f"grid {group + 1}")
+        axis.scatter(wide[:, 0], wide[:, 1], s=70, marker="x", label=f"grid {group_index + 1}")
     if log:
         axis.set_xscale("log")
         axis.set_yscale("log")
     axis.set_xlabel("width, fraction of the input")
     axis.set_ylabel("height, fraction of the input")
+    if subtitle is not None:
+        axis.set_title(subtitle, fontsize=8)
     axis.legend(loc="upper left", fontsize=8)
     return figure

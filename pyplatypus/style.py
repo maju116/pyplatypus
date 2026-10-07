@@ -35,6 +35,27 @@ BOX_COLOURS: dict[str, str] = {
     "truth": "#1b9e77",
 }
 
+#: One colour per class, for a figure that separates classes rather than predictions from
+#: truth. The whole of ColorBrewer's Dark2, of which `BOX_COLOURS` above is the first two
+#: entries - so the palettes are one decision rather than two that happen to overlap.
+#:
+#: Eight, and then it repeats. A figure with more than eight classes in it cannot be read by
+#: colour whatever palette it uses, and cycling says that plainly where inventing a ninth
+#: colour would pretend otherwise.
+#:
+#: Known difference, to close when R reads this across the bridge: R's `plot_anchors()`
+#: colours its classes with ggplot2's default hue scale, which this is not.
+CLASS_COLOURS: list[str] = [
+    "#1b9e77",
+    "#d95f02",
+    "#7570b3",
+    "#e7298a",
+    "#66a61e",
+    "#e6ab02",
+    "#a6761d",
+    "#666666",
+]
+
 #: How much of the image an overlay lets through. 0.55 keeps the tissue legible underneath
 #: while the mask still reads as a region rather than a tint - and the point of an overlay is
 #: that both are visible at once, or a reader cannot tell whether the boundary is right.
@@ -68,8 +89,14 @@ def drawing_style() -> dict[str, object]:
         caller sees.
 
     >>> style = drawing_style()
-    >>> sorted(style)
-    ['agreement_colours', 'box_colours', 'box_label_format', 'box_min_score', 'overlay_alpha']
+    >>> for name in sorted(style):
+    ...     print(name)
+    agreement_colours
+    box_colours
+    box_label_format
+    box_min_score
+    class_colours
+    overlay_alpha
     >>> style["agreement_colours"]["missed"]
     '#E63C3C'
     >>> style["box_label_format"].format(label="WBC", score=0.98765)
@@ -78,6 +105,7 @@ def drawing_style() -> dict[str, object]:
     return {
         "agreement_colours": dict(AGREEMENT_COLOURS),
         "box_colours": dict(BOX_COLOURS),
+        "class_colours": list(CLASS_COLOURS),
         "overlay_alpha": OVERLAY_ALPHA,
         "box_label_format": BOX_LABEL_FORMAT,
         "box_min_score": BOX_MIN_SCORE,
