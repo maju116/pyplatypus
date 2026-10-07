@@ -14,9 +14,14 @@ project:
   output-dir: docs
   render:
   - index.qmd
+  - guide.qmd
+  - config.qmd
   - reference/
   - CHANGELOG.md
   - CODE_OF_CONDUCT.md
+  - CITATION.qmd
+  resources:
+  - schema/
 brand: _brand.yml
 website:
   title: pyplatypus
@@ -101,6 +106,12 @@ website:
         - reference/PlatypusError.qmd
         - reference/ConfigError.qmd
         - reference/WeightsError.qmd
+    - section: Guides
+      contents:
+      - text: Writing a configuration
+        file: guide.qmd
+      - text: Every configuration field
+        file: config.qmd
     - section: About
       contents:
       - text: Changelog
@@ -109,6 +120,8 @@ website:
         file: CODE_OF_CONDUCT.md
       - text: Licence
         href: https://github.com/maju116/pyplatypus/blob/main/LICENSE
+      - text: Citation
+        file: CITATION.qmd
 format:
   html:
     toc: true

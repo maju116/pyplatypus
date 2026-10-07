@@ -46,3 +46,22 @@ def test_the_installed_distribution_agrees_too():
     except metadata.PackageNotFoundError:
         pytest.skip("pyplatypus is importable but not installed as a distribution")
     assert installed == pyplatypus.__version__
+
+
+def test_the_citation_carries_the_version_being_released():
+    """`CITATION.cff` states a version, and a citation naming the wrong one is worse than none.
+
+    It is a committed file that no release step reads, so nothing else would notice it going
+    stale - the same shape as `__version__` and `pyproject.toml` drifting apart, which shipped
+    `0.3.0a14` calling itself `0.3.0a13` and was caught only by the R package's bridge test.
+    """
+    import pathlib
+
+    import yaml
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    citation = yaml.safe_load((root / "CITATION.cff").read_text())
+
+    assert citation["version"] == pyplatypus.__version__, (
+        f"CITATION.cff says {citation['version']}, the package says {pyplatypus.__version__}"
+    )

@@ -61,8 +61,11 @@ jobs:
       # quartodoc has no opinion about - or when the generated config is a build behind.
       # The R package's `check_pkgdown()` did the first of these, and §4v put it before the
       # build on purpose.
-      - name: Check the reference index
-        run: uv run pytest tests/test_reference_groups.py -q
+      - name: Generate the configuration reference from the schema
+        run: uv run python tools/build_config_reference.py
+
+      - name: Check the reference index and the configuration page
+        run: uv run pytest tests/test_reference_groups.py tests/test_config_reference.py -q
 
       - name: Build the reference from the docstrings
         run: uv run quartodoc build

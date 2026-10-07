@@ -21,7 +21,12 @@ from typing import Any
 
 from pyplatypus.spec.spec import SPEC_ADAPTER
 
-SCHEMA_ID = "https://maju116.github.io/platypus/schema/spec.schema.json"
+# Where the schema is actually published, which until 0.7.0a3 it was not: this said
+# `platypus/` - the R package's site - and nothing there served it, so the `$id` was a 404 on
+# both sites and the editor validation it promises could never have worked. The engine
+# generates the file and the engine's own documentation workflow publishes it, so pointing the
+# `$id` at the R site would mean one repository serving another's artefact for no gain.
+SCHEMA_ID = "https://maju116.github.io/pyplatypus/schema/spec.schema.json"
 
 
 def spec_schema() -> dict[str, Any]:

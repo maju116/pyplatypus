@@ -52,7 +52,8 @@ caller - so a short configuration is a complete one.
 
 | If you want to | Read |
 |---|---|
-| see every field a configuration accepts | [`spec_schema`](reference/spec_schema.qmd), and the field descriptions it carries |
+| write a configuration file | [Writing a configuration](guide.qmd), then [every field](config.qmd) |
+| have your editor check that file as you type | [the JSON Schema](config.qmd#schema-for-your-editor) |
 | train and score something | [`Engine.fit`](reference/Engine.fit.qmd), [`Engine.evaluate`](reference/Engine.evaluate.qmd), [`Engine.evaluate_cases`](reference/Engine.evaluate_cases.qmd) |
 | detect objects rather than segment | [`DetectionEngine`](reference/DetectionEngine.qmd) and its [report](reference/DetectionEngine.report.qmd) |
 | not train at all, and use published weights | [`available_weights`](reference/available_weights.qmd) |

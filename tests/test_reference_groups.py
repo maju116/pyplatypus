@@ -106,8 +106,9 @@ def test_the_about_section_is_in_the_agreed_order_and_every_page_exists():
     The **order** matches `platypus`'s sidebar, so a reader moving between the two sites
     finds the same things in the same places. It cannot be derived here - this repository
     cannot see the other one - so it is written out in both suites, and `ABOUT_PAGES` in
-    `tools/build_reference.py` says where it came from. `platypus` has a fourth entry,
-    Citation, which altdoc writes from its DESCRIPTION; there is no counterpart here.
+    `tools/build_reference.py` says where it came from. Citation was the one entry the R
+    site had and this one did not, until `CITATION.cff` gave this language's equivalent of
+    what altdoc renders there from DESCRIPTION.
 
     Every **page entry names a file that exists**. Quarto renders `file:` from the project
     directory, so a missing one is a sidebar entry that either fails the build or cannot be
@@ -124,6 +125,7 @@ def test_the_about_section_is_in_the_agreed_order_and_every_page_exists():
         "Changelog",
         "Code of conduct",
         "Licence",
+        "Citation",
     ], "run tools/build_reference.py - and keep the order platypus uses"
 
     for entry in about["contents"]:

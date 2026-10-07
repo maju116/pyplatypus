@@ -54,5 +54,11 @@ dist/
 # timestamp and the building machine's pandoc version into every commit.
 /docs/
 /reference/
+# Generated at docs-build time by tools/build_config_reference.py. Not committed: it has one
+# consumer, the renderer, so there is nothing a staleness test could catch that a build would
+# not - unlike _quarto.yml, which two things have to agree about.
+/config.qmd
+# Rendered from CITATION.cff, which is the committed source.
+/CITATION.qmd
 # quartodoc writes this inventory beside the reference it generates.
 /objects.json

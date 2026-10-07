@@ -1,6 +1,75 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.7.0a3] - 2026-10-07
+
+### Added
+
+ - **A guide to writing a configuration**, by hand, from one model to several - and a
+   **page that explains every field**, generated from `spec_schema()` at
+   docs-build time: every block, every field, its type, its default and the description the
+   pydantic model carries. 206 descriptions were written for 0.7.0a1 and **until now the only
+   way to read one was to call `spec_schema()` in Python** - the site's own "see every field a
+   configuration accepts" pointed at that function, which is documentation that requires an
+   interpreter. An R user could reach them not at all.
+
+   It is the engine's page and there will not be a second one. The configuration is the one
+   thing that is *identical* between the two packages - the same YAML, read by the same models
+   - so the R package's site links here rather than keeping a copy, which is the arrangement
+   §4aa of the project notes spent a day establishing elsewhere.
+
+ - **A Citation page, and `CITATION.cff`.** The R site had one and this one did not: R
+   generates it from DESCRIPTION, which is that language's convention, and CFF is this
+   one's - GitHub reads it for "Cite this repository", and the page is rendered from it so
+   the two cannot disagree. A test holds its `version` to `pyproject.toml` and
+   `__version__`, because it is a committed file no release step reads and nothing else
+   would notice it going stale. The year comes from `date-released` rather than the clock,
+   so a page built next year does not restate the citation as next year's.
+
+   The About section is one ordered list now rather than pages-then-links, which is what
+   forced Licence before Citation and could not express the order the R sidebar uses.
+
+ - **The JSON Schema is published**, so `# yaml-language-server: $schema=...` on the first
+   line of a configuration gives completion and checking in any editor using
+   `yaml-language-server`.
+
+### Fixed
+
+ - **`SCHEMA_ID` named a URL that was a 404.** It said
+   `maju116.github.io/platypus/schema/spec.schema.json` - the *R package's* site - and nothing
+   there served it, so the `$id` promised editor validation that could never work. Verified
+   404 on both sites rather than assumed. It is now on this package's own site, which is where
+   the file is generated and published from; pointing it at the R site would mean one
+   repository serving another's artefact for no gain. The old value cannot be in use by
+   anybody, because it never resolved.
+
+### Notes on how the page is built, because three choices were measured rather than picked
+
+ - **Definition lists, not tables.** A table was the first shape, and measuring the
+   descriptions killed it: median 202 characters, ninth decile 383, **four carry fenced code
+   blocks** - which do not render inside a `|` cell - and one carries a `|` of its own, which
+   silently splits the cell it lands in.
+ - **Unions are named by their `name:` tags**, not by the pydantic classes behind them,
+   because the tag is what gets typed. Those discriminators sit on the *field* rather than
+   behind a `$ref` - `loss`, `metrics`, `optimizer` and `callbacks` all do - and reading only
+   the `$ref` left four fields described as "any".
+ - **Every cross-link points at an explicit `{#id}`.** Guessing how the renderer derives an id
+   got it wrong: pandoc keeps the underscore in `task: semantic_segmentation`, so a link
+   written as `#task-semantic-segmentation` went nowhere. Measured in the rendered HTML.
+
+ - **Every configuration the guide shows is validated by a test**, which is the check a
+   written-by-hand page needs and a generated one does not. It earned its place while the
+   page was being written: three of the six blocks were wrong before the prose was finished
+   - `model_checkpoint` has no `mode`, it does require a `path`, and `anchors: auto` is not
+   a thing, `auto` belonging to `window` while anchors are fitted by being left out. A
+   reader would have copied each one and been refused. The guide's section titles are pinned
+   too, because the R package's guide walks the same ones.
+
+ - Five tests on the generated page, each proven able to fail. Coverage is asserted against the schema's own
+   reachable definitions rather than against a count - a count is what let §4as's coverage
+   guard pass with a third of the model tree invisible to it - and removing the nested-block
+   expansion, which is how `split:` and `augmentation:` reach the page, fails two of them.
+
 ## [0.7.0a2] - 2026-10-07
 
 ### Fixed

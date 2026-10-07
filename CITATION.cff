@@ -1,0 +1,30 @@
+# Machine-readable citation metadata. GitHub reads this file and offers "Cite this
+# repository"; Zenodo and several reference managers read it too.
+#
+# The R package has no file of its own: `citation("platypus")` is generated from its
+# DESCRIPTION, which is R's own convention, and altdoc renders that into the Citation page
+# on its site. This is the same facts by the convention of this language, and a test holds
+# its `version` to pyproject.toml and `pyplatypus.__version__` so it cannot quietly go stale.
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "pyplatypus: computer vision for medical imaging"
+abstract: >-
+  Semantic segmentation and object detection for medical images, specified as one
+  configuration file or a few lines of code. The engine behind the platypus R package.
+type: software
+authors:
+  - family-names: Maj
+    given-names: Michal
+version: 0.7.0a3
+# The year a citation carries. Read from here rather than from the clock: a page built next
+# year must not silently restate the citation as next year's.
+date-released: "2026-10-07"
+license: MIT
+repository-code: "https://github.com/maju116/pyplatypus"
+url: "https://maju116.github.io/pyplatypus/"
+keywords:
+  - computer-vision
+  - medical-imaging
+  - segmentation
+  - object-detection
+  - pytorch
