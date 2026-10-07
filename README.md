@@ -1,6 +1,6 @@
-<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/hexsticker_platypus.png" align="right" alt="" width="130" />
-
 # pyplatypus
+
+<img src="https://raw.githubusercontent.com/maju116/platypus/main/man/figures/hexsticker_platypus.png" align="right" alt="" width="130" />
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
