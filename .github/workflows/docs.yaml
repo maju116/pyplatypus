@@ -1,0 +1,86 @@
+# The engine's documentation as a website.
+#
+# The same shape as the R package's site - same Quarto, same `_brand.yml`, the same eight
+# groups in the sidebar where the two halves share a concept - because a reader moving
+# between them should not have to learn a second site. That is verified rather than
+# claimed: both repositories produce a byte-identical bootstrap stylesheet, and Quarto
+# names that file by the hash of its content.
+#
+# The reference comes from the docstrings through quartodoc, so it cannot describe a
+# function the package does not have, and the `>>>` examples in it are run by pytest
+# (`--doctest-modules`) - so the site cannot publish an example that does not work.
+#
+# This needs no GPU and no torch beyond the CPU wheel: quartodoc imports the package to
+# read its docstrings and runs nothing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+name: docs
+
+permissions: read-all
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: docs-${{ github.event_name != 'pull_request' || github.run_id }}
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - run: uv venv --python 3.12
+
+      # torch from the CPU index first, for the reason ci.yml gives at length: the CUDA
+      # wheel is about 5 GB, there is no GPU here, and installing it from this index leaves
+      # the requirement satisfied so the package install does not pull the other one.
+      # torchvision comes from the same index in the same command, because the pair ships
+      # compiled operators built against one exact torch build.
+      - run: |
+          uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          uv pip install -e '.[dev,hub,encoders]'
+          uv pip install quartodoc
+
+      # The grouping lives in tools/reference-groups.yml; `_quarto.yml` is generated from
+      # it. Running the generator here means a stale config cannot ship.
+      - name: Generate the configuration from the reference grouping
+        run: uv run python tools/build_reference.py
+
+      # Fails when a public symbol is in no group - a page the sidebar cannot reach, which
+      # quartodoc has no opinion about - or when the generated config is a build behind.
+      # The R package's `check_pkgdown()` did the first of these, and §4v put it before the
+      # build on purpose.
+      - name: Check the reference index
+        run: uv run pytest tests/test_reference_groups.py -q
+
+      - name: Build the reference from the docstrings
+        run: uv run quartodoc build
+
+      - name: Render the site
+        run: uv run quarto render
+
+      - name: Deploy to GitHub pages
+        if: github.event_name != 'pull_request'
+        # Third-party, so pinned by commit rather than by tag - the pin r-lib's own
+        # reference workflow ships.
+        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
+        with:
+          # `true`, unlike the `false` that workflow defaults to. That default exists so a
+          # development build does not wipe a released one; with a single site it only
+          # accumulates - which is how the R package ended up publishing its pkgdown and
+          # Quarto documentation at once, 99 pages of one of them never to be updated
+          # again. There is no earlier site here to keep working.
+          clean: true
+          branch: gh-pages
+          folder: docs

@@ -1,0 +1,106 @@
+# The reference, grouped by what a person is doing - the one judgement on this site.
+#
+# The same eight groups as the R package's sidebar, where the two halves have the same
+# concept. Two of R's groups have no counterpart and are not invented: "Setting up" is the
+# reticulate bridge, which exists only there, and "Looking at the results" is plotting,
+# which the engine deliberately does not carry.
+#
+# `tools/build_reference.py` turns this into two things that must agree - quartodoc's
+# `sections` and the website sidebar - and `tests/test_reference_groups.py` asserts every
+# public symbol appears in exactly one group.
+#
+# Methods are listed individually rather than left on their class page. quartodoc will do
+# either; this is what makes the sidebar the same tool on both sites, since finding
+# `evaluate_cases` under a class means already knowing it is a method of one.
+groups:
+- title: A specification
+  desc: 'One object says what to train, on what data, with what. Built from a dict or from YAML
+    - the same specification either way, and `task` decides its shape.
+
+    '
+  contents:
+  - from_dict
+  - from_yaml
+  - SegmentationSpec
+  - DetectionSpec
+  - PlatypusSpec
+  - Task
+  - spec_schema
+  - write_schema
+- title: What a model is made of
+  desc: 'Losses, metrics, optimisers, callbacks and augmentation are named in the specification
+    rather than constructed, so their fields are documented in the schema. This lists the transforms
+    the installed albumentations offers.
+
+    '
+  contents:
+  - available_transforms
+- title: The data on disk
+  desc: 'Splitting by patient rather than by slice, and looking at what will actually be read
+    before spending an afternoon training on it.
+
+    '
+  contents:
+  - split_dataset
+  - split_samples
+  - Engine.dataset
+  - Engine.loader
+  - DetectionEngine.dataset
+  - DetectionEngine.loader
+- title: Training
+  desc: The engine the task asks for, and the run itself.
+  contents:
+  - build_engine
+  - Engine
+  - Engine.fit
+  - DetectionEngine
+  - DetectionEngine.fit
+  - DetectionEngine.fit_anchors
+- title: Predicting and scoring
+  desc: 'Per model, per case, per class, per image - and the distribution rather than a single
+    number, because the minimum is what nobody publishes and everybody should.
+
+    '
+  contents:
+  - Engine.predict
+  - Engine.evaluate
+  - Engine.evaluate_cases
+  - summarise_cases
+  - Engine.best_model
+  - DetectionEngine.predict
+  - DetectionEngine.evaluate
+  - DetectionEngine.evaluate_classes
+  - DetectionEngine.evaluate_images
+  - DetectionEngine.best_model
+  - DetectionEngine.crops
+  - DetectionReport
+  - DetectionEngine.report
+  - DetectionEngine.anchor_coverage
+  - DetectionEngine.box_shapes
+  - DetectionEngine.split_sizes
+  - DetectionEngine.model_names
+- title: Weights
+  desc: 'Named rather than downloaded by hand, and a name is pinned to one commit - so a name
+    means one set of numbers today and the same set next year.
+
+    '
+  contents:
+  - available_weights
+  - resolve_weights
+  - export_weights
+  - Engine.export_weights
+  - DetectionEngine.export_weights
+- title: Records
+  desc: What a run wrote down about itself, including the engine version that made it.
+  contents:
+  - write_record
+  - read_record
+- title: When something is wrong
+  desc: 'Three kinds, because they are three different problems: a configuration that cannot be
+    read, an engine that cannot run it, and weights that do not belong to the model.
+
+    '
+  contents:
+  - PlatypusError
+  - ConfigError
+  - WeightsError

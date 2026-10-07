@@ -1,0 +1,38 @@
+---
+title: pyplatypus
+---
+
+The engine behind [platypus](https://maju116.github.io/platypus/): segmentation and object
+detection in PyTorch, described by one specification and run from it.
+
+This site documents the Python package. **If you are working in R, read
+[the R package's documentation](https://maju116.github.io/platypus/) instead** - it is the
+same engine with an R surface on top, and its pages are written for that.
+
+```python
+import pyplatypus
+
+spec = pyplatypus.from_yaml("run.yaml")
+engine = pyplatypus.build_engine(spec)
+engine.fit()
+engine.evaluate("validation")
+```
+
+The same run as a configuration file:
+
+```yaml
+task: semantic_segmentation
+data:
+  train_path: train/
+  validation_path: valid/
+  colormap: [[0, 0, 0], [255, 255, 255]]
+models:
+  - name: unet
+    architecture: u_net
+    input_shape: [256, 256]
+    loss: {name: dice}
+    metrics: [{name: iou}]
+```
+
+Every field in that file is documented in the reference, generated from the models
+themselves - so it cannot describe a format the engine does not have.
