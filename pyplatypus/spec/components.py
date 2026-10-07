@@ -751,7 +751,7 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
     With `rank=3`, only those that can transform a volume. That list has to be found by trying
     rather than read from anywhere: albumentations supports volumes unevenly, and a transform
     that cannot raises from inside itself - `GaussNoise` comes back as `KeyError: 'images'`. Of
-    the transforms in 2.0.8, 71 work on volumes and 33 do not.
+    the 118 transforms in 2.0.8, 87 work on volumes and 31 do not.
 
     Empty when albumentations is missing, in which case name checking is skipped and the
     backend reports the problem later - better than refusing a spec the user cannot fix.
@@ -760,14 +760,20 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
         rank: 2 for images, 3 for volumes.
 
     Returns:
-        The names, as albumentations spells them. Ten of them are not transforms at
-        all - `Compose`, `OneOf` and the other composition classes, plus `BboxParams`
-        and `KeypointParams` - because the list is filtered by the shape of the name
-        rather than by type. A known defect, queued.
+        The names, as albumentations spells them, and only things a spec may actually
+        name. Membership is decided by type - `BasicTransform` - so the composition
+        classes (`Compose`, `OneOf`, `Sequential` and five more) and the two parameter
+        dataclasses (`BboxParams`, `KeypointParams`) are absent. They were listed
+        until 0.7.0a2, when the filter went by the shape of the name, and none of
+        them was ever usable: an `AugmentationStep` is a flat name and a dict of
+        parameters with no nesting, so naming one passed the check here and failed
+        when the pipeline was built.
 
     >>> names = available_transforms()
     >>> "HorizontalFlip" in names, "GaussNoise" in names
     (True, True)
+    >>> any(name in names for name in ("Compose", "OneOf", "BboxParams"))
+    False
 
     At rank 3 the list is shorter, and it is found by trying rather than read from
     anywhere: support for volumes is uneven and a transform that cannot take one
@@ -785,11 +791,44 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
     names = frozenset(
         name
         for name in dir(albumentations)
-        if name[:1].isupper() and not name.startswith(("Base", "Basic", "Dual"))
+        if _is_transform(albumentations, getattr(albumentations, name, None))
     )
     if rank != 3:
         return names
     return frozenset(name for name in names if _transforms_volumes(albumentations, name))
+
+
+def _is_transform(albumentations, member: object) -> bool:
+    """Whether this member of the albumentations namespace is a transform a spec may name.
+
+    Type answers most of it: a transform is a `BasicTransform`, which the composition classes
+    - `Compose`, `OneOf`, `Sequential` and the rest - are not, being `BaseCompose`, and which
+    `BboxParams` and `KeypointParams` are not, being parameter dataclasses. None of the ten is
+    usable here anyway, because an `AugmentationStep` is a flat name and a dict of parameters
+    with no nesting, so naming one passed the check and then failed when the pipeline was
+    built.
+
+    The four interface classes are named rather than detected, because **nothing in their type
+    says they are interfaces** - measured, not assumed. `DualTransform()`, `ImageOnlyTransform()`
+    and `Transform3D()` all instantiate without complaint; forty genuine transforms inherit
+    `apply` instead of defining it, so "has no own `apply`" is no use either; and "is a
+    superclass of another public transform" catches `Affine`, `Blur`, `HorizontalFlip`, `NoOp`,
+    `Pad` and `D4`, which are all usable. So there is no rule to derive, and a list of four
+    identities is the honest form - with a test pinning the resulting count, so that a base
+    added upstream shows up as a failure rather than as a silent extra name.
+
+    `NoOp` is why the module cannot decide it either: it is a real transform living in
+    `albumentations.core.transforms_interface` beside the four.
+    """
+    if not isinstance(member, type) or not issubclass(member, albumentations.BasicTransform):
+        return False
+    interfaces = (
+        albumentations.BasicTransform,
+        albumentations.DualTransform,
+        albumentations.ImageOnlyTransform,
+        getattr(albumentations, "Transform3D", None),
+    )
+    return member not in [cls for cls in interfaces if cls is not None]
 
 
 def _transforms_volumes(albumentations, name: str) -> bool:

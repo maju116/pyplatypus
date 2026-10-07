@@ -1,6 +1,44 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.7.0a2] - 2026-10-07
+
+### Fixed
+
+ - **`available_transforms()` decides membership by type rather than by the shape of the
+   name**, so the ten things it offered that a specification cannot name are gone: the eight
+   composition classes (`Compose`, `OneOf`, `OneOrOther`, `RandomOrder`, `ReplayCompose`,
+   `SelectiveChannelTransform`, `Sequential`, `SomeOf`) and the two parameter dataclasses
+   (`BboxParams`, `KeypointParams`). None was ever usable - an `AugmentationStep` is a flat
+   name and a dict of parameters with no nesting - so naming one passed the check here and
+   failed when the pipeline was built, two layers below the question asked.
+
+   The old filter kept anything capitalised that did not start with `Base`, `Basic` or
+   `Dual`, which was doing two jobs at once: excluding the interface classes and excluding
+   non-transforms. Type does the second properly. For the first there is **no rule to
+   derive, and that was measured rather than assumed** - `DualTransform()`,
+   `ImageOnlyTransform()` and `Transform3D()` all instantiate without complaint, forty
+   genuine transforms inherit `apply` instead of defining it, and "is a superclass of
+   another public transform" catches `Affine`, `Blur`, `HorizontalFlip`, `NoOp`, `Pad` and
+   `D4`, which are all usable. So those four are excluded by identity, with a test pinning
+   the resulting counts so a base added upstream fails rather than appearing silently.
+   `NoOp` is why the defining module cannot decide it either: a real transform living beside
+   the four in `albumentations.core.transforms_interface`.
+
+ - **The docstring's counts were wrong and are now held to the measurement.** It said "71
+   work on volumes and 33 do not", which is 104; on the same albumentations 2.0.8 the old
+   list returned 130. The measured figures for the corrected list are **118 transforms, 87
+   of which work on volumes and 31 of which do not**, and a test parses the three numbers
+   out of the prose and compares them to what the function returns. `albumentations` is
+   pinned only as `>=1.4`, so an upgrade can move all three - and then the test names the
+   new values instead of letting the documentation drift again, which is how the previous
+   numbers survived two corrections elsewhere.
+
+   Accounting, so the change is checkable: 130 -> 118 removes the 8 composition classes, the
+   2 dataclasses, and `ImageOnlyTransform` and `Transform3D`, which the name filter had
+   admitted. 97 -> 87 on volumes is the 10 non-transforms, which had been passing the volume
+   probe spuriously.
+
 ## [0.7.0a1] - 2026-10-07
 
 One name per concept, across both packages. The R surface and this engine had grown two
