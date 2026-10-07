@@ -77,3 +77,44 @@ def test_every_documented_argument_exists(label):
         f"{label} documents {missing}, which it does not take. Its arguments are "
         f"{sorted(real - {'self'})}."
     )
+
+
+def documented_default_of_the_first():
+    """Every engine method whose `Args:` says `model_name` defaults to the first."""
+    rows = []
+    for engine in (Engine, DetectionEngine):
+        for name, function in inspect.getmembers(engine, inspect.isfunction):
+            if name.startswith("_"):
+                continue
+            signature = inspect.signature(function)
+            if "model_name" not in signature.parameters:
+                continue
+            claims = "Defaults to the first" in (function.__doc__ or "")
+            rows.append((f"{engine.__name__}.{name}", claims, signature))
+    return rows
+
+
+@pytest.mark.parametrize(
+    ("where", "claims", "signature"),
+    documented_default_of_the_first(),
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_a_documented_default_is_a_default(where, claims, signature):
+    """Nine pages said `model_name` "defaults to the first" and nine signatures required it.
+
+    The same mistake as the one above and a wider one: not an argument that does not exist,
+    but an argument whose documented *default* did not. Omitting the name raised `TypeError`
+    on all nine, and `evaluate_cases`, `predict`, `report`, `crops`, `box_shapes`,
+    `anchor_coverage`, `evaluate_classes` and `evaluate_images` all carried the claim.
+
+    Asserted both ways. `export_weights` documents no default and must not grow one by
+    accident either, because its second parameter is required and positional - a default on
+    the first would be a syntax error, which is why those two were the only honest pair.
+    """
+    default = signature.parameters["model_name"].default
+    if claims:
+        assert default is None, f"{where} documents a default and has none"
+    else:
+        assert default is inspect.Parameter.empty, (
+            f"{where} takes a default for `model_name` and does not document it"
+        )

@@ -67,6 +67,25 @@ class EngineBase:
     #: What a labelled split carries, for the one message that has to name it.
     labels_are = "labels"
 
+    def _resolve_model(self, model_name: str | None) -> str:
+        """The model a method was asked about, with no name meaning the first one.
+
+        Nine docstrings across the two engines said `model_name` "defaults to the first"
+        and not one of them had a default, so nine published pages invited a reader to omit
+        an argument that raised `TypeError`. The resolution lives here rather than in each
+        body so the two engines cannot come to answer it differently - which is the thing
+        this class exists for.
+        """
+        if model_name is not None:
+            return model_name
+        first = next(iter(self.runs), None)
+        if first is None:
+            raise EngineError(
+                "no model has been trained or loaded yet, so there is no first one to use; "
+                "call `fit` first, or name a model"
+            )
+        return first
+
     def _discover_splits(self, discover, *, strict: bool) -> None:
         """`self._samples` and `self.labelled`, from the data block alone.
 
@@ -612,7 +631,11 @@ class Engine(EngineBase):
         return table
 
     def evaluate_cases(
-        self, model_name: str, split: str = "validation", *, group_by: str | None = None
+        self,
+        model_name: str | None = None,
+        split: str = "validation",
+        *,
+        group_by: str | None = None,
     ) -> list[dict[str, Any]]:
         """One row per case instead of one row per model.
 
@@ -632,6 +655,7 @@ class Engine(EngineBase):
             One row per case, or per group. `summarise_cases` turns them into the
             distribution - and its minimum is the number worth reading.
         """
+        model_name = self._resolve_model(model_name)
         run = self.runs.get(model_name)
         if run is None:
             known = ", ".join(self.runs) or "none"
@@ -657,7 +681,7 @@ class Engine(EngineBase):
         return [{key: row.pop("case"), **row} for row in rows]
 
     # ---------------------------------------------------------------- predict
-    def predict(self, model_name: str, split: str = "test", *, space: str = "model"):
+    def predict(self, model_name: str | None = None, split: str = "test", *, space: str = "model"):
         """Class probabilities, channels-last, one array per source image.
 
         Tiles are reassembled, so an image that went in at 2048x1536 comes back at
@@ -690,6 +714,7 @@ class Engine(EngineBase):
         crop cut anatomy away the inverse pads with background - which means *not examined*
         rather than *nothing there*.
         """
+        model_name = self._resolve_model(model_name)
         if space not in ("model", "source"):
             raise EngineError(f"space is 'model' or 'source', got '{space}'")
 

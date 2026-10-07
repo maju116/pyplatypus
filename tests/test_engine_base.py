@@ -116,3 +116,42 @@ def test_both_name_what_is_missing_before_naming_what_is_unlabelled(
         one._needs_masks("train")
     with pytest.raises(EngineError, match="has no annotations"):
         two._needs_annotations("train")
+
+
+def test_no_name_means_the_first_model_in_both(
+    config, nested_root, detection_config, detection_root
+):
+    """Nine methods documented `model_name` as defaulting to the first and none did.
+
+    Asked of the resolution rather than of nine methods, because that is where it lives and
+    because the alternative is a second detection fit - 61.5 million parameters on the
+    processor - to prove something that is one lookup. One method is exercised end to end
+    below.
+    """
+    for engine in (
+        _segmentation(config, nested_root),
+        _detection(detection_config, detection_root),
+    ):
+        assert engine.runs == {}, "nothing is trained yet, so there is no first model"
+        with pytest.raises(EngineError, match="no model has been trained or loaded yet"):
+            engine._resolve_model(None)
+
+        engine.runs = {"first": object(), "second": object()}
+        assert engine._resolve_model(None) == "first"
+        assert engine._resolve_model("second") == "second"
+
+
+def test_a_method_called_with_no_model_name_answers_about_the_first(config, nested_root):
+    """End to end, once: the signature's default and the resolution meeting in a real call.
+
+    `evaluate_cases()` with no name has to give what naming the model gives. A default that
+    resolved to something else - or a method that took the default and then looked up `None`
+    anyway - would pass the structural test in `test_documented_arguments_exist.py` and fail
+    here.
+    """
+    engine = _segmentation(config, nested_root)
+    engine.fit()
+    name = next(iter(engine.runs))
+    assert [row["case"] for row in engine.evaluate_cases()] == [
+        row["case"] for row in engine.evaluate_cases(name)
+    ]

@@ -306,7 +306,9 @@ class DetectionEngine(EngineBase):
             seed=self.spec.seed if self.spec.seed is not None else 0,
         )
 
-    def anchor_coverage(self, model_name: str, split: str = "train") -> dict[str, Any]:
+    def anchor_coverage(
+        self, model_name: str | None = None, split: str = "train"
+    ) -> dict[str, Any]:
         """How well the anchors in use cover this split's boxes.
 
         Worth asking of a split the anchors were *not* fitted on: anchors that cover the
@@ -323,6 +325,7 @@ class DetectionEngine(EngineBase):
             in every one of six BCCD runs, which is also why GIoU could not help there -
             a prediction never starts disjoint from the truth it answers.
         """
+        model_name = self._resolve_model(model_name)
         run = self._run(model_name)
         self._needs_annotations(split)
         dataset = self.dataset(run.spec, split, anchors=run.anchors)
@@ -333,7 +336,7 @@ class DetectionEngine(EngineBase):
         flat = [pair for group in run.anchors for pair in group]
         return anchor_coverage(shapes, flat)
 
-    def box_shapes(self, model_name: str, split: str = "train") -> dict[str, Any]:
+    def box_shapes(self, model_name: str | None = None, split: str = "train") -> dict[str, Any]:
         """The cloud of box shapes in a split, with the anchors in use beside it.
 
         Everything a picture of the anchor fit needs, in one call and in one set of
@@ -355,6 +358,7 @@ class DetectionEngine(EngineBase):
             it wrong is how a coverage figure of 0.67 was quoted for two years against a
             true 0.65.
         """
+        model_name = self._resolve_model(model_name)
         from pyplatypus.detection.anchors import shape_table
 
         run = self._run(model_name)
@@ -600,7 +604,7 @@ class DetectionEngine(EngineBase):
         return anchors
 
     # ------------------------------------------------------------------ predict
-    def predict(self, model_name: str, split: str = "test") -> list[dict[str, Any]]:
+    def predict(self, model_name: str | None = None, split: str = "test") -> list[dict[str, Any]]:
         """Boxes, scores and labels for every image in a split, in its own pixels.
 
         A list and not an array, and in source pixels rather than the network's frame -
@@ -620,6 +624,7 @@ class DetectionEngine(EngineBase):
             size, so does the number of boxes, and a box in a letterboxed frame cannot be
             drawn on the photograph it came from.
         """
+        model_name = self._resolve_model(model_name)
         run = self._run(model_name)
         dataset = self.dataset(
             run.spec, split, anchors=run.anchors, only_images=split not in self.labelled
@@ -652,7 +657,7 @@ class DetectionEngine(EngineBase):
 
     def crops(
         self,
-        model_name: str,
+        model_name: str | None = None,
         split: str = "test",
         *,
         score_threshold: float | None = None,
@@ -709,6 +714,7 @@ class DetectionEngine(EngineBase):
         average precision can integrate the whole ranking, and cropping it would hand a
         classifier the tail.
         """
+        model_name = self._resolve_model(model_name)
         from pyplatypus.detection.boxes import clip_boxes, crop_boxes, drop_degenerate
 
         run = self._run(model_name)
@@ -782,7 +788,9 @@ class DetectionEngine(EngineBase):
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
         return [self.report(name, split).as_row(run) for name, run in self.runs.items()]
 
-    def evaluate_classes(self, model_name: str, split: str = "validation") -> list[dict[str, Any]]:
+    def evaluate_classes(
+        self, model_name: str | None = None, split: str = "validation"
+    ) -> list[dict[str, Any]]:
         """One row per class instead of one row per model.
 
         The row that matters on an unbalanced dataset, which is most of them: BCCD has
@@ -799,10 +807,14 @@ class DetectionEngine(EngineBase):
             model's `operating_point`. The row that matters on unbalanced data, which is
             most detection data.
         """
+        model_name = self._resolve_model(model_name)
         return self.report(model_name, split).per_class()
 
     def evaluate_images(
-        self, model_name: str, split: str = "validation", score_threshold: float | None = None
+        self,
+        model_name: str | None = None,
+        split: str = "validation",
+        score_threshold: float | None = None,
     ) -> list[dict[str, Any]]:
         """One row per image instead of one row per model or per class.
 
@@ -843,6 +855,7 @@ class DetectionEngine(EngineBase):
         precision-recall curve, so it is a property of a ranking over a dataset; on one
         picture with three boxes it moves on a single box's rank.
         """
+        model_name = self._resolve_model(model_name)
         run = self._run(model_name)
         self._needs_annotations(split, model_name=run.name)
         predictions = self.predict(model_name, split)
@@ -867,7 +880,7 @@ class DetectionEngine(EngineBase):
         """
         return {name: len(samples) for name, samples in self._samples.items()}
 
-    def report(self, model_name: str, split: str = "validation") -> DetectionReport:
+    def report(self, model_name: str | None = None, split: str = "validation") -> DetectionReport:
         """Everything a detection table is read off, from one pass over the split.
 
         Public because `evaluate` and `evaluate_classes` are both views over it, and a
@@ -889,6 +902,7 @@ class DetectionEngine(EngineBase):
         across under Pascal VOC's inclusive convention, so `dropped` is 1 and has been all
         along.
         """
+        model_name = self._resolve_model(model_name)
         half, coco, point = self._reports(model_name, split)
         return DetectionReport(
             model=model_name, split=split, half=half, coco=coco, at_operating_point=point
