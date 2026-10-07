@@ -1,6 +1,67 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a1] - 2026-10-08
+
+### Added
+
+ - **The engine draws.** `plot_masks`, `plot_boxes`, `plot_anchors`, `overlay_mask` and
+   `overlay_agreement`, under the names the R package gave them, returning a matplotlib
+   `Figure` or an RGB array and never showing or saving anything - the caller decides.
+   matplotlib is a **hard dependency**: a plotting function behind an extra is a documented
+   feature that fails for whoever did not know to ask for it, which has happened here
+   before.
+
+   The decisions a drawing makes - which colours mean found, missed and invented, how much
+   of the image an overlay lets through, how a box is labelled, which boxes are worth
+   drawing - live in `pyplatypus.style` and are reachable in one call as `drawing_style()`.
+   Two packages that each chose their own would come to disagree about what red means.
+
+ - **`read_image` is public**, with the `Args` and `Returns` it never had. Boxes come back
+   from `predict` in the source image's own pixels, so drawing them needs the image at its
+   own size, and until now that meant reaching into `pyplatypus.data`. R has exported
+   `read_images()` since the rewrite began.
+
+ - **`plot_anchors` takes a `DetectionEngine`**, as R's takes a fit, and asks it for the
+   anchors and the box shapes in one call. Widths from one place and anchors from another
+   is how a figure comes to show boxes in different places from where the anchors were
+   fitted to them, which looks like a bad fit and is a bug.
+
+ - **`plot_masks` draws a plane of a volume**, and refuses a volume without one. A volume
+   shown as one picture is either a lie or a projection nobody asked for.
+
+ - **`--figures` on all four example scripts**, each drawing what its table cannot say.
+
+### Changed
+
+ - **Nine engine methods take the default they documented.** Every one of them said
+   `model_name` "defaults to the first" and every one required it, so omitting the name
+   raised `TypeError` on nine reference pages. `evaluate_cases`, `predict`, `report`,
+   `crops`, `box_shapes`, `anchor_coverage`, `evaluate_classes` and `evaluate_images`,
+   across both engines. The resolution is one method on `EngineBase`, so the two cannot
+   come to answer it differently.
+
+ - `plot_masks` defaults to the black-and-white colormap R defaults to, and `plot_anchors`
+   to a linear scale as R does.
+
+### Fixed
+
+ - **A mask holding a class the colormap has no colour for was drawn rather than refused**,
+   on one of the two ways in. A one-hot mask with too many channels was refused by name; an
+   index mask was clipped, so a four-class mask drawn with two colours showed classes 2 and
+   3 in class 1's colour and said nothing.
+
+ - **`plot_boxes` labelled every real prediction with an integer.** `predict` puts the
+   class indices under `labels` and the names under `names`, and the figure read `labels`.
+   Both halves were green and the join was wrong.
+
+ - **Three example scripts could not build a configuration at all**, and had not been able
+   to since 0.5.0a1: they sent `n_class`, which left the specification in that release, and
+   three of them never sent the required `task`. Nothing ran them - `examples/` is in
+   ruff's gate, which reads their layout. `tests/test_examples.py` now hands each one's
+   configuration to the loader, with the arguments read off each script's own
+   `parser.add_argument` calls so a renamed flag is followed rather than restated.
+
 ## [0.7.0a3] - 2026-10-07
 
 ### Added

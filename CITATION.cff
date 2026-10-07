@@ -15,10 +15,10 @@ type: software
 authors:
   - family-names: Maj
     given-names: Michal
-version: 0.7.0a3
+version: 0.8.0a1
 # The year a citation carries. Read from here rather than from the clock: a page built next
 # year must not silently restate the citation as next year's.
-date-released: "2026-10-07"
+date-released: "2026-10-08"
 license: MIT
 repository-code: "https://github.com/maju116/pyplatypus"
 url: "https://maju116.github.io/pyplatypus/"
