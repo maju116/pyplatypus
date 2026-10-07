@@ -96,3 +96,42 @@ def test_the_generated_config_matches_the_grouping(target):
 
     assert got == titles, "run tools/build_reference.py - _quarto.yml is stale"
     assert contents == expected_contents, "run tools/build_reference.py - _quarto.yml is stale"
+
+
+def test_the_about_section_is_in_the_agreed_order_and_every_page_exists():
+    """The About section, which the test above does not read.
+
+    Two things are pinned, and the second has already gone wrong in the R package.
+
+    The **order** matches `platypus`'s sidebar, so a reader moving between the two sites
+    finds the same things in the same places. It cannot be derived here - this repository
+    cannot see the other one - so it is written out in both suites, and `ABOUT_PAGES` in
+    `tools/build_reference.py` says where it came from. `platypus` has a fourth entry,
+    Citation, which altdoc writes from its DESCRIPTION; there is no counterpart here.
+
+    Every **page entry names a file that exists**. Quarto renders `file:` from the project
+    directory, so a missing one is a sidebar entry that either fails the build or cannot be
+    clicked, depending on where it is named - which is how Licence and Changelog broke on
+    the R side before a test said so.
+    """
+    about = next(
+        item
+        for item in CONFIG["website"]["sidebar"]["contents"]
+        if isinstance(item, dict) and item.get("section") == "About"
+    )
+
+    assert [entry["text"] for entry in about["contents"]] == [
+        "Changelog",
+        "Code of conduct",
+        "Licence",
+    ], "run tools/build_reference.py - and keep the order platypus uses"
+
+    for entry in about["contents"]:
+        if "file" in entry:
+            assert (ROOT / entry["file"]).exists(), (
+                f"{entry['text']} points at {entry['file']}, which is not in the repository"
+            )
+        else:
+            # A licence file carries no extension, so Quarto cannot make a page of it and it
+            # is linked where it lives instead. Nothing here reaches the network.
+            assert entry["href"].startswith("https://"), entry
