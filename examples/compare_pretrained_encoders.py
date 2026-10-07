@@ -44,47 +44,55 @@ def configurations(backbone: str, rate: float, freeze: int) -> list[tuple[str, d
     ]
 
 
+def specification(arguments, seed: int, extra: dict) -> dict:
+    """The experiment as the configuration the engine takes.
+
+    A function rather than a literal inside `run` so a test can validate it without
+    training anything - these scripts went three days carrying a field the spec had
+    stopped accepting, because nothing ever read them.
+    """
+    return {
+        "seed": seed,
+        "task": "semantic_segmentation",
+        "data": {
+            "train_path": arguments.train,
+            "validation_path": arguments.validation,
+            "colormap": [[0, 0, 0], [255, 255, 255]],
+            "mode": arguments.mode,
+        },
+        "models": [
+            {
+                "name": "m",
+                "architecture": "u_net",
+                "input_shape": [arguments.size, arguments.size],
+                "channels": arguments.channels,
+                "blocks": 4,
+                "filters": 16,
+                "batch_size": arguments.batch,
+                "epochs": arguments.epochs,
+                "loss": {"name": arguments.loss},
+                "metrics": [{"name": "dice", "include_background": False}],
+                "optimizer": {"name": "adam", "learning_rate": arguments.rate},
+                # Early stopping on the metric, with the best weights restored, so each
+                # configuration is judged at its best rather than at whatever epoch the loop
+                # happened to stop on. Without it the comparison measures how fast each one
+                # overfits, which is a different question.
+                "callbacks": [
+                    {
+                        "name": "early_stopping",
+                        "monitor": "val_dice",
+                        "patience": arguments.patience,
+                        "restore_best": True,
+                    }
+                ],
+                **extra,
+            }
+        ],
+    }
+
+
 def run(arguments, seed: int, extra: dict) -> tuple[dict, float, int, int]:
-    spec = from_dict(
-        {
-            "seed": seed,
-            "data": {
-                "train_path": arguments.train,
-                "validation_path": arguments.validation,
-                "colormap": [[0, 0, 0], [255, 255, 255]],
-                "mode": arguments.mode,
-            },
-            "models": [
-                {
-                    "name": "m",
-                    "architecture": "u_net",
-                    "input_shape": [arguments.size, arguments.size],
-                    "channels": arguments.channels,
-                    "n_class": arguments.n_class,
-                    "blocks": 4,
-                    "filters": 16,
-                    "batch_size": arguments.batch,
-                    "epochs": arguments.epochs,
-                    "loss": {"name": arguments.loss},
-                    "metrics": [{"name": "dice", "include_background": False}],
-                    "optimizer": {"name": "adam", "learning_rate": arguments.rate},
-                    # Early stopping on the metric, with the best weights restored, so each
-                    # configuration is judged at its best rather than at whatever epoch the loop
-                    # happened to stop on. Without it the comparison measures how fast each one
-                    # overfits, which is a different question.
-                    "callbacks": [
-                        {
-                            "name": "early_stopping",
-                            "monitor": "val_dice",
-                            "patience": arguments.patience,
-                            "restore_best": True,
-                        }
-                    ],
-                    **extra,
-                }
-            ],
-        }
-    )
+    spec = from_dict(specification(arguments, seed, extra))
     engine = Engine(spec, num_workers=arguments.workers)
     history = engine.fit(verbose=False)["m"]
     distribution = {row["metric"]: row for row in summarise_cases(engine.evaluate_cases("m"))}
@@ -102,7 +110,6 @@ def main() -> None:
     parser.add_argument("--backbone", default="resnet34")
     parser.add_argument("--size", type=int, default=256)
     parser.add_argument("--channels", type=int, default=3)
-    parser.add_argument("--n-class", type=int, default=2)
     parser.add_argument("--epochs", type=int, default=150, help="a cap; early stopping decides")
     parser.add_argument("--patience", type=int, default=25)
     parser.add_argument("--batch", type=int, default=8)

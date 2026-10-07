@@ -65,6 +65,7 @@ def specification(train: str, validation: str, epochs: int, size: int) -> dict:
     nothing into one that scores 0.9.
     """
     return {
+        "task": "semantic_segmentation",
         "data": {
             "train_path": train,
             "validation_path": validation,
@@ -77,7 +78,6 @@ def specification(train: str, validation: str, epochs: int, size: int) -> dict:
                 "architecture": "u_net",
                 "input_shape": [size, size],
                 "channels": 3,
-                "n_class": 2,
                 "blocks": 4,
                 "filters": 16,
                 "batch_size": 8,
