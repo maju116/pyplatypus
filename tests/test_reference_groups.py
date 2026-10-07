@@ -156,3 +156,79 @@ def test_the_about_section_is_in_the_agreed_order_and_every_page_exists(_generat
             # A licence file carries no extension, so Quarto cannot make a page of it and it
             # is linked where it lives instead. Nothing here reaches the network.
             assert entry["href"].startswith("https://"), entry
+
+
+# The reference groups, in the order both sites show them. Each package carries the subset it
+# has: `Setting up` is the reticulate bridge and exists only in R, `Looking at the results` is
+# plotting which this package deliberately does not carry, `Masks and volumes` has no public
+# counterpart here - measured, `__all__` holds 24 names and not one is a mask, volume or
+# colormap utility - and `Records` and `When something is wrong` are this package's, because R
+# has no record reader and documents no condition classes.
+#
+# **Asserting the two lists are equal would be asserting something false**, which the project
+# notes did for a while: "the same eight groups" was written down and five of eight titles
+# matched. A shared order with each side showing its own subset is the thing that is actually
+# true, and it still catches the drift that mattered - `export_weights` and `available_weights`
+# sat under `Training` in R while this package had a `Weights` group, so the same two functions
+# were filed in the one place a reader of both sites would not look.
+#
+# Also in platypus's tests/testthat/test-reference-groups.R.
+GROUP_ORDER = [
+    "Setting up",
+    "A specification",
+    "What a model is made of",
+    "The data on disk",
+    "Training",
+    "Predicting and scoring",
+    "Weights",
+    "Records",
+    "Looking at the results",
+    "Masks and volumes",
+    "When something is wrong",
+]
+
+
+def test_the_groups_are_a_subsequence_of_the_shared_order():
+    titles = [group["title"] for group in GROUPS]
+
+    unknown = [title for title in titles if title not in GROUP_ORDER]
+    assert not unknown, (
+        f"group titles not in the shared order: {unknown}. Adding one means adding it to "
+        "GROUP_ORDER here and in platypus, or naming it what the other side already calls it"
+    )
+
+    expected = [title for title in GROUP_ORDER if title in titles]
+    assert titles == expected, (
+        f"the groups are out of the shared order.\n  here:   {titles}\n  shared: {expected}"
+    )
+
+
+# Where the names that exist on both sides must be filed. The subsequence test above cannot
+# do this: deleting a group leaves a shorter subsequence, which is still a subsequence, so it
+# passes - verified by mutation. That is exactly the drift this pins against, because it is
+# the drift that happened: `export_weights` and `available_weights` were under `Training` in
+# R while they were under `Weights` here.
+#
+# Only names that exist in both packages are listed, so this is a claim about agreement and
+# not a second copy of the grouping. Also in platypus's test-reference-groups.R, with the R
+# spellings of the same concepts.
+SHARED_PLACEMENT = {
+    "available_transforms": "What a model is made of",
+    "split_dataset": "The data on disk",
+    "export_weights": "Weights",
+    "available_weights": "Weights",
+}
+
+
+def test_the_shared_names_are_filed_where_the_other_side_files_them():
+    located = {name: group["title"] for group in GROUPS for name in group["contents"]}
+
+    wrong = {
+        name: (located.get(name), expected)
+        for name, expected in SHARED_PLACEMENT.items()
+        if located.get(name) != expected
+    }
+    assert not wrong, (
+        "names that both packages have, filed differently (got, expected): "
+        f"{wrong}. platypus's suite pins the same four"
+    )
