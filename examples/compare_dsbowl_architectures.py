@@ -29,7 +29,6 @@ def model(architecture: str, epochs: int, size: int, batch: int) -> dict:
         "architecture": architecture,
         "input_shape": [size, size],
         "channels": 3,
-        "n_class": 2,
         "blocks": 4,
         "filters": 16,
         "batch_size": batch,
@@ -49,6 +48,26 @@ def model(architecture: str, epochs: int, size: int, batch: int) -> dict:
             {"name": "VerticalFlip", "params": {"p": 0.5}},
             {"name": "RandomRotate90", "params": {"p": 0.5}},
             {"name": "RandomBrightnessContrast", "params": {"p": 0.3}},
+        ],
+    }
+
+
+def specification(train, validation, wanted: list[str], arguments) -> dict:
+    """The comparison as the configuration the engine takes.
+
+    One `data` block and one split for every architecture, which is the whole point: four
+    models trained on the same samples in one run are comparable, four runs are not.
+    """
+    return {
+        "task": "semantic_segmentation",
+        "data": {
+            "train_path": str(train),
+            "validation_path": str(validation),
+            "colormap": [[0, 0, 0], [255, 255, 255]],
+            "mode": "config_file",
+        },
+        "models": [
+            model(name, arguments.epochs, arguments.size, arguments.batch) for name in wanted
         ],
     }
 
@@ -75,19 +94,7 @@ def main() -> None:
         )
 
     wanted = arguments.only or list(ARCHITECTURES)
-    spec = from_dict(
-        {
-            "data": {
-                "train_path": str(train),
-                "validation_path": str(validation),
-                "colormap": [[0, 0, 0], [255, 255, 255]],
-                "mode": "config_file",
-            },
-            "models": [
-                model(name, arguments.epochs, arguments.size, arguments.batch) for name in wanted
-            ],
-        }
-    )
+    spec = from_dict(specification(train, validation, wanted, arguments))
 
     engine = Engine(spec, num_workers=arguments.workers)
     histories = engine.fit(verbose=True)
