@@ -289,3 +289,32 @@ def test_the_figures_are_returned_rather_than_shown_or_saved(tmp_path):
     assert matplotlib.pyplot.get_fignums() == before, "the figure went into pyplot's registry"
     assert not list(tmp_path.iterdir()), "something was written to disk"
     assert isinstance(figure, Figure)
+
+
+def test_the_mask_panels_are_the_mask_and_the_agreement_panel_is_over_the_image():
+    """Which column shows what, pinned - because the two packages disagreed about it.
+
+    R draws truth and prediction as the mask in its own colours and keeps the image
+    underneath only for the agreement panel. This drew all three over the image, so the same
+    call made a visibly different figure on each side, which is the thing `style.py` exists
+    to prevent one level down.
+
+    Asserted on the pixels rather than on the titles: a mask panel holds nothing but
+    colormap colours, and the agreement panel holds pixels of the image.
+    """
+    picture = np.zeros((1, 8, 8, 3), dtype=np.uint8)
+    picture[..., 0] = 200  # a red image, which neither the colormap nor the overlay uses
+    marks = np.zeros((1, 8, 8), dtype=int)
+    marks[0, 2:5, 2:5] = 1
+
+    figure = pyplatypus.plot_masks(picture, prediction=marks, truth=marks)
+    titles = [axis.get_title() for axis in figure.axes]
+    panels = dict(zip(titles, (axis.get_images()[0].get_array() for axis in figure.axes)))
+
+    for name in ("truth", "prediction"):
+        colours = {tuple(pixel) for pixel in np.asarray(panels[name]).reshape(-1, 3)}
+        assert colours == {(0, 0, 0), (255, 255, 255)}, (name, colours)
+
+    agreement = np.asarray(panels["agreement"])
+    assert (agreement[0, 0] == (200, 0, 0)).all(), "the image is not under the agreement"
+    assert not (agreement[3, 3] == (200, 0, 0)).all(), "the agreement was not drawn"
