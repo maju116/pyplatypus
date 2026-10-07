@@ -21,9 +21,9 @@ from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.weights import (
     Published,
     WeightsError,
+    available_weights,
     describe,
     export_weights,
-    known_weights,
     load_into,
     resolve_weights,
 )
@@ -194,7 +194,7 @@ def test_a_malformed_hub_reference_is_refused():
 
 
 def test_the_registry_listing_is_readable():
-    listing = known_weights()
+    listing = available_weights()
     assert isinstance(listing, dict)
     for name, description in listing.items():
         assert isinstance(name, str) and isinstance(description, str)

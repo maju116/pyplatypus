@@ -5,6 +5,7 @@ from pyplatypus.spec.components import (
     LossSpec,
     MetricSpec,
     OptimizerSpec,
+    available_transforms,
 )
 from pyplatypus.spec.data import DataSpec, SegmentationData
 from pyplatypus.spec.detection import (
@@ -44,6 +45,7 @@ __all__ = [
     "SegmentationModel",
     "SegmentationSpec",
     "Task",
+    "available_transforms",
     "from_dict",
     "from_yaml",
     "spec_schema",
