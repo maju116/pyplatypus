@@ -1,0 +1,2382 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>detectionengine – pyplatypus</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../assets/hexsticker.png" rel="icon" type="image/png">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">pyplatypus</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/maju116/pyplatypus"> <i class="bi bi-github" role="img" aria-label="pyplatypus on GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/build_engine.html">Training</a></li><li class="breadcrumb-item"><a href="../reference/DetectionEngine.html">DetectionEngine</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Home</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Reference</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="false">
+ <span class="menu-text">A specification</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/from_dict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_dict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/from_yaml.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_yaml</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SegmentationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Task.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Task</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/spec_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">spec_schema</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/write_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_schema</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="false">
+ <span class="menu-text">What a model is made of</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_transforms.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_transforms</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="false">
+ <span class="menu-text">The data on disk</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/split_dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/split_samples.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_samples</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.loader</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true">
+ <span class="menu-text">Training</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/build_engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">build_engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">DetectionEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit_anchors</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false">
+ <span class="menu-text">Predicting and scoring</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">summarise_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_classes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_images</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.crops</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionReport</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.report</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.anchor_coverage</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.box_shapes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.split_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.model_names</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false">
+ <span class="menu-text">Weights</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">resolve_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.export_weights</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" role="navigation" aria-expanded="false">
+ <span class="menu-text">Records</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-8" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/write_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_record</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/read_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_record</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="false">
+ <span class="menu-text">When something is wrong</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-9" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/ConfigError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ConfigError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/WeightsError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">WeightsError</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#pyplatypus.DetectionEngine" id="toc-pyplatypus.DetectionEngine" class="nav-link active" data-scroll-target="#pyplatypus.DetectionEngine">DetectionEngine</a>
+  <ul class="collapse">
+  <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a>
+  <ul class="collapse">
+  <li><a href="#pyplatypus.DetectionEngine.anchor_coverage" id="toc-pyplatypus.DetectionEngine.anchor_coverage" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.anchor_coverage">anchor_coverage</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.best_model" id="toc-pyplatypus.DetectionEngine.best_model" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.best_model">best_model</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.box_shapes" id="toc-pyplatypus.DetectionEngine.box_shapes" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.box_shapes">box_shapes</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.crops" id="toc-pyplatypus.DetectionEngine.crops" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.crops">crops</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.dataset" id="toc-pyplatypus.DetectionEngine.dataset" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.dataset">dataset</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.evaluate" id="toc-pyplatypus.DetectionEngine.evaluate" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.evaluate">evaluate</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.evaluate_classes" id="toc-pyplatypus.DetectionEngine.evaluate_classes" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.evaluate_classes">evaluate_classes</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.evaluate_images" id="toc-pyplatypus.DetectionEngine.evaluate_images" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.evaluate_images">evaluate_images</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.export_weights" id="toc-pyplatypus.DetectionEngine.export_weights" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.export_weights">export_weights</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.fit" id="toc-pyplatypus.DetectionEngine.fit" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.fit">fit</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.fit_anchors" id="toc-pyplatypus.DetectionEngine.fit_anchors" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.fit_anchors">fit_anchors</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.loader" id="toc-pyplatypus.DetectionEngine.loader" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.loader">loader</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.model_names" id="toc-pyplatypus.DetectionEngine.model_names" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.model_names">model_names</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.predict" id="toc-pyplatypus.DetectionEngine.predict" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.predict">predict</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.report" id="toc-pyplatypus.DetectionEngine.report" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.report">report</a></li>
+  <li><a href="#pyplatypus.DetectionEngine.split_sizes" id="toc-pyplatypus.DetectionEngine.split_sizes" class="nav-link" data-scroll-target="#pyplatypus.DetectionEngine.split_sizes">split_sizes</a></li>
+  </ul></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/build_engine.html">Training</a></li><li class="breadcrumb-item"><a href="../reference/DetectionEngine.html">DetectionEngine</a></li></ol></nav></header>
+
+
+
+
+<section id="pyplatypus.DetectionEngine" class="level1">
+<h1>DetectionEngine</h1>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    spec,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    num_workers<span class="op">=</span><span class="dv">0</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    strict_data<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    accumulate<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="methods" class="level2">
+<h2 class="anchored" data-anchor-id="methods">Methods</h2>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.anchor_coverage">anchor_coverage</a></td>
+<td>How well the anchors in use cover this split’s boxes.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.best_model">best_model</a></td>
+<td>Which model scored highest on one column.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.box_shapes">box_shapes</a></td>
+<td>The cloud of box shapes in a split, with the anchors in use beside it.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.crops">crops</a></td>
+<td>Every detection cut out of the image it was found in.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.dataset">dataset</a></td>
+<td>The dataset for one split: images letterboxed to <code>input_shape</code>, boxes encoded.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.evaluate">evaluate</a></td>
+<td>One row per model: the comparison table, with detection’s columns.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.evaluate_classes">evaluate_classes</a></td>
+<td>One row per class instead of one row per model.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.evaluate_images">evaluate_images</a></td>
+<td>One row per image instead of one row per model or per class.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.export_weights">export_weights</a></td>
+<td>Write one detector’s weights, with the anchors in the sidecar.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.fit">fit</a></td>
+<td>Train every model in the specification, in turn, against the same data.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.fit_anchors">fit_anchors</a></td>
+<td>k-means with an IoU distance over the training boxes, or nothing to do.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.loader">loader</a></td>
+<td>A torch DataLoader over one split, wrapping <code>dataset</code>.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.model_names">model_names</a></td>
+<td>The models that have been fitted or loaded, in the order they were.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.predict">predict</a></td>
+<td>Boxes, scores and labels for every image in a split, in its own pixels.</td>
+</tr>
+<tr class="odd">
+<td><a href="#pyplatypus.DetectionEngine.report">report</a></td>
+<td>Everything a detection table is read off, from one pass over the split.</td>
+</tr>
+<tr class="even">
+<td><a href="#pyplatypus.DetectionEngine.split_sizes">split_sizes</a></td>
+<td>How many images each split holds, and in which order they were found.</td>
+</tr>
+</tbody>
+</table>
+<section id="pyplatypus.DetectionEngine.anchor_coverage" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.anchor_coverage">anchor_coverage</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.anchor_coverage(model_name, split<span class="op">=</span><span class="st">'train'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>How well the anchors in use cover this split’s boxes.</p>
+<p>Worth asking of a split the anchors were <em>not</em> fitted on: anchors that cover the training boxes at 0.92 and the validation boxes at 0.70 say the two splits hold different objects, which no training curve shows.</p>
+<section id="parameters" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 10%">
+<col style="width: 56%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td>Which split’s boxes to measure against.</td>
+<td><code>'train'</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 17%">
+<col style="width: 75%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>dict[str, Any]</td>
+<td>The mean IoU between each box and its best anchor. Measured on a split the</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, Any]</td>
+<td>anchors were <em>not</em> fitted on, this says whether they generalise; it was 0.877</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>dict[str, Any]</td>
+<td>in every one of six BCCD runs, which is also why GIoU could not help there -</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, Any]</td>
+<td>a prediction never starts disjoint from the truth it answers.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.best_model" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.best_model">best_model</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.best_model(key<span class="op">=</span><span class="st">'map_50'</span>, split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Which model scored highest on one column.</p>
+<section id="parameters-1" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-1">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 1%">
+<col style="width: 1%">
+<col style="width: 92%">
+<col style="width: 3%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>key</td>
+<td>str</td>
+<td>The column to rank on. <code>map_50</code> by default - but on a small dataset read <code>mean_matched_iou</code> first: measured over five seeds on BCCD, average precision has a standard deviation of 0.0159 while matched overlap has 0.0026, six times steadier. How well the boxes fit is reproducible there and how many are found is not, because a borderline cell changing rank moves average precision and leaves the overlap alone.</td>
+<td><code>'map_50'</code></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td>Which data to rank on.</td>
+<td><code>'validation'</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-1" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-1">Returns</h4>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>str</td>
+<td>The winning model’s name.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="raises" class="level4 doc-section doc-section-raises">
+<h4 class="doc-section doc-section-raises anchored" data-anchor-id="raises">Raises</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 3%">
+<col style="width: 5%">
+<col style="width: 91%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>EngineError</td>
+<td>If no such column exists - the message lists the ones that do - or if the column is undefined for any model, which happens when a class has no truth boxes in that split and so has no average precision to average.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.box_shapes" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.box_shapes">box_shapes</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.box_shapes(model_name, split<span class="op">=</span><span class="st">'train'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The cloud of box shapes in a split, with the anchors in use beside it.</p>
+<p>Everything a picture of the anchor fit needs, in one call and in one set of coordinates: both are fractions of the model’s input, computed by the same function that fitted the anchors. The alternative - widths and heights from one place and anchors from another - is how a plot comes to show boxes in different places from where the anchors were fitted, which looks like a bad fit and is a bug.</p>
+<p>Worth drawing for a split the anchors were <em>not</em> fitted on, for the same reason as <code>anchor_coverage</code>: it is the only way to see a class the anchors have nothing near.</p>
+<section id="parameters-2" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-2">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 11%">
+<col style="width: 55%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td>Which split’s boxes to return.</td>
+<td><code>'train'</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-2" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-2">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 16%">
+<col style="width: 75%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>dict[str, Any]</td>
+<td>Every box’s width and height, normalised by the <strong>letterboxed</strong> input rather</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, Any]</td>
+<td>than by the source image - which is the convention the anchors use, and getting</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>dict[str, Any]</td>
+<td>it wrong is how a coverage figure of 0.67 was quoted for two years against a</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, Any]</td>
+<td>true 0.65.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.crops" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.crops">crops</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.crops(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    model_name,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    split<span class="op">=</span><span class="st">'test'</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    score_threshold<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    context<span class="op">=</span><span class="fl">0.0</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    size<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    fit<span class="op">=</span><span class="st">'letterbox'</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    fill<span class="op">=</span><span class="fl">0.5</span>,</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Every detection cut out of the image it was found in.</p>
+<p>The pipeline this is for is a detector followed by a classifier it does not contain: find the objects with three classes, crop them, hand the crops to something that knows eighty. It is the second thing people ask for after boxes, and doing it by hand means re-reading every image and getting the rounding right.</p>
+<p><strong>Filtered at <code>operating_point</code>, not at <code>score_threshold</code>.</strong> The specification’s <code>score_threshold</code> is deliberately near zero so that average precision integrates the whole ranking - on BCCD that is hundreds of boxes an image, almost all of them the tail that AP exists to measure over. Cropping them would hand a classifier mostly noise. <code>operating_point</code> is where someone stands when they act on a prediction, which is what cropping is.</p>
+<p>One record per image rather than one flat list, because a crop without its source is not traceable: <code>key</code> says which image, and <code>boxes</code> are the coordinates it came from, in that image’s own pixels.</p>
+<section id="parameters-3" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-3">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 13%">
+<col style="width: 20%">
+<col style="width: 54%">
+<col style="width: 11%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>which trained detector.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td>which split’s images to read.</td>
+<td><code>'test'</code></td>
+</tr>
+<tr class="odd">
+<td>score_threshold</td>
+<td>float | None</td>
+<td>override the confidence to crop at.</td>
+<td><code>None</code></td>
+</tr>
+<tr class="even">
+<td>context</td>
+<td>float</td>
+<td>expand each box by this fraction of its size per side, 0 by default.</td>
+<td><code>0.0</code></td>
+</tr>
+<tr class="odd">
+<td>size</td>
+<td>tuple[int, int] | None</td>
+<td>bring every crop to <code>(height, width)</code>, or None to keep each as cut.</td>
+<td><code>None</code></td>
+</tr>
+<tr class="even">
+<td>fit</td>
+<td>str</td>
+<td><code>"letterbox"</code> to preserve aspect, <code>"stretch"</code> to resize both axes.</td>
+<td><code>'letterbox'</code></td>
+</tr>
+<tr class="odd">
+<td>fill</td>
+<td>float</td>
+<td>padding value for <code>"letterbox"</code>.</td>
+<td><code>0.5</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-3" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-3">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 23%">
+<col style="width: 69%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>One dict per image with <code>key</code>, <code>crops</code>, <code>boxes</code>, <code>scores</code>, <code>labels</code>, <code>names</code>.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="parameters-4" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-4">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 13%">
+<col style="width: 74%">
+<col style="width: 5%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>split</td>
+<td>str</td>
+<td>Which data to cut from.</td>
+<td><code>'test'</code></td>
+</tr>
+<tr class="even">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="odd">
+<td>context</td>
+<td>float</td>
+<td>Extra margin, as a fraction of the box rather than in pixels, so one value suits a platelet and a white cell.</td>
+<td><code>0.0</code></td>
+</tr>
+<tr class="even">
+<td>size</td>
+<td>tuple[int, int] | None</td>
+<td>Resize every crop to this. Letterboxed rather than stretched, because a stretch changes the aspect of every non-square object and has to be asked for.</td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-4" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-4">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 23%">
+<col style="width: 69%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>One record per image, each with the crops and the boxes they came from, plus</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td><code>dropped</code> - boxes the inverse letterbox mapped to no extent at all, which a</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>model may legitimately produce by saying an object is off the frame.</td>
+</tr>
+</tbody>
+</table>
+<p>Read at <code>operating_point</code>, not at <code>score_threshold</code>: that one sits near zero so average precision can integrate the whole ranking, and cropping it would hand a classifier the tail.</p>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.dataset" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.dataset">dataset</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.dataset(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    model,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    split,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    anchors<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    only_images<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    augmented<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The dataset for one split: images letterboxed to <code>input_shape</code>, boxes encoded.</p>
+<section id="parameters-5" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-5">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 6%">
+<col style="width: 82%">
+<col style="width: 5%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model</td>
+<td>DetectionModel</td>
+<td>Which model’s settings to read.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td><code>"train"</code>, <code>"validation"</code> or <code>"test"</code>.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="odd">
+<td>anchors</td>
+<td></td>
+<td>Anchors to encode the targets against. Unset means the model’s own - either the ones it declares or the ones fitted for it, and the encoding is meaningless against any others.</td>
+<td><code>None</code></td>
+</tr>
+<tr class="even">
+<td>only_images</td>
+<td>bool</td>
+<td>Read images alone, with no boxes. What a split with no annotations gets, so <code>predict</code> works on it while <code>evaluate</code> refuses it by name.</td>
+<td><code>False</code></td>
+</tr>
+<tr class="odd">
+<td>augmented</td>
+<td>bool</td>
+<td>Apply the model’s augmentation. Every geometric transform in albumentations moves the boxes with the pixels, measured over 24 configurations, worst disagreement one pixel from anti-aliasing.</td>
+<td><code>False</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-5" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-5">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 17%">
+<col style="width: 75%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>DetectionDataset</td>
+<td>A <code>DetectionDataset</code>, whose <code>source_image(index)</code> also reads an image at its</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>DetectionDataset</td>
+<td>native size through the same reader - which is what <code>crops</code> cuts from, since</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>DetectionDataset</td>
+<td>cropping the letterboxed frame would cut a downscaled object.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.evaluate" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.evaluate">evaluate</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.evaluate(split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>One row per model: the comparison table, with detection’s columns.</p>
+<p>Different columns from the segmentation table, because they answer a different question. <code>mean_matched_iou</code> is the one worth keeping beside the averages: the gap between mAP@0.5 and mAP@[.50:.95] is localisation, and this is that gap as a single number - how well the boxes that matched actually fit, rather than merely that they cleared a threshold.</p>
+<p><strong>No precision or recall here</strong>, although <code>operating_point</code> says where to read them. Averaging them over classes needs a weighting and every choice of weighting is a different claim: summed over BCCD’s 4155 red cells, 372 white and 361 platelets, a single precision is a statement about red cells wearing the costume of a statement about the model. They are in <code>evaluate_classes</code>, per class, which is the only form in which they mean anything. <code>DetectionMetrics.as_rows</code> made the same decision - its “all” row leaves both as None.</p>
+<section id="parameters-6" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-6">Parameters</h4>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>split</td>
+<td>str</td>
+<td>Which data to score on.</td>
+<td><code>'validation'</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-6" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-6">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 23%">
+<col style="width: 69%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>One row per model: <code>map_50</code>, <code>map_50_95</code>, <code>mean_matched_iou</code> and the counts.</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td><strong>No overall precision or recall</strong>, deliberately: averaging them over classes</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>needs a weighting, and over BCCD’s 4,155 red cells against 372 white one</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>precision is a statement about red cells wearing the costume of a statement</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>about the model.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.evaluate_classes" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.evaluate_classes">evaluate_classes</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.evaluate_classes(model_name, split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>One row per class instead of one row per model.</p>
+<p>The row that matters on an unbalanced dataset, which is most of them: BCCD has 4155 red cells against 372 white and 361 platelets, so a single number is a number about red cells.</p>
+<section id="parameters-7" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-7">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 10%">
+<col style="width: 52%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td>Which data to score on.</td>
+<td><code>'validation'</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-7" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-7">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 22%">
+<col style="width: 70%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>One row per class: average precision at IoU 0.5, the mean overlap of the boxes</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>that matched, how many truth boxes there were, and precision and recall at the</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>model’s <code>operating_point</code>. The row that matters on unbalanced data, which is</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>most detection data.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.evaluate_images" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.evaluate_images">evaluate_images</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.evaluate_images(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    model_name,</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    split<span class="op">=</span><span class="st">'validation'</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    score_threshold<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>One row per image instead of one row per model or per class.</p>
+<p>The question a table of averages cannot answer: <em>which</em> images it fails on. The counterpart of the segmentation engine’s per-case scores, and the second question anyone asks after seeing a mean.</p>
+<p><strong>No average precision per image.</strong> AP is the area under a precision-recall curve and therefore a property of a ranking over a dataset; on one image with three boxes it swings on a single box’s rank and says nothing. The columns are counts and overlap, which do mean something for one picture.</p>
+<p><strong>Counts are read at the specification’s <code>operating_point</code></strong> unless another <code>score_threshold</code> is given, because “how many were missed” is undefined over the whole ranking - at a threshold of zero every box the model dimly considered is a prediction, and <code>spurious</code> would count the tail that average precision exists to integrate over rather than anything a user would see.</p>
+<p>Sort by <code>missed</code> to find the frames it cannot see, or by <code>mean_matched_iou</code> to find the ones where it sees everything and places it badly. Those are different problems: the first is usually the data, the second is usually the anchors.</p>
+<section id="parameters-8" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-8">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 10%">
+<col style="width: 52%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td>Which data to score on.</td>
+<td><code>'validation'</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-8" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-8">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 22%">
+<col style="width: 70%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>One row per image: <code>key</code>, <code>n_truth</code>, <code>n_predicted</code>, <code>matched</code>, <code>missed</code>,</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td><code>spurious</code> and <code>mean_matched_iou</code>. Order by <code>missed</code> for the frames it cannot</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>see and by <code>mean_matched_iou</code> for the ones where it finds everything and places</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>it badly - usually the data and the anchors respectively.</td>
+</tr>
+</tbody>
+</table>
+<p><code>mean_matched_iou</code> is None when nothing matched, not 0: found nothing and found badly are different failures, and that distinction crosses the bridge into R, so a test pins it rather than trusting it.</p>
+<p>There is no average precision per image, deliberately. It is the area under a precision-recall curve, so it is a property of a ranking over a dataset; on one picture with three boxes it moves on a single box’s rank.</p>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.export_weights" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.export_weights">export_weights</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.export_weights(model_name, path, <span class="op">**</span>extra)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Write one detector’s weights, with the anchors in the sidecar.</p>
+<p>The anchors are not optional metadata. The same weights read with different anchors decode every box scaled by a fixed factor, and nothing about the output says so - the boxes are plausible, the scores are plausible, and they are in the wrong places.</p>
+<section id="parameters-9" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-9">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 15%">
+<col style="width: 54%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector’s weights to write.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>path</td>
+<td>str | Path</td>
+<td>Where to write. The sidecar goes beside it.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="odd">
+<td>**extra</td>
+<td></td>
+<td>Anything else to record.</td>
+<td><code>{}</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-9" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-9">Returns</h4>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>Path</td>
+<td>The path written.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.fit" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.fit">fit</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.fit(verbose<span class="op">=</span><span class="va">False</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Train every model in the specification, in turn, against the same data.</p>
+<p>Anchors are fitted first for any model that does not declare them, because the targets cannot be encoded without them. A model naming <code>weights</code> adopts the architecture, the class names and <strong>the anchors</strong> from the file: weights mean nothing without the anchors they were trained with, so a specification naming both is refused rather than warned about.</p>
+<section id="parameters-10" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-10">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 2%">
+<col style="width: 2%">
+<col style="width: 91%">
+<col style="width: 3%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>verbose</td>
+<td>bool</td>
+<td>Print each model’s name and per-epoch numbers as they arrive. The learning rate is printed with enough digits to see a schedule moving - at four decimal places a cosine decaying to 1e-8 read <code>learning_rate=0.0000</code> from epoch 90 and a scheduled run looked identical to an unscheduled one.</td>
+<td><code>False</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-10" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-10">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 20%">
+<col style="width: 72%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>dict[str, History]</td>
+<td>One <code>History</code> per model, by name, and the same objects are kept on the engine</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, History]</td>
+<td>so <code>evaluate</code>, <code>predict</code> and <code>export_weights</code> can be called afterwards.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="raises-1" class="level4 doc-section doc-section-raises">
+<h4 class="doc-section doc-section-raises anchored" data-anchor-id="raises-1">Raises</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 15%">
+<col style="width: 75%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>EngineError</td>
+<td>If a split a model needs is missing or carries no annotations.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.fit_anchors" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.fit_anchors">fit_anchors</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.fit_anchors(model)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>k-means with an IoU distance over the training boxes, or nothing to do.</p>
+<p>Euclidean distance on (width, height) is scale-blind - (0.02, 0.02) and (0.04, 0.04) sit the same distance apart as (0.50, 0.50) and (0.52, 0.52), while their overlaps are 0.25 and 0.93 - so the distance is 1 - IoU, which is what the anchors are for.</p>
+<section id="parameters-11" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-11">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 21%">
+<col style="width: 50%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model</td>
+<td>DetectionModel</td>
+<td>Which model’s boxes to fit against.</td>
+<td><em>required</em></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-11" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-11">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 8%">
+<col style="width: 19%">
+<col style="width: 72%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>AnchorFit | None</td>
+<td>An <code>AnchorFit</code>, or None when the model already declares anchors - the</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>AnchorFit | None</td>
+<td>difference between “fitted these” and “nothing to do”.</td>
+</tr>
+</tbody>
+</table>
+<p>Fitting is worth about 0.23 of mean overlap on BCCD: COCO’s nine anchors cover its boxes at 0.6473, fitted ones at 0.8751 to 0.8802 across three seeds.</p>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.loader" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.loader">loader</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.loader(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    model,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    split,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    anchors<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    shuffle<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    augmented<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>A torch DataLoader over one split, wrapping <code>dataset</code>.</p>
+<section id="parameters-12" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-12">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 18%">
+<col style="width: 55%">
+<col style="width: 13%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model</td>
+<td>DetectionModel</td>
+<td>Which model’s settings to read.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>split</td>
+<td>str</td>
+<td><code>"train"</code>, <code>"validation"</code> or <code>"test"</code>.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="odd">
+<td>anchors</td>
+<td></td>
+<td>As for <code>dataset</code>.</td>
+<td><code>None</code></td>
+</tr>
+<tr class="even">
+<td>shuffle</td>
+<td>bool</td>
+<td>Shuffle between epochs. Training only.</td>
+<td><code>False</code></td>
+</tr>
+<tr class="odd">
+<td>augmented</td>
+<td>bool</td>
+<td>Apply the model’s augmentation. Training only.</td>
+<td><code>False</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-12" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-12">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 81%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td></td>
+<td>A <code>torch.utils.data.DataLoader</code> yielding images and encoded targets.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.model_names" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.model_names">model_names</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.model_names()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The models that have been fitted or loaded, in the order they were.</p>
+<section id="returns-13" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-13">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 8%">
+<col style="width: 13%">
+<col style="width: 79%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[str]</td>
+<td>Their names - the keys every other method takes as <code>model_name</code>. Empty before</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[str]</td>
+<td><code>fit</code> has run, which is the difference between a specification and a run.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.predict" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.predict">predict</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.predict(model_name, split<span class="op">=</span><span class="st">'test'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Boxes, scores and labels for every image in a split, in its own pixels.</p>
+<p>A list and not an array, and in source pixels rather than the network’s frame - both for the same reason the segmentation side returns a list for <code>space="source"</code>. Images differ in size, the number of boxes found differs per image, and a box in a letterboxed 416x416 frame cannot be drawn on the photograph it came from without undoing the letterbox, which is a step nobody should have to remember.</p>
+<section id="parameters-13" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-13">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 11%">
+<col style="width: 55%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>split</td>
+<td>str</td>
+<td>Which data to predict on.</td>
+<td><code>'test'</code></td>
+</tr>
+<tr class="even">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-14" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-14">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 22%">
+<col style="width: 70%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>A <strong>list</strong>, one entry per image, each holding boxes in that image’s own pixels</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>with the inverse letterbox already applied. No array form: images differ in</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>size, so does the number of boxes, and a box in a letterboxed frame cannot be</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>drawn on the photograph it came from.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.report" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.report">report</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.report(model_name, split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Everything a detection table is read off, from one pass over the split.</p>
+<p>Public because <code>evaluate</code> and <code>evaluate_classes</code> are both views over it, and a caller that wants both - which the example does - would otherwise run the model over the split twice. No caching: a cache would be stale the moment the model trained another epoch, and the honest alternative is to hand back the thing and let the caller hold it.</p>
+<section id="parameters-14" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-14">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 11%">
+<col style="width: 55%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>model_name</td>
+<td>str</td>
+<td>Which detector. Defaults to the first.</td>
+<td><em>required</em></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-15" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-15">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 16%">
+<col style="width: 76%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>DetectionReport</td>
+<td>A <code>DetectionReport</code>: the anchors, their coverage, the target survey - how many</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>DetectionReport</td>
+<td>boxes were placed, how many could not be, how many were dropped - and the split</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>DetectionReport</td>
+<td>sizes. What to read before trusting a score, because a box that cannot be</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>DetectionReport</td>
+<td>placed is a box the model is never asked to find.</td>
+</tr>
+</tbody>
+</table>
+<p>BCCD carries one annotation of zero extent in each split, which comes out one pixel across under Pascal VOC’s inclusive convention, so <code>dropped</code> is 1 and has been all along.</p>
+</section>
+</section>
+<section id="pyplatypus.DetectionEngine.split_sizes" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.split_sizes">split_sizes</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.split_sizes()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>How many images each split holds, and in which order they were found.</p>
+<section id="returns-16" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-16">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 16%">
+<col style="width: 75%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>dict[str, int]</td>
+<td>How many samples each split holds, and whether each carries annotations - which</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, int]</td>
+<td>is what decides whether it can be scored at all. A split of images alone is</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>dict[str, int]</td>
+<td>accepted and <code>predict</code> works on it; <code>evaluate</code> refuses it by name.</td>
+</tr>
+</tbody>
+</table>
+
+
+</section>
+</section>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
