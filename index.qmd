@@ -2,12 +2,18 @@
 title: pyplatypus
 ---
 
-The engine behind [platypus](https://maju116.github.io/platypus/): segmentation and object
-detection in PyTorch, described by one specification and run from it.
+The engine behind [platypus](https://maju116.github.io/platypus/): semantic segmentation
+and object detection in PyTorch, described by one specification and run from it.
 
-This site documents the Python package. **If you are working in R, read
-[the R package's documentation](https://maju116.github.io/platypus/) instead** - it is the
-same engine with an R surface on top, and its pages are written for that.
+::: {.callout-note}
+## Working in R?
+
+Read [the R package's documentation](https://maju116.github.io/platypus/) instead. It is
+the same engine with an R surface on top, and its pages are written for that - it installs
+this package for you and you never import it.
+:::
+
+## A run, in five lines
 
 ```python
 import pyplatypus
@@ -18,7 +24,12 @@ engine.fit()
 engine.evaluate("validation")
 ```
 
-The same run as a configuration file:
+`from_yaml` and [`from_dict`](reference/from_dict.qmd) build the same object, so a
+specification written by hand and one read from a file are the same thing.
+[`build_engine`](reference/build_engine.qmd) returns the engine the specification's `task`
+asks for.
+
+## The same run as a configuration file
 
 ```yaml
 task: semantic_segmentation
@@ -34,5 +45,27 @@ models:
     metrics: [{name: iou}]
 ```
 
-Every field in that file is documented in the reference, generated from the models
-themselves - so it cannot describe a format the engine does not have.
+Everything not written down has a default, and the defaults live here rather than in the
+caller - so a short configuration is a complete one.
+
+## Where to start reading
+
+| If you want to | Read |
+|---|---|
+| see every field a configuration accepts | [`spec_schema`](reference/spec_schema.qmd), and the field descriptions it carries |
+| train and score something | [`Engine.fit`](reference/Engine.fit.qmd), [`Engine.evaluate`](reference/Engine.evaluate.qmd), [`Engine.evaluate_cases`](reference/Engine.evaluate_cases.qmd) |
+| detect objects rather than segment | [`DetectionEngine`](reference/DetectionEngine.qmd) and its [report](reference/DetectionEngine.report.qmd) |
+| not train at all, and use published weights | [`available_weights`](reference/available_weights.qmd) |
+| split data without a patient on both sides | [`split_samples`](reference/split_samples.qmd), [`split_dataset`](reference/split_dataset.qmd) |
+
+## What the reference is generated from
+
+The pages under **Reference** come from the docstrings through
+[quartodoc](https://machow.github.io/quartodoc/), so they cannot describe a function this
+package does not have. The `>>>` examples in them are run by `pytest --doctest-modules`,
+which means the site cannot publish an example that does not work - five claims written
+into `Args:` and `Returns:` were false when they were first written, and the doctests
+caught every one.
+
+The configuration fields are documented on the models themselves, so the YAML reference and
+the validation messages say the same thing because they are the same text.

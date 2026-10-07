@@ -36,8 +36,8 @@ jobs:
       # The format step ran under `continue-on-error` for months, reporting 98 files on
       # every run and gating nothing, which is a step nobody reads. The whole tree was
       # formatted in one commit instead, so from here a diff is a decision somebody made.
-      - run: uv run --only-group lint ruff check pyplatypus tests examples
-      - run: uv run --only-group lint ruff format --check --diff pyplatypus tests examples
+      - run: uv run --only-group lint ruff check pyplatypus tests examples tools
+      - run: uv run --only-group lint ruff format --check --diff pyplatypus tests examples tools
 
   test:
     needs: lint

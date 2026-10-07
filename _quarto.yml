@@ -15,6 +15,8 @@ project:
   render:
   - index.qmd
   - reference/
+  - CHANGELOG.md
+  - CODE_OF_CONDUCT.md
 brand: _brand.yml
 website:
   title: pyplatypus
@@ -99,6 +101,14 @@ website:
         - reference/PlatypusError.qmd
         - reference/ConfigError.qmd
         - reference/WeightsError.qmd
+    - section: About
+      contents:
+      - text: Changelog
+        file: CHANGELOG.md
+      - text: Code of conduct
+        file: CODE_OF_CONDUCT.md
+      - text: Licence
+        href: https://github.com/maju116/pyplatypus/blob/main/LICENSE
 format:
   html:
     toc: true
