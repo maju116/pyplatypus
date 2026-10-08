@@ -12,6 +12,8 @@ reference groups and the README section order already use.
 
 from __future__ import annotations
 
+import pathlib
+
 import pyplatypus
 from pyplatypus import style
 
@@ -85,3 +87,17 @@ def test_the_mapping_hands_out_copies():
     first["agreement_colours"]["hit"] = "#000000"
 
     assert pyplatypus.drawing_style()["agreement_colours"]["hit"] == "#3CDC5A"
+
+
+def test_the_box_colours_are_taken_from_the_palette_rather_than_restated():
+    """Two palettes that overlap, or one decision? The comment said one and the source
+    wrote the same hex codes twice - which is the thing this module exists to prevent,
+    happening inside it. Asserted on the source as well as the values, because equal
+    values are exactly what a second copy looks like until it drifts."""
+    assert style.BOX_COLOURS["prediction"] == style.CLASS_COLOURS[1]
+    assert style.BOX_COLOURS["truth"] == style.CLASS_COLOURS[0]
+
+    source = pathlib.Path(style.__file__).read_text()
+    code = [line for line in source.splitlines() if not line.lstrip().startswith("#")]
+    for colour in (style.CLASS_COLOURS[0], style.CLASS_COLOURS[1]):
+        assert sum(line.count(colour) for line in code) == 1, colour
