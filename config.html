@@ -1099,7 +1099,7 @@ The objective trained against. The <code>loss</code> column of a score table is 
 </dd>
 <dt><code>metrics</code></dt>
 <dd>
-a list, each one of <code>dice</code>, <code>iou</code>, <code>tversky</code> — optional
+a list, each one of <code>cldice</code>, <code>dice</code>, <code>iou</code>, <code>tversky</code> — optional
 What to report beside the loss, computed on the mask rather than on the objective, so these stay comparable across models. A callback watching <code>val_&lt;metric&gt;</code> is refused when nothing here will produce it.
 </dd>
 <dt><code>splits</code></dt>
@@ -1598,6 +1598,31 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </section>
 <section id="metrics" class="level3">
 <h3 class="anchored" data-anchor-id="metrics">Metrics</h3>
+<section id="metrics-cldice" class="level4">
+<h4 class="anchored" data-anchor-id="metrics-cldice"><code>cldice</code></h4>
+<dl>
+<dt><code>smooth</code></dt>
+<dd>
+a number — <code>1.0</code>
+Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth&gt;0. Use 0 for an honest number, at the cost of NaN on absent classes.
+</dd>
+<dt><code>include_background</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+False here where the other metrics default to True, and not for the usual reason. The background’s skeleton lies inside the background by construction, so that class scores 1.0 whatever the model did: measured on a 3-pixel vessel, averaging it in moved 0.7865 to 0.8933. It is not a flattering average, it is a number with no meaning in it.
+</dd>
+<dt><code>name</code></dt>
+<dd>
+text — <code>cldice</code>
+Which metric. These are computed on the mask rather than on the objective, so they stay comparable between models trained on different losses.
+</dd>
+<dt><code>iterations</code></dt>
+<dd>
+a whole number — <code>5</code>
+How many times the skeleton is peeled. It has to reach the half-width of the thickest structure or its core is never reduced to a centreline, and five covers a ten-pixel object - well past a retinal vessel at one to five. Raise it for something thicker, at a cost linear in the number.
+</dd>
+</dl>
+</section>
 <section id="metrics-dice" class="level4">
 <h4 class="anchored" data-anchor-id="metrics-dice"><code>dice</code></h4>
 <dl>

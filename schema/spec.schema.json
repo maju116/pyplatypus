@@ -410,6 +410,41 @@
       "title": "CceLoss",
       "type": "object"
     },
+    "ClDiceMetric": {
+      "additionalProperties": false,
+      "properties": {
+        "include_background": {
+          "default": false,
+          "description": "False here where the other metrics default to True, and not for the usual reason. The background's skeleton lies inside the background by construction, so that class scores 1.0 whatever the model did: measured on a 3-pixel vessel, averaging it in moved 0.7865 to 0.8933. It is not a flattering average, it is a number with no meaning in it.",
+          "title": "Include Background",
+          "type": "boolean"
+        },
+        "iterations": {
+          "default": 5,
+          "description": "How many times the skeleton is peeled. It has to reach the half-width of the thickest structure or its core is never reduced to a centreline, and five covers a ten-pixel object - well past a retinal vessel at one to five. Raise it for something thicker, at a cost linear in the number.",
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Iterations",
+          "type": "integer"
+        },
+        "name": {
+          "const": "cldice",
+          "default": "cldice",
+          "description": "Which metric. These are computed on the mask rather than on the objective, so they stay comparable between models trained on different losses.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth>0. Use 0 for an honest number, at the cost of NaN on absent classes.",
+          "minimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "ClDiceMetric",
+      "type": "object"
+    },
     "ComboLoss": {
       "additionalProperties": false,
       "properties": {
@@ -1856,6 +1891,7 @@
           "items": {
             "discriminator": {
               "mapping": {
+                "cldice": "#/$defs/ClDiceMetric",
                 "dice": "#/$defs/DiceMetric",
                 "iou": "#/$defs/IouMetric",
                 "tversky": "#/$defs/TverskyMetric"
@@ -1871,6 +1907,9 @@
               },
               {
                 "$ref": "#/$defs/TverskyMetric"
+              },
+              {
+                "$ref": "#/$defs/ClDiceMetric"
               }
             ]
           },
