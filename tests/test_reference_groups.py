@@ -219,6 +219,9 @@ SHARED_PLACEMENT = {
     "split_dataset": "The data on disk",
     "export_weights": "Weights",
     "available_weights": "Weights",
+    # Shared from 0.8.0a1, when R stopped restating the engine's drawing decisions and
+    # started mirroring them. The function exists on both sides and returns the same list.
+    "drawing_style": "Looking at the results",
 }
 
 

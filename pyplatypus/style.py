@@ -1,13 +1,15 @@
 """The decisions a drawing makes, as data rather than as code in two places.
 
-This package draws nothing yet and the R package has drawn for weeks, so every one of these
-values currently exists only there. A Python drawing that chose its own would make two
-packages that disagree about what red means - and the arrangement that prevents it already
-has a precedent here: one `_brand.yml`, two documentation sites, verified to emit a
-byte-identical stylesheet. Same shape, one level down.
+These values were the R package's first, and were lifted here when this one learnt to draw
+in 0.8.0a1. A Python drawing that chose its own would make two packages that disagree about
+what red means - and the arrangement that prevents it already has a precedent here: one
+`_brand.yml`, two documentation sites, verified to emit a byte-identical stylesheet. Same
+shape, one level down.
 
-So these are the engine's, both halves read them, and each carries the reason its value is
-what it is - the same treatment the `(centre, width)` window table gets, and for the same
+So these are the engine's. The R package mirrors them in `R/style.R` rather than fetching
+them, because drawing there must keep working with no Python at all, and
+`tests/testthat/test-drawing-style.R` compares every value against `drawing_style()` so the
+mirror cannot drift. Each carries the reason its value is what it is - the same treatment the `(centre, width)` window table gets, and for the same
 reason: a number without its reason gets changed by whoever finds it inconvenient.
 
 Not specification fields. A user does not configure them in a YAML file, because they are
@@ -26,15 +28,6 @@ AGREEMENT_COLOURS: dict[str, str] = {
     "false_alarm": "#F0C83C",
 }
 
-#: Prediction against truth, for boxes. These two are ColorBrewer's Dark2 - a
-#: colourblind-safe qualitative palette - which is the reason to keep them rather than pick
-#: something that looks better on one screen. Roughly 1 in 12 men cannot separate red from
-#: green, and a figure nobody can read is a figure that failed.
-BOX_COLOURS: dict[str, str] = {
-    "prediction": "#d95f02",
-    "truth": "#1b9e77",
-}
-
 #: One colour per class, for a figure that separates classes rather than predictions from
 #: truth. The whole of ColorBrewer's Dark2, of which `BOX_COLOURS` above is the first two
 #: entries - so the palettes are one decision rather than two that happen to overlap.
@@ -43,8 +36,9 @@ BOX_COLOURS: dict[str, str] = {
 #: colour whatever palette it uses, and cycling says that plainly where inventing a ninth
 #: colour would pretend otherwise.
 #:
-#: Known difference, to close when R reads this across the bridge: R's `plot_anchors()`
-#: colours its classes with ggplot2's default hue scale, which this is not.
+#: R's `plot_anchors()` used ggplot2's default hue scale until it began reading this, which
+#: is why the palette is shared rather than merely matching: the default is not
+#: colourblind-safe and these are.
 CLASS_COLOURS: list[str] = [
     "#1b9e77",
     "#d95f02",
@@ -55,6 +49,17 @@ CLASS_COLOURS: list[str] = [
     "#a6761d",
     "#666666",
 ]
+
+#: Prediction against truth, for boxes. The first two entries of `CLASS_COLOURS` above,
+#: taken rather than restated: this comment used to claim the two palettes were one
+#: decision while the source wrote the same hex codes twice, which is this module's own
+#: subject. Roughly 1 in 12 men cannot separate red from green, and a figure nobody can
+#: read is a figure that failed.
+BOX_COLOURS: dict[str, str] = {
+    "prediction": CLASS_COLOURS[1],
+    "truth": CLASS_COLOURS[0],
+}
+
 
 #: How much of the image an overlay lets through. 0.55 keeps the tissue legible underneath
 #: while the mask still reads as a region rather than a tint - and the point of an overlay is
