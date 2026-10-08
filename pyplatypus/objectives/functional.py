@@ -35,6 +35,93 @@ def probabilities(logits: torch.Tensor) -> torch.Tensor:
     return logits.softmax(dim=1)
 
 
+def _dilate(x: torch.Tensor) -> torch.Tensor:
+    """Grey dilation with a full 3-wide structuring element, at any rank."""
+    pool = F.max_pool2d if x.ndim == 4 else F.max_pool3d
+    return pool(x, kernel_size=3, stride=1, padding=1)
+
+
+def _erode(x: torch.Tensor) -> torch.Tensor:
+    """Grey erosion, which is dilation of the complement.
+
+    `max_pool` pads with -inf, so the complement is padded with +inf and the border is
+    never eroded from outside - the same convention as `scipy.ndimage.binary_erosion`
+    with `border_value=1`, which is what the test compares against.
+    """
+    return -_dilate(-x)
+
+
+def soft_skeleton(x: torch.Tensor, iterations: int = 5) -> torch.Tensor:
+    """The soft skeleton of Shit et al., CVPR 2021: iterated min and max pooling.
+
+    Morphological skeletonisation by openings, written with pooling so that every step is
+    differentiable. On a binary input it is the ordinary morphological skeleton; on
+    probabilities it degrades smoothly, which is what lets the same function serve a metric
+    now and a loss later. A hard skeleton would have been cheaper and is not comparable
+    with the paper.
+
+    `iterations` must reach the half-width of the thickest structure, or its core is never
+    peeled down to a centreline and the skeleton keeps a solid middle. Five covers a
+    ten-pixel object, which is well past a retinal vessel at one to five.
+
+    Args:
+        x: `(B, C, *spatial)`, 0-1. Rank-generic: 2D and 3D take the same path.
+        iterations: how many times to peel.
+
+    Returns:
+        The skeleton, same shape, 0-1.
+
+    >>> import torch
+    >>> line = torch.zeros(1, 1, 7, 7)
+    >>> line[0, 0, 3, 1:6] = 1.0
+    >>> skeleton = soft_skeleton(line)
+    >>> bool(torch.equal(skeleton, line))     # one pixel wide already
+    True
+    """
+    opened = _dilate(_erode(x))
+    skeleton = F.relu(x - opened)
+    for _ in range(iterations):
+        x = _erode(x)
+        opened = _dilate(_erode(x))
+        peeled = F.relu(x - opened)
+        # Soft union: add what this round found and the running skeleton did not have.
+        skeleton = skeleton + F.relu(peeled - skeleton * peeled)
+    return skeleton
+
+
+def cldice_from_masks(
+    prediction: torch.Tensor, target: torch.Tensor, iterations: int = 5, smooth: float = 1.0
+):
+    """Centerline Dice, per sample and class.
+
+    Dice asks whether the pixels coincide. This asks whether the *structure* does: each
+    mask is scored against the other's skeleton, so a vessel one pixel out of place scores
+    well and a vessel broken in half does not - which is the distinction Dice cannot make
+    and the reason a 1-5 pixel structure needs its own metric.
+
+    There is no `*_from_overlaps` form and there cannot be: a skeleton is a property of a
+    whole mask, not of its overlap counts, so this cannot be accumulated from the pieces of
+    a tiled image the way Dice is.
+    """
+    dims = spatial_dims(prediction)
+    skeleton_p = soft_skeleton(prediction, iterations)
+    skeleton_t = soft_skeleton(target, iterations)
+    # A structure thicker than `iterations` can peel is never reduced to a centreline and
+    # its skeleton comes back **empty** - at which point the ratios above are smooth/smooth
+    # and the class scores a perfect 1.0. Measured: a 24-pixel square at iterations=1 gives
+    # clDice 1.0 to a prediction whose Dice is 0.0017. NaN instead, which the metric refuses
+    # on rather than averaging in.
+    degenerate = ((skeleton_p.sum(dims) == 0) & (prediction.sum(dims) > 0)) | (
+        (skeleton_t.sum(dims) == 0) & (target.sum(dims) > 0)
+    )
+    # Topology precision: how much of the prediction's centreline lies inside the truth.
+    precision = (skeleton_p * target).sum(dims).add(smooth) / skeleton_p.sum(dims).add(smooth)
+    # Topology sensitivity: how much of the truth's centreline the prediction covers.
+    sensitivity = (skeleton_t * prediction).sum(dims).add(smooth) / skeleton_t.sum(dims).add(smooth)
+    score = 2 * precision * sensitivity / (precision + sensitivity + EPS)
+    return torch.where(degenerate, torch.tensor(float("nan"), device=score.device), score)
+
+
 def overlaps(
     probs: torch.Tensor, target: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

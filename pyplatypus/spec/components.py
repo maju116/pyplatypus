@@ -350,7 +350,34 @@ class TverskyMetric(_Overlap):
     )
 
 
-MetricSpec = Annotated[IouMetric | DiceMetric | TverskyMetric, Field(discriminator="name")]
+class ClDiceMetric(_Overlap):
+    name: Literal["cldice"] = Field("cldice", description=_METRIC_NAME)
+    include_background: bool = Field(
+        False,
+        description=(
+            "False here where the other metrics default to True, and not for the usual "
+            "reason. The background's skeleton lies inside the background by construction, "
+            "so that class scores 1.0 whatever the model did: measured on a 3-pixel vessel, "
+            "averaging it in moved 0.7865 to 0.8933. It is not a flattering average, it is "
+            "a number with no meaning in it."
+        ),
+    )
+    iterations: int = Field(
+        5,
+        ge=1,
+        le=50,
+        description=(
+            "How many times the skeleton is peeled. It has to reach the half-width of the "
+            "thickest structure or its core is never reduced to a centreline, and five "
+            "covers a ten-pixel object - well past a retinal vessel at one to five. Raise "
+            "it for something thicker, at a cost linear in the number."
+        ),
+    )
+
+
+MetricSpec = Annotated[
+    IouMetric | DiceMetric | TverskyMetric | ClDiceMetric, Field(discriminator="name")
+]
 
 # ----------------------------------------------------------------------- optimisers
 # torch's set, not TensorFlow's. Ftrl is gone because torch has no Ftrl.

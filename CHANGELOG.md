@@ -1,6 +1,44 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+ - **`cldice`, a metric for structures where Dice asks the wrong question.** Centerline
+   Dice (Shit et al., CVPR 2021): each mask is scored against the other's skeleton, so it
+   measures whether a structure is *connected* rather than whether its pixels coincide.
+   Vessels, airways, neurons, cracks, roads, catheters.
+
+   The argument, measured here rather than quoted: a nine-pixel vessel drawn two pixels thin
+   scores Dice **0.875**, and the same vessel severed in the middle scores Dice **0.947** -
+   Dice prefers the severed one. clDice gives them 1.000 and 0.943, which is the other way
+   round. Its limit is measured too: at one pixel wide, a one-pixel displacement leaves no
+   overlap at all and every overlap-based metric reads 0, this one included.
+
+   The soft skeleton is iterated min and max pooling, which is differentiable, so the same
+   function can serve a loss later; a hard skeleton would have been cheaper and not
+   comparable with the paper. Rank-generic, and **verified against `scipy.ndimage`'s own
+   morphology** - exact agreement, 2D and 3D, on random masks.
+
+   Two silent failures are refused rather than scored:
+
+   - a structure thicker than `iterations` can peel has an **empty** skeleton, and the
+     ratios then read smooth/smooth. Measured: a 24-pixel square at `iterations=1` gives
+     clDice **1.0** to a prediction whose Dice is 0.0017. Refused by name;
+   - `include_background` defaults to **False** here where every other metric defaults to
+     True. The background's skeleton lies inside the background by construction, so that
+     class scores 1.0 whatever the model did - averaging it in moved 0.7865 to 0.8933 on a
+     three-pixel vessel. Not a flattering average: a number with no meaning in it.
+
+### Changed
+
+ - **A tiled run refuses a whole-mask metric.** `splits` hands the model pieces, and a
+   skeleton is a property of a whole mask, so every structure would be severed at four tile
+   edges and come back low for a model that is perfectly connected - silently. Refused when
+   the specification is read, which is before anything is loaded. Dice is unaffected: its
+   pieces sum, which is what `combine` exists for.
+
 ## [0.8.0a1] - 2026-10-08
 
 ### Added

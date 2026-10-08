@@ -267,6 +267,7 @@ class Trainer:
             )
 
         totals: dict[str, list[torch.Tensor]] = {}
+        direct: dict[str, dict[str, list[torch.Tensor]]] = {}
         order: list[str] = []
         position = 0
 
@@ -281,6 +282,13 @@ class Trainer:
                 out = out[-1]
             hard = f.as_onehot(out.argmax(dim=1), out.shape[1])
             tp, fp, fn = f.overlaps(hard, batch_y)
+            # A metric that reads the shape of a whole mask cannot be rebuilt from overlap
+            # counts, so it is computed here, per example, while the mask still exists.
+            whole = {
+                name: metric.coefficient(hard, batch_y)
+                for name, metric in self.metrics.items()
+                if not metric.accumulates
+            }
 
             for offset in range(batch_x.shape[0]):
                 case = cases[position + offset]
@@ -289,6 +297,8 @@ class Trainer:
                     order.append(case)
                 for slot, value in enumerate((tp, fp, fn)):
                     totals[case][slot] += value[offset]
+                for name, value in whole.items():
+                    direct.setdefault(name, {}).setdefault(case, []).append(value[offset])
             position += batch_x.shape[0]
 
         rows = []
@@ -296,7 +306,18 @@ class Trainer:
             case_tp, case_fp, case_fn = totals[case]
             row: dict[str, Any] = {"case": case}
             for name, metric in self.metrics.items():
-                row[name] = metric.reduce(metric.combine(case_tp, case_fp, case_fn)).item()
+                if metric.accumulates:
+                    row[name] = metric.reduce(metric.combine(case_tp, case_fp, case_fn)).item()
+                    continue
+                pieces = direct[name][case]
+                if len(pieces) > 1:
+                    raise ValueError(
+                        f"'{name}' reads the shape of a whole mask and this case arrived in "
+                        f"{len(pieces)} pieces, which it cannot be rebuilt from. A tiled run "
+                        "is refused when the specification is read; a case in pieces here "
+                        "means something else split it."
+                    )
+                row[name] = metric.reduce(pieces[0]).item()
             rows.append(row)
         return rows
 
