@@ -317,3 +317,39 @@ def test_the_mask_panels_are_the_mask_and_the_agreement_panel_is_over_the_image(
     agreement = np.asarray(panels["agreement"])
     assert (agreement[0, 0] == (200, 0, 0)).all(), "the image is not under the agreement"
     assert not (agreement[3, 3] == (200, 0, 0)).all(), "the agreement was not drawn"
+
+
+class _PartialDetector(_FakeDetector):
+    """A split that is missing the first of three classes, which is ordinary in real data."""
+
+    def box_shapes(self, model_name=None, split="train"):
+        report = super().box_shapes(model_name, split)
+        report["classes"] = ["RBC", "WBC", "Platelets"]
+        report["boxes"] = {
+            "width": [0.3, 0.4],
+            "height": [0.3, 0.4],
+            "label": [1, 2],
+            "name": ["WBC", "Platelets"],
+        }
+        return report
+
+
+def test_a_class_missing_from_a_split_does_not_recolour_the_others():
+    """The colour has to mean the same thing in two figures from one model.
+
+    Taken from a class's position among the ones *drawn*, a split without red cells would
+    hand white cells the colour red cells have everywhere else - so the same cell is green
+    in one figure and purple in the next, from one model, with nothing to say so. Taken
+    from its position in the specification, it cannot.
+    """
+    full = pyplatypus.plot_anchors(_FakeDetector())
+    partial = pyplatypus.plot_anchors(_PartialDetector())
+
+    def colour_of(figure, label):
+        for collection in figure.axes[0].collections:
+            if collection.get_label() == label:
+                return tuple(collection.get_facecolor()[0])
+        raise AssertionError(f"no cloud labelled {label}")
+
+    assert colour_of(full, "WBC") == colour_of(partial, "WBC")
+    assert [c.get_label() for c in partial.axes[0].collections][:2] == ["WBC", "Platelets"]

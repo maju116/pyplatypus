@@ -552,7 +552,10 @@ def plot_anchors(
     (1, 'linear')
     """
     subtitle = None
-    cloud: list[tuple[str, np.ndarray]] = []
+    # label, shapes, colour. The colour travels with the cloud rather than being taken from
+    # its position later, because a class absent from this split must not shift the colour
+    # of every class after it.
+    cloud: list[tuple[str, np.ndarray, str]] = []
     if hasattr(anchors, "box_shapes"):
         if boxes is not None:
             raise PlatypusError(
@@ -565,8 +568,15 @@ def plot_anchors(
             [np.asarray(report["boxes"]["width"]), np.asarray(report["boxes"]["height"])]
         )
         names = np.asarray(report["boxes"]["name"])
-        for name in dict.fromkeys(names.tolist()):
-            cloud.append((str(name), shapes[names == name]))
+        # Keyed on the specification's class order, not on which classes this split happens
+        # to contain. Keyed on what is present, a class missing from validation shifts every
+        # class after it to another colour - so the same cell is green in one figure and
+        # purple in the next, from one model, with nothing to say so.
+        known = report["classes"] or list(dict.fromkeys(names.tolist()))
+        for index, name in enumerate(known):
+            present = shapes[names == name]
+            if len(present):
+                cloud.append((str(name), present, CLASS_COLOURS[index % len(CLASS_COLOURS)]))
         subtitle = (
             f"{len(shapes)} boxes in '{split}', {sum(len(g) for g in anchors)} anchors "
             + (
@@ -577,19 +587,12 @@ def plot_anchors(
             + f", as fractions of a {report['input_shape'][0]} x {report['input_shape'][1]} input"
         )
     elif boxes is not None:
-        cloud.append(("boxes", np.asarray(boxes, dtype=float).reshape(-1, 2)))
+        cloud.append(("boxes", np.asarray(boxes, dtype=float).reshape(-1, 2), "#999999"))
 
     figure = Figure(figsize=(5.0, 5.0), layout="constrained")
     axis = figure.subplots()
-    for index, (label, group) in enumerate(cloud):
-        axis.scatter(
-            group[:, 0],
-            group[:, 1],
-            s=6,
-            alpha=0.35,
-            color="#999999" if label == "boxes" else CLASS_COLOURS[index % len(CLASS_COLOURS)],
-            label=label,
-        )
+    for label, group, colour in cloud:
+        axis.scatter(group[:, 0], group[:, 1], s=6, alpha=0.35, color=colour, label=label)
     # One appearance for every anchor, hollow and black, as R draws them - and not one
     # colour per grid, which was the first version here: the grids took matplotlib's default
     # cycle, so an orange anchor sat invisibly inside an orange class cloud. Legibility
