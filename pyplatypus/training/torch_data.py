@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler
 
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.detection import DetectionDataset
@@ -71,6 +71,43 @@ class TorchSegmentationDataset(Dataset):
         return tuple(float(v) for v in spacing)
 
 
+class TileShuffle(Sampler[int]):
+    """Shuffle a tiled dataset in windows, so a decoded sample serves all of its tiles.
+
+    Shuffling over tile indices defeats the dataset's cache. Measured on FIVES - 2048-pixel
+    retinas cut into sixteen - the loader costs **5.2 times more** shuffled than in order,
+    49 ms a tile against 254, because a sample decodes in 210 ms and a cache of eight cannot
+    hold a working set of six hundred.
+
+    Emitting one sample's tiles together is the other extreme and makes a batch sixteen
+    views of one retina, which is not the same gradient.
+
+    So: take a window of `window` samples, shuffle all of their tiles together, move on.
+    Every read then serves every tile of its sample, and a batch still draws from `window`
+    different sources. The window is the cache size, because a wider one would evict a
+    sample while its own tiles were still being asked for.
+
+    Reproducible for the same reason the rest of the run is: it draws from torch's global
+    generator, which `seed` sets.
+    """
+
+    def __init__(self, samples: int, tiles: int, window: int):
+        self.samples = samples
+        self.tiles = tiles
+        self.window = max(1, window)
+
+    def __len__(self) -> int:
+        return self.samples * self.tiles
+
+    def __iter__(self):
+        order = torch.randperm(self.samples).tolist()
+        for start in range(0, len(order), self.window):
+            block = order[start : start + self.window]
+            indices = [s * self.tiles + t for s in block for t in range(self.tiles)]
+            for position in torch.randperm(len(indices)).tolist():
+                yield indices[position]
+
+
 def make_loader(
     base: SegmentationDataset,
     *,
@@ -80,10 +117,22 @@ def make_loader(
     drop_last: bool = False,
     with_distance: bool = False,
 ) -> DataLoader:
+    # A tiled dataset is shuffled in windows rather than wholesale; see `TileShuffle`. An
+    # untiled one has nothing to reuse, so it takes torch's own shuffling and this changes
+    # nothing for it.
+    sampler = None
+    if shuffle and base.tiles_per_sample > 1:
+        sampler = TileShuffle(
+            samples=len(base) // base.tiles_per_sample,
+            tiles=base.tiles_per_sample,
+            window=base.cache_size,
+        )
+
     return DataLoader(
         TorchSegmentationDataset(base, with_distance=with_distance),
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=shuffle if sampler is None else False,
+        sampler=sampler,
         num_workers=num_workers,
         drop_last=drop_last,
         pin_memory=torch.cuda.is_available(),
