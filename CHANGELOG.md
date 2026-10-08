@@ -1,6 +1,46 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a3] - 2026-10-08
+
+### Changed
+
+ - **A tiled run shuffles in windows, and trains roughly twice as fast.** The dataset has
+   always cached decoded samples - `_load` says *"cached because every tile asks again"* -
+   but training shuffled over **tile** indices, so a cache of eight held nothing against a
+   working set of six hundred and nearly every tile paid for its own decode.
+
+   `TileShuffle` draws a window of samples, shuffles all of their tiles together, and moves
+   on. One decode then serves every tile of its sample, and a batch still draws from several
+   sources. The window is the cache size by construction: a wider one would evict a sample
+   while its own tiles were still being asked for.
+
+   Measured on the loader alone, FIVES retinas at 2048 cut sixteen ways:
+
+       96 tiles in order      4.68 s     49 ms a tile
+       96 tiles shuffled     24.37 s    254 ms a tile
+       96 tiles, windowed     4.72 s     49 ms a tile
+
+   And end to end, Data Science Bowl cut 2x2 at 128, three seeds of thirty epochs each:
+
+       windowed       dice 0.8996 +/-0.0024    23.0 s an epoch
+       full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch
+
+   **The speed is established and the quality difference is not.** Paired by seed the
+   difference is +0.0023, -0.0060, -0.0082 - mean -0.0040 against a standard error of
+   0.0032, so 1.24 standard errors, with two seeds of three favouring full shuffling and one
+   against. A hint rather than a finding, and three seeds cannot settle a difference that
+   size. Recorded here rather than rounded away: at 1.76x the epochs for the same minutes, a
+   run can buy back more than 0.004 of Dice, which is what makes shipping it the honest call
+   rather than a convenient one.
+
+   Nothing external changes, and no interface moved. A seeded tiled run will not reproduce a
+   result from before this release, because the order the tiles arrive in is different -
+   which affects nobody known: **no example, configuration or article sets `splits`**,
+   checked rather than assumed.
+
+ - `SegmentationDataset.cache_size` is public, because the loader sizes its window from it.
+
 ## [0.8.0a2] - 2026-10-08
 
 ### Added

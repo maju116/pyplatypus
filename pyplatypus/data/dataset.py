@@ -126,7 +126,10 @@ class SegmentationDataset:
         self.augmenter = augmenter
         self.only_images = only_images
         self._cache: OrderedDict[int, tuple[np.ndarray, np.ndarray | None]] = OrderedDict()
-        self._cache_size = max(1, cache_size)
+        #: How many decoded samples are kept. Public because the loader sizes its shuffle
+        #: window from it: a window wider than the cache would evict a sample while its own
+        #: tiles were still being asked for, which is the thing the cache exists to prevent.
+        self.cache_size = max(1, cache_size)
 
     @property
     def tiles_per_sample(self) -> int:
@@ -180,7 +183,7 @@ class SegmentationDataset:
             classes, _ = self._to_classes(united)
 
         self._cache[index] = (image, classes)
-        if len(self._cache) > self._cache_size:
+        if len(self._cache) > self.cache_size:
             self._cache.popitem(last=False)
         return image, classes
 
