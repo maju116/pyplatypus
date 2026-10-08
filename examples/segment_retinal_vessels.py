@@ -37,6 +37,7 @@ import numpy as np
 import torch
 
 import pyplatypus as pp
+from pyplatypus.data.images import stitch
 from pyplatypus.objectives.functional import cldice_from_masks
 
 FOLDER = "FIVES A Fundus Image Dataset for AI-based Vessel Segmentation"
@@ -122,29 +123,76 @@ def specification(splits: dict[str, Path], arguments) -> dict:
     }
 
 
-def cldice_per_case(engine, split: str, iterations: int) -> list[dict]:
-    """clDice on whole images, which is the only honest place to measure it.
+def predict_one(engine, dataset, index: int) -> np.ndarray:
+    """One sample's prediction, tiles stitched, channels-last.
 
-    `predict` reassembles the tiles, so this scores the picture the model would actually
-    hand back rather than sixteen pieces of it. The masks are read by the same reader the
-    dataset uses, at the same size, because a mask read another way is a mask of something
-    else.
+    `engine.predict` does a whole split at once and holds three copies of it on the way -
+    every tile's probabilities, their concatenation, and the stack of stitched images. At
+    200 retinas of 2048 that is tens of gigabytes and it killed a run that had finished
+    training. Nothing here needs the whole split in memory, so nothing here asks for it.
     """
-    model = engine.runs["vessels"].spec
-    dataset = engine.dataset(model, split)
-    predictions = engine.predict("vessels", split)
+    run = engine.runs["vessels"]
+    model, spec, device = run.trainer.model, run.spec, run.trainer.device
+    tiles = dataset.tiles_per_sample
+    batch = max(1, spec.batch_size)
+
+    model.eval()
+    pieces = []
+    with torch.no_grad():
+        for start in range(0, tiles, batch):
+            stack = torch.stack(
+                [
+                    torch.as_tensor(dataset[index * tiles + offset][0]).permute(2, 0, 1)
+                    for offset in range(start, min(start + batch, tiles))
+                ]
+            ).to(device)
+            out = model(stack)
+            if isinstance(out, tuple):
+                out = out[-1]
+            pieces.append(np.moveaxis(out.softmax(dim=1).cpu().numpy(), 1, -1))
+
+    probabilities = np.concatenate(pieces, axis=0)
+    if spec.splits is None:
+        return probabilities[0]
+    return stitch(probabilities, tuple(spec.splits))
+
+
+def cldice_per_case(engine, split: str, iterations: int) -> list[dict]:
+    """clDice on whole images, one image at a time.
+
+    Whole images because a skeleton is a property of a whole mask: `predict` reassembles the
+    tiles, so this scores the picture the model would actually hand back rather than sixteen
+    pieces of it.
+
+    One at a time because `predict` cannot do this split at all. It holds every tile's
+    probabilities, concatenates them into a second copy and stacks the stitched images into
+    a third - for 200 retinas at 2048 that is tens of gigabytes, and a run that had finished
+    training was killed here. So the model is stepped over one sample's tiles, stitched,
+    scored, and the arrays dropped: peak memory is one image whatever the split's size.
+
+    The masks are read by the same reader the dataset uses, at the same size, because a mask
+    read another way is a mask of something else.
+    """
+    run = engine.runs["vessels"]
+    dataset = engine.dataset(run.spec, split)
+    # On whichever device trained, because the skeleton is twelve rounds of pooling over a
+    # four-megapixel tensor: measured at 11.96 s an image on the processor and 0.37 on the
+    # card, which is forty minutes against ninety seconds over this split.
+    device = run.trainer.device
 
     rows = []
     for index, sample in enumerate(dataset.samples):
-        probabilities = torch.tensor(np.asarray(predictions[index])).permute(2, 0, 1)[None]
+        whole = predict_one(engine, dataset, index)
+
+        hard = torch.as_tensor(whole, device=device).permute(2, 0, 1)[None]
         hard = (
-            torch.nn.functional.one_hot(probabilities.argmax(dim=1), probabilities.shape[1])
+            torch.nn.functional.one_hot(hard.argmax(dim=1), hard.shape[1])
             .permute(0, 3, 1, 2)
             .float()
         )
         mask = pp.read_image(sample.masks[0], channels=1, size=None, nearest=True)
-        target = (np.asarray(mask).reshape(mask.shape[:2]) > 127).astype(np.float32)
-        target = torch.tensor(np.stack([1 - target, target]))[None]
+        flat = (np.asarray(mask).reshape(mask.shape[:2]) > 127).astype(np.float32)
+        target = torch.as_tensor(np.stack([1 - flat, flat]), device=device)[None]
         if target.shape[-2:] != hard.shape[-2:]:
             raise SystemExit(
                 f"{sample.key}: prediction is {tuple(hard.shape[-2:])} and the mask is "
@@ -274,7 +322,6 @@ def main() -> None:
         dataset = engine.dataset(engine.runs["vessels"].spec, "validation")
         worst = min(range(len(cases)), key=lambda i: cases[i]["dice"])
         which = [0, worst]
-        predictions = engine.predict("vessels", "validation")
 
         def whole_image(sample):
             array = pp.read_image(sample.images[0], channels=3, size=None)
@@ -287,7 +334,7 @@ def main() -> None:
 
         figure = pp.plot_masks(
             np.stack([whole_image(dataset.samples[i]) for i in which]),
-            prediction=np.stack([np.asarray(predictions[i]) for i in which]),
+            prediction=np.stack([predict_one(engine, dataset, i) for i in which]),
             truth=np.stack([whole_mask(dataset.samples[i]) for i in which]),
             labels=[f"{cases[i]['case']}  dice {cases[i]['dice']:.3f}" for i in which],
         )
