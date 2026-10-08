@@ -92,6 +92,21 @@ def test_published_weights_configuration_is_accepted():
     _validate(script.specification("train.csv", "validation.csv", 60, 256))
 
 
+def test_retinal_vessel_configuration_is_accepted():
+    import segment_retinal_vessels as script
+
+    arguments = _declared_arguments("segment_retinal_vessels")
+    splits = {name: Path(f"{name}.csv") for name in ("train", "test")}
+    config = script.specification(splits, arguments)
+    _validate(config)
+
+    # The one the specification refuses, asserted here because this example's whole shape -
+    # two scoring passes rather than one - follows from it.
+    named = [metric["name"] for metric in config["models"][0]["metrics"]]
+    assert "cldice" not in named, "a tiled run cannot measure a whole-mask metric"
+    assert config["models"][0]["splits"], "the example exists to exercise tiling"
+
+
 def test_detection_configuration_is_accepted():
     import detect_blood_cells as script
 
@@ -109,6 +124,7 @@ def test_detection_configuration_is_accepted():
         "compare_pretrained_encoders",
         "publish_dsbowl_weights",
         "detect_blood_cells",
+        "segment_retinal_vessels",
     ],
 )
 def test_every_example_imports(name):
