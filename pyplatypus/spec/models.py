@@ -183,6 +183,12 @@ class ModelSpec(SpecModel):
         return self
 
 
+#: Metrics that cannot be rebuilt from the pieces of a tiled image, because they read the
+#: shape of a whole mask rather than its overlap counts. Kept here as names rather than as
+#: an import from the objectives, which would make the specification layer depend on torch.
+_WHOLE_MASK_METRICS = frozenset({"cldice"})
+
+
 class SegmentationModel(ModelSpec):
     architecture: Architecture = Field(
         Architecture.U_NET,
@@ -359,6 +365,30 @@ class SegmentationModel(ModelSpec):
         if self.splits is None:
             return 1
         return math.prod(self.splits)
+
+    @model_validator(mode="after")
+    def tiling_and_whole_mask_metrics_do_not_mix(self):
+        """A skeleton is a property of a whole mask, and a tile does not have one.
+
+        `clDice` measures whether a structure is connected. Cut the image into tiles and
+        every vessel is severed at four edges, so the number comes back low for a model
+        that is perfectly connected - and comes back *silently*, which is worse than not
+        being able to ask. Dice has no such problem: its pieces sum.
+
+        Refused here rather than in the trainer because this is knowable before anything is
+        read, and because an epoch's `val_cldice` would be wrong the same way.
+        """
+        if self.splits is None:
+            return self
+        whole = [m.name for m in self.metrics if m.name in _WHOLE_MASK_METRICS]
+        if whole:
+            raise ValueError(
+                f"{', '.join(whole)} cannot be measured on a tiled run: it reads the shape "
+                "of a whole mask, and `splits` hands the model pieces, so every structure "
+                "is cut at the tile edges. Drop `splits` and give the model the whole "
+                f"image, or score {whole[0]} separately on reassembled predictions."
+            )
+        return self
 
     @model_validator(mode="after")
     def splits_match_rank(self):
