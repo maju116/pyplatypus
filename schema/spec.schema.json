@@ -1996,7 +1996,7 @@
             }
           ],
           "default": null,
-          "description": "Cut each image into a grid of tiles instead of shrinking it. One entry per spatial dimension, e.g. [2, 3] cuts into 2 rows by 3 columns. The source is read at splits * input_shape and divided; every tile is input_shape. Leave unset to resize the whole image instead.",
+          "description": "Cut each image into a grid of tiles instead of shrinking it. One entry per spatial dimension, e.g. [2, 3] cuts into 2 rows by 3 columns. The source is read at splits * input_shape and divided; every tile is input_shape. Leave unset to resize the whole image instead. Training then shuffles in windows rather than over every tile, so one decode serves all of a sample's tiles: measured on 2048-pixel retinas cut sixteen ways, the loader costs 254 ms a tile shuffled wholesale against 49 ms this way, and a batch still draws from several sources.",
           "title": "Splits"
         },
         "upsample": {
