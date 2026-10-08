@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>engine.best_model – pyplatypus</title>
+<title>overlay_mask – pyplatypus</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -150,7 +150,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict.html">Predicting and scoring</a></li><li class="breadcrumb-item"><a href="../reference/Engine.best_model.html">Engine.best_model</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/plot_masks.html">Looking at the results</a></li><li class="breadcrumb-item"><a href="../reference/overlay_mask.html">overlay_mask</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -384,13 +384,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </li>
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true">
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false">
  <span class="menu-text">Predicting and scoring</span></a>
-          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 show">  
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
@@ -417,7 +417,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/Engine.best_model.html" class="sidebar-item-text sidebar-link active">
+  <a href="../reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.best_model</span></a>
   </div>
 </li>
@@ -561,13 +561,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </li>
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false">
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="true">
  <span class="menu-text">Looking at the results</span></a>
-          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 ">  
+      <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference/plot_masks.html" class="sidebar-item-text sidebar-link">
@@ -588,7 +588,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/overlay_mask.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">overlay_mask</span></a>
   </div>
 </li>
@@ -682,7 +682,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#pyplatypus.Engine.best_model" id="toc-pyplatypus.Engine.best_model" class="nav-link active" data-scroll-target="#pyplatypus.Engine.best_model">Engine.best_model</a>
+  <li><a href="#pyplatypus.overlay_mask" id="toc-pyplatypus.overlay_mask" class="nav-link active" data-scroll-target="#pyplatypus.overlay_mask">overlay_mask</a>
   <ul class="collapse">
   <li><a href="#parameters" id="toc-parameters" class="nav-link" data-scroll-target="#parameters">Parameters</a></li>
   <li><a href="#returns" id="toc-returns" class="nav-link" data-scroll-target="#returns">Returns</a></li>
@@ -692,19 +692,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict.html">Predicting and scoring</a></li><li class="breadcrumb-item"><a href="../reference/Engine.best_model.html">Engine.best_model</a></li></ol></nav></header>
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/plot_masks.html">Looking at the results</a></li><li class="breadcrumb-item"><a href="../reference/overlay_mask.html">overlay_mask</a></li></ol></nav></header>
 
 
 
 
-<section id="pyplatypus.Engine.best_model" class="level1">
-<h1>Engine.best_model</h1>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Engine.best_model(key<span class="op">=</span><span class="st">'dice'</span>, split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Rank the models on one column.</p>
-<p>Refuses to rank on <code>loss</code> when the models were not trained on the same one. Two losses are two different scales: a Focal-Tversky of 0.05 is not better than a CCE-Dice of 0.14, it is not even the same question. Metrics are comparable because they measure the mask, not the objective.</p>
+<section id="pyplatypus.overlay_mask" class="level1">
+<h1>overlay_mask</h1>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>overlay_mask(image, mask, colormap, alpha<span class="op">=</span>OVERLAY_ALPHA)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>An image with a mask tinted onto it.</p>
 <section id="parameters" class="level2 doc-section doc-section-parameters">
 <h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 18%">
+<col style="width: 65%">
+<col style="width: 9%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -715,16 +720,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td>key</td>
-<td>str</td>
-<td>Which column to rank on.</td>
-<td><code>'dice'</code></td>
+<td>image</td>
+<td>np.ndarray</td>
+<td>one image, <code>height x width x channels</code>, 0-1 floats or 0-255 integers.</td>
+<td><em>required</em></td>
 </tr>
 <tr class="even">
-<td>split</td>
-<td>str</td>
-<td>Which data to rank on.</td>
-<td><code>'validation'</code></td>
+<td>mask</td>
+<td>np.ndarray</td>
+<td>a prediction for it - one-hot or probabilities, <code>height x width x classes</code> - or an array of class indices.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="odd">
+<td>colormap</td>
+<td>list[tuple[int, int, int]]</td>
+<td>one colour per class, darkest first, as the specification gives it.</td>
+<td><em>required</em></td>
+</tr>
+<tr class="even">
+<td>alpha</td>
+<td>float</td>
+<td>how much of the tint shows. The default keeps the tissue legible underneath, which is the point of an overlay.</td>
+<td><code>OVERLAY_ALPHA</code></td>
 </tr>
 </tbody>
 </table>
@@ -732,29 +749,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="returns" class="level2 doc-section doc-section-returns">
 <h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
 <table class="caption-top table">
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td></td>
-<td>str</td>
-<td>The winning model’s name.</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="raises" class="level2 doc-section doc-section-raises">
-<h2 class="doc-section doc-section-raises anchored" data-anchor-id="raises">Raises</h2>
-<table class="caption-top table">
 <colgroup>
-<col style="width: 9%">
-<col style="width: 14%">
-<col style="width: 76%">
+<col style="width: 8%">
+<col style="width: 13%">
+<col style="width: 77%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -766,11 +764,47 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tbody>
 <tr class="odd">
 <td></td>
-<td>EngineError</td>
-<td>If there is no such column; the message lists the ones there are.</td>
+<td>np.ndarray</td>
+<td>A <code>height x width x 3</code> array of 0-255 integers, which is what the R</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>np.ndarray</td>
+<td><code>overlay_mask()</code> returns too.</td>
 </tr>
 </tbody>
 </table>
+</section>
+<section id="raises" class="level2 doc-section doc-section-raises">
+<h2 class="doc-section doc-section-raises anchored" data-anchor-id="raises">Raises</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 17%">
+<col style="width: 72%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>PlatypusError</td>
+<td>if the image cannot be drawn, or the mask does not cover it.</td>
+</tr>
+</tbody>
+</table>
+<blockquote class="blockquote">
+<blockquote class="blockquote">
+<blockquote class="blockquote">
+<p>import numpy as np image = np.full((4, 4, 3), 0.5) mask = np.zeros((4, 4, 2)); mask[1:3, 1:3, 1] = 1 shown = overlay_mask(image, mask, [(0, 0, 0), (255, 0, 0)]) shown.shape, shown.dtype ((4, 4, 3), dtype(‘uint8’)) bool((shown[1, 1] != shown[0, 0]).any()) True</p>
+</blockquote>
+</blockquote>
+</blockquote>
 
 
 </section>

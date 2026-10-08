@@ -293,6 +293,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/read_image.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_image</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/split_dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">split_dataset</span></a>
   </div>
@@ -556,12 +562,59 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false">
- <span class="menu-text">When something is wrong</span></a>
+ <span class="menu-text">Looking at the results</span></a>
           <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
       <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/plot_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_masks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_boxes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_anchors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_mask</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/drawing_style.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">drawing_style</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false">
+ <span class="menu-text">When something is wrong</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
@@ -586,13 +639,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </li>
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="true">
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="true">
  <span class="menu-text">About</span></a>
-          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="true" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth1 show">  
+      <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../CHANGELOG.html" class="sidebar-item-text sidebar-link">
@@ -941,7 +994,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="pyplatypus.Engine.evaluate_cases" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.Engine.evaluate_cases">evaluate_cases</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Engine.evaluate_cases(model_name, split<span class="op">=</span><span class="st">'validation'</span>, <span class="op">*</span>, group_by<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Engine.evaluate_cases(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'validation'</span>, <span class="op">*</span>, group_by<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>One row per case instead of one row per model.</p>
 <p>The comparison table answers “which model”; this answers “on whom does it fail”, which is the question a clinician asks first and the one a single mean cannot answer. With <code>group_by</code>, each row also carries the group - the patient, usually - so the rows can be summarised per patient rather than per slice.</p>
 <section id="parameters-3" class="level4 doc-section doc-section-parameters">
@@ -964,9 +1017,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tbody>
 <tr class="odd">
 <td>model_name</td>
-<td>str</td>
+<td>str | None</td>
 <td>Which model, by name. Defaults to the first.</td>
-<td><em>required</em></td>
+<td><code>None</code></td>
 </tr>
 <tr class="even">
 <td>split</td>
@@ -1263,7 +1316,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="pyplatypus.Engine.predict" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.Engine.predict">predict</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>Engine.predict(model_name, split<span class="op">=</span><span class="st">'test'</span>, <span class="op">*</span>, space<span class="op">=</span><span class="st">'model'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>Engine.predict(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'test'</span>, <span class="op">*</span>, space<span class="op">=</span><span class="st">'model'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Class probabilities, channels-last, one array per source image.</p>
 <p>Tiles are reassembled, so an image that went in at 2048x1536 comes back at 2048x1536 rather than as 24 unrelated pieces.</p>
 <p><code>space</code> decides which grid the answer is on, and the two are different enough that the return type differs with it:</p>
@@ -1276,9 +1329,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <table class="caption-top table">
 <colgroup>
 <col style="width: 3%">
-<col style="width: 2%">
-<col style="width: 91%">
 <col style="width: 3%">
+<col style="width: 90%">
+<col style="width: 2%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1297,9 +1350,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="even">
 <td>model_name</td>
-<td>str</td>
+<td>str | None</td>
 <td>Which model, by name. Defaults to the first.</td>
-<td><em>required</em></td>
+<td><code>None</code></td>
 </tr>
 <tr class="odd">
 <td>space</td>

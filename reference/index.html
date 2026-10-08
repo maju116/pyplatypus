@@ -258,6 +258,12 @@ ul.task-list li input[type="checkbox"] {
       <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/read_image.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_image</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/split_dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">split_dataset</span></a>
   </div>
@@ -521,12 +527,59 @@ ul.task-list li input[type="checkbox"] {
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false">
- <span class="menu-text">When something is wrong</span></a>
+ <span class="menu-text">Looking at the results</span></a>
           <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
       <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/plot_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_masks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_boxes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_anchors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_mask</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/drawing_style.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">drawing_style</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false">
+ <span class="menu-text">When something is wrong</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
@@ -551,13 +604,13 @@ ul.task-list li input[type="checkbox"] {
   </li>
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="true">
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="true">
  <span class="menu-text">About</span></a>
-          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="true" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth1 show">  
+      <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../CHANGELOG.html" class="sidebar-item-text sidebar-link">
@@ -603,6 +656,7 @@ ul.task-list li input[type="checkbox"] {
   <li><a href="#predicting-and-scoring" id="toc-predicting-and-scoring" class="nav-link" data-scroll-target="#predicting-and-scoring">Predicting and scoring</a></li>
   <li><a href="#weights" id="toc-weights" class="nav-link" data-scroll-target="#weights">Weights</a></li>
   <li><a href="#records" id="toc-records" class="nav-link" data-scroll-target="#records">Records</a></li>
+  <li><a href="#looking-at-the-results" id="toc-looking-at-the-results" class="nav-link" data-scroll-target="#looking-at-the-results">Looking at the results</a></li>
   <li><a href="#when-something-is-wrong" id="toc-when-something-is-wrong" class="nav-link" data-scroll-target="#when-something-is-wrong">When something is wrong</a></li>
   </ul></li>
   </ul>
@@ -674,26 +728,30 @@ ul.task-list li input[type="checkbox"] {
 <table class="caption-top table">
 <tbody>
 <tr class="odd">
+<td><a href="../reference/read_image.html#pyplatypus.read_image">read_image</a></td>
+<td>Read one image or volume as a channels-last array.</td>
+</tr>
+<tr class="even">
 <td><a href="../reference/split_dataset.html#pyplatypus.split_dataset">split_dataset</a></td>
 <td>Split one folder of data into three CSVs a specification can point at.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/split_samples.html#pyplatypus.split_samples">split_samples</a></td>
 <td>Divide samples between the splits, keeping every group whole.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/Engine.dataset.html#pyplatypus.Engine.dataset">Engine.dataset</a></td>
 <td><code>only_images</code> defaults to what the split actually has rather than to False.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/Engine.loader.html#pyplatypus.Engine.loader">Engine.loader</a></td>
 <td>A torch DataLoader over one split, wrapping <code>dataset</code>.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.dataset.html#pyplatypus.DetectionEngine.dataset">DetectionEngine.dataset</a></td>
 <td>The dataset for one split: images letterboxed to <code>input_shape</code>, boxes encoded.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionEngine.loader.html#pyplatypus.DetectionEngine.loader">DetectionEngine.loader</a></td>
 <td>A torch DataLoader over one split, wrapping <code>dataset</code>.</td>
 </tr>
@@ -848,6 +906,38 @@ ul.task-list li input[type="checkbox"] {
 <tr class="even">
 <td><a href="../reference/read_record.html#pyplatypus.read_record">read_record</a></td>
 <td>A record back off disk. Plain data; <code>from_dict(record["specification"])</code> runs it.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="looking-at-the-results" class="level2">
+<h2 class="anchored" data-anchor-id="looking-at-the-results">Looking at the results</h2>
+<p>The decisions a drawing makes, held here so the R package and this one cannot disagree about what red means. Until 0.8.0a1 this group existed only in the R package, because the engine carried no plotting at all.</p>
+<table class="caption-top table">
+<tbody>
+<tr class="odd">
+<td><a href="../reference/plot_masks.html#pyplatypus.plot_masks">plot_masks</a></td>
+<td>Images, their masks and where the two disagree, one row per image.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/plot_boxes.html#pyplatypus.plot_boxes">plot_boxes</a></td>
+<td>Detections drawn on the images they were found in, one row per image.</td>
+</tr>
+<tr class="odd">
+<td><a href="../reference/plot_anchors.html#pyplatypus.plot_anchors">plot_anchors</a></td>
+<td>Fitted anchors against the box shapes they were fitted to.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/overlay_mask.html#pyplatypus.overlay_mask">overlay_mask</a></td>
+<td>An image with a mask tinted onto it.</td>
+</tr>
+<tr class="odd">
+<td><a href="../reference/overlay_agreement.html#pyplatypus.overlay_agreement">overlay_agreement</a></td>
+<td>An image showing what was found, what was missed and what was invented.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/drawing_style.html#pyplatypus.drawing_style">drawing_style</a></td>
+<td>Every decision above, in one mapping.</td>
 </tr>
 </tbody>
 </table>
