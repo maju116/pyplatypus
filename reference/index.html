@@ -364,6 +364,12 @@ ul.task-list li input[type="checkbox"] {
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/Engine.predict_stream.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict_stream</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.evaluate</span></a>
   </div>
@@ -800,66 +806,70 @@ ul.task-list li input[type="checkbox"] {
 <td>Class probabilities, channels-last, one array per source image.</td>
 </tr>
 <tr class="even">
+<td><a href="../reference/Engine.predict_stream.html#pyplatypus.Engine.predict_stream">Engine.predict_stream</a></td>
+<td><code>(case, prediction)</code> one source image at a time, instead of all of them at once.</td>
+</tr>
+<tr class="odd">
 <td><a href="../reference/Engine.evaluate.html#pyplatypus.Engine.evaluate">Engine.evaluate</a></td>
 <td>One row per model: the comparison table the whole multi-model idea is for.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/Engine.evaluate_cases.html#pyplatypus.Engine.evaluate_cases">Engine.evaluate_cases</a></td>
 <td>One row per case instead of one row per model.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/summarise_cases.html#pyplatypus.summarise_cases">summarise_cases</a></td>
 <td>Turn per-case rows into the distribution, one row per metric.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/Engine.best_model.html#pyplatypus.Engine.best_model">Engine.best_model</a></td>
 <td>Rank the models on one column.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionEngine.predict.html#pyplatypus.DetectionEngine.predict">DetectionEngine.predict</a></td>
 <td>Boxes, scores and labels for every image in a split, in its own pixels.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.evaluate.html#pyplatypus.DetectionEngine.evaluate">DetectionEngine.evaluate</a></td>
 <td>One row per model: the comparison table, with detection’s columns.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionEngine.evaluate_classes.html#pyplatypus.DetectionEngine.evaluate_classes">DetectionEngine.evaluate_classes</a></td>
 <td>One row per class instead of one row per model.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.evaluate_images.html#pyplatypus.DetectionEngine.evaluate_images">DetectionEngine.evaluate_images</a></td>
 <td>One row per image instead of one row per model or per class.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionEngine.best_model.html#pyplatypus.DetectionEngine.best_model">DetectionEngine.best_model</a></td>
 <td>Which model scored highest on one column.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.crops.html#pyplatypus.DetectionEngine.crops">DetectionEngine.crops</a></td>
 <td>Every detection cut out of the image it was found in.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionReport.html#pyplatypus.DetectionReport">DetectionReport</a></td>
 <td>One model on one split, under the three sets of conventions a table needs.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.report.html#pyplatypus.DetectionEngine.report">DetectionEngine.report</a></td>
 <td>Everything a detection table is read off, from one pass over the split.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionEngine.anchor_coverage.html#pyplatypus.DetectionEngine.anchor_coverage">DetectionEngine.anchor_coverage</a></td>
 <td>How well the anchors in use cover this split’s boxes.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.box_shapes.html#pyplatypus.DetectionEngine.box_shapes">DetectionEngine.box_shapes</a></td>
 <td>The cloud of box shapes in a split, with the anchors in use beside it.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/DetectionEngine.split_sizes.html#pyplatypus.DetectionEngine.split_sizes">DetectionEngine.split_sizes</a></td>
 <td>How many images each split holds, and in which order they were found.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/DetectionEngine.model_names.html#pyplatypus.DetectionEngine.model_names">DetectionEngine.model_names</a></td>
 <td>The models that have been fitted or loaded, in the order they were.</td>
 </tr>

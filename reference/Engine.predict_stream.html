@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>pyplatypus</title>
+<title>engine.predict_stream – pyplatypus</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -64,28 +64,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<link href="./assets/hexsticker.png" rel="icon" type="image/png">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../assets/hexsticker.png" rel="icon" type="image/png">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-05fe9a9605db37b54e1fecdc175ac0f3.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -124,7 +124,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">pyplatypus</span>
     </a>
   </div>
@@ -150,7 +150,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./index.html">Home</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict.html">Predicting and scoring</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict_stream.html">Engine.predict_stream</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -164,7 +164,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <ul class="list-unstyled mt-1">
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./index.html" class="sidebar-item-text sidebar-link active">
+  <a href="../index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Home</span></a>
   </div>
 </li>
@@ -179,13 +179,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+  <a href="../guide.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Writing a configuration</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./config.html" class="sidebar-item-text sidebar-link">
+  <a href="../config.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Every configuration field</span></a>
   </div>
 </li>
@@ -202,7 +202,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/index.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/index.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Overview</span></a>
   </div>
 </li>
@@ -217,49 +217,49 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/from_dict.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/from_dict.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">from_dict</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/from_yaml.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/from_yaml.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">from_yaml</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">SegmentationSpec</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionSpec</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusSpec</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Task.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Task.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Task</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/spec_schema.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/spec_schema.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">spec_schema</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/write_schema.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/write_schema.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">write_schema</span></a>
   </div>
 </li>
@@ -276,7 +276,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/available_transforms.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/available_transforms.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">available_transforms</span></a>
   </div>
 </li>
@@ -293,43 +293,43 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/read_image.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/read_image.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">read_image</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/split_dataset.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/split_dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">split_dataset</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/split_samples.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/split_samples.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">split_samples</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.dataset</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.loader</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.dataset</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.loader</span></a>
   </div>
 </li>
@@ -346,37 +346,37 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/build_engine.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/build_engine.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">build_engine</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.fit</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.fit</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.fit_anchors</span></a>
   </div>
 </li>
@@ -384,118 +384,118 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </li>
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false">
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true">
  <span class="menu-text">Predicting and scoring</span></a>
-          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 ">  
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.predict</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.predict_stream.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.predict_stream.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">Engine.predict_stream</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.evaluate</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.evaluate_cases</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">summarise_cases</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.best_model</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.predict</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.evaluate</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.evaluate_classes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.evaluate_images</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.best_model</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.crops</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionReport</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.report</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.anchor_coverage</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.box_shapes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.split_sizes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.model_names</span></a>
   </div>
 </li>
@@ -512,31 +512,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-8" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/available_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/available_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">available_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">resolve_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/export_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/export_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">export_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Engine.export_weights</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">DetectionEngine.export_weights</span></a>
   </div>
 </li>
@@ -553,13 +553,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-9" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/write_record.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/write_record.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">write_record</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/read_record.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/read_record.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">read_record</span></a>
   </div>
 </li>
@@ -576,37 +576,37 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/plot_masks.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/plot_masks.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">plot_masks</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">plot_boxes</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">plot_anchors</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">overlay_mask</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">overlay_agreement</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/drawing_style.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/drawing_style.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">drawing_style</span></a>
   </div>
 </li>
@@ -623,19 +623,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusError</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/ConfigError.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/ConfigError.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">ConfigError</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./reference/WeightsError.html" class="sidebar-item-text sidebar-link">
+  <a href="../reference/WeightsError.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">WeightsError</span></a>
   </div>
 </li>
@@ -654,13 +654,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./CHANGELOG.html" class="sidebar-item-text sidebar-link">
+  <a href="../CHANGELOG.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Changelog</span></a>
   </div>
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
+  <a href="../CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Code of conduct</span></a>
   </div>
 </li>
@@ -672,7 +672,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./CITATION.html" class="sidebar-item-text sidebar-link">
+  <a href="../CITATION.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Citation</span></a>
   </div>
 </li>
@@ -688,117 +688,96 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#a-run-in-five-lines" id="toc-a-run-in-five-lines" class="nav-link active" data-scroll-target="#a-run-in-five-lines">A run, in five lines</a></li>
-  <li><a href="#the-same-run-as-a-configuration-file" id="toc-the-same-run-as-a-configuration-file" class="nav-link" data-scroll-target="#the-same-run-as-a-configuration-file">The same run as a configuration file</a></li>
-  <li><a href="#where-to-start-reading" id="toc-where-to-start-reading" class="nav-link" data-scroll-target="#where-to-start-reading">Where to start reading</a></li>
-  <li><a href="#what-the-reference-is-generated-from" id="toc-what-the-reference-is-generated-from" class="nav-link" data-scroll-target="#what-the-reference-is-generated-from">What the reference is generated from</a></li>
+  <li><a href="#pyplatypus.Engine.predict_stream" id="toc-pyplatypus.Engine.predict_stream" class="nav-link active" data-scroll-target="#pyplatypus.Engine.predict_stream">Engine.predict_stream</a>
+  <ul class="collapse">
+  <li><a href="#parameters" id="toc-parameters" class="nav-link" data-scroll-target="#parameters">Parameters</a></li>
+  <li><a href="#returns" id="toc-returns" class="nav-link" data-scroll-target="#returns">Returns</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content">
-
-<header id="title-block-header" class="quarto-title-block default">
-<div class="quarto-title">
-<h1 class="title">pyplatypus</h1>
-</div>
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../reference/index.html">Reference</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict.html">Predicting and scoring</a></li><li class="breadcrumb-item"><a href="../reference/Engine.predict_stream.html">Engine.predict_stream</a></li></ol></nav></header>
 
 
 
-<div class="quarto-title-meta">
 
-    
-  
-    
-  </div>
-  
-
-
-</header>
-
-
-<p>The engine behind <a href="https://maju116.github.io/platypus/">platypus</a>: semantic segmentation and object detection in PyTorch, described by one specification and run from it.</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Working in R?
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>Read <a href="https://maju116.github.io/platypus/">the R package’s documentation</a> instead. It is the same engine with an R surface on top, and its pages are written for that - it installs this package for you and you never import it.</p>
-</div>
-</div>
-<section id="a-run-in-five-lines" class="level2">
-<h2 class="anchored" data-anchor-id="a-run-in-five-lines">A run, in five lines</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyplatypus</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> pyplatypus.from_yaml(<span class="st">"run.yaml"</span>)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> pyplatypus.build_engine(spec)</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>engine.fit()</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>engine.evaluate(<span class="st">"validation"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><code>from_yaml</code> and <a href="./reference/from_dict.html"><code>from_dict</code></a> build the same object, so a specification written by hand and one read from a file are the same thing. <a href="./reference/build_engine.html"><code>build_engine</code></a> returns the engine the specification’s <code>task</code> asks for.</p>
-</section>
-<section id="the-same-run-as-a-configuration-file" class="level2">
-<h2 class="anchored" data-anchor-id="the-same-run-as-a-configuration-file">The same run as a configuration file</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> train/</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> valid/</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> unet</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">architecture</span><span class="kw">:</span><span class="at"> u_net</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">loss</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> dice</span><span class="kw">}</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">metrics</span><span class="kw">:</span><span class="at"> </span><span class="kw">[{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> iou</span><span class="kw">}]</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Everything not written down has a default, and the defaults live here rather than in the caller - so a short configuration is a complete one.</p>
-</section>
-<section id="where-to-start-reading" class="level2">
-<h2 class="anchored" data-anchor-id="where-to-start-reading">Where to start reading</h2>
+<section id="pyplatypus.Engine.predict_stream" class="level1">
+<h1>Engine.predict_stream</h1>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Engine.predict_stream(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'test'</span>, <span class="op">*</span>, space<span class="op">=</span><span class="st">'model'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>(case, prediction)</code> one source image at a time, instead of all of them at once.</p>
+<p><code>predict</code> returns a stacked array, so the whole split has to fit in memory. For a tiled split that is the whole thing at full resolution - 200 FIVES retinas at 2048 is 6.7 GB for the result alone - and tiling exists precisely for images too large to resize, so the stacked form is least usable exactly where <code>splits</code> is most needed. This yields one image, lets the caller keep what it wants, and drops it.</p>
+<p>The case name comes with the prediction rather than being left to the caller to line up against <code>samples</code>: predictions arrive in the dataset’s order, and anything that pairs two sequences by position is one <code>drop_last</code> away from scoring the wrong image. <code>group_of</code> turns a case into a group the same way <code>evaluate_cases</code> does.</p>
+<section id="parameters" class="level2 doc-section doc-section-parameters">
+<h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 8%">
+<col style="width: 76%">
+<col style="width: 7%">
+</colgroup>
 <thead>
 <tr class="header">
-<th>If you want to</th>
-<th>Read</th>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>write a configuration file</td>
-<td><a href="./guide.html">Writing a configuration</a>, then <a href="./config.html">every field</a></td>
+<td>model_name</td>
+<td>str | None</td>
+<td>Which model, by name. Defaults to the first.</td>
+<td><code>None</code></td>
 </tr>
 <tr class="even">
-<td>have your editor check that file as you type</td>
-<td><a href="./config.html#schema-for-your-editor">the JSON Schema</a></td>
+<td>split</td>
+<td>str</td>
+<td>Which data to predict on.</td>
+<td><code>'test'</code></td>
 </tr>
 <tr class="odd">
-<td>train and score something</td>
-<td><a href="./reference/Engine.fit.html"><code>Engine.fit</code></a>, <a href="./reference/Engine.evaluate.html"><code>Engine.evaluate</code></a>, <a href="./reference/Engine.evaluate_cases.html"><code>Engine.evaluate_cases</code></a></td>
-</tr>
-<tr class="even">
-<td>detect objects rather than segment</td>
-<td><a href="./reference/DetectionEngine.html"><code>DetectionEngine</code></a> and its <a href="./reference/DetectionEngine.report.html">report</a></td>
-</tr>
-<tr class="odd">
-<td>not train at all, and use published weights</td>
-<td><a href="./reference/available_weights.html"><code>available_weights</code></a></td>
-</tr>
-<tr class="even">
-<td>split data without a patient on both sides</td>
-<td><a href="./reference/split_samples.html"><code>split_samples</code></a>, <a href="./reference/split_dataset.html"><code>split_dataset</code></a></td>
+<td>space</td>
+<td>str</td>
+<td>As for <code>predict</code> - <code>"model"</code> for the network’s grid, <code>"source"</code> for the grid of the file each prediction came from.</td>
+<td><code>'model'</code></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="what-the-reference-is-generated-from" class="level2">
-<h2 class="anchored" data-anchor-id="what-the-reference-is-generated-from">What the reference is generated from</h2>
-<p>The pages under <strong>Reference</strong> come from the docstrings through <a href="https://machow.github.io/quartodoc/">quartodoc</a>, so they cannot describe a function this package does not have. The <code>&gt;&gt;&gt;</code> examples in them are run by <code>pytest --doctest-modules</code>, which means the site cannot publish an example that does not work - five claims written into <code>Args:</code> and <code>Returns:</code> were false when they were first written, and the doctests caught every one.</p>
-<p>The configuration fields are documented on the models themselves, so the YAML reference and the validation messages say the same thing because they are the same text.</p>
+<section id="returns" class="level2 doc-section doc-section-returns">
+<h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 6%">
+<col style="width: 30%">
+<col style="width: 63%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>Iterator[tuple[str, np.ndarray]]</td>
+<td>An iterator of <code>(case, prediction)</code> in the dataset’s order. An iterator rather</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>Iterator[tuple[str, np.ndarray]]</td>
+<td>than a list on purpose: a list would hold the whole split again.</td>
+</tr>
+</tbody>
+</table>
 
 
+</section>
 </section>
 
 </main> <!-- /main -->
