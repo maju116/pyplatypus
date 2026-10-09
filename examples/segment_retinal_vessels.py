@@ -253,7 +253,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--out", default="measurements/fives")
-    parser.add_argument("--figures", default=None)
+    parser.add_argument("--figures", default=None, help="a directory to draw the worst cases into")
     arguments = parser.parse_args()
 
     root = Path(arguments.data)
