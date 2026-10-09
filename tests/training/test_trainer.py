@@ -3,13 +3,16 @@
 import numpy as np
 import pytest
 import torch
+from torch import nn
 
 from pyplatypus.data import SegmentationDataset, discover
+from pyplatypus.data.images import stitch
 from pyplatypus.models import build_model
 from pyplatypus.spec.common import Architecture
 from pyplatypus.spec.components import DiceMetric, EarlyStopping, TerminateOnNaN
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.training import Trainer, make_loader
+from tests.conftest import write_png
 
 
 def model_spec(**overrides):
@@ -206,6 +209,123 @@ def test_predict_stream_refuses_a_partial_grid(loaders):
     loader = make_loader(loaders(spec).dataset.base, batch_size=5, drop_last=True)
     with pytest.raises(ValueError, match="whole number of images"):
         list(trainer.predict_stream(loader))
+
+
+class _FixedMask(nn.Module):
+    """A model that ignores its input and always predicts the same mask.
+
+    The point of a stub here is that the expected numbers can be written down. A real model
+    on a toy fixture predicts something arbitrary, and in one attempt at this test it
+    predicted the whole frame as foreground - whose skeleton is empty, because a mask with
+    no border has no centreline, so clDice refused the case and the test measured nothing.
+    """
+
+    def __init__(self, mask: torch.Tensor):
+        super().__init__()
+        self.register_buffer("mask", mask)
+        # One parameter it never uses: `Trainer` builds an optimizer, and torch refuses an
+        # empty parameter list.
+        self.unused = nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        one = self.mask.to(x.device)[None].expand(x.shape[0], -1, -1, -1)
+        return torch.where(one > 0, 8.0, -8.0)
+
+
+def _seamed_prediction(size: int) -> torch.Tensor:
+    """A two-pixel line across the middle, with a gap exactly where two tiles meet.
+
+    Per tile the line is intact and scores well. Reassembled it is severed, which is the
+    kind of error clDice exists to see and Dice barely notices - so the two ways of
+    measuring it give different numbers, and the test can tell which one happened.
+    """
+    mask = torch.zeros(2, size, size)
+    middle = size // 2
+    mask[1, middle : middle + 2, :] = 1.0
+    mask[1, middle : middle + 2, middle - 1 : middle + 1] = 0.0  # the gap, at the seam
+    mask[0] = 1.0 - mask[1]
+    return mask
+
+
+@pytest.fixture
+def thin_lines(tmp_path, binary_data):
+    """Two samples whose mask is a two-pixel line, which is what clDice is for.
+
+    The shared fixtures draw a solid 40x64 block flush against three edges, and such a
+    thing has no centreline to find - clDice refuses it rather than scoring it 1.0, which
+    is correct and useless here. A line has a skeleton, and crossing the tile seam is the
+    whole point.
+    """
+    root = tmp_path / "lines"
+    for n in range(2):
+        sample = root / f"sample_{n}"
+        write_png(sample / "images" / "a.png", np.full((64, 64, 3), 10 * n, np.uint8))
+        mask = np.zeros((64, 64, 3), np.uint8)
+        mask[30:32, :] = 255  # across the vertical seam at column 32
+        write_png(sample / "masks" / "a.png", mask)
+    return discover(root, binary_data).samples
+
+
+def test_a_tiled_case_is_stitched_before_a_whole_mask_metric_reads_it(thin_lines, binary_data):
+    """The claim the whole change rests on, with numbers that can be written down.
+
+    `score_cases` holds a case's tiles until its image is complete and measures clDice once
+    on the reassembled pair. Measured per tile instead, a line severed exactly at the seam
+    looks intact in both halves and scores higher - so asserting the reported number equals
+    the stitched one *and* differs from the per-tile mean is what tells the two apart. A
+    test that only checked the first would pass on either implementation.
+    """
+    spec = model_spec(input_shape=(32, 32), splits=(2, 2), metrics=[{"name": "cldice"}])
+    prediction = torch.zeros(2, 32, 32)
+    prediction[1, 30:32, :] = 1.0
+    prediction[1, 30:32, 30:32] = 0.0  # the gap, at the seam each tile has an edge on
+    prediction[0] = 1.0 - prediction[1]
+
+    trainer = Trainer(_FixedMask(prediction), spec, device="cpu")
+    base = SegmentationDataset(thin_lines, spec, binary_data)
+    loader = make_loader(base, batch_size=spec.batch_size)
+    rows = trainer.score_cases(loader, ["one"] * 4 + ["two"] * 4)
+    reported = rows[0]["cldice"]
+
+    metric = trainer.metrics["cldice"]
+    targets = torch.stack([torch.as_tensor(base[i][1]).permute(2, 0, 1).float() for i in range(4)])
+    predictions = prediction[None].expand(4, -1, -1, -1)
+    stitched = metric.reduce(
+        metric.coefficient(
+            trainer._stitch_channels_first(predictions)[None],
+            trainer._stitch_channels_first(targets)[None],
+        )[0]
+    ).item()
+    per_tile = float(
+        np.mean(
+            [metric.reduce(metric.coefficient(predictions, targets)[i]).item() for i in range(4)]
+        )
+    )
+
+    assert reported == pytest.approx(stitched, abs=1e-5)
+    assert abs(reported - per_tile) > 1e-3, (
+        f"stitched {stitched:.4f} and per-tile {per_tile:.4f} agree, so this fixture cannot "
+        "tell the two implementations apart and the test proves nothing"
+    )
+
+
+def test_the_torch_stitch_matches_the_numpy_one(loaders):
+    """Two implementations of one piece of arithmetic, held to each other.
+
+    `data.images.stitch` is the tested one and works channels-last on numpy;
+    `_stitch_channels_first` exists so scoring does not copy a four-megapixel mask to the
+    host and back twice an image. A non-square grid and non-square tiles are in here
+    because an index slip survives the square case.
+    """
+    for splits, tile, channels in (((2, 2), (8, 6), 3), ((4, 4), (5, 5), 2), ((3, 2), (4, 7), 1)):
+        spec = model_spec(input_shape=(32, 32), splits=splits)
+        trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+        count = int(np.prod(splits))
+        last = np.random.rand(count, *tile, channels).astype(np.float32)
+        first = torch.as_tensor(np.moveaxis(last, -1, 1).copy())
+        want = stitch(last, splits)
+        got = np.moveaxis(trainer._stitch_channels_first(first).numpy(), 0, -1)
+        assert np.array_equal(want, got), f"{splits} with {tile} tiles disagree"
 
 
 # --- the distance map's route through the data path ----------------------------------------

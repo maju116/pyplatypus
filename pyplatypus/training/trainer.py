@@ -140,6 +140,25 @@ class Trainer:
             return torch.stack([call(o) for o in out]).mean(), out[-1]
         return call(out), out
 
+    @property
+    def _per_batch_metrics(self) -> dict[str, Any]:
+        """The metrics an epoch can honestly report, which on a tiled run is not all of them.
+
+        An epoch reads its metrics per batch and averages. That is exact for a metric whose
+        pieces sum - Dice is a ratio of sums - and wrong for one that reads the shape of a
+        whole mask, because a tile severs every structure crossing its edge. So on a tiled
+        run those are left out of the epoch and the history rather than reported per tile:
+        `evaluate_cases` measures them on the reassembled image, which is the only place the
+        whole mask exists, and `summarise_cases` gives the split's figure as the mean over
+        images - which is what a whole-mask metric's split-level value means anyway.
+
+        A callback cannot monitor what the epoch does not produce, and the specification
+        refuses that pairing when it is read rather than letting it fail mid-run.
+        """
+        if self.spec.splits is None:
+            return self.metrics
+        return {name: m for name, m in self.metrics.items() if m.accumulates}
+
     def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str) -> dict[str, float]:
         self.model.train(train)
         # After model.train(), never before: that call reaches every submodule, so a
@@ -148,7 +167,7 @@ class Trainer:
         if self._frozen and self.transferred is not None:
             self.transferred.eval()
         totals: dict[str, float] = {f"{prefix}_loss": 0.0}
-        totals.update({f"{prefix}_{name}": 0.0 for name in self.metrics})
+        totals.update({f"{prefix}_{name}": 0.0 for name in self._per_batch_metrics})
         batches = 0
 
         with torch.set_grad_enabled(train):
@@ -170,7 +189,7 @@ class Trainer:
                 # that still tracks gradients into a scalar, and it would warn once per
                 # batch for the whole run.
                 totals[f"{prefix}_loss"] += loss.detach().item()
-                for name, metric in self.metrics.items():
+                for name, metric in self._per_batch_metrics.items():
                     totals[f"{prefix}_{name}"] += metric(final, batch_y).detach().item()
                 batches += 1
 
@@ -242,6 +261,25 @@ class Trainer:
     def evaluate(self, loader: DataLoader) -> dict[str, float]:
         return self._run_epoch(loader, train=False, prefix="val")
 
+    def _stitch_channels_first(self, tiles: torch.Tensor) -> torch.Tensor:
+        """`stitch`, for a channels-first tensor that is already on the device.
+
+        `data.images.stitch` is the same arithmetic on a channels-last numpy array, and a
+        test holds the two to each other. Done here rather than by converting because this
+        runs inside scoring: a round trip to numpy and back would copy a four-megapixel
+        mask twice an image to no purpose.
+        """
+        splits = tuple(self.spec.splits)
+        rank = len(splits)
+        channels = tiles.shape[1]
+        grouped = tiles.reshape(*splits, channels, *tiles.shape[2:])
+        # (s0, s1, ..., C, t0, t1, ...) -> (C, s0, t0, s1, t1, ...)
+        order = [rank]
+        for i in range(rank):
+            order.extend((i, rank + 1 + i))
+        full = tuple(n * s for n, s in zip(splits, tiles.shape[2:], strict=True))
+        return grouped.permute(order).reshape(channels, *full)
+
     @torch.no_grad()
     def score_cases(self, loader: DataLoader, cases: Sequence[str]) -> list[dict[str, Any]]:
         """Metrics for each case separately, rather than one number for the whole split.
@@ -271,6 +309,16 @@ class Trainer:
         order: list[str] = []
         position = 0
 
+        # A metric that reads the shape of a whole mask cannot be rebuilt from a tile's
+        # worth of it, so on a tiled run the tiles are held until an image is complete and
+        # the metric is measured once, on the reassembled pair. One image at a time: the
+        # loader is never shuffled here, so a case's tiles arrive together and the buffer
+        # is emptied as soon as the last one does.
+        tiled = self.spec.splits is not None
+        per_image = self.spec.tiles_per_image if tiled else 1
+        whole_names = [name for name, metric in self.metrics.items() if not metric.accumulates]
+        pending: dict[str, tuple[list[torch.Tensor], list[torch.Tensor]]] = {}
+
         # By length, as `_run_epoch` does: a loader built elsewhere may carry a distance
         # map this does not need, and crashing on an extra item nobody reads would be a
         # poor way to say so.
@@ -282,13 +330,13 @@ class Trainer:
                 out = out[-1]
             hard = f.as_onehot(out.argmax(dim=1), out.shape[1])
             tp, fp, fn = f.overlaps(hard, batch_y)
-            # A metric that reads the shape of a whole mask cannot be rebuilt from overlap
-            # counts, so it is computed here, per example, while the mask still exists.
-            whole = {
-                name: metric.coefficient(hard, batch_y)
-                for name, metric in self.metrics.items()
-                if not metric.accumulates
-            }
+            # Untiled, an example *is* a whole mask, so the metric is read straight off
+            # the batch while it exists. Tiled, it waits for the rest of its image.
+            whole = (
+                {}
+                if tiled
+                else {name: self.metrics[name].coefficient(hard, batch_y) for name in whole_names}
+            )
 
             for offset in range(batch_x.shape[0]):
                 case = cases[position + offset]
@@ -299,6 +347,17 @@ class Trainer:
                     totals[case][slot] += value[offset]
                 for name, value in whole.items():
                     direct.setdefault(name, {}).setdefault(case, []).append(value[offset])
+                if tiled and whole_names:
+                    tiles, targets = pending.setdefault(case, ([], []))
+                    tiles.append(hard[offset])
+                    targets.append(batch_y[offset])
+                    if len(tiles) == per_image:
+                        one = self._stitch_channels_first(torch.stack(tiles))[None]
+                        truth = self._stitch_channels_first(torch.stack(targets))[None]
+                        for name in whole_names:
+                            score = self.metrics[name].coefficient(one, truth)[0]
+                            direct.setdefault(name, {}).setdefault(case, []).append(score)
+                        del pending[case]
             position += batch_x.shape[0]
 
         rows = []
@@ -313,9 +372,10 @@ class Trainer:
                 if len(pieces) > 1:
                     raise ValueError(
                         f"'{name}' reads the shape of a whole mask and this case arrived in "
-                        f"{len(pieces)} pieces, which it cannot be rebuilt from. A tiled run "
-                        "is refused when the specification is read; a case in pieces here "
-                        "means something else split it."
+                        f"{len(pieces)} pieces, which it cannot be rebuilt from. Tiles are "
+                        "reassembled before it is measured, so a case in pieces here means "
+                        "something split it that `splits` does not describe - several files "
+                        "under one case name, most likely."
                     )
                 row[name] = metric.reduce(pieces[0]).item()
             rows.append(row)

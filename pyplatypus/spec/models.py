@@ -371,30 +371,6 @@ class SegmentationModel(ModelSpec):
         return math.prod(self.splits)
 
     @model_validator(mode="after")
-    def tiling_and_whole_mask_metrics_do_not_mix(self):
-        """A skeleton is a property of a whole mask, and a tile does not have one.
-
-        `clDice` measures whether a structure is connected. Cut the image into tiles and
-        every vessel is severed at four edges, so the number comes back low for a model
-        that is perfectly connected - and comes back *silently*, which is worse than not
-        being able to ask. Dice has no such problem: its pieces sum.
-
-        Refused here rather than in the trainer because this is knowable before anything is
-        read, and because an epoch's `val_cldice` would be wrong the same way.
-        """
-        if self.splits is None:
-            return self
-        whole = [m.name for m in self.metrics if m.name in _WHOLE_MASK_METRICS]
-        if whole:
-            raise ValueError(
-                f"{', '.join(whole)} cannot be measured on a tiled run: it reads the shape "
-                "of a whole mask, and `splits` hands the model pieces, so every structure "
-                "is cut at the tile edges. Drop `splits` and give the model the whole "
-                f"image, or score {whole[0]} separately on reassembled predictions."
-            )
-        return self
-
-    @model_validator(mode="after")
     def splits_match_rank(self):
         """Tiling is rank-aware for the same reason input_shape is: a 2D pair cannot
         grow into a 3D triple without breaking every caller. Grid tiling in 2D and patch
@@ -452,11 +428,21 @@ class SegmentationModel(ModelSpec):
 
     @property
     def monitorable(self) -> set[str]:
-        """The loss, plus every metric this model was asked for."""
+        """The loss, plus every metric an epoch reports - not every metric asked for.
+
+        A whole-mask metric is measured on the reassembled image by `evaluate_cases`, never
+        per batch, so a tiled run's epochs do not produce `val_cldice` and a callback cannot
+        watch it. Saying so here is what makes `callbacks_watch_something_that_exists`
+        refuse that pairing, with a message listing what *is* available - rather than a
+        second validator saying the same thing in its own words.
+        """
+        reported = [
+            m for m in self.metrics if self.splits is None or m.name not in _WHOLE_MASK_METRICS
+        ]
         return (
             super().monitorable
-            | {f"val_{m.name}" for m in self.metrics}
-            | {f"train_{m.name}" for m in self.metrics}
+            | {f"val_{m.name}" for m in reported}
+            | {f"train_{m.name}" for m in reported}
         )
 
     @model_validator(mode="after")

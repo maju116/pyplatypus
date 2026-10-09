@@ -13,6 +13,7 @@ import torch
 
 from pyplatypus import Engine, from_dict, summarise_cases
 from pyplatypus.engine import EngineError
+from pyplatypus.errors import ConfigError
 from pyplatypus.objectives.metrics import Dice
 from tests.conftest import write_png
 
@@ -124,6 +125,52 @@ def test_tiles_are_summed_into_the_whole_image_not_averaged(patients):
         ).item()
 
         assert reported[sample.key] == pytest.approx(whole, abs=1e-5)
+
+
+def test_a_tiled_run_may_ask_for_a_whole_mask_metric(patients):
+    """It used to be refused outright. The refusal was right about the arithmetic and
+    wrong about the remedy: the tiles are reassembled before the metric is measured, so
+    the combination is now the supported way to ask."""
+    engine = Engine(spec_for(patients, splits=[2, 2], metrics=[{"name": "cldice"}]))
+    assert engine.spec.models[0].splits == (2, 2)
+
+
+def test_a_tiled_epoch_leaves_out_the_metric_it_cannot_measure(patients):
+    """An epoch reads its metrics per batch, and per batch means per tile. Rather than
+    report a per-tile skeleton score, a tiled run omits it from the history - and says so
+    by not offering it to callbacks either."""
+    tiled = Engine(
+        spec_for(patients, splits=[2, 2], metrics=[{"name": "dice"}, {"name": "cldice"}]),
+        device="cpu",
+    )
+    record = tiled.fit()["tiny"].records[-1]
+    assert "val_dice" in record
+    assert "val_cldice" not in record
+    assert "train_cldice" not in record
+
+    # Untiled, an example is a whole mask, so the epoch can and does report it.
+    whole = Engine(spec_for(patients, metrics=[{"name": "dice"}, {"name": "cldice"}]), device="cpu")
+    assert "val_cldice" in whole.fit()["tiny"].records[-1]
+
+
+def test_a_callback_cannot_watch_what_a_tiled_epoch_does_not_produce(patients):
+    """The pairing is refused when the specification is read, not mid-run, and the message
+    lists what is available - which is the existing monitor check doing the work rather
+    than a second validator repeating it."""
+    with pytest.raises(ConfigError, match="val_cldice"):
+        spec_for(
+            patients,
+            splits=[2, 2],
+            metrics=[{"name": "dice"}, {"name": "cldice"}],
+            callbacks=[{"name": "early_stopping", "monitor": "val_cldice", "patience": 2}],
+        )
+
+    # Untiled it is a perfectly good thing to watch.
+    spec_for(
+        patients,
+        metrics=[{"name": "cldice"}],
+        callbacks=[{"name": "early_stopping", "monitor": "val_cldice", "patience": 2}],
+    )
 
 
 def test_the_mean_of_case_scores_is_close_to_the_split_score(patients):
