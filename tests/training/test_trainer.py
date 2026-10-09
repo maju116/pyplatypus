@@ -261,7 +261,10 @@ def thin_lines(tmp_path, binary_data):
         sample = root / f"sample_{n}"
         write_png(sample / "images" / "a.png", np.full((64, 64, 3), 10 * n, np.uint8))
         mask = np.zeros((64, 64, 3), np.uint8)
-        mask[30:32, :] = 255  # across the vertical seam at column 32
+        # Different rows per sample, so the two images score differently. A fixture where
+        # they score the same cannot tell a mean from "take the first", which is exactly
+        # the mistake the grouping test is there to catch.
+        mask[30 + 4 * n : 32 + 4 * n, :] = 255  # across the vertical seam at column 32
         write_png(sample / "masks" / "a.png", mask)
     return discover(root, binary_data).samples
 
@@ -307,6 +310,35 @@ def test_a_tiled_case_is_stitched_before_a_whole_mask_metric_reads_it(thin_lines
         f"stitched {stitched:.4f} and per-tile {per_tile:.4f} agree, so this fixture cannot "
         "tell the two implementations apart and the test proves nothing"
     )
+
+
+def test_a_group_of_images_averages_a_whole_mask_metric(thin_lines, binary_data):
+    """`group_by` pools several whole images under one name, and a skeleton cannot pool.
+
+    Dice's group figure adds the overlap counts and applies the formula once, because it is
+    a ratio of sums. clDice has no counts to add, so the group's figure is the mean of its
+    images' scores - a different kind of pooling, and the reason this is asserted rather
+    than assumed. Before 0.8.0a7 it raised instead, which is how the retinal vignette found
+    it: fifty photographs under one disease name arrived as fifty pieces.
+    """
+    spec = model_spec(input_shape=(32, 32), splits=(2, 2), metrics=[{"name": "cldice"}])
+    prediction = torch.zeros(2, 32, 32)
+    prediction[1, 30:32, :] = 1.0
+    prediction[0] = 1.0 - prediction[1]
+    trainer = Trainer(_FixedMask(prediction), spec, device="cpu")
+    base = SegmentationDataset(thin_lines, spec, binary_data)
+    loader = make_loader(base, batch_size=spec.batch_size)
+
+    separate = trainer.score_cases(loader, ["one"] * 4 + ["two"] * 4)
+    grouped = trainer.score_cases(loader, ["both"] * 8)
+
+    scores = [row["cldice"] for row in separate]
+    assert len(scores) == 2
+    assert scores[0] != pytest.approx(scores[1], abs=1e-3), (
+        "the two images score the same, so this fixture cannot tell a mean from taking the "
+        "first and the assertion below proves nothing"
+    )
+    assert grouped[0]["cldice"] == pytest.approx(sum(scores) / 2, abs=1e-5)
 
 
 def test_the_torch_stitch_matches_the_numpy_one(loaders):

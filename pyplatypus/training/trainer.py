@@ -293,6 +293,14 @@ class Trainer:
         difference is largest where it matters most - a tile holding a sliver of the object
         scores badly and drags down a case the model actually segmented well.
 
+        **Two kinds of pooling, and the difference matters.** Dice is a ratio of sums, so a
+        case's tiles - or a group's images - are pooled by adding TP, FP and FN and applying
+        the formula once. A whole-mask metric has no counts to add: a skeleton is a property
+        of the mask it was taken from. Its tiles are therefore reassembled into the image
+        before it is measured, and its *groups* are the mean of their images' scores. The
+        second is a weaker statement than the first and is reported as such rather than
+        dressed up as a pooled figure.
+
         Why per case at all: a single figure over a split hides the distribution, and the
         distribution is the finding. "Dice 0.86" and "Dice 0.86, but 0.2 on three of the
         forty patients" are not the same result, and only one of them is honest.
@@ -368,16 +376,16 @@ class Trainer:
                 if metric.accumulates:
                     row[name] = metric.reduce(metric.combine(case_tp, case_fp, case_fn)).item()
                     continue
+                # Several whole images under one name - `group_by` pooling a patient's
+                # slices, or a disease's fifty photographs - so the group's figure is the
+                # **mean over its images**. That is a different kind of pooling from the one
+                # above and the difference is not cosmetic: Dice is a ratio of sums, so its
+                # group value adds the counts and applies the formula once. A skeleton has
+                # no counts to add, so there is nothing to pool and the mean of the images'
+                # scores is the only thing the number could be. One image is the same
+                # arithmetic with nothing to average.
                 pieces = direct[name][case]
-                if len(pieces) > 1:
-                    raise ValueError(
-                        f"'{name}' reads the shape of a whole mask and this case arrived in "
-                        f"{len(pieces)} pieces, which it cannot be rebuilt from. Tiles are "
-                        "reassembled before it is measured, so a case in pieces here means "
-                        "something split it that `splits` does not describe - several files "
-                        "under one case name, most likely."
-                    )
-                row[name] = metric.reduce(pieces[0]).item()
+                row[name] = metric.reduce(torch.stack(pieces).mean(dim=0)).item()
             rows.append(row)
         return rows
 
