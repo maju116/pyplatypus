@@ -1,6 +1,36 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a7] - 2026-10-09
+
+### Fixed
+
+ - **`evaluate_cases(group_by=...)` refused a whole-mask metric instead of averaging it.**
+   0.8.0a6 taught `score_cases` to reassemble a case's *tiles* before measuring `cldice`, and
+   stopped there. With `group_by`, several whole **images** arrive under one name - fifty
+   fundus photographs under one disease, a patient's slices under one patient - and the guard
+   written for the tile case fired on them:
+
+       'cldice' reads the shape of a whole mask and this case arrived in 50 pieces
+
+   It also named the wrong cause, suggesting several files under one key when the cause was
+   the grouping. A group's figure is now **the mean of its images' scores**.
+
+   That is a different kind of pooling from Dice's and the difference is documented rather
+   than smoothed over: Dice is a ratio of sums, so a group adds the overlap counts and applies
+   the formula once. A skeleton has no counts to add, so there is nothing to pool and the mean
+   is the only thing the number could be. Weaker, and reported as such.
+
+   **Found by writing the R vignette**, which is the only way it could have been: nothing in
+   either suite grouped a tiled run by anything, and the combination needs a dataset whose
+   case names carry a group. §4's *a feature is not shipped until something has used it the
+   way a user reaches it*, on a release that was green on both halves.
+
+### Note
+
+ - **The R half is deliberately not done** (§3E). Nothing R sends changes; the pin moves with
+   platypus#123, which is the work that found this.
+
 ## [0.8.0a6] - 2026-10-09
 
 ### Changed
