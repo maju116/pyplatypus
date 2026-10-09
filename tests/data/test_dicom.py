@@ -17,7 +17,16 @@ from pyplatypus.spec.common import WINDOWS
 
 CT = get_testdata_file("CT_small.dcm")  # rescale, no window tags
 MR = get_testdata_file("MR_small.dcm")  # window tags, no rescale
+# Unlike the two above, this one does not ship inside pydicom - it is fetched over the
+# network on first use, and `get_testdata_file` returns None when the fetch fails rather
+# than raising. Two CI runners hit that, and the symptom was "could not read 'None'" from
+# deep inside the reader, which says nothing about the cause. So the absence is named here
+# and the rows that need the file skip, because a test that cannot run and a test that
+# fails are different facts.
 RGB = get_testdata_file("SC_rgb.dcm")  # three channels, 8-bit
+needs_rgb = pytest.mark.skipif(
+    RGB is None, reason="SC_rgb.dcm is fetched over the network, and the fetch failed"
+)
 
 
 def test_a_dicom_is_recognised_by_its_contents():
@@ -100,7 +109,7 @@ def test_monochrome1_is_inverted():
     [
         (CT, 1, (128, 128, 1)),
         (MR, 1, (64, 64, 1)),
-        (RGB, 3, (100, 100, 3)),
+        pytest.param(RGB, 3, (100, 100, 3), marks=needs_rgb),
     ],
 )
 def test_modalities_read_to_a_unit_range(path, channels, shape):
@@ -138,6 +147,7 @@ def test_auto_uses_the_window_in_the_file():
     assert resolve_window(pydicom.dcmread(CT), "auto") is None  # this one does not
 
 
+@needs_rgb
 def test_channels_are_converted_rather_than_refused():
     assert read_dicom(RGB, channels=1).shape == (100, 100, 1)
     assert read_dicom(CT, channels=3).shape == (128, 128, 3)

@@ -41,6 +41,17 @@ All notable changes to this project will be documented in this file.
    moved over - the clDice pass and the figure, which draws 2 of 200 images and now reads the
    stream for those two instead of asking for all of them at full resolution.
 
+### Fixed
+
+ - **Two DICOM tests depended on a download and reported a network failure as a reader
+   bug.** `CT_small.dcm` and `MR_small.dcm` ship inside pydicom; `SC_rgb.dcm` does not - it is
+   fetched on first use, and `get_testdata_file` returns `None` when the fetch fails rather
+   than raising. Two CI runners hit that on the same commit, and the symptom was
+   `could not read 'None'` from inside the reader, which names neither the file nor the
+   network. The absence is now named where the file is resolved and the two rows that need it
+   skip, because *a test that cannot run and a test that fails are different facts*. Nothing
+   about the reader changed; only what the suite says when its data is missing.
+
 ### Note
 
  - **The R half is deliberately not done and the pin stays at `0.8.0a2`** (§3E). Nothing here
