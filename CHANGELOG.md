@@ -1,6 +1,50 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a4] - 2026-10-09
+
+### Added
+
+ - **`examples/segment_retinal_vessels.py`** - FIVES retinal vessels, and the first example
+   that sets `splits`. It exists because three things had no worked demonstration: tiling, a
+   whole-mask metric, and scores reported per group rather than as one mean.
+
+   A FIVES fundus is 2048 x 2048 and its vessels are about **nine pixels** wide, measured as
+   mask area over skeleton length. Resized to 256 they are 1.2, and clDice reads 0 for a
+   one-pixel structure displaced by one pixel - so the usual resize lands the data where no
+   overlap metric can tell a near miss from a total one. That is the argument for `splits`,
+   end to end.
+
+   It scores twice on purpose. Dice and IoU come from the tiled run; clDice cannot, because a
+   skeleton is a property of a whole mask and a tile severs every vessel crossing its edge -
+   the specification refuses the combination. So a second pass steps the model over one
+   retina's tiles, stitches, and scores that. One at a time rather than through `predict`,
+   which holds three copies of a split and was killed on this one (pyplatypus#178); streaming
+   it peaks at 2.22 GB, and the skeleton on the card takes the pass from 11.96 s an image to
+   0.37.
+
+   The run, 40 epochs over 600 retinas, 403.4 minutes, 1,942,594 parameters:
+
+       dice 0.8509   iou 0.7739          (best at epoch 34; nothing after it improved)
+
+       per disease          dice                 clDice, whole images
+       AMD             0.9105 +-0.0474        0.9137 +-0.0530
+       diabetic        0.8792 +-0.0697        0.8886 +-0.0652
+       glaucoma        0.8393 +-0.1770        0.8402 +-0.1771
+       normal          0.9020 +-0.0452        0.9051 +-0.0500
+
+   **The glaucoma spread is not glaucoma**, and the per-disease table is in the example
+   because finding that out needed it. It replicated across two independent runs, so it is
+   the data; FIVES then ships a quality grading that explains it. Fourteen of the fifteen
+   low-contrast test images are glaucoma, and on the images FIVES grades clean, glaucoma is
+   the *best* of the four and the tightest - 0.9325 +-0.0232. clDice splits the same way, so
+   it is not a Dice artefact.
+
+   And **Dice and clDice agree here** - correlation 0.9779, mean difference +0.0041 at a
+   spread of 0.0219 over 200 cases. Said plainly because a new metric that reorders nothing
+   should be reported as redundant at this quality level rather than as a second opinion. What
+   clDice adds on this run is the three worst cases, not the ranking of the four diseases.
+
 ## [0.8.0a3] - 2026-10-08
 
 ### Changed
