@@ -141,6 +141,73 @@ def test_predict_refuses_a_partial_grid(loaders):
         trainer.predict(loader)
 
 
+def test_predict_stream_yields_the_same_images_predict_stacks(loaders):
+    """The streaming form is not an approximation of the stacked one: same numbers."""
+    spec = model_spec(input_shape=(32, 32), splits=(2, 2))
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+    stacked = trainer.predict(loaders(spec))
+    streamed = list(trainer.predict_stream(loaders(spec)))
+    assert len(streamed) == len(stacked) == 3
+    for one, row in zip(streamed, stacked, strict=True):
+        assert np.array_equal(one, row)
+
+
+def test_predict_stream_stitches_tiles_that_straddle_a_batch(loaders):
+    """4 tiles an image and batches of 3, so no image's tiles arrive in one batch.
+
+    This is the whole risk in buffering by example rather than by batch, and it is why the
+    buffer counts examples: a version that stitched each batch would mix two pictures.
+    """
+    spec = model_spec(input_shape=(32, 32), splits=(2, 2))
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+    aligned = trainer.predict(make_loader(loaders(spec).dataset.base, batch_size=4))
+    straddled = list(trainer.predict_stream(make_loader(loaders(spec).dataset.base, batch_size=3)))
+    assert len(straddled) == 3
+    for one, row in zip(straddled, aligned, strict=True):
+        assert np.array_equal(one, row)
+
+
+def test_predict_stream_stops_reading_when_the_caller_stops(loaders):
+    """The point of the thing: one image out does not read the whole split in.
+
+    `predict` cannot do this - it needs every batch before it returns anything - and that
+    is what made it unusable on a large tiled split (#178).
+    """
+    spec = model_spec(input_shape=(32, 32), splits=(2, 2))
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+
+    class Counted:
+        """Counts batches handed over, so "did it read everything" is measurable."""
+
+        def __init__(self, loader):
+            self.loader = loader
+            self.batches = 0
+
+        def __iter__(self):
+            for batch in self.loader:
+                self.batches += 1
+                yield batch
+
+    counted = Counted(make_loader(loaders(spec).dataset.base, batch_size=1))
+    first = next(iter(trainer.predict_stream(counted)))
+    assert first.shape == (64, 64, 2)
+    assert counted.batches == 4, "one image is 4 tiles; reading more is reading the split"
+
+    whole = Counted(make_loader(loaders(spec).dataset.base, batch_size=1))
+    list(trainer.predict_stream(whole))
+    assert whole.batches == 12, "3 images x 4 tiles, so the full pass is still a full pass"
+
+
+def test_predict_stream_refuses_a_partial_grid(loaders):
+    """Same guard as `predict`, which now runs through this: leftover tiles are an error
+    rather than a silently short last image."""
+    spec = model_spec(input_shape=(32, 32), splits=(2, 2))
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+    loader = make_loader(loaders(spec).dataset.base, batch_size=5, drop_last=True)
+    with pytest.raises(ValueError, match="whole number of images"):
+        list(trainer.predict_stream(loader))
+
+
 # --- the distance map's route through the data path ----------------------------------------
 
 

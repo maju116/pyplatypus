@@ -1,5 +1,6 @@
 """Many models from one spec - the reason the YAML path exists at all."""
 
+import numpy as np
 import pytest
 import torch
 
@@ -119,6 +120,38 @@ def test_predictions_come_back_at_source_size(two_model_config):
     engine.fit()
     predictions = engine.predict("unet", split="validation")
     assert predictions.shape == (3, 32, 32, 2)
+
+
+def test_predict_stream_names_every_case_and_keeps_the_order(two_model_config):
+    """The case comes with the prediction, so nothing has to pair two lists by position."""
+    engine = Engine(from_dict(two_model_config), device="cpu")
+    engine.fit()
+    streamed = list(engine.predict_stream("unet", split="validation"))
+    stacked = engine.predict("unet", split="validation")
+
+    keys = [sample.key for sample in engine._samples["validation"]]
+    assert [case for case, _ in streamed] == keys
+    for (_, one), row in zip(streamed, stacked, strict=True):
+        assert np.array_equal(one, row)
+
+
+def test_predict_stream_maps_into_source_space_too(two_model_config):
+    engine = Engine(from_dict(two_model_config), device="cpu")
+    engine.fit()
+    streamed = list(engine.predict_stream("unet", split="validation", space="source"))
+    stacked = engine.predict("unet", split="validation", space="source")
+    assert len(streamed) == len(stacked)
+    for (_, one), row in zip(streamed, stacked, strict=True):
+        assert np.array_equal(one, row)
+
+
+def test_predict_stream_refuses_an_unknown_model_before_reading_anything(two_model_config):
+    """A generator that validates only on the first `next` reports the wrong thing late,
+    and the caller has already opened a file to write into by then."""
+    engine = Engine(from_dict(two_model_config), device="cpu")
+    engine.fit()
+    with pytest.raises(EngineError, match="unet"):
+        engine.predict_stream("nonexistent", split="validation")
 
 
 def test_a_model_can_load_weights_and_skip_training(two_model_config, tmp_path):

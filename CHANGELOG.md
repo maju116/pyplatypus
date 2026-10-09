@@ -1,6 +1,54 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a5] - 2026-10-09
+
+### Added
+
+ - **`Engine.predict_stream`, because `predict` cannot do a large tiled split at all.**
+   `predict` returns one stacked array, so the whole split has to be resident: 200 FIVES
+   retinas at 2048 is 6.7 GB for the result alone, and the old implementation held **three**
+   copies on the way - every tile's probabilities, their concatenation, and the stack of
+   stitched images. That killed a run which had finished training (#178).
+
+   The shape of the problem is worth stating, because it is the opposite of what tiling is
+   for: `splits` exists for images too large to resize, and the stacked form is least usable
+   exactly where `splits` is most needed.
+
+   `predict_stream` yields `(case, prediction)` one source image at a time, stitching only
+   the tiles of the image being assembled, so peak memory is one image whatever the split's
+   size. The case name travels with the image rather than being left to the caller to line
+   up against `samples`: anything that pairs two sequences by position is one `drop_last`
+   away from scoring the wrong picture.
+
+   It buffers by example and not by batch, which is the only real risk in the thing - an
+   image's tiles can straddle a batch boundary, and a version that stitched each batch would
+   mix two pictures. There is a test with four tiles an image and batches of three.
+
+   The model name is resolved before the generator is returned rather than inside it, so a
+   mistyped name is an error now instead of on the first `next`, by which time the caller has
+   opened the file it was going to write into.
+
+### Changed
+
+ - **`predict` holds one copy instead of three**, since it is now `np.stack` over the stream.
+   Same signature, same numbers, same refusal of a partial grid - a test asserts the streamed
+   and stacked results are identical element for element. For 200 retinas at 2048 that is
+   6.7 GB rather than about 20.
+ - **`examples/segment_retinal_vessels.py` calls the public method now.** It had twenty lines
+   stepping the model over one sample's tiles by hand, which is what prompted #178: an example
+   reaching past a public method says the method is missing something. Both of its callers
+   moved over - the clDice pass and the figure, which draws 2 of 200 images and now reads the
+   stream for those two instead of asking for all of them at full resolution.
+
+### Note
+
+ - **The R half is deliberately not done and the pin stays at `0.8.0a2`** (§3E). Nothing here
+   changes a configuration field or an interface R sends, so an R caller is unaffected - but
+   this is groundwork R will need rather than a change R does not want: `predict.platypus_fit`
+   takes a whole split and nothing else, so platypus#123's vignette cannot score whole images
+   from R until R reaches this. That is platypus#123's own R half, not this release's.
+
 ## [0.8.0a4] - 2026-10-09
 
 ### Added
