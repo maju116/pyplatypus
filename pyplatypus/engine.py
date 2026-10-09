@@ -764,8 +764,9 @@ class Engine(EngineBase):
             space: As for `predict` - `"model"` for the network's grid, `"source"` for the
                 grid of the file each prediction came from.
 
-        Yields:
-            `(case, prediction)`, in the dataset's order.
+        Returns:
+            An iterator of `(case, prediction)` in the dataset's order. An iterator rather
+            than a list on purpose: a list would hold the whole split again.
         """
         # Resolved here rather than inside the generator: a generator function runs none of
         # its body until the first `next`, so a mistyped model name would be reported after
