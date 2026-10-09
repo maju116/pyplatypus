@@ -103,7 +103,10 @@ def test_retinal_vessel_configuration_is_accepted():
     # The one the specification refuses, asserted here because this example's whole shape -
     # two scoring passes rather than one - follows from it.
     named = [metric["name"] for metric in config["models"][0]["metrics"]]
-    assert "cldice" not in named, "a tiled run cannot measure a whole-mask metric"
+    assert "cldice" in named, (
+        "the point of this example is a whole-mask metric on a tiled run; `evaluate_cases` "
+        "reassembles the tiles before measuring it"
+    )
     assert config["models"][0]["splits"], "the example exists to exercise tiling"
 
 

@@ -351,7 +351,18 @@ class TverskyMetric(_Overlap):
 
 
 class ClDiceMetric(_Overlap):
-    name: Literal["cldice"] = Field("cldice", description=_METRIC_NAME)
+    name: Literal["cldice"] = Field(
+        "cldice",
+        description=(
+            "Centreline Dice, which measures whether a structure is connected rather than "
+            "whether its pixels coincide. A skeleton is a property of a whole mask, so on a "
+            "tiled run (`splits`) it is reported **per case** by `evaluate_cases`, which "
+            "reassembles a case's tiles before measuring it. It is absent from the epoch "
+            "and from the history there, because a per-batch average of a per-tile skeleton "
+            "would be a number about nothing - which also means a callback cannot watch "
+            "`val_cldice` on a tiled run, and the specification says so when it is read."
+        ),
+    )
     include_background: bool = Field(
         False,
         description=(
@@ -369,8 +380,12 @@ class ClDiceMetric(_Overlap):
         description=(
             "How many times the skeleton is peeled. It has to reach the half-width of the "
             "thickest structure or its core is never reduced to a centreline, and five "
-            "covers a ten-pixel object - well past a retinal vessel at one to five. Raise "
-            "it for something thicker, at a cost linear in the number."
+            "covers a ten-pixel object. A retinal vessel is about nine pixels wide in the "
+            "data - measured on FIVES as mask area over skeleton length, not the one to "
+            "five often quoted, which is what a naive resize leaves behind - so five is "
+            "enough for vessels and not much more than enough. Raise it for something "
+            "thicker, at a cost linear in the number; too few is reported rather than "
+            "scored, because an empty skeleton otherwise reads as a perfect 1.0."
         ),
     )
 

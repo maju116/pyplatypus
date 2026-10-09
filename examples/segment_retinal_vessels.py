@@ -9,11 +9,12 @@ displacement of one pixel leaves no overlap at all, so no overlap-based metric c
 near miss from a total one. `splits` reads the source at full resolution and cuts it into
 tiles the model's size, which is what the field is for and what nothing else demonstrates.
 
-**It is scored twice, on purpose.** Dice and IoU come from the tiled run. clDice does not and
-cannot: a skeleton is a property of a whole mask, and a tile severs every vessel crossing its
-edge, so a perfectly connected model would score low and say nothing. The specification
-refuses the combination. So the second pass steps the model over one retina's tiles, stitches
-them, and scores that - see `cldice_per_case` for why it cannot use `predict`.
+**It asks for a metric a tile cannot answer.** A skeleton is a property of a whole mask, and
+a tile severs every vessel crossing its edge, so a perfectly connected model would score low
+and say nothing. `evaluate_cases` therefore holds a case's tiles until its image is complete
+and measures `cldice` once on the reassembled pair - which is why it sits in `metrics` beside
+`dice` here rather than in a second pass. It is still absent from the epoch, where a
+per-batch average would be the meaningless version, so `early_stopping` watches `val_dice`.
 
 **The scores are reported per disease.** FIVES is 200 cases each of normal, AMD, diabetic
 retinopathy and glaucoma, and the disease is in the file name. A model that works on healthy
@@ -41,10 +42,8 @@ import time
 from pathlib import Path
 
 import numpy as np
-import torch
 
 import pyplatypus as pp
-from pyplatypus.objectives.functional import cldice_from_masks
 
 FOLDER = "FIVES A Fundus Image Dataset for AI-based Vessel Segmentation"
 GROUPS = {"N": "normal", "A": "AMD", "D": "diabetic retinopathy", "G": "glaucoma"}
@@ -80,9 +79,15 @@ def write_splits(root: Path, out_dir: Path) -> dict[str, Path]:
 def specification(splits: dict[str, Path], arguments) -> dict:
     """The run, as the dict a YAML file would have parsed into.
 
-    No `cldice` among the metrics, and that is not an oversight: the specification refuses a
-    whole-mask metric on a tiled run, because a tile has no skeleton worth the name. It is
-    measured in a second pass below.
+    `cldice` sits among the metrics beside `dice`, which is the part that was impossible
+    until 0.8.0a6. A skeleton is a property of a whole mask and a tile has none, so the
+    combination used to be refused and this example carried forty lines of second pass to
+    work around it. `evaluate_cases` now holds a case's tiles until its image is complete
+    and measures it once on the reassembled pair, so asking is a line of configuration.
+
+    It is still absent from the epoch: a per-batch average of a per-tile skeleton would be
+    meaningless, so `val_cldice` does not exist on a tiled run and `early_stopping` watches
+    `val_dice`. The specification refuses the other pairing when it is read.
     """
     return {
         "task": "semantic_segmentation",
@@ -109,6 +114,12 @@ def specification(splits: dict[str, Path], arguments) -> dict:
                 "metrics": [
                     {"name": "dice", "include_background": False},
                     {"name": "iou", "include_background": False},
+                    # Measured on the reassembled image, per case, by `evaluate_cases`.
+                    {
+                        "name": "cldice",
+                        "iterations": arguments.iterations,
+                        "include_background": False,
+                    },
                 ],
                 "optimizer": {"name": "adam", "learning_rate": arguments.rate},
                 "callbacks": [
@@ -127,54 +138,6 @@ def specification(splits: dict[str, Path], arguments) -> dict:
         ],
         "seed": arguments.seed,
     }
-
-
-def cldice_per_case(engine, split: str, iterations: int) -> list[dict]:
-    """clDice on whole images, one image at a time.
-
-    Whole images because a skeleton is a property of a whole mask: the tiles are reassembled,
-    so this scores the picture the model would actually hand back rather than sixteen pieces
-    of it.
-
-    One at a time because `predict` returns one stacked array, which for 200 retinas at 2048
-    is 6.7 GB for the result alone - it killed a run that had finished training. The first
-    version of this example stepped the model over one sample's tiles by hand, which is
-    twenty lines reaching past a public method and the reason pyplatypus#178 was filed.
-    `predict_stream` is that method now, and it hands over the case name with the image so
-    nothing here has to pair two sequences by position.
-
-    The masks are read by the same reader the dataset uses, at the same size, because a mask
-    read another way is a mask of something else.
-    """
-    run = engine.runs["vessels"]
-    by_key = {sample.key: sample for sample in engine.dataset(run.spec, split).samples}
-    # On whichever device trained, because the skeleton is twelve rounds of pooling over a
-    # four-megapixel tensor: measured at 11.96 s an image on the processor and 0.37 on the
-    # card, which is forty minutes against ninety seconds over this split.
-    device = run.trainer.device
-
-    rows = []
-    for case, whole in engine.predict_stream("vessels", split=split):
-        sample = by_key[case]
-
-        hard = torch.as_tensor(whole, device=device).permute(2, 0, 1)[None]
-        hard = (
-            torch.nn.functional.one_hot(hard.argmax(dim=1), hard.shape[1])
-            .permute(0, 3, 1, 2)
-            .float()
-        )
-        mask = pp.read_image(sample.masks[0], channels=1, size=None, nearest=True)
-        flat = (np.asarray(mask).reshape(mask.shape[:2]) > 127).astype(np.float32)
-        target = torch.as_tensor(np.stack([1 - flat, flat]), device=device)[None]
-        if target.shape[-2:] != hard.shape[-2:]:
-            raise SystemExit(
-                f"{sample.key}: prediction is {tuple(hard.shape[-2:])} and the mask is "
-                f"{tuple(target.shape[-2:])}; clDice on two different grids is a number "
-                "about nothing"
-            )
-        score = cldice_from_masks(hard, target, iterations, smooth=0.0)[0, 1].item()
-        rows.append({"case": case, "cldice": score})
-    return rows
 
 
 def by_group(rows: list[dict], column: str) -> dict[str, dict]:
@@ -239,31 +202,21 @@ def main() -> None:
     for row in engine.evaluate():
         print({k: round(v, 4) if isinstance(v, float) else v for k, v in row.items()})
 
-    cases = engine.evaluate_cases("vessels")
-    print("\n--- dice per disease, from the tiled run ---")
-    for name, stats in by_group(cases, "dice").items():
-        print(
-            f"  {name:22s} n={stats['n']:3d}  mean {stats['mean']:.4f}  "
-            f"sd {stats['sd']:.4f}  worst {stats['min']:.4f}"
-        )
-
-    # clDice cannot be read off a tiled run, so it gets a pass of its own over whole images.
-    print("\n--- clDice, on reassembled whole images ---")
+    # One pass. dice and iou come off the tiles' overlap counts; cldice is measured on the
+    # reassembled image, inside the same walk over the split.
     started = time.time()
-    topology = cldice_per_case(engine, "validation", arguments.iterations)
-    print(f"  {len(topology)} images in {(time.time() - started) / 60:.1f} min")
-    for name, stats in by_group(topology, "cldice").items():
-        print(
-            f"  {name:22s} n={stats['n']:3d}  mean {stats['mean']:.4f}  "
-            f"sd {stats['sd']:.4f}  worst {stats['min']:.4f}"
-        )
+    cases = engine.evaluate_cases("vessels")
+    print(f"\nscored {len(cases)} cases in {(time.time() - started) / 60:.1f} min")
 
-    paired = {row["case"]: row["dice"] for row in cases}
-    gaps = [
-        (row["case"], paired[row["case"]], row["cldice"])
-        for row in topology
-        if row["case"] in paired
-    ]
+    for column in ("dice", "cldice"):
+        print(f"\n--- {column} per disease ---")
+        for name, stats in by_group(cases, column).items():
+            print(
+                f"  {name:22s} n={stats['n']:3d}  mean {stats['mean']:.4f}  "
+                f"sd {stats['sd']:.4f}  worst {stats['min']:.4f}"
+            )
+
+    gaps = [(row["case"], row["dice"], row["cldice"]) for row in cases]
     gaps.sort(key=lambda item: item[2] - item[1])
     print("\n  where the two disagree most (case, dice, clDice):")
     for case, dice, cld in gaps[:3] + gaps[-3:]:
@@ -275,9 +228,8 @@ def main() -> None:
                 "configuration": config,
                 "history": history.records,
                 "dice_by_disease": by_group(cases, "dice"),
-                "cldice_by_disease": by_group(topology, "cldice"),
+                "cldice_by_disease": by_group(cases, "cldice"),
                 "cases": cases,
-                "cldice": topology,
             },
             indent=2,
             default=float,

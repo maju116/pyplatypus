@@ -1,6 +1,71 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a6] - 2026-10-09
+
+### Changed
+
+ - **A tiled run can ask for `cldice` now, and `evaluate_cases` reassembles before measuring
+   it.** The combination used to be refused outright. The refusal was right about the
+   arithmetic - a skeleton is a property of a whole mask, and a tile severs every structure
+   crossing its edge - and wrong about the remedy, which it left to the caller: the FIVES
+   example carried forty lines stepping the model over one sample's tiles, stitching, and
+   scoring, to get a number the engine could have produced.
+
+   `score_cases` now holds a case's tiles until its image is complete, stitches the
+   prediction and the target, and measures the whole-mask metrics once on the pair. One
+   image at a time - the loader is never shuffled there, so a case's tiles arrive together
+   and the buffer empties as the last one does.
+
+   **It is still absent from the epoch**, and that is the honest half of the change. An epoch
+   reads its metrics per batch and averages, which is exact for Dice - a ratio of sums - and
+   meaningless for a skeleton. So on a tiled run `val_cldice` does not exist, the history
+   does not carry it, and `monitorable` does not offer it, which makes the **existing**
+   monitor check refuse `monitor: val_cldice` when the specification is read, with a message
+   listing what is available. One validator fewer than before, not one more: the blanket
+   refusal is gone and the narrow one was already there.
+
+   The split-level figure comes from `summarise_cases` over the per-case rows - the mean over
+   images, which is what a whole-mask metric's split-level value means anyway, and more
+   defensible than `evaluate`'s average over batches.
+
+ - **`examples/segment_retinal_vessels.py` lost its second pass.** `cldice` sits in `metrics`
+   beside `dice`, `evaluate_cases` returns both per case, and forty lines went away along with
+   a `torch` import. This is the change proving the feature: the example existed in its old
+   shape only because the engine could not do this.
+
+   Run at full scale to check it rather than assumed - 600 training retinas, 200 scored, one
+   epoch, 2048 cut 4x4:
+
+       peak memory      1.42 GB      against 2.22 for the two-pass version it replaces,
+                                     and the ~20 GB that killed a finished run (#178)
+       scoring          1.8 min      200 reassembled images, inside the same walk that
+                                     produces dice and iou, instead of a second pass
+
+   Less memory than the workaround, not merely less code: the workaround stitched and scored
+   one image at a time too, but it did it *after* a full `evaluate_cases` walk rather than
+   during one.
+
+ - **A measured number in the configuration reference was the wrong one.** `iterations` said
+   five peels is "well past a retinal vessel at one to five". A FIVES vessel is about **nine**
+   pixels wide, measured as mask area over skeleton length; one to five is what a naive resize
+   leaves behind. Five is therefore enough for vessels and not much more than enough, which is
+   a different thing to tell a reader. The field also now says where `cldice` is reported on a
+   tiled run and where it is not - on both sites, since the page is generated from the schema.
+
+### Added
+
+ - **`Trainer._stitch_channels_first`**, the device-side counterpart of `data.images.stitch`,
+   with a test holding the two to each other over a non-square grid and non-square tiles.
+   Scoring would otherwise copy a four-megapixel mask to the host and back twice an image.
+
+### Note
+
+ - **The R half is deliberately not done and the pin stays at `0.8.0a2`** (§3E), but this is
+   the release that makes platypus#123 possible: R already has `metric_cldice()` and
+   `evaluate_cases(group_by=)`, so the vignette needs no new R surface for this - only the
+   pin moved. That move belongs to platypus#123's own pull request.
+
 ## [0.8.0a5] - 2026-10-09
 
 ### Added
