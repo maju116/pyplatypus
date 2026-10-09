@@ -12,12 +12,19 @@ tiles the model's size, which is what the field is for and what nothing else dem
 **It is scored twice, on purpose.** Dice and IoU come from the tiled run. clDice does not and
 cannot: a skeleton is a property of a whole mask, and a tile severs every vessel crossing its
 edge, so a perfectly connected model would score low and say nothing. The specification
-refuses the combination. So the second pass predicts whole images - `predict` reassembles the
-tiles - and scores those.
+refuses the combination. So the second pass steps the model over one retina's tiles, stitches
+them, and scores that - see `cldice_per_case` for why it cannot use `predict`.
 
 **The scores are reported per disease.** FIVES is 200 cases each of normal, AMD, diabetic
 retinopathy and glaucoma, and the disease is in the file name. A model that works on healthy
 retinas and fails on diabetic retinopathy is the interesting finding, and one mean hides it.
+
+What this run actually found is a warning about reading the result too quickly. Glaucoma came
+back with several times the spread of the other three, twice, on independent runs - and it is
+not the disease. FIVES ships a `Quality Assessment.xlsx` grading every image for illumination,
+blur and contrast, and glaucoma is where the poor grades are: on the images it grades clean,
+glaucoma is the *best* of the four and the tightest. Before concluding that a group is hard,
+check whether it is the group whose pictures are worse.
 
     python examples/segment_retinal_vessels.py --data examples/data/fives
 
