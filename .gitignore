@@ -44,6 +44,11 @@ dist/
 # publishing script writes here by default.
 /weights/
 
+# What the examples measure. Three of them write a run record, a table and figures here by
+# default, so a reader who runs one should not be shown a dirty tree - and a results file
+# committed by accident once already read as the measurement when it was the smoke test.
+/measurements/
+
 /.quarto/
 **/*.quarto_ipynb
 
