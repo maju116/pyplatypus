@@ -8,7 +8,7 @@ on the final one only - which is the prediction the user will actually receive.
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -322,37 +322,51 @@ class Trainer:
         return rows
 
     @torch.no_grad()
-    def predict(self, loader: DataLoader) -> np.ndarray:
-        """Class probabilities for every example, channels-last, tiles reassembled.
+    def predict_stream(self, loader: DataLoader) -> Iterator[np.ndarray]:
+        """One source image's class probabilities at a time, channels-last, tiles stitched.
 
         The old package stopped at the tiles. Cutting an HD image into a grid is only
         useful if what comes back is the same size as what went in, so if the model tiles,
         consecutive tiles are stitched into one mask per source image here.
+
+        Nothing is held but the tiles of the image being assembled, so peak memory is one
+        source image whatever the split's size. That is the difference between this and
+        `predict`: tiling exists for images too large to resize, and the stacked form then
+        needs the whole split resident at full resolution - 6.7 GB for 200 FIVES retinas,
+        which is what killed a run that had finished training (#178).
         """
         self.model.eval()
-        chunks = []
+        splits = self.spec.splits
+        per_image = 1 if splits is None else self.spec.tiles_per_image
+        buffer: list[np.ndarray] = []
         for batch in loader:
             batch_x = batch[0] if isinstance(batch, (list, tuple)) else batch
             out = self.model(batch_x.to(self.device))
             if isinstance(out, tuple):
                 out = out[-1]
             probabilities = out.softmax(dim=1).cpu().numpy()
-            chunks.append(np.moveaxis(probabilities, 1, -1))
-
-        predictions = np.concatenate(chunks, axis=0)
-        splits = self.spec.splits
-        if splits is None:
-            return predictions
-
-        per_image = self.spec.tiles_per_image
-        if len(predictions) % per_image:
+            # One array per example rather than per batch: an image's tiles can straddle a
+            # batch boundary, so the buffer counts examples and not batches.
+            for tile in np.moveaxis(probabilities, 1, -1):
+                buffer.append(tile)
+                if len(buffer) == per_image:
+                    # A copy, not the view `moveaxis` handed over: yielding the view
+                    # would keep the whole batch alive for as long as the caller holds
+                    # one image, which is the opposite of the point.
+                    stacked = np.stack(buffer)
+                    yield stacked[0].copy() if splits is None else stitch(stacked, splits)
+                    buffer.clear()
+        if buffer:
             raise ValueError(
-                f"got {len(predictions)} tiles, which is not a whole number of images "
+                f"{len(buffer)} tiles left over, which is not a whole number of images "
                 f"at {per_image} tiles each; the loader must not drop or shuffle them"
             )
-        return np.stack(
-            [
-                stitch(predictions[i : i + per_image], splits)
-                for i in range(0, len(predictions), per_image)
-            ]
-        )
+
+    def predict(self, loader: DataLoader) -> np.ndarray:
+        """Class probabilities for every example, channels-last, tiles reassembled.
+
+        One stacked array, so every prediction must fit in memory at once. For a tiled
+        split that is the whole thing at full resolution; `predict_stream` is the form that
+        does not hold it, and the engine's `predict_stream` is how a caller reaches it.
+        """
+        return np.stack(list(self.predict_stream(loader)))

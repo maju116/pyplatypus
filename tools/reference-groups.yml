@@ -65,6 +65,7 @@ groups:
     '
   contents:
   - Engine.predict
+  - Engine.predict_stream
   - Engine.evaluate
   - Engine.evaluate_cases
   - summarise_cases

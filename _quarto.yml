@@ -89,6 +89,7 @@ website:
       - section: Predicting and scoring
         contents:
         - reference/Engine.predict.qmd
+        - reference/Engine.predict_stream.qmd
         - reference/Engine.evaluate.qmd
         - reference/Engine.evaluate_cases.qmd
         - reference/summarise_cases.qmd
@@ -201,6 +202,7 @@ quartodoc:
       '
     contents:
     - Engine.predict
+    - Engine.predict_stream
     - Engine.evaluate
     - Engine.evaluate_cases
     - summarise_cases

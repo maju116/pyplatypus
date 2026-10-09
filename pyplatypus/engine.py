@@ -9,6 +9,7 @@ model on distorted data measures the distortion.
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -714,6 +715,18 @@ class Engine(EngineBase):
         crop cut anatomy away the inverse pads with background - which means *not examined*
         rather than *nothing there*.
         """
+        run, loader = self._prediction_loader(model_name, split, space)
+        predictions = run.trainer.predict(loader)
+
+        if space == "model":
+            return predictions
+        return [
+            self._to_source_space(predictions[index], sample, run.spec)
+            for index, sample in enumerate(self._samples[split])
+        ]
+
+    def _prediction_loader(self, model_name: str | None, split: str, space: str):
+        """The run and a loader that will not reorder the tiles. Shared by both predicts."""
         model_name = self._resolve_model(model_name)
         if space not in ("model", "source"):
             raise EngineError(f"space is 'model' or 'source', got '{space}'")
@@ -727,15 +740,58 @@ class Engine(EngineBase):
         loader = self.loader(
             run.spec, split, shuffle=False, only_images=only_images, for_loss=False
         )
-        predictions = run.trainer.predict(loader)
+        return run, loader
 
-        if space == "model":
-            return predictions
+    def predict_stream(
+        self, model_name: str | None = None, split: str = "test", *, space: str = "model"
+    ) -> Iterator[tuple[str, np.ndarray]]:
+        """`(case, prediction)` one source image at a time, instead of all of them at once.
+
+        `predict` returns a stacked array, so the whole split has to fit in memory. For a
+        tiled split that is the whole thing at full resolution - 200 FIVES retinas at 2048
+        is 6.7 GB for the result alone - and tiling exists precisely for images too large
+        to resize, so the stacked form is least usable exactly where `splits` is most
+        needed. This yields one image, lets the caller keep what it wants, and drops it.
+
+        The case name comes with the prediction rather than being left to the caller to
+        line up against `samples`: predictions arrive in the dataset's order, and anything
+        that pairs two sequences by position is one `drop_last` away from scoring the wrong
+        image. `group_of` turns a case into a group the same way `evaluate_cases` does.
+
+        Args:
+            model_name: Which model, by name. Defaults to the first.
+            split: Which data to predict on.
+            space: As for `predict` - `"model"` for the network's grid, `"source"` for the
+                grid of the file each prediction came from.
+
+        Yields:
+            `(case, prediction)`, in the dataset's order.
+        """
+        # Resolved here rather than inside the generator: a generator function runs none of
+        # its body until the first `next`, so a mistyped model name would be reported after
+        # the caller had already opened the file it was going to write into.
+        run, loader = self._prediction_loader(model_name, split, space)
+        return self._stream_predictions(run, loader, split, space)
+
+    def _stream_predictions(self, run, loader, split: str, space: str):
         samples = self._samples[split]
-        return [
-            self._to_source_space(predictions[index], sample, run.spec)
-            for index, sample in enumerate(samples)
-        ]
+        count = 0
+        for index, prediction in enumerate(run.trainer.predict_stream(loader)):
+            if index >= len(samples):
+                raise EngineError(
+                    f"the loader produced more images than the {len(samples)} samples in "
+                    f"'{split}', so the case names cannot be trusted"
+                )
+            sample = samples[index]
+            if space == "source":
+                prediction = self._to_source_space(prediction, sample, run.spec)
+            count += 1
+            yield sample.key, prediction
+        if count != len(samples):
+            raise EngineError(
+                f"predicted {count} images for the {len(samples)} samples in '{split}'; "
+                "the loader must not drop any, or the case names are wrong"
+            )
 
     def _to_source_space(
         self, prediction: np.ndarray, sample: Sample, model: SegmentationModel

@@ -44,7 +44,6 @@ import numpy as np
 import torch
 
 import pyplatypus as pp
-from pyplatypus.data.images import stitch
 from pyplatypus.objectives.functional import cldice_from_masks
 
 FOLDER = "FIVES A Fundus Image Dataset for AI-based Vessel Segmentation"
@@ -130,66 +129,33 @@ def specification(splits: dict[str, Path], arguments) -> dict:
     }
 
 
-def predict_one(engine, dataset, index: int) -> np.ndarray:
-    """One sample's prediction, tiles stitched, channels-last.
-
-    `engine.predict` does a whole split at once and holds three copies of it on the way -
-    every tile's probabilities, their concatenation, and the stack of stitched images. At
-    200 retinas of 2048 that is tens of gigabytes and it killed a run that had finished
-    training. Nothing here needs the whole split in memory, so nothing here asks for it.
-    """
-    run = engine.runs["vessels"]
-    model, spec, device = run.trainer.model, run.spec, run.trainer.device
-    tiles = dataset.tiles_per_sample
-    batch = max(1, spec.batch_size)
-
-    model.eval()
-    pieces = []
-    with torch.no_grad():
-        for start in range(0, tiles, batch):
-            stack = torch.stack(
-                [
-                    torch.as_tensor(dataset[index * tiles + offset][0]).permute(2, 0, 1)
-                    for offset in range(start, min(start + batch, tiles))
-                ]
-            ).to(device)
-            out = model(stack)
-            if isinstance(out, tuple):
-                out = out[-1]
-            pieces.append(np.moveaxis(out.softmax(dim=1).cpu().numpy(), 1, -1))
-
-    probabilities = np.concatenate(pieces, axis=0)
-    if spec.splits is None:
-        return probabilities[0]
-    return stitch(probabilities, tuple(spec.splits))
-
-
 def cldice_per_case(engine, split: str, iterations: int) -> list[dict]:
     """clDice on whole images, one image at a time.
 
-    Whole images because a skeleton is a property of a whole mask: `predict` reassembles the
-    tiles, so this scores the picture the model would actually hand back rather than sixteen
-    pieces of it.
+    Whole images because a skeleton is a property of a whole mask: the tiles are reassembled,
+    so this scores the picture the model would actually hand back rather than sixteen pieces
+    of it.
 
-    One at a time because `predict` cannot do this split at all. It holds every tile's
-    probabilities, concatenates them into a second copy and stacks the stitched images into
-    a third - for 200 retinas at 2048 that is tens of gigabytes, and a run that had finished
-    training was killed here. So the model is stepped over one sample's tiles, stitched,
-    scored, and the arrays dropped: peak memory is one image whatever the split's size.
+    One at a time because `predict` returns one stacked array, which for 200 retinas at 2048
+    is 6.7 GB for the result alone - it killed a run that had finished training. The first
+    version of this example stepped the model over one sample's tiles by hand, which is
+    twenty lines reaching past a public method and the reason pyplatypus#178 was filed.
+    `predict_stream` is that method now, and it hands over the case name with the image so
+    nothing here has to pair two sequences by position.
 
     The masks are read by the same reader the dataset uses, at the same size, because a mask
     read another way is a mask of something else.
     """
     run = engine.runs["vessels"]
-    dataset = engine.dataset(run.spec, split)
+    by_key = {sample.key: sample for sample in engine.dataset(run.spec, split).samples}
     # On whichever device trained, because the skeleton is twelve rounds of pooling over a
     # four-megapixel tensor: measured at 11.96 s an image on the processor and 0.37 on the
     # card, which is forty minutes against ninety seconds over this split.
     device = run.trainer.device
 
     rows = []
-    for index, sample in enumerate(dataset.samples):
-        whole = predict_one(engine, dataset, index)
+    for case, whole in engine.predict_stream("vessels", split=split):
+        sample = by_key[case]
 
         hard = torch.as_tensor(whole, device=device).permute(2, 0, 1)[None]
         hard = (
@@ -207,7 +173,7 @@ def cldice_per_case(engine, split: str, iterations: int) -> list[dict]:
                 "about nothing"
             )
         score = cldice_from_masks(hard, target, iterations, smooth=0.0)[0, 1].item()
-        rows.append({"case": sample.key, "cldice": score})
+        rows.append({"case": case, "cldice": score})
     return rows
 
 
@@ -339,9 +305,18 @@ def main() -> None:
             flat = (np.asarray(mask).reshape(mask.shape[:2]) > 127).astype(np.float32)
             return np.stack([1 - flat, flat], axis=-1)
 
+        # Two images out of two hundred, so the stream is read for the two it is asked
+        # for and the rest are dropped as they arrive. `predict` would hand back all 200
+        # at full resolution to draw two of them.
+        wanted = {cases[i]["case"]: i for i in which}
+        drawn = {
+            case: whole
+            for case, whole in engine.predict_stream("vessels", split="validation")
+            if case in wanted
+        }
         figure = pp.plot_masks(
             np.stack([whole_image(dataset.samples[i]) for i in which]),
-            prediction=np.stack([predict_one(engine, dataset, i) for i in which]),
+            prediction=np.stack([drawn[cases[i]["case"]] for i in which]),
             truth=np.stack([whole_mask(dataset.samples[i]) for i in which]),
             labels=[f"{cases[i]['case']}  dice {cases[i]['dice']:.3f}" for i in which],
         )
