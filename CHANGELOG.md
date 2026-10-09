@@ -45,6 +45,14 @@ All notable changes to this project will be documented in this file.
    should be reported as redundant at this quality level rather than as a second opinion. What
    clDice adds on this run is the three worst cases, not the ranking of the four diseases.
 
+   **The R half is deliberately not done, and the pin stays at `0.8.0a2`.** This release is an
+   example script, a `.gitignore` line and a help string: nothing here is reachable from R, no
+   interface moved and no configuration field was added, so there is nothing for the R package
+   to call. That leaves the pin three releases behind `main`, which is the mechanism working
+   rather than drift - but three is further behind than it has ever been, and `0.8.0a3`'s
+   windowed sampler is the first skipped release an R user would actually want, since anyone
+   setting `splits` from R pays 13.8 minutes an epoch instead of 9.4 until the pin moves.
+
 ## [0.8.0a3] - 2026-10-08
 
 ### Changed
