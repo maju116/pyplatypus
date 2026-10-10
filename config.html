@@ -869,7 +869,10 @@ Fixed for this specification: <code>semantic_segmentation</code>.
 <dt><code>seed</code></dt>
 <dd>
 a whole number — unset
-Set it if you want a reproducible run.
+Makes a run repeatable as far as the arithmetic is deterministic, which goes further on some hardware than others - so it is worth knowing where it stops.
+<strong>Repeatable:</strong> the split (<code>split_dataset</code> gives the same partition on any machine), a detector’s fitted anchors, the order the data arrives in and its augmentation - including inside the loader’s worker processes - and, on the processor, every number to twelve decimal places.
+<strong>Not repeatable:</strong> a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and <code>0.8.0a3</code> did exactly that.
+So it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.
 </dd>
 <dt><code>output_dir</code></dt>
 <dd>
@@ -1163,7 +1166,10 @@ Fixed for this specification: <code>object_detection</code>.
 <dt><code>seed</code></dt>
 <dd>
 a whole number — unset
-Set it if you want a reproducible run.
+Makes a run repeatable as far as the arithmetic is deterministic, which goes further on some hardware than others - so it is worth knowing where it stops.
+<strong>Repeatable:</strong> the split (<code>split_dataset</code> gives the same partition on any machine), a detector’s fitted anchors, the order the data arrives in and its augmentation - including inside the loader’s worker processes - and, on the processor, every number to twelve decimal places.
+<strong>Not repeatable:</strong> a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and <code>0.8.0a3</code> did exactly that.
+So it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.
 </dd>
 <dt><code>output_dir</code></dt>
 <dd>
