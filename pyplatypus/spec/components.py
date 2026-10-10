@@ -793,20 +793,35 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
     With `rank=3`, only those that can transform a volume. That list has to be found by trying
     rather than read from anywhere: albumentations supports volumes unevenly, and a transform
     that cannot raises from inside itself - `GaussNoise` comes back as `KeyError: 'images'`.
-    albumentations 2.0.8 offers 118 transforms, and 87 of them took a volume where this was
+    albumentations 2.0.8 offers 118 transforms, and 91 of them took a volume where this was
     measured.
 
     **That second number is not portable and the first one is.** 118 is a property of the
     installed albumentations; the volume count is the outcome of running each transform against
-    a small probe, and a few of them fail it for reasons that have nothing to do with volumes -
-    the probe is one channel, so the nine transforms that require three are refused, and it is
-    8x8, so `Crop`, `FrequencyMasking`, `TimeMasking` and `Superpixels` fail on its size. Eleven
-    of the 31 are therefore the probe's limits rather than albumentations', and which of them
-    tip over is environmental. Measured across one CI matrix on the same albumentations: 87 on
-    four Linux builds, both macOS builds and Windows with Python 3.10, and **88 on Windows with
-    Python 3.13** - so it is that combination rather than either Windows or 3.13, and no
-    mechanism is claimed for it beyond the probe being marginal. The authoritative check is the
-    one made when the pipeline is built, against the user's own shape and parameters.
+    a probe, and some of them fail it for reasons that have nothing to do with volumes. What the
+    27 refusals actually are, counted on albumentations 2.0.8 rather than reasoned about:
+
+        10   no volume support, which is the answer being asked for - `KeyError: 'images'`
+         9   require three channels, where the probe has one
+         8   require a target the probe does not supply: seven ask for metadata of their own
+             (`FDA`, `HistogramMatching`, `Mosaic`, `OverlayElements`,
+             `PixelDistributionAdaptation`, `RandomCropNearBBox`, `MaskDropout`) and
+             `BBoxSafeRandomCrop` asks for bounding boxes
+
+    So **17 of the 27 are the probe's limits rather than albumentations'**, and only 10 are a
+    real no. The size category used to be a fourth entry in that table and is gone: a refusal is
+    now retried at a 1024x1024 probe, which is what `Crop`'s default crop box needs, and the
+    four it was hiding - `Crop`, `FrequencyMasking`, `TimeMasking`, `Superpixels` - are listed.
+    The three-channel nine are deliberately still refused; the comment above the probe says why.
+
+    The count has been environmental before this: measured across one CI matrix on the same
+    albumentations, the 8x8-only probe answered 87 on four Linux builds, both macOS builds and
+    Windows with Python 3.10, and **88 on Windows with Python 3.13** - neither axis explaining
+    it, and no mechanism claimed beyond the probe being marginal. Escalating moves the
+    size-dependent transforms far from their thresholds, so the count may now be portable; that
+    is a hypothesis this docstring does not assert, because one matrix run is how it would be
+    tested and the number is still not pinned. The authoritative check is the one made when the
+    pipeline is built, against the user's own shape and parameters.
 
     Empty when albumentations is missing, in which case name checking is skipped and the
     backend reports the problem later - better than refusing a spec the user cannot fix.
@@ -886,6 +901,28 @@ def _is_transform(albumentations, member: object) -> bool:
     return member not in [cls for cls in interfaces if cls is not None]
 
 
+# The probe `_transforms_volumes` offers each transform. Two sizes rather than one, because
+# a single size cannot be both cheap and large enough: 8x8 is where the whole listing is
+# nearly free, and 1024x1024 is where every size-dependent default fits. So the small one is
+# tried first and only a refusal is retried large.
+#
+# The cost, as a ratio because seconds are not portable and this is a cached call made once:
+# on one Linux machine the escalating listing took **8x** the 8x8-only listing, and offering
+# everything the large probe would have taken **250x**. Most of the 8x is `Superpixels`, whose
+# work scales with the pixel count; the ratio is the part worth trusting, not the factors.
+#
+# The depth is 4 and is not escalated: measured, not assumed. Nothing in the rejected set
+# changes its answer at depth 16, so there is no second threshold hiding behind the first.
+#
+# The channel count stays at 1 on purpose, and that is a different decision rather than an
+# unfinished one. Nine transforms refuse a single channel, and probing with three would list
+# `ChromaticAberration` and its eight relatives as available to someone whose CT has one
+# channel. A listing cannot know the channel count; only the pipeline-build check can, and it
+# already probes at the model's own input size.
+_PROBE_DEPTH = 4
+_PROBE_SIDES = (8, 1024)
+
+
 def _transforms_volumes(albumentations, name: str) -> bool:
     """Whether this transform can be ruled out for volumes. Tried, because nothing declares it.
 
@@ -895,29 +932,44 @@ def _transforms_volumes(albumentations, name: str) -> bool:
     transforms written for volumes. The authoritative check happens when the pipeline is built,
     against the parameters the user actually gave.
 
+    **A refusal is retried at the larger probe before it is believed**, for the same reason: a
+    transform whose defaults do not fit inside an 8x8 image has told us about the probe and
+    nothing about volumes. Four said so - `Crop`, whose default crop box is 1024x1024, and
+    `FrequencyMasking`, `TimeMasking` and `Superpixels`, which need 32, 64 and 16 pixels
+    respectively. Escalation can only add names, never remove them, since a transform that
+    passed at 8x8 is never asked again.
+
     Warnings are silenced: albumentations advises about aliases and slow implementations, and a
     listing that emits twenty warnings is a listing nobody reads.
     """
     import warnings
 
-    import numpy as np
-
     cls = getattr(albumentations, name, None)
     if cls is None:
         return False
 
-    probe = np.zeros((4, 8, 8, 1), dtype=np.float32)
-    mask = np.zeros((4, 8, 8), dtype=np.uint8)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         try:
             transform = cls(p=1)
         except Exception:  # noqa: BLE001 - needs arguments, so it cannot be ruled out here
             return True
-        try:
-            albumentations.Compose([transform])(volume=probe, mask3d=mask)
-        except Exception:  # noqa: BLE001
-            return False
+        return any(_accepts_volume(albumentations, transform, side) for side in _PROBE_SIDES)
+
+
+def _accepts_volume(albumentations, transform, side: int) -> bool:
+    """Whether this transform survives one pass over a `side` x `side` probe volume.
+
+    Called inside `catch_warnings`, so it does not silence anything itself.
+    """
+    import numpy as np
+
+    probe = np.zeros((_PROBE_DEPTH, side, side, 1), dtype=np.float32)
+    mask = np.zeros((_PROBE_DEPTH, side, side), dtype=np.uint8)
+    try:
+        albumentations.Compose([transform])(volume=probe, mask3d=mask)
+    except Exception:  # noqa: BLE001 - any refusal is a refusal; the reason is not parsed
+        return False
     return True
 
 

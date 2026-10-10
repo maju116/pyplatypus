@@ -95,3 +95,27 @@ def test_the_banner_names_no_version():
     assert not (set(versions) - allowed), (
         f"the banner names a version that will go stale: {sorted(set(versions) - allowed)}"
     )
+
+
+def test_the_readme_pins_no_transform_count():
+    """The 3D paragraph must not say how many transforms take a volume.
+
+    Same shape as the version test above and for a sharper reason: that number is the outcome
+    of probing the installed albumentations, and one CI matrix of twelve answered 88 where the
+    other eleven answered 87. §3C of the instructions is explicit - a number that is not
+    portable between platforms must not be pinned at all, only explained - so the only thing
+    to assert is that the README does not state one.
+
+    This file's own docstring cited "a transform count of 97 where the measurement is 87" as
+    one of the four stale claims it was written for, and then asserted nothing about it: the
+    count sat in the README unguarded through the rewrite that changed it. A test whose
+    docstring claims more than its body is the kind that reads as cover and is none.
+    """
+    text = README.read_text()
+    counted = re.findall(r"\b\d+\b(?=\s+(?:of\s+)?(?:its\s+|the\s+)?transforms?\b)", text)
+    counted += re.findall(r"\btransforms?\b[^.\n]{0,30}?\b(\d+)\s+(?:take|work|support)", text)
+
+    assert not counted, (
+        f"the README states a transform count ({counted}), which is not portable - "
+        "explain it instead, as the augmentation paragraph now does"
+    )

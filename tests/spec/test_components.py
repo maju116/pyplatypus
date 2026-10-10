@@ -166,12 +166,15 @@ class TestAvailableTransforms:
         **Only the total is asserted, and the first version of this test asserted the volume
         count too and was right to fail.** One CI job of twelve said "the docstring says
         118/87/31; measured 118/88/30": the volume list is found by running each transform
-        against a probe, and eleven of the thirty-one it rejects fail for the probe's reasons
-        rather than albumentations' - nine need three channels where the probe has one, and
-        `Crop`, `FrequencyMasking`, `TimeMasking` and `Superpixels` fail on its 8x8 size.
-        That job was Windows with Python 3.13, while Windows with 3.10 and macOS with 3.13
-        both answered 87, so neither axis explains it. There is no portable number there to
-        pin, and the docstring says so rather than claiming one.
+        against a probe, and most of what it rejects fails for the probe's reasons rather than
+        albumentations'. That job was Windows with Python 3.13, while Windows with 3.10 and
+        macOS with 3.13 both answered 87, so neither axis explains it. There is no portable
+        number there to pin, and the docstring says so rather than claiming one.
+
+        This docstring said "eleven of the thirty-one" while naming nine and four, which is
+        thirteen, and the real figure was seventeen once the categories were counted instead
+        of recalled. A sum nothing adds up is the cheapest kind of wrong number to ship, and
+        `test_no_refusal_is_unexplained` is the part that now holds it.
         """
         pytest.importorskip("albumentations")
         doc = inspect.getdoc(available_transforms) or ""
@@ -199,3 +202,92 @@ class TestAvailableTransforms:
         assert volumes, "albumentations is installed, so some transform takes a volume"
         assert volumes < images, "rank 3 must be a strict subset of rank 2"
         assert "GaussNoise" in images and "GaussNoise" not in volumes
+
+    # The four that an 8x8 probe refused for its own reasons. Named one by one rather than
+    # counted, because a count would say something moved and not which - the lesson the
+    # ten-that-leaked test above is also written from.
+    SIZE_DEPENDENT = ("Crop", "FrequencyMasking", "Superpixels", "TimeMasking")
+
+    @pytest.mark.parametrize("name", SIZE_DEPENDENT)
+    def test_a_transform_is_not_refused_for_the_probe_s_size(self, name):
+        """Each of these takes a volume; only the small probe said otherwise.
+
+        `Crop` is the one that shows the probe was never close: its default crop box is
+        1024x1024, so no plausible small probe would have admitted it. The other three need
+        32, 64 and 16 pixels, which is near enough to 8 that which of them tipped over was
+        environmental - and that is the symptom the escalation removes.
+        """
+        pytest.importorskip("albumentations")
+
+        assert name in available_transforms(rank=3)
+
+    def test_the_escalation_is_what_lists_them(self):
+        """The mutation, built in: with the large probe taken away, all four go back to absent.
+
+        Without this the test above would pass for any reason at all - an albumentations
+        release that changed those defaults would make it green while the escalation did
+        nothing. It is also the measurement the change rests on: 87 names with one probe
+        size, 91 with two, and the difference is exactly these four.
+        """
+        pytest.importorskip("albumentations")
+        from pyplatypus.spec import components
+
+        with_escalation = available_transforms(rank=3)
+
+        available_transforms.cache_clear()
+        original = components._PROBE_SIDES
+        components._PROBE_SIDES = (8,)
+        try:
+            small_only = available_transforms(rank=3)
+        finally:
+            components._PROBE_SIDES = original
+            available_transforms.cache_clear()
+
+        assert small_only < with_escalation, "escalating must only ever add names"
+        assert set(with_escalation) - set(small_only) == set(self.SIZE_DEPENDENT)
+
+    def test_no_refusal_is_unexplained(self):
+        """Every name rank 3 refuses must fail for a reason the docstring names.
+
+        This is the part that holds the docstring's table, and it holds the *categories*
+        rather than their counts, which are not portable - an albumentations upgrade is
+        expected to move the numbers and is not expected to invent a new kind of refusal.
+        If it does, this fails and prints the transform and the message, which is the whole
+        point: the previous version of that table was a remembered sum that did not add up,
+        and nothing would have noticed a fourth category appearing underneath it.
+        """
+        albumentations = pytest.importorskip("albumentations")
+        import warnings
+
+        import numpy as np
+
+        from pyplatypus.spec import components
+
+        refused = sorted(available_transforms() - available_transforms(rank=3))
+        assert refused, "some transform must be refused, or this test proves nothing"
+
+        side = max(components._PROBE_SIDES)
+        volume = np.zeros((components._PROBE_DEPTH, side, side, 1), dtype=np.float32)
+        mask = np.zeros((components._PROBE_DEPTH, side, side), dtype=np.uint8)
+
+        unexplained = []
+        for name in refused:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                transform = getattr(albumentations, name)(p=1)
+                try:
+                    albumentations.Compose([transform])(volume=volume, mask3d=mask)
+                except Exception as refusal:  # noqa: BLE001 - the message is the evidence
+                    message = f"{type(refusal).__name__}: {refusal}"
+                else:
+                    unexplained.append(f"{name}: accepted the large probe yet is not listed")
+                    continue
+            no_volume_support = "'images'" in message
+            needs_three_channels = "3-channel" in message
+            needs_a_target = "requires [" in message or "'bboxes'" in message
+            if not (no_volume_support or needs_three_channels or needs_a_target):
+                unexplained.append(f"{name}: {message}")
+
+        assert not unexplained, "refusals the docstring does not account for:\n" + "\n".join(
+            unexplained
+        )
