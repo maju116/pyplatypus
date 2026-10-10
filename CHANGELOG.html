@@ -922,7 +922,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="added" class="level3">
 <h3 class="anchored" data-anchor-id="added">Added</h3>
 <ul>
-<li><p><strong>An “About the author” section in the README</strong>, which is also this package’s page on PyPI and the home page of its site. It carries a photograph, the fact that both halves of the project are by one person, and links out. The same section, in the same place, went into <code>platypus</code>’s README - the paired tests on both sides hold the section order, so adding it to one would have failed the other.</p>
+<li><p><strong>An “About the author” section in the README</strong>, which is also this package’s page on PyPI. It carries a photograph, the fact that both halves of the project are by one person, and links out. The same section, in the same place, went into <code>platypus</code>’s README - the paired tests on both sides hold the section order, so adding it to one would have failed the other.</p>
+<p>It reaches different numbers of readers on the two sides, which was not noticed until the release was confirmed. <code>platypus</code>’s site renders its README as the home page, so the section is there; this site’s home page is a hand-written <code>index.qmd</code>, so it is not. The asymmetry is left standing rather than papered over, and nothing tests it: §3F’s About pair holds the navbar’s order, not what the home page is built from.</p>
+<p><strong>The R half of this release is deliberately not done</strong>, by §3E: <code>platypus</code> gets nothing from a section on the engine’s own page, so its pin stays at <code>0.8.0a8</code>. Its README got the same section in its own change.</p>
 <p>The photograph is 200 x 200 and 69 KiB. Larger than it needs to be for a 130-pixel avatar and smaller than two of the three figures already there, which is the trade: quantising a portrait to 128 colours would have saved 55 KiB and risked banding on a face.</p></li>
 </ul>
 </section>
