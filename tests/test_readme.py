@@ -33,6 +33,7 @@ SECTION_ORDER = [
     "Learning it",
     "What is not in it yet",
     "About the engine",
+    "About the author",
     "Licence",
 ]
 

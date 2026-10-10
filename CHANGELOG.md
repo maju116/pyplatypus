@@ -1,6 +1,20 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a9] - 2026-10-10
+
+### Added
+
+ - **An "About the author" section in the README**, which is also this package's page on PyPI
+   and the home page of its site. It carries a photograph, the fact that both halves of the
+   project are by one person, and links out. The same section, in the same place, went into
+   `platypus`'s README - the paired tests on both sides hold the section order, so adding it
+   to one would have failed the other.
+
+   The photograph is 200 x 200 and 69 KiB. Larger than it needs to be for a 130-pixel avatar
+   and smaller than two of the three figures already there, which is the trade: quantising a
+   portrait to 128 colours would have saved 55 KiB and risked banding on a face.
+
 ## [0.8.0a8] - 2026-10-10
 
 ### Changed

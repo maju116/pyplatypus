@@ -347,6 +347,19 @@ Classification has no task of its own. `DetectionEngine.crops()` cuts detected o
 their images at a fixed size, which is the half of it this package is the right place for; the
 classifier is yours.
 
+## About the author
+
+<img src="https://raw.githubusercontent.com/maju116/pyplatypus/main/assets/author.png" align="right" alt="" width="130" />
+
+Both halves of this are by **Michał Maj** — this Python package, and the R package it is reached from.
+
+- [LinkedIn](https://www.linkedin.com/in/michal-maj116/)
+- [GitHub](https://github.com/maju116)
+
+The first version was a Keras and TensorFlow package in 2020, and it is still on `master`
+with the stars and the open issues it earned. Everything here was written from scratch in
+2026 on torch, which is why the version numbers restart rather than continue.
+
 ## Licence
 
 MIT.
