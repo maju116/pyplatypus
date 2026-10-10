@@ -46,7 +46,24 @@ class PlatypusSpec(SpecModel):
         ),
     )
 
-    seed: int | None = Field(None, description="Set it if you want a reproducible run.")
+    seed: int | None = Field(
+        None,
+        description=(
+            "Makes a run repeatable as far as the arithmetic is deterministic, which goes "
+            "further on some hardware than others - so it is worth knowing where it stops.\n\n"
+            "**Repeatable:** the split (`split_dataset` gives the same partition on any "
+            "machine), a detector's fitted anchors, the order the data arrives in and its "
+            "augmentation - including inside the loader's worker processes - and, on the "
+            "processor, every number to twelve decimal places.\n\n"
+            "**Not repeatable:** a run on a CUDA device. Measured on a GTX 1070: two runs at "
+            "one seed agreed to twelve decimals on the processor and differed in the fourth "
+            "after a single epoch on the card, because cuDNN chooses algorithms this does not "
+            "constrain. Nor across versions of this package - anything that changes the order "
+            "data is drawn in changes what one seed draws, and `0.8.0a3` did exactly that.\n\n"
+            "So it is the field for comparing two of your own runs, and not for publishing a "
+            "number somebody else can land on."
+        ),
+    )
     output_dir: str = Field(
         "platypus_output",
         description=(

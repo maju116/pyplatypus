@@ -1,6 +1,57 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a8] - 2026-10-10
+
+### Changed
+
+ - **`seed` said "set it if you want a reproducible run", and that was the whole
+   description.** It is now the one field on the specification that says where its guarantee
+   stops, because the nuance lived in a private docstring and *half of that docstring was
+   false*.
+
+   What the field now states, measured rather than reasoned:
+
+       repeatable      the split, a detector's fitted anchors, the order the data arrives
+                       in and its augmentation - workers included - and, on the processor,
+                       every number to twelve decimal places
+       not repeatable  a run on a CUDA device: two runs at one seed agreed to twelve
+                       decimals on a processor and differed in the fourth after one epoch
+                       on a GTX 1070, because cuDNN picks algorithms nothing here
+                       constrains. Nor across versions - `0.8.0a3` changed how a tiled
+                       dataset is shuffled, so one seed draws a different order than it did
+
+   The practical sentence, which is the point of the whole entry: it is the field for
+   comparing two of your own runs, not for publishing a number somebody else can land on.
+
+ - **`seed_everything`'s docstring claimed "two runs at one seed on one machine agree".**
+   True on the processor, false on a card, and the card is where anybody with a GPU trains.
+   Corrected, with the measurement and a note saying which half is tested and which is not.
+
+   It also explains why the CUDA half is tested *nowhere*: a test asserting that two runs
+   **differ** passes by luck and fails by luck, and CI has no card to run it on. So the
+   documentation carries that half and nothing else can - said out loud rather than left as
+   a gap somebody later mistakes for an oversight.
+
+ - **`tests/test_seeding.py` names its scope.** The tests always forced `device="cpu"` and
+   never said so, which made `test_the_same_seed_gives_the_same_run` read as a universal
+   claim while guarding a device-specific one. Renamed to `..._on_the_processor`, with the
+   module docstring pointing at `test_the_same_seed_gives_the_same_split` for the guarantee
+   that holds on any device - and is the one that matters most when two results are compared.
+
+### Note
+
+ - **The R half is platypus#122's**, and unlike the last few §3E releases it is not nothing:
+   R's `@param seed` carries the same bare sentence in its own prose, and the configuration
+   reference on R's site is generated from this schema, so it shows the new text only once
+   the pin reaches this release.
+
+   Also still open there, and deliberately not decided here: whether to offer
+   `deterministic = TRUE` as an opt-in. `torch.use_deterministic_algorithms` would make a
+   card agree with itself at a cost this docstring has always named - some convolutions much
+   slower, some raising outright. That adds a public field on both surfaces, so it is a
+   decision rather than a documentation fix.
+
 ## [0.8.0a7] - 2026-10-09
 
 ### Fixed

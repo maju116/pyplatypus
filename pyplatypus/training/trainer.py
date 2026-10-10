@@ -60,8 +60,16 @@ def seed_everything(seed: int | None) -> None:
 
     What this does not do is ask torch for deterministic algorithms. That makes some
     convolutions much slower and makes others raise, and the result would be a seed that
-    sometimes refuses to run at all. Two runs at one seed on one machine agree; across
-    machines, or across a cuDNN version, they need not.
+    sometimes refuses to run at all.
+
+    **That last sentence used to read "two runs at one seed on one machine agree", and the
+    half of it that mattered was false.** It is true on the processor and not on a card:
+    measured on a GTX 1070, two runs of one configuration at one seed agreed to twelve
+    decimals on the CPU and differed in the fourth after a single epoch on CUDA, because
+    cuDNN picks algorithms nothing here constrains. `tests/test_seeding.py` asserts the CPU
+    half and says so in its names; the CUDA half is documented on the `seed` field and
+    nothing tests it, because asserting that two runs *differ* would pass by luck and fail
+    by luck. See platypus#122.
     """
     if seed is None:
         return
