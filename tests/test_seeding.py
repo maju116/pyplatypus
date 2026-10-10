@@ -12,6 +12,17 @@ These tests train very small models twice, which is the only way to assert the t
 is actually claimed. Asserting that `torch.initial_seed()` changed would pass with the
 seed applied after the weights were initialised, which is exactly the mistake worth
 catching.
+
+**They force `device="cpu"`, and the names say so, because the claim is device-scoped.**
+Measured on a GTX 1070: two runs of one configuration at one seed agreed to twelve decimals
+on the processor and differed in the fourth after a single epoch on CUDA, since cuDNN picks
+algorithms `seed_everything` does not constrain. The CUDA half is therefore documented on
+the `seed` field and tested nowhere - a test asserting that two runs *differ* would pass by
+luck and fail by luck, and CI has no card to run it on either. platypus#122.
+
+What is repeatable on any device is asserted elsewhere and worth knowing about:
+`tests/data/test_splits.py::test_the_same_seed_gives_the_same_split` holds the partition,
+which is the guarantee that matters most when two results are being compared.
 """
 
 from __future__ import annotations
@@ -63,7 +74,7 @@ def final_loss(root, seed):
     return engine.fit()["u"].records[-1]["train_loss"]
 
 
-def test_the_same_seed_gives_the_same_run(tiny_root):
+def test_the_same_seed_gives_the_same_run_on_the_processor(tiny_root):
     first = final_loss(tiny_root, 7)
     second = final_loss(tiny_root, 7)
     assert first == second
