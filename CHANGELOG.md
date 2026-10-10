@@ -5,11 +5,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
- - **An "About the author" section in the README**, which is also this package's page on PyPI
-   and the home page of its site. It carries a photograph, the fact that both halves of the
-   project are by one person, and links out. The same section, in the same place, went into
-   `platypus`'s README - the paired tests on both sides hold the section order, so adding it
-   to one would have failed the other.
+ - **An "About the author" section in the README**, which is also this package's page on PyPI.
+   It carries a photograph, the fact that both halves of the project are by one person, and
+   links out. The same section, in the same place, went into `platypus`'s README - the paired
+   tests on both sides hold the section order, so adding it to one would have failed the other.
+
+   It reaches different numbers of readers on the two sides, which was not noticed until the
+   release was confirmed. `platypus`'s site renders its README as the home page, so the
+   section is there; this site's home page is a hand-written `index.qmd`, so it is not. The
+   asymmetry is left standing rather than papered over, and nothing tests it: §3F's About
+   pair holds the navbar's order, not what the home page is built from.
+
+   **The R half of this release is deliberately not done**, by §3E: `platypus` gets nothing
+   from a section on the engine's own page, so its pin stays at `0.8.0a8`. Its README got the
+   same section in its own change.
 
    The photograph is 200 x 200 and 69 KiB. Larger than it needs to be for a 130-pixel avatar
    and smaller than two of the three figures already there, which is the trade: quantising a
