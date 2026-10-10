@@ -1,6 +1,74 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a10] - 2026-10-11
+
+### Fixed
+
+ - **Four transforms were reported as unable to take a volume when what they could not take
+   was the probe.** `available_transforms(rank=3)` finds its answer by offering each transform
+   a probe volume, and the probe was 8x8. A refusal is now retried once at 1024x1024 before it
+   is believed, which is what `Crop` needs - its default crop box is 1024x1024, so no plausible
+   small probe would ever have admitted it. The listing goes from 87 names to 91 on
+   albumentations 2.0.8, and the four are `Crop`, `FrequencyMasking`, `TimeMasking` and
+   `Superpixels`.
+
+   **Why two sizes rather than one bigger one**, measured on one Linux machine, as a ratio
+   because seconds are not portable: offering every transform the large probe takes **250x**
+   the 8x8 listing, while retrying only the refusals takes **8x**. Most of that 8x is
+   `Superpixels`, whose work scales with the pixel count. It is an `lru_cache`d call made once
+   per process, and a spec with no augmentation never makes it.
+
+   The escalation can only add names - a transform that passed at 8x8 is never asked again -
+   and a test takes the large size away and asserts all four go back to absent, because the
+   straightforward test would pass for any reason at all, including an albumentations release
+   that changed those defaults.
+
+   **The three-channel nine are still refused, deliberately.** That is a different decision,
+   not an unfinished one: a three-channel probe would list `ChromaticAberration` and its eight
+   relatives as available to someone whose CT has one channel, and a listing cannot know the
+   channel count. Only the pipeline-build check can, and it already probes at the model's own
+   input size.
+
+### Changed
+
+ - **The docstring's account of the refusals was wrong, and wrong in a way arithmetic shows.**
+   It said *"eleven of the 31 are the probe's limits"* while naming nine three-channel ones and
+   four size-dependent ones, which is thirteen. Counting the categories instead of recalling
+   them gives a different answer again - on albumentations 2.0.8, of 27 refusals:
+
+        10   no volume support, which is the question being asked - `KeyError: 'images'`
+         9   require three channels, where the probe has one
+         8   require a target the probe does not supply - seven want metadata of their own,
+             and `BBoxSafeRandomCrop` wants bounding boxes
+
+   So **17 of 27 are the probe's limits and only 10 are a real no**, and the third category was
+   not named anywhere before this. A new test asserts that every refusal falls into one of the
+   three, which holds the *categories* rather than the counts: an albumentations upgrade is
+   expected to move the numbers and is not expected to invent a new kind of refusal. If it
+   does, the test names the transform and prints its message.
+
+ - **The README no longer says how many transforms take a volume.** It said 87. That number is
+   the outcome of probing the installed library and one CI matrix of twelve once answered 88
+   where the other eleven answered 87, so by this project's own rule it must not be pinned at
+   all, only explained - and a test now asserts the README states no such count. The file's
+   README test cited *"a transform count of 97 where the measurement is 87"* as one of the four
+   stale claims it was written for, and then asserted nothing about it.
+
+ - **`CITATION.cff`'s `date-released` is the release date again.** It said 2026-10-08 through
+   `0.8.0a9`, which shipped on the 10th. `tests/test_version.py` holds three places to the
+   version and nothing holds this field to anything.
+
+### Noted, not fixed
+
+ - **Eight transforms are listed at rank 2 that no specification can name**, which is the third
+   category above seen from the other side: `FDA`, `HistogramMatching`, `Mosaic`,
+   `OverlayElements`, `PixelDistributionAdaptation`, `RandomCropNearBBox`, `MaskDropout` and
+   `BBoxSafeRandomCrop` need a target supplied at call time, and an `AugmentationStep` is a
+   flat name and a dict of parameters. The same argument that removed the ten composition
+   classes in `0.7.0a2` applies to them, and it is a rank-2 change with its own blast radius,
+   so it is not smuggled in here.
+
 ## [0.8.0a9] - 2026-10-10
 
 ### Added

@@ -190,10 +190,12 @@ Semantic segmentation in 2D, end to end:
   worth, and what it is not, is below.
 
 Augmentation works in 3D, with a caveat the package handles rather than hides: albumentations
-supports volumes unevenly - 87 of its transforms take one here and the rest raise from inside the
-library, `GaussNoise` as `KeyError: 'images'`. Every transform in a 3D specification is tried
-against a small probe volume while the pipeline is built, so an unsupported one is named before
-training starts, and `available_transforms(rank=3)` lists what is usable.
+supports volumes unevenly - most of its transforms take one and the rest raise from inside the
+library, `GaussNoise` as `KeyError: 'images'`. The count is deliberately not written here: it
+is the outcome of probing the installed version, and one CI matrix answered two different
+numbers on the same albumentations. Every transform in a 3D specification is tried against a
+probe volume while the pipeline is built, so an unsupported one is named before training
+starts, and `available_transforms(rank=3)` lists what is usable.
 
 Resampling is opt-in rather than automatic: it changes the voxel grid the model sees, which
 is a decision to take deliberately. Without `target_spacing` the old behaviour stands and
