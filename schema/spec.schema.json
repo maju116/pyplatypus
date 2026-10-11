@@ -15,6 +15,7 @@
     },
     "Adadelta": {
       "additionalProperties": false,
+      "description": "Adagrad's idea, bounded by a window instead of a sum.\n\n`rho` is the length of that window and is the parameter that keeps the step from\nshrinking to nothing. Formulated to need no learning rate at all, though torch still\ntakes one and this specification still carries it - so a run that leaves\n`learning_rate` at its default is not using the original method.",
       "properties": {
         "eps": {
           "default": 1e-06,
@@ -58,6 +59,7 @@
     },
     "Adagrad": {
       "additionalProperties": false,
+      "description": "Accumulates every squared gradient it has ever seen, and so slows to a stop.\n\nEach parameter's step shrinks monotonically, which suits features that appear rarely\nand does not suit images, where every voxel contributes at every step. On a long run it\ncan stop learning without the loss ever looking wrong; `adadelta` is the same idea with\na window instead of a sum.",
       "properties": {
         "eps": {
           "default": 1e-10,
@@ -100,6 +102,7 @@
     },
     "Adam": {
       "additionalProperties": false,
+      "description": "The one to use unless there is a reason not to.\n\nAdapts the step per parameter, which is why it usually trains without anything being\ntuned except `learning_rate`. **No run in this project has measured one of these eight\nagainst another on segmentation**, so the honest reading of the list is: this is the\ndefault, `sgd` with momentum is the literature's recipe when you are prepared to tune a\nschedule, and the rest are here because a configuration should be able to name what\ntorch offers.",
       "properties": {
         "amsgrad": {
           "default": false,
@@ -157,6 +160,7 @@
     },
     "AdamW": {
       "additionalProperties": false,
+      "description": "Adam, with weight decay that actually decays the weights.\n\nAdam applies decay through the gradient, where the adaptive step then rescales it;\nAdamW applies it to the weights directly. That is the entire difference, and it is why\nthe default here is 0.01 rather than Adam's 0 - choosing AdamW and leaving the decay at\nzero leaves nothing to choose.",
       "properties": {
         "beta_1": {
           "default": 0.9,
@@ -208,6 +212,7 @@
     },
     "Adamax": {
       "additionalProperties": false,
+      "description": "Adam under the infinity norm, which a few huge batches cannot upset.\n\nThe second moment tracks the largest gradient seen rather than the average of their\nsquares, so the step is steadier where a handful of batches carry very large gradients\n- a small dataset with one outlier case, for instance. Where none do, it is Adam with\nan extra decision to explain.",
       "properties": {
         "beta_1": {
           "default": 0.9,
@@ -361,6 +366,7 @@
     },
     "CceDiceLoss": {
       "additionalProperties": false,
+      "description": "The blend to start a segmentation run with.\n\nCross-entropy keeps the gradients healthy while everything is wrong, Dice pulls the\noverlap up once the easy voxels are done. `cce_weight` is the split, and at 0 or 1 it\nis one of the two alone - which is worth knowing before tuning it as if it were a\nthird thing.",
       "properties": {
         "cce_weight": {
           "default": 0.5,
@@ -390,6 +396,7 @@
     },
     "CceLoss": {
       "additionalProperties": false,
+      "description": "Per-pixel classification, with no notion of the object.\n\nHealthy gradients from the first epoch, which the overlap losses do not have while\neverything is still wrong. The cost is that it optimises what is numerous: with a\nbackground of 95% of the voxels, which in medical images is ordinary, it is mostly\nlearning the background. That is what `cce_dice` exists to fix.",
       "properties": {
         "label_smoothing": {
           "default": 0.0,
@@ -412,6 +419,7 @@
     },
     "ClDiceMetric": {
       "additionalProperties": false,
+      "description": "Whether the structure is connected, rather than whether the voxels coincide.\n\nThe one metric here that measures a property of the whole mask: it scores the overlap\nof the prediction's skeleton with the truth's, so a vessel broken into two pieces loses\nwhere Dice barely notices. Measured on a constructed pair - a vessel drawn two voxels\nthinner, against the same vessel cut in half - Dice reads 0.8750 and 0.9474 and so\n*prefers* the severed one, while this reads 1.0000 and 0.9425 and does not. Both pairs\nare pinned by a test.\n\n**What it was worth on a real model**, FIVES, 200 cases: correlation 0.9779 with Dice,\nmean difference +0.0041, 127 cases higher and 73 lower. At that quality it is not\ntelling a different story - which is itself the result, and the reason to read both.\n\nNot a drop-in. A one-voxel structure displaced by one voxel scores 0, the skeleton\nneeds a whole mask so a tiled run reports it per case through `evaluate_cases`, and it\nis absent from the per-epoch history for the same reason.",
       "properties": {
         "include_background": {
           "default": false,
@@ -447,6 +455,7 @@
     },
     "ComboLoss": {
       "additionalProperties": false,
+      "description": "A lopsided cross-entropy blended with Dice.\n\nTwo knobs that answer two different questions: `ce_ratio` tilts the cross-entropy\nbetween punishing missed foreground and punishing false alarms, and `alpha` sets how\nmuch of the total each half provides. Worth having when both the class imbalance and\nthe direction of the error matter; `cce_dice` is the simpler answer when only the\nfirst does.",
       "properties": {
         "alpha": {
           "default": 0.5,
@@ -513,6 +522,7 @@
     },
     "CsvLogger": {
       "additionalProperties": false,
+      "description": "The history, written as it arrives.\n\nThe same numbers `training_history()` returns, one row per epoch, on disk the moment\nthe epoch ends - so a run killed at epoch 40 of 60 still leaves behind what it learned.\nCheap enough that the only reason not to add it is having nowhere to write.",
       "properties": {
         "name": {
           "const": "csv_logger",
@@ -1023,6 +1033,7 @@
     },
     "DiceLoss": {
       "additionalProperties": false,
+      "description": "Overlap, and nothing about where the error sits.\n\nThe one to reach for first on a single foreground class. It counts a wrong voxel the\nsame whether it sits in the middle of the object or a long way outside it, which is\n`boundary`'s whole reason for existing, and on a small object a single missed piece\nmoves it a lot. `smooth` is what keeps it from 0/0 on an empty mask.",
       "properties": {
         "name": {
           "const": "dice",
@@ -1044,6 +1055,7 @@
     },
     "DiceMetric": {
       "additionalProperties": false,
+      "description": "The number to report unless there is a reason not to.\n\nScored on the mask rather than on the objective, so a Dice-trained and a focal-trained\nmodel are comparable. It ranks models identically to `iou`, so reporting both is one\nresult twice; `smooth` and `include_background` are what make it flatter or honest.",
       "properties": {
         "include_background": {
           "default": true,
@@ -1071,6 +1083,7 @@
     },
     "EarlyStopping": {
       "additionalProperties": false,
+      "description": "Stop when the watched number stops improving, and keep the weights that did.\n\nWhat it buys is the epochs after the best one, which on a long run is most of the wall\nclock. The failure to watch for is stopping on noise: where the monitored number\nwanders, `patience` alone is not enough and `min_delta` is what makes an improvement\ncount. `restore_best` is on, because the last weights are by definition the ones that\nwere not improving.",
       "properties": {
         "min_delta": {
           "default": 0.0,
@@ -1111,6 +1124,7 @@
     },
     "FocalLoss": {
       "additionalProperties": false,
+      "description": "Cross-entropy that loses interest in the voxels it already gets right.\n\n`gamma` is the whole feature: at 0 this is exactly cross-entropy - measured, the two\nagree to floating point - and raising it pushes the loss onto the hard voxels. Worth\nhaving where the easy background dominates the gradient. The cost is that a model that\nis right but unconfident everywhere is barely trained at all.",
       "properties": {
         "alpha": {
           "anyOf": [
@@ -1147,6 +1161,7 @@
     },
     "FocalTverskyLoss": {
       "additionalProperties": false,
+      "description": "Tversky, with the same loss of interest in what is already right.\n\n`gamma` raises `1 - TI` to a power, so the cases near the truth stop contributing. At\n`gamma = 1` this is exactly the Tversky loss - measured - so like `focal`, the\nparameter *is* the feature. Reach for it when the asymmetry of `tversky` is wanted and\na majority of easy cases is drowning it.",
       "properties": {
         "alpha": {
           "default": 0.5,
@@ -1193,6 +1208,7 @@
     },
     "IouLoss": {
       "additionalProperties": false,
+      "description": "Dice's harsher twin: the same ordering, a lower number.\n\nWithout smoothing the coefficient is exactly `dice / (2 - dice)`, which is strictly\nincreasing - measured here over twelve predictions, the two rank them identically. So\nthe choice is about which number you want to read, not which model you get. As a loss\nthe gradients still differ, and whether that changes a trained model is not measured.",
       "properties": {
         "name": {
           "const": "iou",
@@ -1214,6 +1230,7 @@
     },
     "IouMetric": {
       "additionalProperties": false,
+      "description": "The same ordering as Dice, on the scale papers outside medicine use.\n\nWithout smoothing it is exactly `dice / (2 - dice)`, measured here, so it adds no\ninformation to a report that already carries Dice - it is the convention of the\naudience rather than a second opinion.",
       "properties": {
         "include_background": {
           "default": true,
@@ -1241,6 +1258,7 @@
     },
     "LovaszLoss": {
       "additionalProperties": false,
+      "description": "Optimise the overlap you are going to report, rather than a proxy for it.\n\nA surrogate for the Jaccard index that is differentiable without being smoothed, so it\nacts directly on the quantity `iou` is scored by. It sorts the errors of every image it\nis given, which costs more than the elementwise losses, and `per_image` decides whether\nthat happens per image or over the batch: per image is the harsher reading and on mostly\nempty images it is also the noisier one.",
       "properties": {
         "name": {
           "const": "lovasz",
@@ -1261,6 +1279,7 @@
     },
     "ModelCheckpoint": {
       "additionalProperties": false,
+      "description": "The run's safety net - one file, overwritten.\n\nNot a history and not a publication: `export_weights()` is what writes a file somebody\nelse can load, with a sidecar saying what it is. Use this so an interrupted run is not\na lost run, and `save_best_only: false` when interruption rather than the best epoch is\nwhat you are guarding against.",
       "properties": {
         "monitor": {
           "default": "val_loss",
@@ -1295,6 +1314,7 @@
     },
     "NAdam": {
       "additionalProperties": false,
+      "description": "Adam with the look-ahead that `sgd` calls `nesterov`.\n\nThe momentum term is applied before the gradient is measured rather than after. It\ntends to move faster in the first epochs and to land in the same place; worth trying\nwhere a run is slow to leave its initialisation.",
       "properties": {
         "beta_1": {
           "default": 0.9,
@@ -1346,6 +1366,7 @@
     },
     "ReduceLrOnPlateau": {
       "additionalProperties": false,
+      "description": "Cut the learning rate when the evidence says the run has stalled.\n\nThe difference from `cosine_annealing` is that this one reacts rather than follows a\nschedule, so it may never fire at all - which is why a cosine beside `swa` is refused\nand this is not. Pairs with a run whose plateau arrives at an epoch nobody can predict.",
       "properties": {
         "factor": {
           "default": 0.1,
@@ -1388,6 +1409,7 @@
     },
     "RmsProp": {
       "additionalProperties": false,
+      "description": "Adam's denominator without Adam's momentum.\n\nDivides the step by a running average of squared gradients - `alpha` is this family's\nname for Adam's `beta_2` - and leaves the direction to the raw gradient unless\n`momentum` is set. Worth trying where Adam's first moment seems to be carrying the run\npast a minimum.",
       "properties": {
         "alpha": {
           "default": 0.99,
@@ -2078,6 +2100,7 @@
     },
     "Sgd": {
       "additionalProperties": false,
+      "description": "The plain step, and the one that rewards being tuned.\n\nSlower to get going than the adaptive optimisers and dependent on `learning_rate` and\nusually on a schedule, in exchange for being the recipe most of the classification\nliterature's best numbers were produced with. `momentum` is what makes it usable;\n`nesterov` without momentum is refused rather than quietly ignored.",
       "properties": {
         "learning_rate": {
           "default": 0.001,
@@ -2194,6 +2217,7 @@
     },
     "TerminateOnNaN": {
       "additionalProperties": false,
+      "description": "End the run the moment the loss stops being a number.\n\nNo fields: there is nothing to decide. What it saves is the rest of a run that cannot\nrecover, and NaN here has causes worth knowing rather than fearing - a learning rate\nfar too high, a metric with `smooth: 0` meeting a class that is absent from an image,\nor a skeleton-based score on an empty mask.",
       "properties": {
         "name": {
           "const": "terminate_on_nan",
@@ -2208,6 +2232,7 @@
     },
     "TverskyLoss": {
       "additionalProperties": false,
+      "description": "Dice with a thumb on the scale: miss less, or over-segment less.\n\n`alpha` weights false negatives and `1 - alpha` false positives, so raise it when a\nmissed lesion costs more than a flagged healthy voxel. **At 0.5 this is Dice, but at\ntwice the smoothing** - measured: `tversky(alpha=0.5, smooth=1)` equals\n`dice(smooth=2)` exactly. Leaving `alpha` at its default is therefore not Tversky; it\nis Dice with a different floor, and that is the thing to notice when comparing runs.",
       "properties": {
         "alpha": {
           "default": 0.5,
@@ -2237,6 +2262,7 @@
     },
     "TverskyMetric": {
       "additionalProperties": false,
+      "description": "A score that can be asked to care more about what was missed.\n\nThe metric form of the loss, and useful for reporting a recall-leaning number beside\nthe symmetric one. Moving `alpha` is the only reason to choose it: at the default it is\nDice, with the same doubling of the smoothing the loss has.",
       "properties": {
         "alpha": {
           "default": 0.5,

@@ -1444,6 +1444,7 @@ Excludes both ends: at 1 the surface term is absent and the name is a lie, and a
 </section>
 <section id="loss-cce" class="level4">
 <h4 class="anchored" data-anchor-id="loss-cce"><code>cce</code></h4>
+<p>Per-pixel classification, with no notion of the object.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1459,6 +1460,7 @@ Train towards 1 - this value instead of towards 1, so the model is not pushed to
 </section>
 <section id="loss-cce_dice" class="level4">
 <h4 class="anchored" data-anchor-id="loss-cce_dice"><code>cce_dice</code></h4>
+<p>The blend to start a segmentation run with.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1479,6 +1481,7 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </section>
 <section id="loss-combo" class="level4">
 <h4 class="anchored" data-anchor-id="loss-combo"><code>combo</code></h4>
+<p>A lopsided cross-entropy blended with Dice.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1499,6 +1502,7 @@ Within the cross-entropy term, how much weight goes on the positive class. This 
 </section>
 <section id="loss-dice" class="level4">
 <h4 class="anchored" data-anchor-id="loss-dice"><code>dice</code></h4>
+<p>Overlap, and nothing about where the error sits.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1514,6 +1518,7 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </section>
 <section id="loss-focal" class="level4">
 <h4 class="anchored" data-anchor-id="loss-focal"><code>focal</code></h4>
+<p>Cross-entropy that loses interest in the voxels it already gets right.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1534,6 +1539,7 @@ Weight on the positive class, between 0 and 1. Unset means no weighting, which i
 </section>
 <section id="loss-focal_tversky" class="level4">
 <h4 class="anchored" data-anchor-id="loss-focal_tversky"><code>focal_tversky</code></h4>
+<p>Tversky, with the same loss of interest in what is already right.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1559,6 +1565,7 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </section>
 <section id="loss-iou" class="level4">
 <h4 class="anchored" data-anchor-id="loss-iou"><code>iou</code></h4>
+<p>Dice’s harsher twin: the same ordering, a lower number.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1574,6 +1581,7 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </section>
 <section id="loss-lovasz" class="level4">
 <h4 class="anchored" data-anchor-id="loss-lovasz"><code>lovasz</code></h4>
+<p>Optimise the overlap you are going to report, rather than a proxy for it.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1589,6 +1597,7 @@ Compute the loss for each image and average, rather than over the whole batch at
 </section>
 <section id="loss-tversky" class="level4">
 <h4 class="anchored" data-anchor-id="loss-tversky"><code>tversky</code></h4>
+<p>Dice with a thumb on the scale: miss less, or over-segment less.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -1612,6 +1621,7 @@ Added to both numerator and denominator so a class absent from an image gives a 
 <h3 class="anchored" data-anchor-id="metrics">Metrics</h3>
 <section id="metrics-cldice" class="level4">
 <h4 class="anchored" data-anchor-id="metrics-cldice"><code>cldice</code></h4>
+<p>Whether the structure is connected, rather than whether the voxels coincide.</p>
 <dl>
 <dt><code>smooth</code></dt>
 <dd>
@@ -1637,6 +1647,7 @@ How many times the skeleton is peeled. It has to reach the half-width of the thi
 </section>
 <section id="metrics-dice" class="level4">
 <h4 class="anchored" data-anchor-id="metrics-dice"><code>dice</code></h4>
+<p>The number to report unless there is a reason not to.</p>
 <dl>
 <dt><code>smooth</code></dt>
 <dd>
@@ -1657,6 +1668,7 @@ Which metric. These are computed on the mask rather than on the objective, so th
 </section>
 <section id="metrics-iou" class="level4">
 <h4 class="anchored" data-anchor-id="metrics-iou"><code>iou</code></h4>
+<p>The same ordering as Dice, on the scale papers outside medicine use.</p>
 <dl>
 <dt><code>smooth</code></dt>
 <dd>
@@ -1677,6 +1689,7 @@ Which metric. These are computed on the mask rather than on the objective, so th
 </section>
 <section id="metrics-tversky" class="level4">
 <h4 class="anchored" data-anchor-id="metrics-tversky"><code>tversky</code></h4>
+<p>A score that can be asked to care more about what was missed.</p>
 <dl>
 <dt><code>smooth</code></dt>
 <dd>
@@ -1705,6 +1718,7 @@ Weight on false negatives, with 1 - alpha on false positives - the same meaning 
 <h3 class="anchored" data-anchor-id="optimisers">Optimisers</h3>
 <section id="optimizer-adadelta" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-adadelta"><code>adadelta</code></h4>
+<p>Adagrad’s idea, bounded by a window instead of a sum.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1735,6 +1749,7 @@ Added to the denominator so a parameter whose gradient has been zero for a while
 </section>
 <section id="optimizer-adagrad" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-adagrad"><code>adagrad</code></h4>
+<p>Accumulates every squared gradient it has ever seen, and so slows to a stop.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1765,6 +1780,7 @@ Added to the denominator so a parameter whose gradient has been zero for a while
 </section>
 <section id="optimizer-adam" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-adam"><code>adam</code></h4>
+<p>The one to use unless there is a reason not to.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1805,6 +1821,7 @@ Keep the largest squared-gradient average seen so far rather than the current on
 </section>
 <section id="optimizer-adamax" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-adamax"><code>adamax</code></h4>
+<p>Adam under the infinity norm, which a few huge batches cannot upset.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1840,6 +1857,7 @@ Added to the denominator so a parameter whose gradient has been zero for a while
 </section>
 <section id="optimizer-adamw" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-adamw"><code>adamw</code></h4>
+<p>Adam, with weight decay that actually decays the weights.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1875,6 +1893,7 @@ Added to the denominator so a parameter whose gradient has been zero for a while
 </section>
 <section id="optimizer-nadam" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-nadam"><code>nadam</code></h4>
+<p>Adam with the look-ahead that <code>sgd</code> calls <code>nesterov</code>.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1910,6 +1929,7 @@ Added to the denominator so a parameter whose gradient has been zero for a while
 </section>
 <section id="optimizer-rmsprop" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-rmsprop"><code>rmsprop</code></h4>
+<p>Adam’s denominator without Adam’s momentum.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1945,6 +1965,7 @@ Added to the denominator so a parameter whose gradient has been zero for a while
 </section>
 <section id="optimizer-sgd" class="level4">
 <h4 class="anchored" data-anchor-id="optimizer-sgd"><code>sgd</code></h4>
+<p>The plain step, and the one that rewards being tuned.</p>
 <dl>
 <dt><code>learning_rate</code></dt>
 <dd>
@@ -1999,6 +2020,7 @@ How many epochs to spread the decay over. Unset means the model’s <code>epochs
 </section>
 <section id="callbacks-csv_logger" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-csv_logger"><code>csv_logger</code></h4>
+<p>The history, written as it arrives.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -2014,6 +2036,7 @@ Where to append one row per epoch. The same numbers <code>training_history()</co
 </section>
 <section id="callbacks-early_stopping" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-early_stopping"><code>early_stopping</code></h4>
+<p>Stop when the watched number stops improving, and keep the weights that did.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -2044,6 +2067,7 @@ Put the best weights back when training stops, rather than keeping the last - wh
 </section>
 <section id="callbacks-model_checkpoint" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-model_checkpoint"><code>model_checkpoint</code></h4>
+<p>The run’s safety net - one file, overwritten.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -2069,6 +2093,7 @@ Write only when the watched number improves. With <code>false</code> every epoch
 </section>
 <section id="callbacks-reduce_lr_on_plateau" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-reduce_lr_on_plateau"><code>reduce_lr_on_plateau</code></h4>
+<p>Cut the learning rate when the evidence says the run has stalled.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -2121,6 +2146,7 @@ Worth setting, and the reason is the whole mechanism: averaging is only worth so
 </section>
 <section id="callbacks-terminate_on_nan" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-terminate_on_nan"><code>terminate_on_nan</code></h4>
+<p>End the run the moment the loss stops being a number.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
