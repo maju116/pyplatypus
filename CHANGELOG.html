@@ -229,6 +229,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reference/save_spec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_spec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">SegmentationSpec</span></a>
   </div>
@@ -968,6 +974,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="added" class="level3">
 <h3 class="anchored" data-anchor-id="added">Added</h3>
 <ul>
+<li><p><strong><code>save_spec()</code>, the way back out of a specification.</strong> <code>from_yaml()</code> read a configuration and nothing wrote one, so the two interfaces were one pipeline and a half: an example could write the YAML of the run it had just done only by keeping the raw dict it started from. Now a specification built in code - or in R, where the bridge already drops unset arguments - becomes a file somebody else can run.</p>
+<p><strong>It writes what was set, not what the object holds</strong>, and that is the whole design. On a two-field model <code>to_dict()</code> returns 29 fields, and the difference is not verbosity: a model given <code>weights</code> and no <code>architecture</code> adopts the architecture from the weights sidecar, and the adoption fires on <code>architecture</code> <em>not being in</em> <code>model_fields_set</code>. Dump the defaults and the reloaded specification has all 29 set, so a file that looks like the original quietly stops doing what the original did. <code>defaults=True</code> is the opposite want, kept as a second mode: freeze this run exactly as it resolved, at the cost of it adopting nothing ever again.</p>
+<p>Two things only the round trip could have found, both now tests:</p>
+<p><strong>Every discriminator has to be written even when unset.</strong> <code>task</code> is the obvious one. <code>DiceLoss(smooth=0.5)</code> is the one that is easy to miss: <code>name</code> is a <code>Literal</code> with a default, so a dump of what was set gives <code>loss: {smooth: 0.5}</code> - a block with no tag, which comes back as <em>Unable to extract tag using discriminator ‘name’</em>.</p>
+<p><strong>And “annotated <code>Literal</code>” is the wrong rule for finding those tags.</strong> It also catches <code>box_loss</code> and <code>annotation_format</code>, which are choices a user makes, and writing them unset would freeze exactly the kind of default this function exists to leave out. A discriminator pins one value, so the rule counts them: measured across the spec, 31 single-value <code>Literal</code> fields, every one of them <code>name</code> or <code>task</code>, and the only two with more are those choices.</p>
+<p>Closes #120. <code>from_yaml</code>’s docstring promised this round trip through <code>as_dict()</code>, a method no spec has ever had; it now names the function that exists.</p></li>
 <li><p><strong><code>available_losses()</code>, <code>available_metrics()</code>, <code>available_models()</code>, <code>available_optimizers()</code>, <code>available_callbacks()</code> and <code>available_tasks()</code></strong> - the rest of the verb <code>available_transforms()</code> and <code>available_weights()</code> already answered. The number of named components keeps growing, and the only way to see what is on offer was to leave for a documentation site.</p>
 <p>Three columns, in the order a reader needs them: the name you pass, the arguments you may tune, and what it is for. Every row is read from the same pydantic models the schema is generated from, so <strong>a loss added to the engine appears in the listing with nothing else edited</strong> - and the tests compare each listing against the schema’s own <code>discriminator.mapping</code>, which is the authoritative answer to <em>what may I write here</em>, rather than against a list of names in a test file.</p>
 <p>The description shown is the component’s first paragraph, which is the summary line; the rest, including every measurement, stays in <code>spec_schema()</code> and in <code>help()</code>.</p>

@@ -229,6 +229,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/save_spec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_spec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">SegmentationSpec</span></a>
   </div>
@@ -743,7 +749,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h1>from_yaml</h1>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>from_yaml(path, <span class="op">*</span>, check_paths<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Read a YAML file into a spec: the same object <code>from_dict</code> builds, by the same rules.</p>
-<p>One pipeline, two ways in. A specification written by hand and one read from a file are the same thing, and <code>as_dict()</code> turns it back - which is how a worked example can write out the YAML of the run it has just done, beside the results.</p>
+<p>One pipeline, two ways in. A specification written by hand and one read from a file are the same thing, and <code>save_spec()</code> turns it back - which is how a worked example can write out the YAML of the run it has just done, beside the results. This sentence named <code>as_dict()</code> until 2026-10-11, a method no spec has ever had; the way back did not exist at all, which is what platypus#120 was filed about.</p>
 <section id="parameters" class="level2 doc-section doc-section-parameters">
 <h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
 <table class="caption-top table">
