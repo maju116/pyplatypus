@@ -1,6 +1,80 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a12] - 2026-10-12
+
+### Added
+
+ - **`fives-unet`, the third published weights, and the first that are not MIT.** A U-Net on
+   512x512 tiles over FIVES' 2048x2048 fundus photographs, trained on the dataset's own split
+   and pinned in the registry at `c4492f7a`. `weights: fives-unet` fetches it, the sidecar
+   refuses a model it does not belong to, and nothing about the numbers can change under the
+   name.
+
+   Measured on the 200 held-out images, seed 1, one score per image on masks reassembled from
+   the tiles:
+
+        Dice      mean 0.8789  sd 0.1051  median 0.9092  worst 0.1055 (122_G)
+        IoU       mean 0.7956  sd 0.1280  median 0.8335
+        clDice    mean 0.8330  sd 0.1268  median 0.8714
+
+   40 epochs were asked for; `early_stopping` stopped at 24 and restored epoch 16. The
+   previous 40-epoch retinal run measured 0.8509, so stopping earlier cost nothing.
+
+   **The per-disease table reads picture quality as pathology, and the card says so before it
+   says anything else.** FIVES ships a quality grading - every image rated for illumination and
+   contrast, blur, and low contrast - that nothing in the training pipeline uses, and **14 of
+   the 15 test images flagged for low contrast are glaucoma**:
+
+                              all images   graded clean on all three axes
+        AMD                   0.9107       0.9229  n=42
+        diabetic retinopathy  0.8818       0.9056  n=36
+        glaucoma              0.8347       0.9315  n=22
+        normal                0.8884       0.9006  n=33
+
+        graded clean   n=133  dice 0.9141
+        graded poor    n= 67  dice 0.8089
+
+   Glaucoma is the weakest group over all 200 images and the **strongest** over the 133 graded
+   clean. The 0.1052 between clean and flagged images is larger than the 0.0761 between the
+   best and worst disease, and larger again than the 0.0309 between them once the flagged
+   images are set aside. A card reporting `glaucoma 0.83` beside `normal 0.89` would invite a
+   clinical conclusion that is wrong, so every figure on it is generated from the run rather
+   than typed, and the generator refuses to print if that ordering ever stops holding.
+
+   **`weights_licence` is CC BY 4.0, not MIT.** `dsbowl-unet` was trained on CC0 data and
+   `bccd-yolo3` on MIT, so neither constrained anything. FIVES is CC BY 4.0, these weights are
+   plausibly a derivative work, and attribution therefore travels with them: the sidecar
+   carries the citation, the source and the licence, the registry description says so, and the
+   Hub repository now declares `license: other` with `license_name: mit-and-cc-by-4.0` because
+   one field cannot describe three files under two licences.
+
+ - **`examples/publish_fives_weights.py`**, which produced them. The configuration is imported
+   from `examples/segment_retinal_vessels.py` rather than copied, so the published weights are
+   the run that example documents and the two cannot drift. It uploads nothing, on purpose. Its
+   one deviation is a `model_checkpoint` watching `val_dice` - the metric the example's
+   `early_stopping` watches, because `restore_best` hands back the epoch the stopping rule
+   chose and two monitors would leave a file on disk from one epoch while the published weights
+   came from another.
+
+   It also refuses to write anything if the mean Dice comes in under `--floor 0.80`, or if the
+   quality grading does not hold the three counts every claim on the card depends on: 200
+   graded, 15 flagged for low contrast, 14 of those glaucoma. Under the opposite polarity it
+   would be 185 images - not a flag - and the glaucoma share would be chance.
+
+ - **The published file was loaded the way a user reaches it, before this entry was written.**
+   `weights: fives-unet` with `fit: false`, resolved through the registry, downloaded from the
+   pinned commit into a cache that had never seen it, sidecar checked, and scored on the same
+   200 images: Dice, IoU, clDice and all four graded-clean per-disease means came back
+   **identical to the published sidecar, to every digit**, and the downloaded file is
+   byte-identical to the local one. Green on both halves proves the halves; this is the join.
+
+### For the R package
+
+The pin moves to `0.8.0a12` and nothing else is needed: `available_weights()` reads the
+registry from the engine, so the third name appears on the R side as soon as the pin does.
+`platypus#131` is the issue, and it stays open until that lands.
+
 ## [0.8.0a11] - 2026-10-11
 
 ### Added

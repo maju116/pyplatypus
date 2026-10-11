@@ -31,6 +31,11 @@ sys.path.insert(0, str(EXAMPLES))
 
 PLACEHOLDER = {"int": 1, "float": 0.5, "str": "x", None: "x"}
 
+#: Every script in `examples/`, read from the directory rather than named here. The list this
+#: replaces was six names somebody had to remember to extend, which is the same oversight in
+#: smaller form as the one this file was written for: nothing was watching the examples at all.
+SCRIPTS = sorted(path.stem for path in EXAMPLES.glob("*.py"))
+
 
 def _declared_arguments(name: str) -> Namespace:
     """Every `--flag` the script declares, with its default, as a Namespace.
@@ -120,16 +125,111 @@ def test_detection_configuration_is_accepted():
     assert config["task"] == "object_detection"
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "compare_dsbowl_architectures",
-        "compare_pretrained_encoders",
-        "publish_dsbowl_weights",
-        "detect_blood_cells",
-        "segment_retinal_vessels",
-    ],
-)
+def test_published_fives_weights_configuration_is_accepted():
+    """The published weights' configuration is the example's, and the flags have to match.
+
+    `publish_fives_weights.py` hands its own `arguments` to the example's `specification()`,
+    so every flag that function reads has to be declared here too - a coupling nothing else
+    would notice until six hours into a run. `_declared_arguments` reads the publishing
+    script's parser, so a flag the example grows and the publisher does not raises
+    `AttributeError` in this test rather than in the dark.
+    """
+    import publish_fives_weights as script
+    import segment_retinal_vessels as example
+
+    arguments = _declared_arguments("publish_fives_weights")
+    splits = {name: Path(f"{name}.csv") for name in ("train", "test")}
+    config = script.with_checkpoint(example.specification(splits, arguments), Path("weights"))
+    _validate(config)
+
+    watched = {entry["name"]: entry.get("monitor") for entry in config["models"][0]["callbacks"]}
+    assert watched["model_checkpoint"] == watched["early_stopping"], (
+        "the checkpoint and the stopping rule have to watch the same metric: `restore_best` "
+        "hands back the epoch the stopping rule chose, so two monitors means the file on disk "
+        "and the weights that get published come from different epochs"
+    )
+
+
+def test_the_card_names_the_weakest_group_in_each_table():
+    """The card's one sentence of argument reads two tables, and swapping them would invert it.
+
+    Everything else on the card is a number substituted into a table. This sentence is the
+    conclusion - which group is weakest over all images, and which over the ones graded clean -
+    and it is the part a reader quotes. The two names are deliberately different here, so
+    reading either table twice fails rather than coincidentally agreeing.
+    """
+    import publish_fives_weights as script
+
+    distribution = {"n": 50, "mean": 0.5, "sd": 0.1, "min": 0.1}
+    measured = {
+        "seed": 1,
+        "epochs": 40,
+        "epochs_run": 24,
+        "per_case": {
+            "dice": {**distribution, "mean": 0.8},
+            "cldice": {**distribution, "mean": 0.7},
+        },
+        "by_disease": {
+            "dice": {
+                "alpha": {**distribution, "mean": 0.50},
+                "beta": {**distribution, "mean": 0.90},
+            }
+        },
+        "by_disease_clean": {
+            "dice": {
+                "alpha": {**distribution, "mean": 0.95},
+                "beta": {**distribution, "mean": 0.60},
+            }
+        },
+        "by_quality": {
+            "dice": {
+                "graded_clean": {**distribution, "n": 133},
+                "graded_poor": {**distribution, "n": 67},
+            }
+        },
+    }
+
+    paragraph = " ".join(script.card(measured).split())
+    assert (
+        "`alpha` is the weakest group over all images and `beta` over the clean ones" in paragraph
+    ), (
+        "the sentence has to read the all-images table and the graded-clean table, in that "
+        "order; this is the claim the card is quoted for"
+    )
+
+
+def _graded(flagged: list[str]) -> dict[str, dict[str, int]]:
+    """200 test images keyed as FIVES names them, with `flagged` the low-contrast ones."""
+    keys = [f"{number}_{disease}" for disease in "ADGN" for number in range(1, 51)]
+    return {
+        key: {"illumination_contrast": 1, "blur": 1, "low_contrast": int(key not in flagged)}
+        for key in keys
+    }
+
+
+def test_the_quality_polarity_check_can_refuse():
+    """The card's whole argument rests on 1 meaning *good*, so the check has to reject the
+    other reading rather than establish the polarity it assumed."""
+    import publish_fives_weights as script
+
+    # What the sheet holds: 15 images flagged for low contrast, 14 of them glaucoma.
+    flagged = [f"{number}_G" for number in range(1, 15)] + ["1_N"]
+    script.check_polarity(_graded(flagged))
+
+    inverted = {
+        key: {**grades, "low_contrast": 1 - grades["low_contrast"]}
+        for key, grades in _graded(flagged).items()
+    }
+    with pytest.raises(SystemExit, match="do not publish"):
+        script.check_polarity(inverted)
+
+
+def test_the_examples_were_found():
+    """An empty glob parametrizes nothing, and zero tests read exactly like six passing ones."""
+    assert len(SCRIPTS) >= 6, SCRIPTS
+
+
+@pytest.mark.parametrize("name", SCRIPTS)
 def test_every_example_imports(name):
     """Importing is its own assertion: a script naming a function the package has dropped
     fails here rather than in front of whoever copied it."""
