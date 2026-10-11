@@ -1,0 +1,10 @@
+# Blank issues stay enabled on purpose. The forms exist to stop a bug report arriving without
+# a version, not to turn away anything that does not fit them.
+blank_issues_enabled: true
+contact_links:
+  - name: The R package (platypus)
+    url: https://github.com/maju116/platypus/issues
+    about: >
+      Most people reach this engine through platypus, an R package that pins one exact
+      version of it. If you are writing R, file it there - the issue is more likely to be
+      about the surface than about the engine, and it is easier to move one than to find it.
