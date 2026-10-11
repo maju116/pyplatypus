@@ -419,7 +419,14 @@ def main() -> None:
     print(f"\nwrote {path}")
     print(f"      {path.with_suffix('.json')}")
     print(f"      {out / 'fives-unet-card.md'}")
-    print("\nUpload all three, then add the commit to REGISTRY in pyplatypus/weights.py.")
+    # Two files, not three. On the Hub one card holds one section per model - which is how
+    # the two already-published weights are written - so the card here is the generated source
+    # for a section of that `README.md` rather than a file of its own.
+    print(
+        f"\nUpload {(out / 'fives-unet.safetensors').name} and {(out / 'fives-unet.json').name}, "
+        f"and fold {(out / 'fives-unet-card.md').name} into the Hub repository's README.md as "
+        "a section. Then add the commit to REGISTRY in pyplatypus/weights.py."
+    )
 
 
 if __name__ == "__main__":
