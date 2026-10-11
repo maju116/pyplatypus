@@ -7,6 +7,7 @@ on the final one only - which is the prediction the user will actually receive.
 
 from __future__ import annotations
 
+import os
 import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
@@ -49,7 +50,7 @@ class History:
         return {"records": self.records, "stop_reason": self.stop_reason}
 
 
-def seed_everything(seed: int | None) -> None:
+def seed_everything(seed: int | None, *, deterministic: bool = False) -> None:
     """Make a run reproducible, as far as it can be made reproducible.
 
     `seed` has been a field on the specification since the first release, described as
@@ -58,9 +59,20 @@ def seed_everything(seed: int | None) -> None:
     and two runs of it disagreed. Found while wiring detection in, where the anchors are
     fitted by k-means and the seed had to come from somewhere.
 
-    What this does not do is ask torch for deterministic algorithms. That makes some
-    convolutions much slower and makes others raise, and the result would be a seed that
-    sometimes refuses to run at all.
+    `deterministic=True` asks torch for deterministic algorithms as well, which is the only
+    way the CUDA half below changes. It is an opt-in rather than the default because the cost
+    is real and lands at an unusual time: some convolutions become much slower, and an
+    operation with no deterministic implementation **raises when it is reached**, so a run
+    can fail ten minutes in rather than when the specification was checked. Every other
+    refusal in this package arrives before anything is read, and this one cannot, because
+    whether an operation has a deterministic algorithm is a fact about the installed torch
+    and the device rather than about the configuration.
+
+    It also sets `CUBLAS_WORKSPACE_CONFIG` when nothing else has: on CUDA 10.2 and later,
+    cuBLAS needs that variable for its matmuls to be deterministic and torch raises if it is
+    missing. The variable is read when CUDA initialises, so setting it here works only while
+    nothing has touched the device yet - which is why this runs from the engine's
+    constructor and not from `fit()`.
 
     **That last sentence used to read "two runs at one seed on one machine agree", and the
     half of it that mattered was false.** It is true on the processor and not on a card:
@@ -71,6 +83,16 @@ def seed_everything(seed: int | None) -> None:
     nothing tests it, because asserting that two runs *differ* would pass by luck and fail
     by luck. See platypus#122.
     """
+    if deterministic:
+        # Before anything else: the variable has to be in place before CUDA initialises, and
+        # an existing value is somebody's deliberate choice (`:16:8` trades memory for speed).
+        os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        torch.use_deterministic_algorithms(True)
+        torch.backends.cudnn.deterministic = True
+        # Otherwise cuDNN benchmarks the available algorithms and picks per shape, which is
+        # the thing that made two runs at one seed differ in the fourth decimal.
+        torch.backends.cudnn.benchmark = False
+
     if seed is None:
         return
     import random
