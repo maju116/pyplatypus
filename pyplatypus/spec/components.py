@@ -57,16 +57,40 @@ class _Loss(SpecModel):
 
 
 class IouLoss(_Loss):
+    """Dice's harsher twin: the same ordering, a lower number.
+
+    Without smoothing the coefficient is exactly `dice / (2 - dice)`, which is strictly
+    increasing - measured here over twelve predictions, the two rank them identically. So
+    the choice is about which number you want to read, not which model you get. As a loss
+    the gradients still differ, and whether that changes a trained model is not measured.
+    """
+
     name: Literal["iou"] = Field("iou", description=_LOSS_NAME)
     smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
 class DiceLoss(_Loss):
+    """Overlap, and nothing about where the error sits.
+
+    The one to reach for first on a single foreground class. It counts a wrong voxel the
+    same whether it sits in the middle of the object or a long way outside it, which is
+    `boundary`'s whole reason for existing, and on a small object a single missed piece
+    moves it a lot. `smooth` is what keeps it from 0/0 on an empty mask.
+    """
+
     name: Literal["dice"] = Field("dice", description=_LOSS_NAME)
     smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
 class CceLoss(_Loss):
+    """Per-pixel classification, with no notion of the object.
+
+    Healthy gradients from the first epoch, which the overlap losses do not have while
+    everything is still wrong. The cost is that it optimises what is numerous: with a
+    background of 95% of the voxels, which in medical images is ordinary, it is mostly
+    learning the background. That is what `cce_dice` exists to fix.
+    """
+
     name: Literal["cce"] = Field("cce", description=_LOSS_NAME)
     label_smoothing: float = Field(
         0.0,
@@ -81,6 +105,14 @@ class CceLoss(_Loss):
 
 
 class CceDiceLoss(_Loss):
+    """The blend to start a segmentation run with.
+
+    Cross-entropy keeps the gradients healthy while everything is wrong, Dice pulls the
+    overlap up once the easy voxels are done. `cce_weight` is the split, and at 0 or 1 it
+    is one of the two alone - which is worth knowing before tuning it as if it were a
+    third thing.
+    """
+
     name: Literal["cce_dice"] = Field("cce_dice", description=_LOSS_NAME)
     cce_weight: float = Field(
         0.5,
@@ -96,6 +128,14 @@ class CceDiceLoss(_Loss):
 
 
 class FocalLoss(_Loss):
+    """Cross-entropy that loses interest in the voxels it already gets right.
+
+    `gamma` is the whole feature: at 0 this is exactly cross-entropy - measured, the two
+    agree to floating point - and raising it pushes the loss onto the hard voxels. Worth
+    having where the easy background dominates the gradient. The cost is that a model that
+    is right but unconfident everywhere is barely trained at all.
+    """
+
     name: Literal["focal"] = Field("focal", description=_LOSS_NAME)
     gamma: float = Field(
         2.0,
@@ -118,6 +158,15 @@ class FocalLoss(_Loss):
 
 
 class TverskyLoss(_Loss):
+    """Dice with a thumb on the scale: miss less, or over-segment less.
+
+    `alpha` weights false negatives and `1 - alpha` false positives, so raise it when a
+    missed lesion costs more than a flagged healthy voxel. **At 0.5 this is Dice, but at
+    twice the smoothing** - measured: `tversky(alpha=0.5, smooth=1)` equals
+    `dice(smooth=2)` exactly. Leaving `alpha` at its default is therefore not Tversky; it
+    is Dice with a different floor, and that is the thing to notice when comparing runs.
+    """
+
     name: Literal["tversky"] = Field("tversky", description=_LOSS_NAME)
     alpha: float = Field(
         0.5,
@@ -139,6 +188,14 @@ class TverskyLoss(_Loss):
 
 
 class FocalTverskyLoss(_Loss):
+    """Tversky, with the same loss of interest in what is already right.
+
+    `gamma` raises `1 - TI` to a power, so the cases near the truth stop contributing. At
+    `gamma = 1` this is exactly the Tversky loss - measured - so like `focal`, the
+    parameter *is* the feature. Reach for it when the asymmetry of `tversky` is wanted and
+    a majority of easy cases is drowning it.
+    """
+
     name: Literal["focal_tversky"] = Field("focal_tversky", description=_LOSS_NAME)
     alpha: float = Field(
         0.5,
@@ -161,6 +218,15 @@ class FocalTverskyLoss(_Loss):
 
 
 class ComboLoss(_Loss):
+    """A lopsided cross-entropy blended with Dice.
+
+    Two knobs that answer two different questions: `ce_ratio` tilts the cross-entropy
+    between punishing missed foreground and punishing false alarms, and `alpha` sets how
+    much of the total each half provides. Worth having when both the class imbalance and
+    the direction of the error matter; `cce_dice` is the simpler answer when only the
+    first does.
+    """
+
     name: Literal["combo"] = Field("combo", description=_LOSS_NAME)
     alpha: float = Field(
         0.5,
@@ -183,6 +249,15 @@ class ComboLoss(_Loss):
 
 
 class LovaszLoss(_Loss):
+    """Optimise the overlap you are going to report, rather than a proxy for it.
+
+    A surrogate for the Jaccard index that is differentiable without being smoothed, so it
+    acts directly on the quantity `iou` is scored by. It sorts the errors of every image it
+    is given, which costs more than the elementwise losses, and `per_image` decides whether
+    that happens per image or over the batch: per image is the harsher reading and on mostly
+    empty images it is also the noisier one.
+    """
+
     name: Literal["lovasz"] = Field("lovasz", description=_LOSS_NAME)
     per_image: bool = Field(
         False,
@@ -328,14 +403,35 @@ _METRIC_NAME = (
 
 
 class IouMetric(_Overlap):
+    """The same ordering as Dice, on the scale papers outside medicine use.
+
+    Without smoothing it is exactly `dice / (2 - dice)`, measured here, so it adds no
+    information to a report that already carries Dice - it is the convention of the
+    audience rather than a second opinion.
+    """
+
     name: Literal["iou"] = Field("iou", description=_METRIC_NAME)
 
 
 class DiceMetric(_Overlap):
+    """The number to report unless there is a reason not to.
+
+    Scored on the mask rather than on the objective, so a Dice-trained and a focal-trained
+    model are comparable. It ranks models identically to `iou`, so reporting both is one
+    result twice; `smooth` and `include_background` are what make it flatter or honest.
+    """
+
     name: Literal["dice"] = Field("dice", description=_METRIC_NAME)
 
 
 class TverskyMetric(_Overlap):
+    """A score that can be asked to care more about what was missed.
+
+    The metric form of the loss, and useful for reporting a recall-leaning number beside
+    the symmetric one. Moving `alpha` is the only reason to choose it: at the default it is
+    Dice, with the same doubling of the smoothing the loss has.
+    """
+
     name: Literal["tversky"] = Field("tversky", description=_METRIC_NAME)
     alpha: float = Field(
         0.5,
@@ -351,6 +447,24 @@ class TverskyMetric(_Overlap):
 
 
 class ClDiceMetric(_Overlap):
+    """Whether the structure is connected, rather than whether the voxels coincide.
+
+    The one metric here that measures a property of the whole mask: it scores the overlap
+    of the prediction's skeleton with the truth's, so a vessel broken into two pieces loses
+    where Dice barely notices. Measured on a constructed pair - a vessel drawn two voxels
+    thinner, against the same vessel cut in half - Dice reads 0.8750 and 0.9474 and so
+    *prefers* the severed one, while this reads 1.0000 and 0.9425 and does not. Both pairs
+    are pinned by a test.
+
+    **What it was worth on a real model**, FIVES, 200 cases: correlation 0.9779 with Dice,
+    mean difference +0.0041, 127 cases higher and 73 lower. At that quality it is not
+    telling a different story - which is itself the result, and the reason to read both.
+
+    Not a drop-in. A one-voxel structure displaced by one voxel scores 0, the skeleton
+    needs a whole mask so a tiled run reports it per case through `evaluate_cases`, and it
+    is absent from the per-epoch history for the same reason.
+    """
+
     name: Literal["cldice"] = Field(
         "cldice",
         description=(
@@ -442,6 +556,16 @@ class _Optimizer(SpecModel):
 
 
 class Adam(_Optimizer):
+    """The one to use unless there is a reason not to.
+
+    Adapts the step per parameter, which is why it usually trains without anything being
+    tuned except `learning_rate`. **No run in this project has measured one of these eight
+    against another on segmentation**, so the honest reading of the list is: this is the
+    default, `sgd` with momentum is the literature's recipe when you are prepared to tune a
+    schedule, and the rest are here because a configuration should be able to name what
+    torch offers.
+    """
+
     name: Literal["adam"] = Field("adam", description=_OPTIMIZER_NAME)
     beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
     beta_2: float = Field(0.999, ge=0, lt=1, description=_BETA_2)
@@ -458,6 +582,14 @@ class Adam(_Optimizer):
 
 
 class AdamW(_Optimizer):
+    """Adam, with weight decay that actually decays the weights.
+
+    Adam applies decay through the gradient, where the adaptive step then rescales it;
+    AdamW applies it to the weights directly. That is the entire difference, and it is why
+    the default here is 0.01 rather than Adam's 0 - choosing AdamW and leaving the decay at
+    zero leaves nothing to choose.
+    """
+
     name: Literal["adamw"] = Field("adamw", description=_OPTIMIZER_NAME)
     beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
     beta_2: float = Field(0.999, ge=0, lt=1, description=_BETA_2)
@@ -474,6 +606,14 @@ class AdamW(_Optimizer):
 
 
 class Sgd(_Optimizer):
+    """The plain step, and the one that rewards being tuned.
+
+    Slower to get going than the adaptive optimisers and dependent on `learning_rate` and
+    usually on a schedule, in exchange for being the recipe most of the classification
+    literature's best numbers were produced with. `momentum` is what makes it usable;
+    `nesterov` without momentum is refused rather than quietly ignored.
+    """
+
     name: Literal["sgd"] = Field("sgd", description=_OPTIMIZER_NAME)
     momentum: float = Field(0.0, ge=0, description=_MOMENTUM)
     nesterov: bool = Field(
@@ -493,6 +633,14 @@ class Sgd(_Optimizer):
 
 
 class RmsProp(_Optimizer):
+    """Adam's denominator without Adam's momentum.
+
+    Divides the step by a running average of squared gradients - `alpha` is this family's
+    name for Adam's `beta_2` - and leaves the direction to the raw gradient unless
+    `momentum` is set. Worth trying where Adam's first moment seems to be carrying the run
+    past a minimum.
+    """
+
     name: Literal["rmsprop"] = Field("rmsprop", description=_OPTIMIZER_NAME)
     alpha: float = Field(
         0.99,
@@ -508,6 +656,14 @@ class RmsProp(_Optimizer):
 
 
 class Adagrad(_Optimizer):
+    """Accumulates every squared gradient it has ever seen, and so slows to a stop.
+
+    Each parameter's step shrinks monotonically, which suits features that appear rarely
+    and does not suit images, where every voxel contributes at every step. On a long run it
+    can stop learning without the loss ever looking wrong; `adadelta` is the same idea with
+    a window instead of a sum.
+    """
+
     name: Literal["adagrad"] = Field("adagrad", description=_OPTIMIZER_NAME)
     lr_decay: float = Field(
         0.0,
@@ -522,6 +678,14 @@ class Adagrad(_Optimizer):
 
 
 class Adadelta(_Optimizer):
+    """Adagrad's idea, bounded by a window instead of a sum.
+
+    `rho` is the length of that window and is the parameter that keeps the step from
+    shrinking to nothing. Formulated to need no learning rate at all, though torch still
+    takes one and this specification still carries it - so a run that leaves
+    `learning_rate` at its default is not using the original method.
+    """
+
     name: Literal["adadelta"] = Field("adadelta", description=_OPTIMIZER_NAME)
     rho: float = Field(
         0.9,
@@ -536,6 +700,14 @@ class Adadelta(_Optimizer):
 
 
 class Adamax(_Optimizer):
+    """Adam under the infinity norm, which a few huge batches cannot upset.
+
+    The second moment tracks the largest gradient seen rather than the average of their
+    squares, so the step is steadier where a handful of batches carry very large gradients
+    - a small dataset with one outlier case, for instance. Where none do, it is Adam with
+    an extra decision to explain.
+    """
+
     name: Literal["adamax"] = Field("adamax", description=_OPTIMIZER_NAME)
     beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
     beta_2: float = Field(
@@ -552,6 +724,13 @@ class Adamax(_Optimizer):
 
 
 class NAdam(_Optimizer):
+    """Adam with the look-ahead that `sgd` calls `nesterov`.
+
+    The momentum term is applied before the gradient is measured rather than after. It
+    tends to move faster in the first epochs and to land in the same place; worth trying
+    where a run is slow to leave its initialisation.
+    """
+
     name: Literal["nadam"] = Field("nadam", description=_OPTIMIZER_NAME)
     beta_1: float = Field(0.9, ge=0, lt=1, description=_BETA_1)
     beta_2: float = Field(0.999, ge=0, lt=1, description=_BETA_2)
@@ -586,6 +765,15 @@ _PATIENCE = "Epochs to wait, with no improvement, before acting."
 
 
 class EarlyStopping(_Callback):
+    """Stop when the watched number stops improving, and keep the weights that did.
+
+    What it buys is the epochs after the best one, which on a long run is most of the wall
+    clock. The failure to watch for is stopping on noise: where the monitored number
+    wanders, `patience` alone is not enough and `min_delta` is what makes an improvement
+    count. `restore_best` is on, because the last weights are by definition the ones that
+    were not improving.
+    """
+
     name: Literal["early_stopping"] = Field("early_stopping", description=_CALLBACK_NAME)
     monitor: str = Field("val_loss", description=_MONITOR)
     patience: int = Field(10, ge=1, description=_PATIENCE)
@@ -608,6 +796,14 @@ class EarlyStopping(_Callback):
 
 
 class ModelCheckpoint(_Callback):
+    """The run's safety net - one file, overwritten.
+
+    Not a history and not a publication: `export_weights()` is what writes a file somebody
+    else can load, with a sidecar saying what it is. Use this so an interrupted run is not
+    a lost run, and `save_best_only: false` when interruption rather than the best epoch is
+    what you are guarding against.
+    """
+
     name: Literal["model_checkpoint"] = Field("model_checkpoint", description=_CALLBACK_NAME)
     path: str = Field(
         description=(
@@ -628,6 +824,13 @@ class ModelCheckpoint(_Callback):
 
 
 class ReduceLrOnPlateau(_Callback):
+    """Cut the learning rate when the evidence says the run has stalled.
+
+    The difference from `cosine_annealing` is that this one reacts rather than follows a
+    schedule, so it may never fire at all - which is why a cosine beside `swa` is refused
+    and this is not. Pairs with a run whose plateau arrives at an epoch nobody can predict.
+    """
+
     name: Literal["reduce_lr_on_plateau"] = Field(
         "reduce_lr_on_plateau", description=_CALLBACK_NAME
     )
@@ -745,6 +948,13 @@ class Swa(_Callback):
 
 
 class CsvLogger(_Callback):
+    """The history, written as it arrives.
+
+    The same numbers `training_history()` returns, one row per epoch, on disk the moment
+    the epoch ends - so a run killed at epoch 40 of 60 still leaves behind what it learned.
+    Cheap enough that the only reason not to add it is having nowhere to write.
+    """
+
     name: Literal["csv_logger"] = Field("csv_logger", description=_CALLBACK_NAME)
     path: str = Field(
         description=(
@@ -756,6 +966,14 @@ class CsvLogger(_Callback):
 
 
 class TerminateOnNaN(_Callback):
+    """End the run the moment the loss stops being a number.
+
+    No fields: there is nothing to decide. What it saves is the rest of a run that cannot
+    recover, and NaN here has causes worth knowing rather than fearing - a learning rate
+    far too high, a metric with `smooth: 0` meeting a class that is absent from an image,
+    or a skeleton-based score on an empty mask.
+    """
+
     name: Literal["terminate_on_nan"] = Field("terminate_on_nan", description=_CALLBACK_NAME)
 
 
