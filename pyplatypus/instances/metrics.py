@@ -1,0 +1,194 @@
+"""Average precision over instances, the way the Data Science Bowl scored it.
+
+**This is not the detection module's mAP and the difference is not cosmetic.** Four
+decisions separate them, and two numbers both honestly called "average precision" differ by
+tens of points on identical predictions, so each is named here rather than assumed.
+
+**The formula is the challenge's: `TP / (TP + FP + FN)` at each IoU threshold, averaged over
+the thresholds.** It is not a precision-recall curve and nothing is interpolated, because
+nothing is ranked - an instance post-process produces regions, not scored proposals. The
+detection module pools predictions across images and integrates a curve; doing that here
+would need a confidence per instance that no post-process in this package produces.
+
+**Thresholds run 0.5 to 0.95 in steps of 0.05, and anything below 0.5 is refused.** At an
+IoU strictly above 0.5 a prediction can satisfy at most one truth object and a truth object
+at most one prediction: each of two disjoint regions clearing 0.5 would have to cover more
+than half of the same third region, and two halves do not fit in one whole. So counting
+matches needs no assignment algorithm and the count is exactly the one a greedy matcher would
+reach. **The strictness is load-bearing** - the comparison is `iou > threshold`, not `>=`,
+and with `>=` the threshold 0.5 the challenge itself uses would admit two predictions each
+covering exactly half of one object. Below 0.5 no comparison saves it: one prediction can
+match several objects and TP is silently inflated, so it is refused rather than quietly
+turned into a different metric.
+
+**The mean is over images, not over objects.** That is the leaderboard's quantity: an image
+of 2 nuclei weighs as much as one of 375, and this dataset holds both. A ratio of pooled
+counts would be a defensible number and a different one, so `summarise_instances` reports
+both and names which is the challenge's.
+
+**Instances are a label map, and overlapping truth is refused.** One integer per pixel,
+which is all this dataset needs and all that can be scored without deciding what an overlap
+means. Making the mask layer hold more than one thing per pixel is open work -
+`pyplatypus#158`, with `pyplatypus#91` - and a metric that quietly took the topmost label
+would answer the question wrongly rather than decline it.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+
+import numpy as np
+
+from pyplatypus.errors import PlatypusError
+
+#: 0.5 to 0.95 in steps of 0.05, which is what the 2018 Data Science Bowl swept.
+CHALLENGE_THRESHOLDS: tuple[float, ...] = tuple(round(0.5 + 0.05 * step, 2) for step in range(10))
+
+
+class InstanceError(PlatypusError):
+    kind = "instance_error"
+
+
+def label_map(masks: Sequence[np.ndarray]) -> np.ndarray:
+    """One integer per pixel from a list of per-object masks, refusing overlap.
+
+    The Data Science Bowl stores one PNG per nucleus, which is the representation this reads;
+    `unite_masks()` is the other thing to do with those files and it takes the element-wise
+    maximum, so it is where instance identity is thrown away.
+
+    Overlap is refused rather than resolved. Two objects claiming a pixel is either a dataset
+    this metric cannot score or a representation question that is open on purpose
+    (`pyplatypus#158`); either way the honest answer is not to pick one.
+    """
+    if not masks:
+        raise InstanceError("no instance masks to label")
+    shape = masks[0].shape
+    labels = np.zeros(shape, dtype=np.int32)
+    for index, mask in enumerate(masks, start=1):
+        if mask.shape != shape:
+            raise InstanceError(
+                f"instance {index - 1} has shape {mask.shape} but instance 0 has {shape}; "
+                "every mask for one image has to cover the same grid"
+            )
+        taken = (labels > 0) & (mask > 0)
+        if taken.any():
+            raise InstanceError(
+                f"instance {index - 1} overlaps an earlier one on {int(taken.sum())} pixels. "
+                "This metric scores a label map, which holds one object per pixel; a mask "
+                "layer that holds more than one is open work (pyplatypus#158)"
+            )
+        labels[mask > 0] = index
+    return labels
+
+
+def iou_matrix(truth: np.ndarray, predicted: np.ndarray) -> np.ndarray:
+    """Pairwise IoU between every truth label and every predicted label.
+
+    Computed from a contingency table rather than pair by pair: at 375 instances in one
+    image - which this dataset has - the pairwise form is 140,000 full-image comparisons and
+    this is one pass. Background is label 0 and is not an object on either side.
+    """
+    if truth.shape != predicted.shape:
+        raise InstanceError(
+            f"truth is {truth.shape} and the prediction is {predicted.shape}; "
+            "they have to cover the same grid to be compared"
+        )
+    n_truth, n_predicted = int(truth.max()), int(predicted.max())
+    if n_truth == 0 or n_predicted == 0:
+        return np.zeros((n_truth, n_predicted), dtype=np.float64)
+
+    # One bin per (truth, predicted) pair, background included, so the row and column sums
+    # below are the object areas without a second pass over the image.
+    flat = truth.ravel().astype(np.int64) * (n_predicted + 1) + predicted.ravel().astype(np.int64)
+    table = np.bincount(flat, minlength=(n_truth + 1) * (n_predicted + 1)).reshape(
+        n_truth + 1, n_predicted + 1
+    )
+    intersection = table[1:, 1:].astype(np.float64)
+    truth_area = table[1:, :].sum(axis=1, keepdims=True).astype(np.float64)
+    predicted_area = table[:, 1:].sum(axis=0, keepdims=True).astype(np.float64)
+    union = truth_area + predicted_area - intersection
+    return np.divide(intersection, union, out=np.zeros_like(intersection), where=union > 0)
+
+
+def average_precision(
+    iou: np.ndarray, thresholds: Sequence[float] = CHALLENGE_THRESHOLDS
+) -> float | None:
+    """The challenge's per-image score from an IoU matrix, or `None` when there is nothing to score.
+
+    `None` rather than zero when the image holds no truth objects and nothing was predicted:
+    zero would say the prediction was wrong where there was nothing to be wrong about, and it
+    would drag a mean down for images that contain nothing. The detection module reports a
+    class with no ground truth the same way and for the same reason.
+    """
+    for threshold in thresholds:
+        if threshold < 0.5:
+            raise InstanceError(
+                f"threshold {threshold} is below 0.5, where one prediction can satisfy two "
+                "truth objects and the match is no longer one to one. From 0.5 up, counting "
+                "matches is exact because the comparison is strict; below it this would need "
+                "an assignment algorithm and would not be the challenge's number"
+            )
+    n_truth, n_predicted = iou.shape
+    if n_truth == 0 and n_predicted == 0:
+        return None
+
+    scores = []
+    for threshold in thresholds:
+        hit = iou > threshold
+        true_positive = int(hit.any(axis=1).sum()) if n_truth else 0
+        false_negative = n_truth - true_positive
+        false_positive = n_predicted - true_positive
+        scores.append(true_positive / (true_positive + false_positive + false_negative))
+    return float(np.mean(scores))
+
+
+def score_cases(
+    cases: Sequence[tuple[str, np.ndarray, np.ndarray]],
+    thresholds: Sequence[float] = CHALLENGE_THRESHOLDS,
+) -> list[dict]:
+    """One row per case: the score, and the counts that explain it.
+
+    The counts are at the lowest threshold, which is where a prediction looks its best - so a
+    row with many objects found and a low score is one whose masks are roughly right and
+    precisely wrong, and the two failures read differently.
+    """
+    rows = []
+    for name, truth, predicted in cases:
+        iou = iou_matrix(truth, predicted)
+        lowest = min(thresholds)
+        hit = iou > lowest
+        matched = int(hit.any(axis=1).sum()) if iou.size else 0
+        rows.append(
+            {
+                "case": name,
+                "average_precision": average_precision(iou, thresholds),
+                "truth": int(iou.shape[0]),
+                "predicted": int(iou.shape[1]),
+                f"matched_at_{lowest}": matched,
+            }
+        )
+    return rows
+
+
+def summarise_instances(rows: Sequence[dict]) -> dict:
+    """The leaderboard's number, and the one it is often confused with.
+
+    `mean_average_precision` is the mean over images, which is what the challenge ranked on.
+    `pooled_average_precision` applies the same formula to the summed counts, so every object
+    weighs the same rather than every image. They are different quantities and this dataset
+    makes the gap visible: it holds images of 2 objects and images of 375.
+    """
+    scored = [row for row in rows if row["average_precision"] is not None]
+    if not scored:
+        raise InstanceError("no case had anything to score")
+    truth = sum(row["truth"] for row in scored)
+    predicted = sum(row["predicted"] for row in scored)
+    return {
+        "n": len(scored),
+        "unscored": len(rows) - len(scored),
+        "mean_average_precision": float(np.mean([row["average_precision"] for row in scored])),
+        "median": float(np.median([row["average_precision"] for row in scored])),
+        "worst": min(scored, key=lambda row: row["average_precision"])["case"],
+        "truth_objects": truth,
+        "predicted_objects": predicted,
+    }
