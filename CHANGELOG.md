@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+ - **`deterministic`, the opt-in that makes a seed mean something on a card.** `seed` has
+   said where it stops since `0.8.0a8`: measured on a GTX 1070, two runs of one
+   configuration at one seed agreed to twelve decimals on the processor and differed in the
+   fourth after a single epoch on CUDA, because cuDNN picks algorithms nothing constrained.
+   This constrains them - `torch.use_deterministic_algorithms(True)`,
+   `cudnn.deterministic`, and `cudnn.benchmark` off, which is the one that was choosing per
+   shape.
+
+   **An opt-in rather than the default, because the cost arrives at a time nothing else here
+   does.** Some convolutions become much slower, and an operation with no deterministic
+   implementation raises *when it is reached*, so a run can stop ten minutes in. Every other
+   refusal in this package happens before anything is read, and this one cannot: whether an
+   operation has a deterministic algorithm is a fact about the installed torch and the
+   device, not about the configuration. The field says so.
+
+   **It needs `seed`, and asking without one is refused.** Constraining the algorithms while
+   the initialisation, the shuffle and the augmentation all still vary leaves the run exactly
+   as unrepeatable as before and only slower - half a promise, which is what platypus#122 was
+   filed about in the first place.
+
+   It also sets `CUBLAS_WORKSPACE_CONFIG` to `:4096:8` when nothing else has: from CUDA 10.2
+   on, cuBLAS needs it or torch raises, and the variable is read when CUDA initialises - which
+   is why this happens in the engine's constructor and not in `fit()`. An existing value is
+   somebody's deliberate choice and is left alone.
+
+   What is tested is that the flag reaches torch, that **nothing is asked of torch when
+   nobody asked**, that the variable is set without trampling one, that the specification
+   refuses the half-promise, and that an ordinary run still trains with it on. What the field
+   is for - two CUDA runs agreeing - needs a card, and CI has none; `tests/test_seeding.py`
+   says the same about the other half rather than asserting something it cannot see.
+
+   Closes platypus#122, whose documentation half shipped in `0.8.0a8`.
+
  - **`save_spec()`, the way back out of a specification.** `from_yaml()` read a
    configuration and nothing wrote one, so the two interfaces were one pipeline and a half:
    an example could write the YAML of the run it had just done only by keeping the raw dict

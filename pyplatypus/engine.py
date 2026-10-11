@@ -228,7 +228,7 @@ class Engine(EngineBase):
         self.num_workers = num_workers
         self.check_masks = check_masks
         self.runs: dict[str, ModelRun] = {}
-        seed_everything(spec.seed)
+        seed_everything(spec.seed, deterministic=spec.deterministic)
 
         self._samples: dict[str, tuple[Sample, ...]]
         self._discover_splits(discover, strict=strict_data)

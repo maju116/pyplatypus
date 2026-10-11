@@ -154,7 +154,7 @@ class DetectionEngine(EngineBase):
         self.num_workers = num_workers
         self.accumulate = accumulate
         self.runs: dict[str, DetectorRun] = {}
-        seed_everything(spec.seed)
+        seed_everything(spec.seed, deterministic=spec.deterministic)
 
         self._samples: dict[str, tuple[Sample, ...]]
         self._discover_splits(discover, strict=strict_data)

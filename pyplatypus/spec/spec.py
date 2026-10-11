@@ -64,6 +64,24 @@ class PlatypusSpec(SpecModel):
             "number somebody else can land on."
         ),
     )
+    deterministic: bool = Field(
+        False,
+        description=(
+            "Ask torch for deterministic algorithms as well, which is the only thing that "
+            "makes a run on a card repeatable - `seed` alone does not, and the field above "
+            "says so.\n\n"
+            "**It is an opt-in because the cost is real and arrives late.** Some "
+            "convolutions become much slower, and an operation that has no deterministic "
+            "implementation raises *when it is reached* - so a run can stop ten minutes in "
+            "rather than when the specification was checked. Every other refusal here "
+            "happens before anything is read; this one cannot, because whether an operation "
+            "has a deterministic algorithm is a fact about the installed torch and the "
+            "device, not about the configuration.\n\n"
+            "Needs `seed`: constraining the algorithms while the draw still varies produces "
+            "a run that is no more repeatable and only slower, so asking for it without a "
+            "seed is refused rather than quietly accepted."
+        ),
+    )
     output_dir: str = Field(
         "platypus_output",
         description=(
@@ -85,6 +103,24 @@ class PlatypusSpec(SpecModel):
                 "Build one of those directly, or let from_dict/from_yaml choose by `task`."
             )
         return data
+
+    @model_validator(mode="after")
+    def deterministic_needs_a_seed(self):
+        """Constraining the algorithms while the draw still varies buys nothing.
+
+        `deterministic` exists so that two runs of one configuration on one card land on the
+        same numbers. Without `seed` the initialisation, the shuffle and the augmentation all
+        still differ, so the run is exactly as unrepeatable as before and only slower - and
+        slower by an amount nobody can see the reason for. Refused here rather than warned
+        about, because this is one of the two halves of the promise and a half promise is
+        what platypus#122 was filed about.
+        """
+        if self.deterministic and self.seed is None:
+            raise ValueError(
+                "deterministic needs a seed: it constrains the algorithms, not the draw, so "
+                "without one the run is no more repeatable and only slower"
+            )
+        return self
 
     @model_validator(mode="after")
     def unique_model_names(self):
