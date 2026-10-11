@@ -22,6 +22,7 @@ groups:
   contents:
   - from_dict
   - from_yaml
+  - save_spec
   - SegmentationSpec
   - DetectionSpec
   - PlatypusSpec

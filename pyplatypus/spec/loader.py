@@ -7,10 +7,10 @@ both routes land in `from_dict` and there is only ever one code path.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args, get_origin
 
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from pyplatypus.errors import ConfigError
 from pyplatypus.spec.common import Task
@@ -113,8 +113,10 @@ def from_yaml(path: str | Path, *, check_paths: bool = True) -> PlatypusSpec:
     """Read a YAML file into a spec: the same object `from_dict` builds, by the same rules.
 
     One pipeline, two ways in. A specification written by hand and one read from a file are
-    the same thing, and `as_dict()` turns it back - which is how a worked example can write
-    out the YAML of the run it has just done, beside the results.
+    the same thing, and `save_spec()` turns it back - which is how a worked example can write
+    out the YAML of the run it has just done, beside the results. This sentence named
+    `as_dict()` until 2026-10-11, a method no spec has ever had; the way back did not exist
+    at all, which is what platypus#120 was filed about.
 
     Args:
         path: The file to read.
@@ -178,3 +180,111 @@ def _check_task(config: dict[str, Any], *, source: str | None = None) -> None:
             f"segmentation exists.",
             source=source,
         )
+
+
+def save_spec(spec: PlatypusSpec, path: str | Path, *, defaults: bool = False) -> Path:
+    """Write a specification back out as YAML - what was set, not what it holds.
+
+    `from_yaml` reads a configuration and `PlatypusSpec` builds one in code; this is the way
+    back, so the two interfaces are one pipeline rather than one and a half. A worked example
+    can write the YAML of the run it has just done beside the results, and a specification
+    assembled in R or Python can become the file somebody else runs.
+
+    **It writes the fields that were set.** Not the fields the object holds, which on a
+    two-field model is 29 of them - and the difference is not verbosity. A model given
+    `weights` and no `architecture` adopts the architecture from the weights sidecar, and that
+    adoption fires on `architecture` *not being in* `model_fields_set`. Dump the defaults into
+    the file and the reloaded specification has all 29 set, so the adoption can never fire
+    again: the file would look like the original and quietly stop doing what it did. R paid
+    for this once already in the other direction (`JOURNAL.md` §4aa) and dropped its own
+    defaults for the same reason.
+
+    `defaults=True` is the opposite want, which is legitimate and is a second mode rather than
+    the default: freeze this run exactly as it resolved, so it reproduces in five years. The
+    cost is the one above - the file stops adopting anything, by design.
+
+    **Every discriminator is always written**, whatever was set. `task` is the obvious one -
+    it is what `from_yaml` dispatches on, and a configuration that does not say what it is
+    asking for means whatever the version reading it decides. The same is true one level
+    down and is easier to miss: `DiceLoss(smooth=0.5)` sets `smooth` and not `name`, because
+    `name` is a `Literal` with a default, so a dump of what was set alone writes
+    `loss: {smooth: 0.5}` - a block with no tag, which comes back as *Unable to extract tag
+    using discriminator 'name'*. A field annotated `Literal` is a tag here, and tags survive.
+
+    Args:
+        spec: The specification to write. Either task.
+        path: Where to write it. The parent directory must exist.
+        defaults: Write every field at its resolved value, including the ones nobody set.
+
+    Returns:
+        The path written, so a caller can log or return it.
+
+    >>> import tempfile, pathlib
+    >>> from pyplatypus.spec import SegmentationSpec, SegmentationData, SegmentationModel
+    >>> spec = SegmentationSpec(
+    ...     data=SegmentationData(
+    ...         train_path="train/", validation_path="valid/",
+    ...         colormap=[[0, 0, 0], [255, 255, 255]],
+    ...     ),
+    ...     models=[SegmentationModel(name="m", input_shape=(32, 32))],
+    ... )
+    >>> path = pathlib.Path(tempfile.mkdtemp()) / "spec.yaml"
+    >>> _ = save_spec(spec, path)
+    >>> sorted(yaml.safe_load(path.read_text())["models"][0])
+    ['input_shape', 'name']
+    >>> frozen = save_spec(spec, path.with_name("frozen.yaml"), defaults=True)
+    >>> len(yaml.safe_load(frozen.read_text())["models"][0])
+    29
+    """
+    path = Path(path)
+    full = spec.model_dump(mode="json")
+    data = (
+        full
+        if defaults
+        else _with_tags(spec, spec.model_dump(mode="json", exclude_unset=True), full)
+    )
+    path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    return path
+
+
+def _is_tag(annotation: Any) -> bool:
+    """Whether a field is a discriminator, which is to say a `Literal` of exactly one value.
+
+    "Annotated `Literal`" was the first rule here and it was too wide: `box_loss` is
+    `Literal["offsets", "giou"]` and `annotation_format` is `Literal["pascal_voc",
+    "labelme"]`, both of them choices a user makes, and writing them unset would freeze a
+    default into the file - the very thing this function exists to avoid. A discriminator
+    pins one value per member, so counting the values separates the two exactly: measured
+    across the whole spec, 31 single-value Literal fields, all of them `name` or `task`, and
+    the only two with more are those choices.
+    """
+    return get_origin(annotation) is Literal and len(get_args(annotation)) == 1
+
+
+def _with_tags(model: BaseModel, lean: dict[str, Any], full: dict[str, Any]) -> dict[str, Any]:
+    """Put every discriminator back into a dump of only what was set.
+
+    pydantic's own serialisation does the converting - tuples to lists, enums to their
+    values - so this walks the tree beside its two outputs and copies back the one kind of
+    field that `exclude_unset` is wrong about. An unset block stays absent: a specification
+    that never named a loss should come back with the default loss, not with a written one.
+    """
+    # `type(model)` rather than the instance: pydantic 2.11 deprecated reading `model_fields`
+    # off an instance, and a deprecation warning per field is 81 of them on one small spec.
+    fields = type(model).model_fields
+    for field, info in fields.items():
+        if _is_tag(info.annotation) and field in full:
+            lean[field] = full[field]
+    for field in fields:
+        if field not in lean:
+            continue
+        value = getattr(model, field)
+        if isinstance(value, BaseModel):
+            _with_tags(value, lean[field], full[field])
+        elif isinstance(value, (list, tuple)):
+            for index, item in enumerate(value):
+                if isinstance(item, BaseModel):
+                    _with_tags(item, lean[field][index], full[field][index])
+    # Declaration order, not insertion order: a tag put back lands at the end of the dict,
+    # and `task` belongs at the top of the file where a reader looks for it.
+    return {field: lean[field] for field in fields if field in lean}

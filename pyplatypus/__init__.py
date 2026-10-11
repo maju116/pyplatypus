@@ -36,6 +36,7 @@ from pyplatypus.spec import (
     available_transforms,
     from_dict,
     from_yaml,
+    save_spec,
     spec_schema,
     write_schema,
 )
@@ -81,6 +82,7 @@ __all__ = [
     "read_image",
     "read_record",
     "resolve_weights",
+    "save_spec",
     "spec_schema",
     "split_dataset",
     "split_samples",

@@ -60,6 +60,7 @@ website:
         contents:
         - reference/from_dict.qmd
         - reference/from_yaml.qmd
+        - reference/save_spec.qmd
         - reference/SegmentationSpec.qmd
         - reference/DetectionSpec.qmd
         - reference/PlatypusSpec.qmd
@@ -165,6 +166,7 @@ quartodoc:
     contents:
     - from_dict
     - from_yaml
+    - save_spec
     - SegmentationSpec
     - DetectionSpec
     - PlatypusSpec

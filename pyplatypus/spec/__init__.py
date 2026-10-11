@@ -21,7 +21,7 @@ from pyplatypus.spec.detection import (
     DetectionData,
     DetectionModel,
 )
-from pyplatypus.spec.loader import from_dict, from_yaml
+from pyplatypus.spec.loader import from_dict, from_yaml, save_spec
 from pyplatypus.spec.models import Initialiser, ModelSpec, SegmentationModel
 from pyplatypus.spec.schema import spec_schema, write_schema
 from pyplatypus.spec.spec import (
@@ -62,6 +62,7 @@ __all__ = [
     "available_transforms",
     "from_dict",
     "from_yaml",
+    "save_spec",
     "spec_schema",
     "write_schema",
 ]
