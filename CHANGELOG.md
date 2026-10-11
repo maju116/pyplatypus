@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+ - **`save_spec()`, the way back out of a specification.** `from_yaml()` read a
+   configuration and nothing wrote one, so the two interfaces were one pipeline and a half:
+   an example could write the YAML of the run it had just done only by keeping the raw dict
+   it started from. Now a specification built in code - or in R, where the bridge already
+   drops unset arguments - becomes a file somebody else can run.
+
+   **It writes what was set, not what the object holds**, and that is the whole design. On a
+   two-field model `to_dict()` returns 29 fields, and the difference is not verbosity: a
+   model given `weights` and no `architecture` adopts the architecture from the weights
+   sidecar, and the adoption fires on `architecture` *not being in* `model_fields_set`. Dump
+   the defaults and the reloaded specification has all 29 set, so a file that looks like the
+   original quietly stops doing what the original did. `defaults=True` is the opposite want,
+   kept as a second mode: freeze this run exactly as it resolved, at the cost of it adopting
+   nothing ever again.
+
+   Two things only the round trip could have found, both now tests:
+
+   **Every discriminator has to be written even when unset.** `task` is the obvious one.
+   `DiceLoss(smooth=0.5)` is the one that is easy to miss: `name` is a `Literal` with a
+   default, so a dump of what was set gives `loss: {smooth: 0.5}` - a block with no tag,
+   which comes back as *Unable to extract tag using discriminator 'name'*.
+
+   **And "annotated `Literal`" is the wrong rule for finding those tags.** It also catches
+   `box_loss` and `annotation_format`, which are choices a user makes, and writing them
+   unset would freeze exactly the kind of default this function exists to leave out. A
+   discriminator pins one value, so the rule counts them: measured across the spec, 31
+   single-value `Literal` fields, every one of them `name` or `task`, and the only two with
+   more are those choices.
+
+   Closes #120. `from_yaml`'s docstring promised this round trip through `as_dict()`, a
+   method no spec has ever had; it now names the function that exists.
+
  - **`available_losses()`, `available_metrics()`, `available_models()`,
    `available_optimizers()`, `available_callbacks()` and `available_tasks()`** - the rest of
    the verb `available_transforms()` and `available_weights()` already answered. The number
