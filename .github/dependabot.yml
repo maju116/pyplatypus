@@ -14,6 +14,11 @@ updates:
     # `increase-if-necessary` moves a floor only when something actually requires it.
     # Security advisories are unaffected and still come through.
     versioning-strategy: increase-if-necessary
+    # And not grouped, unlike the actions below. The batch of 2026-09-09 is the argument:
+    # five pip proposals arrived the same day and got five separate verdicts - one merged
+    # (#108, pytest) and four closed as cost without benefit (#106, #107, #109, #110). A
+    # group would have forced one decision on all five, and for a mixed group the only
+    # decision available is "no".
     ignore:
       # torch's bounds in this project encode a hardware fact, not a stale pin, and no
       # test here can check it. The `pascal` extra says torch>=2.7,<2.8 because 2.8 and
@@ -51,3 +56,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
+    # Grouped, because the verdict on an action bump is never per-action: the suite either
+    # passes on the new ones or it does not. The same 2026-09-09 batch opened four of these
+    # - checkout, upload-artifact, download-artifact, setup-uv (#102, #103, #104, #105) -
+    # and all four were merged, which is four reviews of one decision.
+    groups:
+      actions:
+        patterns: ["*"]
