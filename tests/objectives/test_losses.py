@@ -168,15 +168,15 @@ def test_iou_is_a_monotone_function_of_dice_so_the_two_rank_alike():
     candidates = [torch.randn(1, 3, 16, 16) for _ in range(12)]
     by_dice = sorted(
         range(12),
-        key=lambda i: f.dice_coefficient(f.probabilities(candidates[i]), target[:1], 1.0)
-        .mean()
-        .item(),
+        key=lambda i: (
+            f.dice_coefficient(f.probabilities(candidates[i]), target[:1], 1.0).mean().item()
+        ),
     )
     by_iou = sorted(
         range(12),
-        key=lambda i: f.iou_coefficient(f.probabilities(candidates[i]), target[:1], 1.0)
-        .mean()
-        .item(),
+        key=lambda i: (
+            f.iou_coefficient(f.probabilities(candidates[i]), target[:1], 1.0).mean().item()
+        ),
     )
     assert by_dice == by_iou
 

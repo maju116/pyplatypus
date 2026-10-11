@@ -69,8 +69,8 @@ def test_no_description_merely_restates_the_name():
     restatements = []
     for model, description in COMPONENTS:
         literal = DEFS[model]["properties"]["name"]["const"]
-        without_name = description.lower().replace(literal.replace("_", " "), "").replace(
-            literal, ""
+        without_name = (
+            description.lower().replace(literal.replace("_", " "), "").replace(literal, "")
         )
         if len(without_name) < 100:
             restatements.append(model)
