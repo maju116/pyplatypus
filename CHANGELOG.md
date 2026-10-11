@@ -1,6 +1,50 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+ - **26 of the 29 things you can name in a configuration now say what they are.** Three did:
+   `boundary`, `cosine_annealing` and `swa`, the three written most recently with a
+   measurement in hand. Every one of the 201 described *fields* had its text, so `smooth`
+   explained itself while `lovasz` did not say what a Lovasz loss is for - which left the
+   generated configuration reference printing a heading and a table of knobs with nothing
+   under the heading, and left `?losses` in R listing ten names without the one sentence a
+   reader needs: *which of these do I want*.
+
+   Where this project has measured something, the description carries it. `cldice` now
+   states what it was worth on a real model - FIVES, 200 cases, correlation 0.9779 with
+   Dice, mean difference +0.0041, 127 cases higher and 73 lower - alongside the constructed
+   pair where Dice reads 0.8750 and 0.9474 and so prefers the severed vessel while clDice
+   reads 1.0000 and 0.9425 and does not. Both of those pairs are pinned by a test.
+
+   Where it has measured nothing, the description says what the thing answers and what it
+   costs, and says so once rather than eight times: **no run here has compared the eight
+   optimisers on segmentation**, so `adam`'s text is where that is admitted.
+
+   Four of the descriptions state an identity, and each is now held by a test rather than by
+   a claim:
+
+       tversky(alpha=0.5, smooth=1)  ==  dice(smooth=2)        exactly, not dice(smooth=1)
+       iou                           ==  dice / (2 - dice)     without smoothing, so same ranking
+       focal(gamma=0)                ==  cross_entropy
+       focal_tversky(gamma=1)        ==  tversky
+
+   That last group is the useful kind of sentence for a knob - *at this value this is another
+   loss* - and the kind most likely to go quietly wrong in a refactor, because every other
+   test in the suite would still pass.
+
+   A coverage test holds the level, driven from `spec_schema()` for the reason the field-level
+   one gives at length: a definition is a component when its `name` is a literal, which finds
+   29 and correctly excludes `AugmentationStep` and `SegmentationModel`, whose `name` is prose
+   the user writes. It also refuses a description under 150 characters and one that only
+   restates the component's own name, both proven able to fail.
+
+   Closes #118. Note that the configuration reference prints a definition's **first paragraph**
+   by design, so the measurements live in the schema, in `help()` and - once #119 lands - in
+   `available_losses()` and its family.
+
 ## [0.8.0a10] - 2026-10-11
 
 ### Fixed
