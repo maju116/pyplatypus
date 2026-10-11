@@ -1,0 +1,68 @@
+# Shared with platypus/.github/ISSUE_TEMPLATE/bug_report.yml: the same fields in the same
+# order, each side showing its own subset. `tests/test_github_templates.py` holds this one to
+# that order; a script in the R package's `tools/` holds the other, because `.github` is not
+# in an R tarball and a test that reads it would skip under `R CMD check`.
+#
+# A form rather than a markdown template, and the reason is the field that was always missing:
+# markdown sections get deleted, `required: true` cannot be. The old one asked for a
+# TensorFlow version, which this package has not used since it was rewritten on torch.
+#
+# This side has no `half` field: a user here is already in the engine.
+name: Bug report
+description: Something does not work the way the documentation says
+title: "Bug: "
+labels: []
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The traceback, in full, if there was one. Paste it rather than describing it.
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: And where you read that, if it was in the documentation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: >
+        The shortest script that shows it, or the specification as YAML. If it needs data,
+        say what shape and dtype - a specification and the error it raises is usually enough,
+        and no data is needed at all for anything rejected before training starts.
+      render: python
+    validations:
+      required: true
+
+  - type: textarea
+    id: session
+    attributes:
+      label: Session information
+      description: >
+        Paste the output, which is quicker than answering questions about versions. The torch
+        lines matter more often than they look: the published wheel is a CUDA build whether
+        or not there is a card to use it.
+      value: |
+        python -VV
+        python -c "import pyplatypus; print(pyplatypus.__version__)"
+        python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+        python -c "import albumentations; print(albumentations.__version__)"
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Whether it ever worked, what changed, what you have already tried.
+    validations:
+      required: false
