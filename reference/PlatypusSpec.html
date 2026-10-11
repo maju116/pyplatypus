@@ -735,6 +735,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#attributes" id="toc-attributes" class="nav-link" data-scroll-target="#attributes">Attributes</a></li>
   <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a>
   <ul class="collapse">
+  <li><a href="#pyplatypus.PlatypusSpec.deterministic_needs_a_seed" id="toc-pyplatypus.PlatypusSpec.deterministic_needs_a_seed" class="nav-link" data-scroll-target="#pyplatypus.PlatypusSpec.deterministic_needs_a_seed">deterministic_needs_a_seed</a></li>
   <li><a href="#pyplatypus.PlatypusSpec.one_rank_per_spec" id="toc-pyplatypus.PlatypusSpec.one_rank_per_spec" class="nav-link" data-scroll-target="#pyplatypus.PlatypusSpec.one_rank_per_spec">one_rank_per_spec</a></li>
   <li><a href="#pyplatypus.PlatypusSpec.refuse_the_base_class" id="toc-pyplatypus.PlatypusSpec.refuse_the_base_class" class="nav-link" data-scroll-target="#pyplatypus.PlatypusSpec.refuse_the_base_class">refuse_the_base_class</a></li>
   <li><a href="#pyplatypus.PlatypusSpec.to_dict" id="toc-pyplatypus.PlatypusSpec.to_dict" class="nav-link" data-scroll-target="#pyplatypus.PlatypusSpec.to_dict">to_dict</a></li>
@@ -782,32 +783,42 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
+<td><a href="#pyplatypus.PlatypusSpec.deterministic_needs_a_seed">deterministic_needs_a_seed</a></td>
+<td>Constraining the algorithms while the draw still varies buys nothing.</td>
+</tr>
+<tr class="even">
 <td><a href="#pyplatypus.PlatypusSpec.one_rank_per_spec">one_rank_per_spec</a></td>
 <td>All models in a spec share one data pipeline, so they share one rank. Mixing</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="#pyplatypus.PlatypusSpec.refuse_the_base_class">refuse_the_base_class</a></td>
 <td>Say what is wrong directly. Without this, <code>PlatypusSpec(data=..., models=...)</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="#pyplatypus.PlatypusSpec.to_dict">to_dict</a></td>
 <td>Plain data, for the trip back across the bridge into R.</td>
 </tr>
 </tbody>
 </table>
+<section id="pyplatypus.PlatypusSpec.deterministic_needs_a_seed" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.PlatypusSpec.deterministic_needs_a_seed">deterministic_needs_a_seed</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.deterministic_needs_a_seed()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Constraining the algorithms while the draw still varies buys nothing.</p>
+<p><code>deterministic</code> exists so that two runs of one configuration on one card land on the same numbers. Without <code>seed</code> the initialisation, the shuffle and the augmentation all still differ, so the run is exactly as unrepeatable as before and only slower - and slower by an amount nobody can see the reason for. Refused here rather than warned about, because this is one of the two halves of the promise and a half promise is what platypus#122 was filed about.</p>
+</section>
 <section id="pyplatypus.PlatypusSpec.one_rank_per_spec" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.PlatypusSpec.one_rank_per_spec">one_rank_per_spec</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.one_rank_per_spec()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.one_rank_per_spec()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>All models in a spec share one data pipeline, so they share one rank. Mixing 2D and 3D in a single run is a mistake, not a feature.</p>
 </section>
 <section id="pyplatypus.PlatypusSpec.refuse_the_base_class" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.PlatypusSpec.refuse_the_base_class">refuse_the_base_class</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.refuse_the_base_class(data)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.refuse_the_base_class(data)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Say what is wrong directly. Without this, <code>PlatypusSpec(data=..., models=...)</code> fails as two ‘extra inputs are not permitted’ errors, which describes the symptom and not the cause.</p>
 </section>
 <section id="pyplatypus.PlatypusSpec.to_dict" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.PlatypusSpec.to_dict">to_dict</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.to_dict()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>PlatypusSpec.to_dict()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Plain data, for the trip back across the bridge into R.</p>
 
 

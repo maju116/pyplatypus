@@ -916,6 +916,13 @@ Makes a run repeatable as far as the arithmetic is deterministic, which goes fur
 <strong>Not repeatable:</strong> a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and <code>0.8.0a3</code> did exactly that.
 So it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.
 </dd>
+<dt><code>deterministic</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - <code>seed</code> alone does not, and the field above says so.
+<strong>It is an opt-in because the cost is real and arrives late.</strong> Some convolutions become much slower, and an operation that has no deterministic implementation raises <em>when it is reached</em> - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.
+Needs <code>seed</code>: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.
+</dd>
 <dt><code>output_dir</code></dt>
 <dd>
 text — <code>platypus_output</code>
@@ -1212,6 +1219,13 @@ Makes a run repeatable as far as the arithmetic is deterministic, which goes fur
 <strong>Repeatable:</strong> the split (<code>split_dataset</code> gives the same partition on any machine), a detector’s fitted anchors, the order the data arrives in and its augmentation - including inside the loader’s worker processes - and, on the processor, every number to twelve decimal places.
 <strong>Not repeatable:</strong> a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and <code>0.8.0a3</code> did exactly that.
 So it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.
+</dd>
+<dt><code>deterministic</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - <code>seed</code> alone does not, and the field above says so.
+<strong>It is an opt-in because the cost is real and arrives late.</strong> Some convolutions become much slower, and an operation that has no deterministic implementation raises <em>when it is reached</em> - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.
+Needs <code>seed</code>: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.
 </dd>
 <dt><code>output_dir</code></dt>
 <dd>

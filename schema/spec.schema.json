@@ -988,6 +988,12 @@
           "$ref": "#/$defs/DetectionData",
           "description": "Where the images and their annotations are, and how to read them."
         },
+        "deterministic": {
+          "default": false,
+          "description": "Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - `seed` alone does not, and the field above says so.\n\n**It is an opt-in because the cost is real and arrives late.** Some convolutions become much slower, and an operation that has no deterministic implementation raises *when it is reached* - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.\n\nNeeds `seed`: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.",
+          "title": "Deterministic",
+          "type": "boolean"
+        },
         "models": {
           "description": "One or more detectors, trained in turn against the same data. Names must be unique, for the same reason as in a segmentation specification.",
           "items": {
@@ -2054,6 +2060,12 @@
         "data": {
           "$ref": "#/$defs/SegmentationData",
           "description": "Where the images and their masks are, and how to read them."
+        },
+        "deterministic": {
+          "default": false,
+          "description": "Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - `seed` alone does not, and the field above says so.\n\n**It is an opt-in because the cost is real and arrives late.** Some convolutions become much slower, and an operation that has no deterministic implementation raises *when it is reached* - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.\n\nNeeds `seed`: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.",
+          "title": "Deterministic",
+          "type": "boolean"
         },
         "models": {
           "description": "One or more models, trained in turn against the same data. Names must be unique: a run is recorded under its model's name, so two models called the same thing would overwrite one record and report it as two. Several entries of the same architecture with different settings is the ordinary case - that is how a comparison is written.",
