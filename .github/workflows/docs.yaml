@@ -77,7 +77,7 @@ jobs:
         if: github.event_name != 'pull_request'
         # Third-party, so pinned by commit rather than by tag - the pin r-lib's own
         # reference workflow ships.
-        uses: JamesIves/github-pages-deploy-action@d92aa235d04922e8f08b40ce78cc5442fcfbfa2f # v4.8.0
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
         with:
           # `true`, unlike the `false` that workflow defaults to. That default exists so a
           # development build does not wipe a released one; with a single site it only
