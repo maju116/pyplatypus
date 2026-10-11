@@ -276,6 +276,42 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reference/available_tasks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_tasks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_models</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_losses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_losses</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_optimizers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_optimizers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_callbacks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_callbacks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference/available_transforms.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">available_transforms</span></a>
   </div>
@@ -690,7 +726,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#change-log" id="toc-change-log" class="nav-link active" data-scroll-target="#change-log">Change Log</a>
   <ul class="collapse">
-  <li><a href="#unreleased" id="toc-unreleased" class="nav-link" data-scroll-target="#unreleased">[Unreleased]</a>
+  <li><a href="#a11---2026-10-11" id="toc-a11---2026-10-11" class="nav-link" data-scroll-target="#a11---2026-10-11">[0.8.0a11] - 2026-10-11</a>
   <ul class="collapse">
   <li><a href="#added" id="toc-added" class="nav-link" data-scroll-target="#added">Added</a></li>
   </ul></li>
@@ -927,11 +963,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="change-log" class="level1">
 <h1>Change Log</h1>
 <p>All notable changes to this project will be documented in this file.</p>
-<section id="unreleased" class="level2">
-<h2 class="anchored" data-anchor-id="unreleased">[Unreleased]</h2>
+<section id="a11---2026-10-11" class="level2">
+<h2 class="anchored" data-anchor-id="a11---2026-10-11">[0.8.0a11] - 2026-10-11</h2>
 <section id="added" class="level3">
 <h3 class="anchored" data-anchor-id="added">Added</h3>
 <ul>
+<li><p><strong><code>available_losses()</code>, <code>available_metrics()</code>, <code>available_models()</code>, <code>available_optimizers()</code>, <code>available_callbacks()</code> and <code>available_tasks()</code></strong> - the rest of the verb <code>available_transforms()</code> and <code>available_weights()</code> already answered. The number of named components keeps growing, and the only way to see what is on offer was to leave for a documentation site.</p>
+<p>Three columns, in the order a reader needs them: the name you pass, the arguments you may tune, and what it is for. Every row is read from the same pydantic models the schema is generated from, so <strong>a loss added to the engine appears in the listing with nothing else edited</strong> - and the tests compare each listing against the schema’s own <code>discriminator.mapping</code>, which is the authoritative answer to <em>what may I write here</em>, rather than against a list of names in a test file.</p>
+<p>The description shown is the component’s first paragraph, which is the summary line; the rest, including every measurement, stays in <code>spec_schema()</code> and in <code>help()</code>.</p>
+<p><strong>Detection is the case that does not fit, and it refuses rather than inventing rows.</strong> A detection spec chooses no loss component - the objective is fixed and <code>box_loss</code> picks the box term - and chooses no metrics at all, since <code>map_50</code>, <code>map_50_95</code> and <code>mean_matched_iou</code> come out of <code>report</code>. Both raise with a message naming what detection actually offers: the <code>box_loss</code> values are read from the schema, and a test ties the three metric names to the keys of the report itself, so a rename fails here rather than in somebody’s console. An empty table would have been a third answer and the wrong one.</p>
+<p>The architectures are the one hand-written part: they are an enum, and <code>UShapedNet</code> is a single class taking the choice as a switch, so there is no docstring per member to read. The four notes say what the code does differently - nested skips and the only architecture that can take <code>deep_supervision</code>, residual blocks, additive skips and the memory they save</p>
+<ul>
+<li>and a test requires every member of the enum to have one.</li>
+</ul>
+<p>Closes #119, which was blocked on the descriptions below.</p></li>
 <li><p><strong>26 of the 29 things you can name in a configuration now say what they are.</strong> Three did: <code>boundary</code>, <code>cosine_annealing</code> and <code>swa</code>, the three written most recently with a measurement in hand. Every one of the 201 described <em>fields</em> had its text, so <code>smooth</code> explained itself while <code>lovasz</code> did not say what a Lovasz loss is for - which left the generated configuration reference printing a heading and a table of knobs with nothing under the heading, and left <code>?losses</code> in R listing ten names without the one sentence a reader needs: <em>which of these do I want</em>.</p>
 <p>Where this project has measured something, the description carries it. <code>cldice</code> now states what it was worth on a real model - FIVES, 200 cases, correlation 0.9779 with Dice, mean difference +0.0041, 127 cases higher and 73 lower - alongside the constructed pair where Dice reads 0.8750 and 0.9474 and so prefers the severed vessel while clDice reads 1.0000 and 0.9425 and does not. Both of those pairs are pinned by a test.</p>
 <p>Where it has measured nothing, the description says what the thing answers and what it costs, and says so once rather than eight times: <strong>no run here has compared the eight optimisers on segmentation</strong>, so <code>adam</code>’s text is where that is admitted.</p>

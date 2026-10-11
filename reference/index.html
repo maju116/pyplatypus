@@ -241,6 +241,42 @@ ul.task-list li input[type="checkbox"] {
       <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/available_tasks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_tasks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_models</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_losses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_losses</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_optimizers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_optimizers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/available_callbacks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_callbacks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/available_transforms.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">available_transforms</span></a>
   </div>
@@ -718,9 +754,33 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="what-a-model-is-made-of" class="level2">
 <h2 class="anchored" data-anchor-id="what-a-model-is-made-of">What a model is made of</h2>
-<p>Losses, metrics, optimisers, callbacks and augmentation are named in the specification rather than constructed, so their fields are documented in the schema. This lists the transforms the installed albumentations offers.</p>
+<p>Losses, metrics, optimisers, callbacks and augmentation are named in the specification rather than constructed, so their fields are documented in the schema. These ask the package what those names are, read from the same models the schema is generated from - so a loss added to the engine appears in the listing with no second list to update.</p>
 <table class="caption-top table">
 <tbody>
+<tr class="odd">
+<td><a href="../reference/available_tasks.html#pyplatypus.available_tasks">available_tasks</a></td>
+<td>What this package can be asked to do at all.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/available_models.html#pyplatypus.available_models">available_models</a></td>
+<td>The architectures this package can build for a task.</td>
+</tr>
+<tr class="odd">
+<td><a href="../reference/available_losses.html#pyplatypus.available_losses">available_losses</a></td>
+<td>The losses you can name under <code>loss</code>.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/available_metrics.html#pyplatypus.available_metrics">available_metrics</a></td>
+<td>The metrics you can name under <code>metrics</code>.</td>
+</tr>
+<tr class="odd">
+<td><a href="../reference/available_optimizers.html#pyplatypus.available_optimizers">available_optimizers</a></td>
+<td>The optimisers you can name under <code>optimizer</code>. The same set for either task.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/available_callbacks.html#pyplatypus.available_callbacks">available_callbacks</a></td>
+<td>The callbacks you can name under <code>callbacks</code>. The same set for either task.</td>
+</tr>
 <tr class="odd">
 <td><a href="../reference/available_transforms.html#pyplatypus.available_transforms">available_transforms</a></td>
 <td>Transform names the installed albumentations actually offers.</td>
