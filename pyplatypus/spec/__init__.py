@@ -1,3 +1,11 @@
+from pyplatypus.spec.catalogue import (
+    available_callbacks,
+    available_losses,
+    available_metrics,
+    available_models,
+    available_optimizers,
+    available_tasks,
+)
 from pyplatypus.spec.common import Activation, Architecture, DataMode, Task
 from pyplatypus.spec.components import (
     AugmentationStep,
@@ -45,6 +53,12 @@ __all__ = [
     "SegmentationModel",
     "SegmentationSpec",
     "Task",
+    "available_callbacks",
+    "available_losses",
+    "available_metrics",
+    "available_models",
+    "available_optimizers",
+    "available_tasks",
     "available_transforms",
     "from_dict",
     "from_yaml",

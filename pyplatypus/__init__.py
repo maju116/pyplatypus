@@ -27,6 +27,12 @@ from pyplatypus.spec import (
     PlatypusSpec,
     SegmentationSpec,
     Task,
+    available_callbacks,
+    available_losses,
+    available_metrics,
+    available_models,
+    available_optimizers,
+    available_tasks,
     available_transforms,
     from_dict,
     from_yaml,
@@ -41,7 +47,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a10"
+__version__ = "0.8.0a11"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -54,6 +60,12 @@ __all__ = [
     "Task",
     "WeightsError",
     "__version__",
+    "available_callbacks",
+    "available_losses",
+    "available_metrics",
+    "available_models",
+    "available_optimizers",
+    "available_tasks",
     "available_transforms",
     "available_weights",
     "build_engine",
