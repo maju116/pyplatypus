@@ -502,6 +502,29 @@ def test_the_dsbowl_entry_says_what_it_cannot_do():
     assert "instance" in description.lower()
 
 
+def test_the_fives_entry_carries_the_two_things_a_reader_would_get_wrong():
+    """Both are things somebody would otherwise assume, and assume wrongly.
+
+    The per-disease table on these weights' card reads picture quality as pathology - glaucoma
+    is the weakest group over all 200 test images and the strongest over the ones FIVES grades
+    clean - so a description that gave only the headline Dice would invite the misreading the
+    card exists to prevent. And these are the first published weights that are not MIT: FIVES
+    is CC BY 4.0, so attribution travels with them, which nobody checks a sidecar to discover.
+    """
+    from pyplatypus.weights import REGISTRY
+
+    description = REGISTRY["fives-unet"].description
+    assert "FIVES" in description
+    assert "glaucoma" in description, "the quality-grading inversion is the caveat on these"
+    # Not just "CC BY 4.0": that string is in the description twice, once for the data and
+    # once for the weights, and a first attempt at this test passed with the second one
+    # deleted. What has to be there is the claim about the weights themselves.
+    assert "not MIT" in description, (
+        "the weights' own licence differs from the other two entries', and a reader who "
+        "assumes the repository's MIT applies to these would be wrong"
+    )
+
+
 def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
     """The exact wording of this line is in a released vignette.
 

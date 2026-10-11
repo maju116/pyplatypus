@@ -82,6 +82,20 @@ REGISTRY: dict[str, Published] = {
             "loading adopts them; the weights mean nothing without them."
         ),
     ),
+    "fives-unet": Published(
+        repo="maju116/platypus-weights",
+        filename="fives-unet.safetensors",
+        revision="c4492f7a23b99202d6bd55a04b2cf1248fb14fe4",
+        description=(
+            "U-Net, 512x512 tiles over 2048x2048, retinal vessels in colour fundus "
+            "photographs. Trained on FIVES (CC BY 4.0) using its own split. Dice 0.879 mean "
+            "over the 200 held-out images, worst case 0.105. The per-disease table reads "
+            "picture quality as pathology: 14 of the 15 test images flagged for low contrast "
+            "are glaucoma, and over the images FIVES grades clean glaucoma is the strongest "
+            "group rather than the weakest. **These weights are CC BY 4.0, not MIT**, because "
+            "the data is - attribution travels with them and the sidecar carries the citation."
+        ),
+    ),
 }
 
 
@@ -101,7 +115,7 @@ def available_weights() -> dict[str, str]:
 
     >>> listing = available_weights()
     >>> sorted(listing)
-    ['bccd-yolo3', 'dsbowl-unet']
+    ['bccd-yolo3', 'dsbowl-unet', 'fives-unet']
     >>> "BBBC038v1" in listing["dsbowl-unet"]
     True
     >>> listing["dsbowl-unet"].startswith("U-Net, 256x256")
