@@ -67,7 +67,7 @@ All notable changes to this project will be documented in this file.
    single-value `Literal` fields, every one of them `name` or `task`, and the only two with
    more are those choices.
 
-   Closes #120. `from_yaml`'s docstring promised this round trip through `as_dict()`, a
+   Closes platypus#120. `from_yaml`'s docstring promised this round trip through `as_dict()`, a
    method no spec has ever had; it now names the function that exists.
 
  - **`available_losses()`, `available_metrics()`, `available_models()`,
@@ -100,7 +100,7 @@ All notable changes to this project will be documented in this file.
    that can take `deep_supervision`, residual blocks, additive skips and the memory they save
    - and a test requires every member of the enum to have one.
 
-   Closes #119, which was blocked on the descriptions below.
+   Closes platypus#119, which was blocked on the descriptions below.
 
  - **26 of the 29 things you can name in a configuration now say what they are.** Three did:
    `boundary`, `cosine_annealing` and `swa`, the three written most recently with a
@@ -138,8 +138,8 @@ All notable changes to this project will be documented in this file.
    the user writes. It also refuses a description under 150 characters and one that only
    restates the component's own name, both proven able to fail.
 
-   Closes #118. Note that the configuration reference prints a definition's **first paragraph**
-   by design, so the measurements live in the schema, in `help()` and - once #119 lands - in
+   Closes platypus#118. Note that the configuration reference prints a definition's **first paragraph**
+   by design, so the measurements live in the schema, in `help()` and - once platypus#119 lands - in
    `available_losses()` and its family.
 
 ## [0.8.0a10] - 2026-10-11
