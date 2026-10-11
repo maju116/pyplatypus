@@ -20,9 +20,25 @@ All notable changes to this project will be documented in this file.
    per process, and a spec with no augmentation never makes it.
 
    The escalation can only add names - a transform that passed at 8x8 is never asked again -
-   and a test takes the large size away and asserts all four go back to absent, because the
+   and a test takes the large size away and asserts `Crop` goes back to absent, because the
    straightforward test would pass for any reason at all, including an albumentations release
    that changed those defaults.
+
+ - **The 87-against-88 disagreement was never about the platform, and now has a mechanism.**
+   It had been recorded as "Windows with Python 3.13, and no mechanism is claimed". The first
+   version of the escalation test asserted that all four names were what escalation added, and
+   `ubuntu-latest` with Python 3.10 reported three - which is how the real answer arrived:
+
+       Superpixels at 8x8      4 of 60 attempts succeed; it samples `n_segments`, and
+                               whether the segmentation divides by zero depends on the draw
+       eight listings, 8x8     87, 87, 87, 87, 87, 87, 88, 87 - one process, one machine
+       Superpixels at 1024     40 of 40 succeed
+       eight listings, now     91, eight times
+
+   So the probe was a random variable and the matrix was reading its noise. The count is still
+   not pinned anywhere, because stable on one machine is not portable - but it is no longer
+   unexplained, and the test now asserts only what holds on every run: escalating never
+   removes a name, never adds one outside the four, and always adds `Crop`.
 
    **The three-channel nine are still refused, deliberately.** That is a different decision,
    not an unfinished one: a three-channel probe would list `ChromaticAberration` and its eight

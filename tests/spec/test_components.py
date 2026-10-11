@@ -222,12 +222,26 @@ class TestAvailableTransforms:
         assert name in available_transforms(rank=3)
 
     def test_the_escalation_is_what_lists_them(self):
-        """The mutation, built in: with the large probe taken away, all four go back to absent.
+        """The mutation, built in: without the large probe, `Crop` goes back to absent.
 
         Without this the test above would pass for any reason at all - an albumentations
         release that changed those defaults would make it green while the escalation did
-        nothing. It is also the measurement the change rests on: 87 names with one probe
-        size, 91 with two, and the difference is exactly these four.
+        nothing.
+
+        **`Crop` rather than all four, and the first version of this test asserting all four
+        was right to fail.** `ubuntu-latest` with Python 3.10 reported a three-name difference,
+        because `Superpixels` at 8x8 is **not deterministic**: measured here, 4 of 60 attempts
+        succeed, since it samples `n_segments` and whether the segmentation divides by zero
+        depends on the draw. So which names the escalation adds is a random variable at the
+        small size, and the only members of that set worth asserting are the ones that refuse
+        8x8 every time. `Crop` is the clearest - its default crop box is 1024x1024 - and the
+        two directions that *are* portable are asserted alongside it: escalating only ever
+        adds, and it never adds anything outside the four.
+
+        That randomness is also the answer to a question this file used to leave open. The
+        87-against-88 disagreement was attributed to "Windows with Python 3.13" with no
+        mechanism claimed. There was no platform axis: eight consecutive runs in one process
+        on one machine gave 87, 87, 87, 87, 87, 87, 88, 87.
         """
         pytest.importorskip("albumentations")
         from pyplatypus.spec import components
@@ -243,8 +257,16 @@ class TestAvailableTransforms:
             components._PROBE_SIDES = original
             available_transforms.cache_clear()
 
+        added = set(with_escalation) - set(small_only)
+
         assert small_only < with_escalation, "escalating must only ever add names"
-        assert set(with_escalation) - set(small_only) == set(self.SIZE_DEPENDENT)
+        assert "Crop" in added, (
+            "`Crop` refuses an 8x8 probe on every platform and every run, so the escalation "
+            f"is what lists it; the escalation added {sorted(added)}"
+        )
+        assert not added - set(self.SIZE_DEPENDENT), (
+            f"the escalation added something unaccounted for: {sorted(added - set(self.SIZE_DEPENDENT))}"
+        )
 
     def test_no_refusal_is_unexplained(self):
         """Every name rank 3 refuses must fail for a reason the docstring names.

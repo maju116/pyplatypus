@@ -814,14 +814,19 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
     four it was hiding - `Crop`, `FrequencyMasking`, `TimeMasking`, `Superpixels` - are listed.
     The three-channel nine are deliberately still refused; the comment above the probe says why.
 
-    The count has been environmental before this: measured across one CI matrix on the same
-    albumentations, the 8x8-only probe answered 87 on four Linux builds, both macOS builds and
-    Windows with Python 3.10, and **88 on Windows with Python 3.13** - neither axis explaining
-    it, and no mechanism claimed beyond the probe being marginal. Escalating moves the
-    size-dependent transforms far from their thresholds, so the count may now be portable; that
-    is a hypothesis this docstring does not assert, because one matrix run is how it would be
-    tested and the number is still not pinned. The authoritative check is the one made when the
-    pipeline is built, against the user's own shape and parameters.
+    **The old count moved between runs, and the reason was the probe, not the platform.** One
+    CI matrix answered 87 on four Linux builds, both macOS builds and Windows with Python 3.10
+    and 88 on Windows with Python 3.13, which was recorded as that combination with no mechanism
+    claimed. There is no platform axis: `Superpixels` samples `n_segments`, and at 8x8 whether
+    the segmentation divides by zero depends on the draw - 4 of 60 attempts succeed. Eight
+    consecutive listings in one process on one machine gave 87, 87, 87, 87, 87, 87, 88, 87.
+
+    Escalating removes that, because every refusal is retried where all four size-dependent
+    transforms pass deterministically - `Superpixels` 40 times out of 40 at 1024x1024. Eight
+    listings gave 91 eight times. The number is still not pinned: it is a property of the
+    installed albumentations, and "stable on one machine" is not "portable". The authoritative
+    check is the one made when the pipeline is built, against the user's own shape and
+    parameters.
 
     Empty when albumentations is missing, in which case name checking is skipped and the
     backend reports the problem later - better than refusing a spec the user cannot fix.
