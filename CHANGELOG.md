@@ -1,9 +1,41 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.8.0a11] - 2026-10-11
 
 ### Added
+
+ - **`available_losses()`, `available_metrics()`, `available_models()`,
+   `available_optimizers()`, `available_callbacks()` and `available_tasks()`** - the rest of
+   the verb `available_transforms()` and `available_weights()` already answered. The number
+   of named components keeps growing, and the only way to see what is on offer was to leave
+   for a documentation site.
+
+   Three columns, in the order a reader needs them: the name you pass, the arguments you may
+   tune, and what it is for. Every row is read from the same pydantic models the schema is
+   generated from, so **a loss added to the engine appears in the listing with nothing else
+   edited** - and the tests compare each listing against the schema's own
+   `discriminator.mapping`, which is the authoritative answer to *what may I write here*,
+   rather than against a list of names in a test file.
+
+   The description shown is the component's first paragraph, which is the summary line; the
+   rest, including every measurement, stays in `spec_schema()` and in `help()`.
+
+   **Detection is the case that does not fit, and it refuses rather than inventing rows.** A
+   detection spec chooses no loss component - the objective is fixed and `box_loss` picks the
+   box term - and chooses no metrics at all, since `map_50`, `map_50_95` and
+   `mean_matched_iou` come out of `report`. Both raise with a message naming what detection
+   actually offers: the `box_loss` values are read from the schema, and a test ties the three
+   metric names to the keys of the report itself, so a rename fails here rather than in
+   somebody's console. An empty table would have been a third answer and the wrong one.
+
+   The architectures are the one hand-written part: they are an enum, and `UShapedNet` is a
+   single class taking the choice as a switch, so there is no docstring per member to read.
+   The four notes say what the code does differently - nested skips and the only architecture
+   that can take `deep_supervision`, residual blocks, additive skips and the memory they save
+   - and a test requires every member of the enum to have one.
+
+   Closes #119, which was blocked on the descriptions below.
 
  - **26 of the 29 things you can name in a configuration now say what they are.** Three did:
    `boundary`, `cosine_annealing` and `swa`, the three written most recently with a

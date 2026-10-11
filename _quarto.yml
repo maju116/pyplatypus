@@ -68,6 +68,12 @@ website:
         - reference/write_schema.qmd
       - section: What a model is made of
         contents:
+        - reference/available_tasks.qmd
+        - reference/available_models.qmd
+        - reference/available_losses.qmd
+        - reference/available_metrics.qmd
+        - reference/available_optimizers.qmd
+        - reference/available_callbacks.qmd
         - reference/available_transforms.qmd
       - section: The data on disk
         contents:
@@ -167,11 +173,18 @@ quartodoc:
     - write_schema
   - title: What a model is made of
     desc: 'Losses, metrics, optimisers, callbacks and augmentation are named in the specification
-      rather than constructed, so their fields are documented in the schema. This lists the transforms
-      the installed albumentations offers.
+      rather than constructed, so their fields are documented in the schema. These ask the package
+      what those names are, read from the same models the schema is generated from - so a loss
+      added to the engine appears in the listing with no second list to update.
 
       '
     contents:
+    - available_tasks
+    - available_models
+    - available_losses
+    - available_metrics
+    - available_optimizers
+    - available_callbacks
     - available_transforms
   - title: The data on disk
     desc: 'Splitting by patient rather than by slice, and looking at what will actually be read
