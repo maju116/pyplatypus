@@ -1,6 +1,44 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+The first entry under this heading, and the reason it exists rather than being a release: it
+records an **outcome** of something already shipped, and there is nothing to ship.
+
+### Measured and no
+
+ - **A boundary separation signal is not worth it on this data** (#159, closed
+   measured-and-no). `0.8.0a15` below measured the *ceiling* of interior-plus-rim separation at
+   **0.9846** and set the bar for "separation did something" at **0.7655**, which is where a
+   perfect semantic mask with no separation at all already lands. Four runs then measured what
+   a model actually reaches:
+
+        rim   fg Dice  interior  rim Dice  objects  matched@0.5   AP sep   AP cc   effect
+        1 px   0.9188    0.9012    0.4808     4923         4020   0.5169  0.4893  +0.0276
+        2 px   0.9199    0.8908    0.6419     5086         4248   0.5486  0.4907  +0.0579
+        3 px   0.9186    0.8554    0.7292     5481         4513   0.5587  0.4947  +0.0640
+        4 px   0.9171    0.8068    0.7622     5525         4438   0.5306  0.4791  +0.0515
+
+   **The best is 0.5587 and the curve turns over**, so the optimum is bracketed rather than
+   guessed at. The mechanism is in the two middle columns: a rim wide enough to learn is wide
+   enough to hollow the object out, so rim Dice climbs 0.48 to 0.76 while interior Dice falls
+   0.90 to 0.81. Two runs of one configuration differ by 0.0074, so the best effect is 8.6x
+   the noise and the turnover 3.8x - real, and small.
+
+   The mask never moved across the four (foreground Dice 0.917-0.920 against the two-class
+   model's 0.9205), which is what makes the comparison one variable rather than two.
+
+   **This entry is here because the `0.8.0a15` notes below would otherwise read as an open
+   recommendation.** They end with the bar and the ceiling and no outcome, and a changelog
+   entry about work in flight goes stale the moment the flight lands.
+
+### Added
+
+ - `examples/train_instance_separation.py` - the script every row above came from, kept because
+   a negative result nobody can reproduce is an opinion. Not packaged in the wheel, like the
+   rest of `examples/`, which is why this is not a release.
+
 ## [0.8.0a15] - 2026-10-12
 
 ### Added
