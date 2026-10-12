@@ -737,6 +737,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#pyplatypus.SegmentationSpec.channels_follow_the_data" id="toc-pyplatypus.SegmentationSpec.channels_follow_the_data" class="nav-link" data-scroll-target="#pyplatypus.SegmentationSpec.channels_follow_the_data">channels_follow_the_data</a></li>
   <li><a href="#pyplatypus.SegmentationSpec.channels_match_the_data" id="toc-pyplatypus.SegmentationSpec.channels_match_the_data" class="nav-link" data-scroll-target="#pyplatypus.SegmentationSpec.channels_match_the_data">channels_match_the_data</a></li>
   <li><a href="#pyplatypus.SegmentationSpec.nothing_watches_a_validation_number_that_will_not_arrive" id="toc-pyplatypus.SegmentationSpec.nothing_watches_a_validation_number_that_will_not_arrive" class="nav-link" data-scroll-target="#pyplatypus.SegmentationSpec.nothing_watches_a_validation_number_that_will_not_arrive">nothing_watches_a_validation_number_that_will_not_arrive</a></li>
+  <li><a href="#pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings" id="toc-pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings" class="nav-link" data-scroll-target="#pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings">overlapping_classes_rule_out_two_settings</a></li>
   </ul></li>
   </ul></li>
   </ul>
@@ -773,6 +774,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td><a href="#pyplatypus.SegmentationSpec.nothing_watches_a_validation_number_that_will_not_arrive">nothing_watches_a_validation_number_that_will_not_arrive</a></td>
 <td>A callback cannot wait for <code>val_loss</code> in a run that has no validation set.</td>
 </tr>
+<tr class="even">
+<td><a href="#pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings">overlapping_classes_rule_out_two_settings</a></td>
+<td>What <code>regions</code> cannot be combined with, said here rather than at training time.</td>
+</tr>
 </tbody>
 </table>
 <section id="pyplatypus.SegmentationSpec.channels_follow_the_data" class="level3">
@@ -793,6 +798,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>SegmentationSpec.nothing_watches_a_validation_number_that_will_not_arrive()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A callback cannot wait for <code>val_loss</code> in a run that has no validation set.</p>
 <p>The model knows which quantities it reports and the data knows whether any of them will be measured on a second split; neither alone can answer this, which is why it is here rather than beside <code>callbacks_watch_something_that_exists</code>. Without it the run trains to the last epoch while early stopping waits for a number that never comes, and model checkpointing writes nothing - silently, both of them.</p>
+</section>
+<section id="pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings">overlapping_classes_rule_out_two_settings</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>SegmentationSpec.overlapping_classes_rule_out_two_settings()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>What <code>regions</code> cannot be combined with, said here rather than at training time.</p>
+<p>Two things, and they fail differently.</p>
+<p><strong><code>lovasz</code></strong> is not a tuning away from working. The Lovasz-Softmax surrogate sorts the errors of a softmax over mutually exclusive classes and walks the Lovasz extension of the Jaccard loss along that order; the independent form is the Lovasz-Hinge, a different construction. Run as it stands on sigmoid channels it would produce a number and a gradient, which is the worst available outcome.</p>
+<p><strong><code>include_background: false</code></strong> has nothing to exclude: <code>regions</code> has no background entry, so channel 0 is the first region somebody asked for and dropping it would drop a class. Refused only when it was <em>written</em> - <code>cldice</code> defaults it to False, and a default is not a request. <code>model_fields_set</code> is what tells those apart, the same way <code>channels_match_the_data</code> tells a stated <code>channels</code> from the one that was there anyway.</p>
 
 
 </section>

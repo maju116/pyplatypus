@@ -1264,7 +1264,7 @@
     },
     "LovaszLoss": {
       "additionalProperties": false,
-      "description": "Optimise the overlap you are going to report, rather than a proxy for it.\n\nA surrogate for the Jaccard index that is differentiable without being smoothed, so it\nacts directly on the quantity `iou` is scored by. It sorts the errors of every image it\nis given, which costs more than the elementwise losses, and `per_image` decides whether\nthat happens per image or over the batch: per image is the harsher reading and on mostly\nempty images it is also the noisier one.",
+      "description": "Optimise the overlap you are going to report, rather than a proxy for it.\n\nA surrogate for the Jaccard index that is differentiable without being smoothed, so it\nacts directly on the quantity `iou` is scored by. It sorts the errors of every image it\nis given, which costs more than the elementwise losses, and `per_image` decides whether\nthat happens per image or over the batch: per image is the harsher reading and on mostly\nempty images it is also the noisier one.\n\n**Mutually exclusive classes only.** The Lovasz-Softmax surrogate sorts the errors of a\nsoftmax over classes that are alternatives and walks the Lovasz extension of the Jaccard\nloss along that order. The independent form is the Lovasz-Hinge, a different construction\nover signed margins rather than a setting on this one - so `regions` is refused here\nrather than silently served, because run on sigmoid channels this would return a number\nand a gradient, which is the worst available outcome.",
       "properties": {
         "name": {
           "const": "lovasz",
@@ -1413,6 +1413,33 @@
       "title": "ReduceLrOnPlateau",
       "type": "object"
     },
+    "Region": {
+      "additionalProperties": false,
+      "description": "One scored class, named as a union of the values a label map already holds.\n\nThe case this exists for is the one where overlapping classes are a *convention applied\nto exclusive data* rather than a different file format. BraTS gives every voxel one of\n`{0, 1, 2, 4}` and scores three regions that are unions of those values:\n\n    enhancing tumour  of: [4]\n    tumour core       of: [1, 4]\n    whole tumour      of: [1, 2, 4]\n\nThe same shape appears wherever a lesion sits inside an organ - liver and tumour, kidney\nand cyst, lung and nodule - and nothing new has to be read off disk for it.\n\n`of` is a membership test, which is why nothing here has to declare the full vocabulary\nof values the mask holds: a value no region mentions is simply absent from every channel.\nThat is also the mistake this invites, so `inspect_masks()` counts what each region\nmatched - a region naming a value the data does not hold is a channel of zeros, and a\nchannel of zeros trains to predict nothing and scores a Dice of 0 without complaining.",
+      "properties": {
+        "name": {
+          "description": "What this region is called. It names a channel of the output, so it is what a per-class score is reported under and what `save_class_masks` puts in a filename. Distinct from every other region's name.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "of": {
+          "description": "The label-map values belonging to this region, in any order. A voxel is in the region when its value is one of these, so regions may overlap - that is the point - and a single value is normal: BraTS's enhancing tumour is `of: [4]`. Disjoint regions are allowed and mean something useful, grouping several labels into one class and dropping the background channel; they are not a mistake and are not refused.",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Of",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "of"
+      ],
+      "title": "Region",
+      "type": "object"
+    },
     "RmsProp": {
       "additionalProperties": false,
       "description": "Adam's denominator without Adam's momentum.\n\nDivides the step by a running average of squared gradients - `alpha` is this family's\nname for Adam's `beta_2` - and leaves the direction to the raw gradient unless\n`momentum` is set. Worth trying where Adam's first moment seems to be carrying the run\npast a minimum.",
@@ -1542,6 +1569,23 @@
           "$ref": "#/$defs/DataMode",
           "default": "nested_dirs",
           "description": "How the files are arranged: `nested_dirs` for one directory per sample, `config_file` for a CSV whose columns name the files. The CSV form is what to use when the data cannot be moved or copied into a layout."
+        },
+        "regions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Region"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overlapping classes, named as unions of a label map's values - the third way of saying what a mask's classes are, and the only one that lets a voxel belong to more than one. Each entry gives a `name` and the values it is made `of`. With `regions` the model's channels are independent binary questions: a sigmoid per channel rather than one softmax across them, and **no background entry**, for the same reason detection's `classes` has none. Exactly one of `colormap`, `labels` and `regions` is given. Two regions are the minimum - one region is ordinary binary segmentation, which `labels: [0, 1]` already says.",
+          "title": "Regions"
         },
         "shuffle": {
           "default": true,

@@ -1004,6 +1004,11 @@ One colour per class; index in this list is the class index.
 a list of whole numbers — unset
 For masks stored as label maps rather than pictures: the voxel value of each class, in class order. This is how volumes label anything - NIfTI holds integers, not colours - and how a single-channel PNG mask can be read too. Exactly one of <code>colormap</code> and <code>labels</code> is given.
 </dd>
+<dt><code>regions</code></dt>
+<dd>
+a list of <code>Region</code> blocks — unset
+Overlapping classes, named as unions of a label map’s values - the third way of saying what a mask’s classes are, and the only one that lets a voxel belong to more than one. Each entry gives a <code>name</code> and the values it is made <code>of</code>. With <code>regions</code> the model’s channels are independent binary questions: a sigmoid per channel rather than one softmax across them, and <strong>no background entry</strong>, for the same reason detection’s <code>classes</code> has none. Exactly one of <code>colormap</code>, <code>labels</code> and <code>regions</code> is given. Two regions are the minimum - one region is ordinary binary segmentation, which <code>labels: [0, 1]</code> already says.
+</dd>
 <dt><code>channels_from</code></dt>
 <dd>
 a list of text values — unset
@@ -1033,6 +1038,21 @@ Required rather than optional because the mistake it prevents is invisible. Slic
 <dd>
 a whole number — <code>0</code>
 The split is deterministic given the samples, the fractions, the pattern and this. A split that moves between runs makes two results incomparable and the reason for a difference impossible to find.
+</dd>
+</dl>
+</section>
+<section id="regions-inside-segmentation-data" class="level4">
+<h4 class="anchored" data-anchor-id="regions-inside-segmentation-data"><code>regions:</code> inside segmentation <code>data:</code></h4>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <strong>required</strong>
+What this region is called. It names a channel of the output, so it is what a per-class score is reported under and what <code>save_class_masks</code> puts in a filename. Distinct from every other region’s name.
+</dd>
+<dt><code>of</code></dt>
+<dd>
+a list of whole numbers — <strong>required</strong>
+The label-map values belonging to this region, in any order. A voxel is in the region when its value is one of these, so regions may overlap - that is the point - and a single value is normal: BraTS’s enhancing tumour is <code>of: [4]</code>. Disjoint regions are allowed and mean something useful, grouping several labels into one class and dropping the background channel; they are not a mistake and are not refused.
 </dd>
 </dl>
 </section>
