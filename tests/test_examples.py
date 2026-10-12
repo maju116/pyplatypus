@@ -248,7 +248,46 @@ def test_the_quality_polarity_check_can_refuse():
 
 def test_the_examples_were_found():
     """An empty glob parametrizes nothing, and zero tests read exactly like six passing ones."""
-    assert len(SCRIPTS) >= 6, SCRIPTS
+    assert len(SCRIPTS) >= 8, SCRIPTS
+
+
+def test_the_separation_ceiling_runs_and_beats_connected_components(tmp_path, capsys):
+    """Run it, rather than inspect it.
+
+    The two numbers this script exists to put side by side are the only thing it produces, and
+    neither is reachable by reading its `parser.add_argument` calls. So the test builds two
+    cases whose objects touch - the case the whole milestone is about - and checks that the
+    ceiling is above what connected components manages on the same pictures. On data this
+    clean the separated answer is exact and the naive one merges every pair, so the gap is
+    large on purpose: a test that only asserted "different" would pass for a script that had
+    them the wrong way round.
+    """
+    import numpy as np
+    from PIL import Image
+
+    script = __import__("separation_ceiling")
+    for case in ("one", "two"):
+        masks = tmp_path / case / "masks"
+        masks.mkdir(parents=True)
+        for index, columns in enumerate(((1, 6), (6, 11))):
+            mask = np.zeros((9, 11), np.uint8)
+            mask[2:7, columns[0] : columns[1]] = 255
+            Image.fromarray(mask).save(masks / f"{index}.png")
+
+    sys.argv = ["separation_ceiling.py", "--data", str(tmp_path)]
+    script.main()
+    printed = capsys.readouterr().out
+
+    numbers = [
+        float(line.split()[-1])
+        for line in printed.splitlines()
+        if "instance average precision" in line
+    ]
+    assert len(numbers) == 2, printed
+    separated, components = numbers
+    assert separated == pytest.approx(1.0), "the parts come apart exactly on data this clean"
+    assert components < 0.2, "and connected components merges both pairs"
+    assert "erased by the erosion, rescued by fallback  0" in printed
 
 
 @pytest.mark.parametrize("name", SCRIPTS)

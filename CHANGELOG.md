@@ -1,6 +1,71 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a15] - 2026-10-12
+
+### Added
+
+ - **Instance separation, and the measurement that says it is worth training** (#159). The
+   proposal was a semantic mask plus a separation signal; of the two signals on the table this
+   takes the boundary, because it turns the problem into **three mutually exclusive classes** -
+   background, object interior, object rim - which is ordinary semantic segmentation on the
+   softmax path this package already has. Nothing new in the model, the loss or the metrics.
+
+   `parts_from_instances()` decomposes an instance label map into those parts and
+   `instances_from_parts()` grows them back: the interiors become seeds and every other
+   foreground pixel joins **the nearest seed**, which `distance_transform_edt(return_indices=
+   True)` answers in one call. No new dependency - `scikit-image` is not here and is not worth
+   adding for one function.
+
+   **No model is trained, and that is the point of this release.** The post-process is what
+   caps the approach, and a cap can be measured without the thing it caps: feed the ground
+   truth through it and score the result against the same ground truth. On the exact 134 cases
+   `dsbowl-unet`'s card reports:
+
+        interior and rim, grown back        0.9846    median 1.0000
+        connected components                0.7655
+        the published weights, as measured   0.4888    (0.8.0a13)
+
+   Three readings, and the middle one is new. **Connected components caps any model at
+   0.7655** on this data - a perfect semantic mask still scores that, because touching nuclei
+   are one region. So the published weights' 0.4888 is not one failure but two: 0.4888 to
+   0.7655 is the mask's own error, and 0.7655 to 0.9846 is what separation can buy and no
+   better mask ever will. `examples/separation_ceiling.py` is the script, it trains nothing,
+   and it prints both ceilings from one run over one set of pictures.
+
+   What the decomposition costs, counted rather than assumed, over those 134 cases: the plain
+   erosion would have **erased 6 objects in 4 cases** - a nucleus one or two pixels wide has no
+   interior - and an interior falling into two pieces **gained 52 objects in 20 cases**, which
+   is most of the 0.0154 the ceiling sits below 1.0.
+
+   The erased objects are handled rather than ignored, because an object absent from the target
+   is an object the model is told not to find: a false negative in every epoch and in the
+   score, with nothing to say the target was at fault. An object whose interior comes back
+   empty falls back to an erosion that only removes pixels touching a *different* object, and
+   one still empty after that keeps itself whole.
+
+### Fixed
+
+ - **The weak erosion could not see the objects it was protecting against.** It was handed a
+   label map with every other object masked out, so a pixel touching a neighbour read
+   background there - and background counts as agreement in that pass by design. The thin
+   object was kept whole and handed a seed it shared with its neighbour, which is the one
+   outcome that fallback exists to prevent. Found by a test, not by reading, and the ceiling
+   above was re-measured afterwards: it had been 0.9853 with the defect, which is wrong in the
+   third decimal and was nearly published.
+
+### Notes
+
+ - Nothing in `pyplatypus.instances` is in `pyplatypus.__all__`, deliberately: the top-level
+   namespace is paired with R's reference groups and the shared order is held by tests on both
+   sides. These names live on `pyplatypus.instances` until R has something to say about them.
+
+### For the R package
+
+ - **Nothing, and the pin should not move for this.** No R surface reaches the instance
+   post-process yet; `platypus#103` is the R half of the whole milestone and it waits on #160,
+   the spec tag, which is what will make any of this reachable from a configuration.
+
 ## [0.8.0a14] - 2026-10-12
 
 ### Added
