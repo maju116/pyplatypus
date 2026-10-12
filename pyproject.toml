@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a15"
+version = "0.8.0a16"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -47,6 +47,15 @@ dependencies = [
     # albumentations requires it - but a package whose code imports scipy should say so
     # rather than rely on somebody else's dependency list not changing.
     "scipy>=1.10",
+    # The marker-controlled watershed that turns a separation signal into instances.
+    # `scipy.ndimage.watershed_ift` is not a substitute: it wants integer markers and
+    # implements the image-foresting-transform watershed, a different algorithm from the one
+    # the instance-segmentation literature means by the name. Hard rather than an extra for
+    # the reason `scipy` is, plus one more: every published comparison on this problem uses
+    # `skimage.segmentation.watershed`, so writing our own would make a difference from the
+    # literature indistinguishable from a bug in ours. Under 2% of torch, which is the line
+    # the `hub` and `encoders` extras were decided on.
+    "scikit-image>=0.22",
     # Hard rather than an extra, and the number is why: the wheel is 9.9 MB and its own
     # dependencies are small or already here, so with everything it is 15-20 MB against
     # torch's 555 MB - about 3%. The rule already applied to `hub` and `encoders` was that

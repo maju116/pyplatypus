@@ -18,7 +18,11 @@ import pytest
 
 from pyplatypus.instances import average_precision, instances_from_mask, iou_matrix
 from pyplatypus.instances.metrics import InstanceError
-from pyplatypus.instances.postprocess import instances_from_parts, parts_from_instances
+from pyplatypus.instances.postprocess import (
+    instances_by_watershed,
+    instances_from_parts,
+    parts_from_instances,
+)
 
 
 def touching_pair(size=(9, 11)):
@@ -169,6 +173,83 @@ def test_an_interior_that_falls_into_two_pieces_becomes_two_objects():
     recovered = instances_from_parts(interior, truth > 0)
     assert truth.max() == 1
     assert recovered.max() == 2, "one object came back as two"
+
+
+# ------------------------------------------------------- the second decoding of one target
+
+
+def gapped_pair(width=15):
+    """Two markers with a five-column gap, so the seam has somewhere to move to."""
+    interior = np.zeros((5, width), bool)
+    interior[1:4, 1:4] = True
+    interior[1:4, width - 4 : width - 1] = True
+    foreground = np.zeros((5, width), bool)
+    foreground[1:4, 1 : width - 1] = True
+    return interior, foreground
+
+
+def test_the_watershed_puts_the_seam_on_the_ridge_and_the_other_decoding_does_not():
+    """The whole reason for a second decoding of the same target.
+
+    `instances_from_parts` splits on distance, so the seam lands on the midline wherever the
+    evidence is. A watershed climbs the surface, so the seam lands where the model said a
+    boundary is - and moving the ridge moves the seam, which is what this asserts. Without
+    this test the two decodings could be the same function and nothing would say so.
+    """
+    interior, foreground = gapped_pair()
+    midline = instances_from_parts(interior, foreground)
+
+    seams = {}
+    for ridge in (6, 9):
+        surface = np.zeros_like(foreground, dtype=np.float32)
+        surface[:, ridge] = 1.0
+        flooded = instances_by_watershed(interior, foreground, surface)
+        assert flooded.max() == 2
+        assert not np.array_equal(flooded, midline), (
+            f"a ridge at column {ridge} left the seam where distance alone would put it"
+        )
+        seams[ridge] = int(np.flatnonzero(flooded[2] == 2)[0])
+
+    assert seams[6] < seams[9], (
+        f"the seam did not follow the ridge: {seams}. A watershed that ignores its surface "
+        "is a more expensive nearest-seed"
+    )
+
+
+def test_the_watershed_recovers_touching_objects_exactly():
+    truth = touching_pair()
+    interior, rim = parts_from_instances(truth)
+    flooded = instances_by_watershed(interior, truth > 0, rim.astype(np.float32))
+    assert flooded.max() == 2
+    assert average_precision(iou_matrix(truth, flooded)) == pytest.approx(1.0)
+
+
+def test_the_watershed_invents_nothing_where_no_interior_was_found():
+    flooded = instances_by_watershed(
+        np.zeros((5, 5), bool), np.ones((5, 5), bool), np.zeros((5, 5), np.float32)
+    )
+    assert flooded.max() == 0
+
+
+def test_the_watershed_stays_inside_the_predicted_foreground():
+    interior, foreground = gapped_pair()
+    flooded = instances_by_watershed(
+        interior, foreground, np.zeros_like(foreground, dtype=np.float32)
+    )
+    assert not flooded[~foreground].any()
+
+
+def test_the_watershed_needs_three_readings_of_one_picture_at_one_size():
+    interior, foreground = gapped_pair()
+    surface = np.zeros_like(foreground, dtype=np.float32)
+    with pytest.raises(InstanceError, match="must be the same size"):
+        instances_by_watershed(interior, foreground[:, :-1], surface)
+    with pytest.raises(InstanceError, match="must be the same size"):
+        instances_by_watershed(interior, foreground, surface[:, :-1])
+    with pytest.raises(InstanceError, match="2-D interior"):
+        instances_by_watershed(
+            np.zeros((2, 2, 2), bool), np.zeros((2, 2, 2), bool), np.zeros((2, 2, 2), np.float32)
+        )
 
 
 def test_a_minimum_area_drops_regions_and_relabels_consecutively():

@@ -9,7 +9,10 @@ only named.
 
 `parts_from_instances` and `instances_from_parts` are the two halves of the alternative
 (#159): decompose each object into an interior and the rim the erosion removed, predict those
-as three mutually exclusive classes, and grow the interiors back. The pair is written before
+as three mutually exclusive classes, and grow the interiors back. `instances_by_watershed`
+is a second decoding of the same parts - **one trained model serves both**, because they share
+a target and differ only in how its channels become objects, which is why `decode` is a list
+on an instance model and `separation` is not (#160). The pair is written before
 any model because **the post-process is what caps the approach**, and feeding it the ground
 truth measures that cap without training anything.
 """
@@ -139,6 +142,57 @@ def parts_from_instances(labels: np.ndarray, width: int = 1) -> tuple[np.ndarray
         interior |= weak | hopeless
 
     return interior, (labels > 0) & ~interior
+
+
+def instances_by_watershed(
+    interior: np.ndarray,
+    foreground: np.ndarray,
+    surface: np.ndarray,
+    minimum_area: int = 0,
+) -> np.ndarray:
+    """Instances from the same parts, flooded over a surface instead of split by distance.
+
+    The interiors are the markers, `foreground` is where the flood is allowed, and `surface`
+    is the topography it climbs - so a join lands on a ridge rather than on the midline
+    between two seeds.
+
+    **What to pass as `surface`, because the name invites the wrong answer.** Not the raw
+    image: a nucleus is bright and so is the next one, and the seam between two touching
+    nuclei is not reliably darker than either. **Pass the model's own rim evidence** - the
+    predicted probability of the rim class, which is high exactly where the network thinks
+    two objects part and low inside them. That is the information `nearest_seed` throws away:
+    it thresholds the rim and then never looks at it again, so a confident boundary and a
+    marginal one move the seam by the same amount. Here they do not.
+
+    For a ground-truth ceiling measurement the rim is binary and the surface is flat, which
+    gives the flood nothing to climb; pass the inverted distance transform of the foreground
+    instead and the watershed becomes the classic distance-transform form.
+
+    `skimage.segmentation.watershed` does the flooding. It is a hard dependency for the
+    reason `scipy` is, plus one more: every published comparison on this problem uses it, so
+    a difference between our numbers and the literature's would otherwise be
+    indistinguishable from a defect in ours.
+    """
+    from skimage.segmentation import watershed
+
+    interior = np.asarray(interior)
+    foreground = np.asarray(foreground)
+    surface = np.asarray(surface)
+    if interior.ndim != 2:
+        raise InstanceError(f"expected a 2-D interior, got shape {interior.shape}")
+    for name, other in (("foreground", foreground), ("surface", surface)):
+        if other.shape != interior.shape:
+            raise InstanceError(
+                f"interior is {interior.shape} and {name} is {other.shape}; they are "
+                "readings of one picture and must be the same size"
+            )
+
+    seeds, found = ndimage.label(interior > 0, structure=CONNECTIVITY)
+    if found == 0:
+        return np.zeros(interior.shape, dtype=np.int32)
+
+    flooded = watershed(surface, markers=seeds, mask=foreground > 0)
+    return _drop_small(flooded.astype(np.int32), found, minimum_area)
 
 
 def instances_from_parts(

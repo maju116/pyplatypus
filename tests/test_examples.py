@@ -278,16 +278,29 @@ def test_the_separation_ceiling_runs_and_beats_connected_components(tmp_path, ca
     script.main()
     printed = capsys.readouterr().out
 
-    numbers = [
-        float(line.split()[-1])
-        for line in printed.splitlines()
-        if "instance average precision" in line
-    ]
-    assert len(numbers) == 2, printed
-    separated, components = numbers
-    assert separated == pytest.approx(1.0), "the parts come apart exactly on data this clean"
-    assert components < 0.2, "and connected components merges both pairs"
+    def row(label: str) -> float:
+        """The first number on the line with this label.
+
+        Not a column index: the labels have different word counts, so position would make
+        this test depend on the width of a name rather than on the number beside it.
+        """
+        import re
+
+        line = next(l for l in printed.splitlines() if l.strip().startswith(label))
+        return float(re.search(r"\d+\.\d+", line).group())
+
+    assert row("rim + nearest_seed") == pytest.approx(1.0), (
+        "the parts come apart exactly on data this clean"
+    )
+    assert row("connected_components") < 0.2, "and connected components merges both pairs"
+    # The watershed is the second decoding of the same parts. On a ceiling run its surface is
+    # flat, so it has nothing to climb - it must not come apart *worse* than the baseline it
+    # is meant to improve on, which is the only thing this run can say about it.
+    assert row("rim + watershed") > row("connected_components")
     assert "erased by the erosion, rescued by fallback  0" in printed
+    assert "floor and not as a comparison" in printed, (
+        "the watershed row without its caveat is a misleading number in the most-read place"
+    )
 
 
 @pytest.mark.parametrize("name", SCRIPTS)

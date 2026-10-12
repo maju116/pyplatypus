@@ -1,12 +1,66 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.8.0a16] - 2026-10-12
 
-The first entry under this heading, and the reason it exists rather than being a release: it
-records an **outcome** of something already shipped, and there is nothing to ship.
+### Added
+
+ - **`instances_by_watershed()`: a second decoding of the `rim` target, and `scikit-image` as a
+   hard dependency.** One trained model serves both decodings, because they share a target and
+   differ only in how its channels become objects - which is why `decode` will be a *list* on
+   an instance model and `separation` will not (#160). A decoding costs **11 ms per image**
+   against 15.5 s per training epoch, so it is a row in a table rather than a run.
+
+   `scipy.ndimage.watershed_ift` is not a substitute: it wants integer markers and implements
+   the image-foresting-transform watershed, a different algorithm from the one this literature
+   means. `scikit-image` is hard rather than an extra for the reason `scipy` is, plus one more:
+   every published comparison on this problem uses `skimage.segmentation.watershed`, so writing
+   our own would make a difference from the literature indistinguishable from a defect in ours.
+
+   **What to pass as the surface is the part the name gets wrong.** Not the image - a nucleus
+   is bright and so is the next one, and the seam between two touching nuclei is not reliably
+   darker than either. The model's own predicted rim probability is the surface, which is the
+   information `nearest_seed` throws away: it thresholds the rim and never looks at it again,
+   so a confident boundary and a marginal one move the seam by the same amount.
 
 ### Measured and no
+
+ - **The watershed does not help, and an oracle says why** (#211). Four decodings of one
+   trained `rim` model at width 3, its optimum:
+
+        nearest_seed, distance only                 0.5561
+        watershed, predicted rim probability        0.5458     -0.0103,  7.8x sd
+        watershed, the TRUE rim as surface          0.5590     +0.0029,  2.2x sd
+        connected_components, signal discarded      0.4988
+
+   **sd 0.0013**, from three runs of the identical configuration - 0.5587, 0.5574, 0.5561.
+   (The 0.0074 quoted in the entries below is the *range of two* runs at width 1; at width 3
+   the spread is a quarter of that, and §4's warning about a sample of two applies to the
+   looser figure.)
+
+   The hypothesis was that the watershed is held back by its surface, rim Dice being 0.7292.
+   **Half right, and the half that is wrong is the one that matters.** Surface quality is the
+   largest effect in the table - the oracle beats the predicted surface by 0.0132, ten times
+   the sd. And a *perfect* surface still only draws level with ignoring the surface entirely.
+
+   So the limit is not where the seam falls: **both decodings share the same seeds, and the
+   seeds decide which objects exist at all.** Perfect seam placement buys 0.003 of the 0.21
+   still missing to the 0.7655 bar.
+
+### Changed
+
+ - **A ceiling run cannot test the watershed, and `separation_ceiling.py` now says so beside
+   the number.** With perfect parts the rim is binary, the surface is flat and the flood has
+   nothing to climb, so `rim + watershed` reads 0.9756 there against nearest-seed's 0.9846 -
+   an artefact of flooding order rather than a comparison. A test asserts the caveat is
+   printed, because the figure without it is misleading in the most-read place.
+
+ - **`train_instance_separation.py` reports four decodings of one forward pass**, including the
+   oracle row - predicted seeds, true surface - labelled a diagnostic and not a route. That
+   pattern is how the above was settled at the cost of one row and no extra training, and it is
+   the pattern `#212` and `#213` should both inherit.
+
+### Measured and no, from 0.8.0a15's work
 
  - **A boundary separation signal is not worth it on this data** (#159, closed
    measured-and-no). `0.8.0a15` below measured the *ceiling* of interior-plus-rim separation at
