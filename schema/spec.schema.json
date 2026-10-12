@@ -1262,6 +1262,31 @@
       "title": "IouMetric",
       "type": "object"
     },
+    "L1Loss": {
+      "additionalProperties": false,
+      "description": "Absolute error on a continuous target.\n\nThe same gradient however wrong the voxel is, which makes it robust to a handful of bad\nlabels and indifferent to being nearly right. Reach for it where the target has\noutliers you do not want the model chasing.",
+      "properties": {
+        "name": {
+          "const": "l1",
+          "default": "l1",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "where": {
+          "default": "foreground",
+          "description": "Where the target means anything, and so where the error is averaged.\n\nA continuous instance target is defined on the objects and undefined off them - there is no direction towards the centre for a pixel in no object - so the builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is **13.97% of the pixels at 256x256** (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so `everywhere` spends 86% of the objective on a value a single output bias satisfies exactly.\n\n`foreground` divides by the mask's own total, which makes the number mean *average error per object voxel*. `everywhere` is the other defensible answer and is what CellPose and HoVer-Net's plain regression terms do - their background zero is a real value rather than a missing one. Both are offered and neither is guessed; `foreground` is the default because it is the reading whose number means something.\n\n`foreground` asks the loader for the mask, which is the same mechanism `boundary` uses for its distance map. It is never read off the target: a flow field is exactly zero at every object's centre, so a mask taken from the non-zero voxels would drop precisely the seeds - and the seeds are what limits this approach (`pyplatypus#211`).",
+          "enum": [
+            "foreground",
+            "everywhere"
+          ],
+          "title": "Where",
+          "type": "string"
+        }
+      },
+      "title": "L1Loss",
+      "type": "object"
+    },
     "LovaszLoss": {
       "additionalProperties": false,
       "description": "Optimise the overlap you are going to report, rather than a proxy for it.\n\nA surrogate for the Jaccard index that is differentiable without being smoothed, so it\nacts directly on the quantity `iou` is scored by. It sorts the errors of every image it\nis given, which costs more than the elementwise losses, and `per_image` decides whether\nthat happens per image or over the batch: per image is the harsher reading and on mostly\nempty images it is also the noisier one.\n\n**Mutually exclusive classes only.** The Lovasz-Softmax surrogate sorts the errors of a\nsoftmax over classes that are alternatives and walks the Lovasz extension of the Jaccard\nloss along that order. The independent form is the Lovasz-Hinge, a different construction\nover signed margins rather than a setting on this one - so `regions` is refused here\nrather than silently served, because run on sigmoid channels this would return a number\nand a gradient, which is the worst available outcome.",
@@ -1316,6 +1341,31 @@
         "path"
       ],
       "title": "ModelCheckpoint",
+      "type": "object"
+    },
+    "MseLoss": {
+      "additionalProperties": false,
+      "description": "Squared error on a continuous target.\n\nFor `flows` and `hv`, and for nothing a mask can do: run against a one-hot target this\nscores raw output against 0 and 1 with no activation in between, which is not a\nsegmentation objective. The gradient grows with the error, so one badly wrong voxel\ncounts for a lot - right when the large values of the target are the informative ones,\nwrong when the labels are noisy.\n\n```yaml\nloss:\n  name: mse\n  where: foreground\n```",
+      "properties": {
+        "name": {
+          "const": "mse",
+          "default": "mse",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "where": {
+          "default": "foreground",
+          "description": "Where the target means anything, and so where the error is averaged.\n\nA continuous instance target is defined on the objects and undefined off them - there is no direction towards the centre for a pixel in no object - so the builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is **13.97% of the pixels at 256x256** (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so `everywhere` spends 86% of the objective on a value a single output bias satisfies exactly.\n\n`foreground` divides by the mask's own total, which makes the number mean *average error per object voxel*. `everywhere` is the other defensible answer and is what CellPose and HoVer-Net's plain regression terms do - their background zero is a real value rather than a missing one. Both are offered and neither is guessed; `foreground` is the default because it is the reading whose number means something.\n\n`foreground` asks the loader for the mask, which is the same mechanism `boundary` uses for its distance map. It is never read off the target: a flow field is exactly zero at every object's centre, so a mask taken from the non-zero voxels would drop precisely the seeds - and the seeds are what limits this approach (`pyplatypus#211`).",
+          "enum": [
+            "foreground",
+            "everywhere"
+          ],
+          "title": "Where",
+          "type": "string"
+        }
+      },
+      "title": "MseLoss",
       "type": "object"
     },
     "NAdam": {
@@ -1919,7 +1969,10 @@
               "focal": "#/$defs/FocalLoss",
               "focal_tversky": "#/$defs/FocalTverskyLoss",
               "iou": "#/$defs/IouLoss",
+              "l1": "#/$defs/L1Loss",
               "lovasz": "#/$defs/LovaszLoss",
+              "mse": "#/$defs/MseLoss",
+              "smooth_l1": "#/$defs/SmoothL1Loss",
               "tversky": "#/$defs/TverskyLoss"
             },
             "propertyName": "name"
@@ -1954,6 +2007,15 @@
             },
             {
               "$ref": "#/$defs/BoundaryLoss"
+            },
+            {
+              "$ref": "#/$defs/MseLoss"
+            },
+            {
+              "$ref": "#/$defs/L1Loss"
+            },
+            {
+              "$ref": "#/$defs/SmoothL1Loss"
             }
           ],
           "title": "Loss"
@@ -2194,6 +2256,38 @@
         }
       },
       "title": "Sgd",
+      "type": "object"
+    },
+    "SmoothL1Loss": {
+      "additionalProperties": false,
+      "description": "`mse` close to the truth and `l1` far from it, switching at `beta`.\n\nThe usual compromise, and the one the detector already uses on box size. At a very small\n`beta` this is `l1` and at a very large one it is `mse` scaled by `beta`, which is worth\nknowing before tuning it as if it were a third thing.",
+      "properties": {
+        "beta": {
+          "default": 1.0,
+          "description": "Where the quadratic part ends and the linear one begins, in the target's own units. For a flow field scaled to roughly [-1, 1] the default makes the whole range quadratic, so lower it to get any of the robustness this loss is for.",
+          "exclusiveMinimum": 0,
+          "title": "Beta",
+          "type": "number"
+        },
+        "name": {
+          "const": "smooth_l1",
+          "default": "smooth_l1",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "where": {
+          "default": "foreground",
+          "description": "Where the target means anything, and so where the error is averaged.\n\nA continuous instance target is defined on the objects and undefined off them - there is no direction towards the centre for a pixel in no object - so the builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is **13.97% of the pixels at 256x256** (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so `everywhere` spends 86% of the objective on a value a single output bias satisfies exactly.\n\n`foreground` divides by the mask's own total, which makes the number mean *average error per object voxel*. `everywhere` is the other defensible answer and is what CellPose and HoVer-Net's plain regression terms do - their background zero is a real value rather than a missing one. Both are offered and neither is guessed; `foreground` is the default because it is the reading whose number means something.\n\n`foreground` asks the loader for the mask, which is the same mechanism `boundary` uses for its distance map. It is never read off the target: a flow field is exactly zero at every object's centre, so a mask taken from the non-zero voxels would drop precisely the seeds - and the seeds are what limits this approach (`pyplatypus#211`).",
+          "enum": [
+            "foreground",
+            "everywhere"
+          ],
+          "title": "Where",
+          "type": "string"
+        }
+      },
+      "title": "SmoothL1Loss",
       "type": "object"
     },
     "SplitSpec": {

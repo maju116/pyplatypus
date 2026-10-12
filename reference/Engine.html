@@ -1284,10 +1284,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-6">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
+<col style="width: 2%">
 <col style="width: 3%">
-<col style="width: 4%">
-<col style="width: 88%">
-<col style="width: 3%">
+<col style="width: 90%">
+<col style="width: 2%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1331,7 +1331,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="even">
 <td>for_loss</td>
 <td>bool</td>
-<td>Whether these batches are going to the loss. When they are and the loss is <code>boundary</code>, each batch carries a third item - the signed distance map - computed in the loader’s workers rather than in the loss, because the transform costs more than an epoch of a small 3D model and the paths that only score or predict should not pay for it.</td>
+<td>Whether these batches are going to the loss. When they are and the loss asks for one, each batch carries a third item: the signed distance map for <code>boundary</code>, or the foreground mask for a regression loss scoring the foreground. Both are computed in the loader’s workers rather than in the loss - the distance transform costs more than an epoch of a small 3D model - and the paths that only score or predict should not pay for either.</td>
 <td><code>True</code></td>
 </tr>
 </tbody>
@@ -1361,7 +1361,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="even">
 <td></td>
 <td></td>
-<td>loss asks for a distance map.</td>
+<td>loss asked the loader for something.</td>
 </tr>
 </tbody>
 </table>

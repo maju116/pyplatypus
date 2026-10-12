@@ -1172,7 +1172,7 @@ How the weights start. The <code>he_*</code> family is scaled for ReLU-like acti
 </dd>
 <dt><code>loss</code></dt>
 <dd>
-one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>iou</code>, <code>lovasz</code>, <code>tversky</code> — optional
+one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — optional
 The objective trained against. The <code>loss</code> column of a score table is comparable only between models trained on the same one - a Focal-Tversky of 0.05 is not better than a cross-entropy of 0.14, it is not the same question - which is why the table carries the loss’s name beside it.
 </dd>
 <dt><code>metrics</code></dt>
@@ -1655,6 +1655,25 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </dd>
 </dl>
 </section>
+<section id="loss-l1" class="level4">
+<h4 class="anchored" data-anchor-id="loss-l1"><code>l1</code></h4>
+<p>Absolute error on a continuous target.</p>
+<dl>
+<dt><code>where</code></dt>
+<dd>
+<code>foreground</code> or <code>everywhere</code> — <code>foreground</code>
+Where the target means anything, and so where the error is averaged.
+A continuous instance target is defined on the objects and undefined off them - there is no direction towards the centre for a pixel in no object - so the builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is <strong>13.97% of the pixels at 256x256</strong> (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so <code>everywhere</code> spends 86% of the objective on a value a single output bias satisfies exactly.
+<code>foreground</code> divides by the mask’s own total, which makes the number mean <em>average error per object voxel</em>. <code>everywhere</code> is the other defensible answer and is what CellPose and HoVer-Net’s plain regression terms do - their background zero is a real value rather than a missing one. Both are offered and neither is guessed; <code>foreground</code> is the default because it is the reading whose number means something.
+<code>foreground</code> asks the loader for the mask, which is the same mechanism <code>boundary</code> uses for its distance map. It is never read off the target: a flow field is exactly zero at every object’s centre, so a mask taken from the non-zero voxels would drop precisely the seeds - and the seeds are what limits this approach (<code>pyplatypus#211</code>).
+</dd>
+<dt><code>name</code></dt>
+<dd>
+text — <code>l1</code>
+Which loss, and it decides which other keys this block accepts: <code>tversky</code> takes <code>alpha</code>, <code>focal</code> takes <code>gamma</code>, and giving a key the chosen loss does not have is refused by name rather than ignored.
+</dd>
+</dl>
+</section>
 <section id="loss-lovasz" class="level4">
 <h4 class="anchored" data-anchor-id="loss-lovasz"><code>lovasz</code></h4>
 <p>Optimise the overlap you are going to report, rather than a proxy for it.</p>
@@ -1668,6 +1687,49 @@ Which loss, and it decides which other keys this block accepts: <code>tversky</c
 <dd>
 <code>true</code> or <code>false</code> — <code>false</code>
 Compute the loss for each image and average, rather than over the whole batch at once. Per image is the honest thing when images differ in how much of them is foreground, because otherwise a large object in one image dominates the batch; it is also noisier.
+</dd>
+</dl>
+</section>
+<section id="loss-mse" class="level4">
+<h4 class="anchored" data-anchor-id="loss-mse"><code>mse</code></h4>
+<p>Squared error on a continuous target.</p>
+<dl>
+<dt><code>where</code></dt>
+<dd>
+<code>foreground</code> or <code>everywhere</code> — <code>foreground</code>
+Where the target means anything, and so where the error is averaged.
+A continuous instance target is defined on the objects and undefined off them - there is no direction towards the centre for a pixel in no object - so the builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is <strong>13.97% of the pixels at 256x256</strong> (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so <code>everywhere</code> spends 86% of the objective on a value a single output bias satisfies exactly.
+<code>foreground</code> divides by the mask’s own total, which makes the number mean <em>average error per object voxel</em>. <code>everywhere</code> is the other defensible answer and is what CellPose and HoVer-Net’s plain regression terms do - their background zero is a real value rather than a missing one. Both are offered and neither is guessed; <code>foreground</code> is the default because it is the reading whose number means something.
+<code>foreground</code> asks the loader for the mask, which is the same mechanism <code>boundary</code> uses for its distance map. It is never read off the target: a flow field is exactly zero at every object’s centre, so a mask taken from the non-zero voxels would drop precisely the seeds - and the seeds are what limits this approach (<code>pyplatypus#211</code>).
+</dd>
+<dt><code>name</code></dt>
+<dd>
+text — <code>mse</code>
+Which loss, and it decides which other keys this block accepts: <code>tversky</code> takes <code>alpha</code>, <code>focal</code> takes <code>gamma</code>, and giving a key the chosen loss does not have is refused by name rather than ignored.
+</dd>
+</dl>
+</section>
+<section id="loss-smooth_l1" class="level4">
+<h4 class="anchored" data-anchor-id="loss-smooth_l1"><code>smooth_l1</code></h4>
+<p><code>mse</code> close to the truth and <code>l1</code> far from it, switching at <code>beta</code>.</p>
+<dl>
+<dt><code>where</code></dt>
+<dd>
+<code>foreground</code> or <code>everywhere</code> — <code>foreground</code>
+Where the target means anything, and so where the error is averaged.
+A continuous instance target is defined on the objects and undefined off them - there is no direction towards the centre for a pixel in no object - so the builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is <strong>13.97% of the pixels at 256x256</strong> (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so <code>everywhere</code> spends 86% of the objective on a value a single output bias satisfies exactly.
+<code>foreground</code> divides by the mask’s own total, which makes the number mean <em>average error per object voxel</em>. <code>everywhere</code> is the other defensible answer and is what CellPose and HoVer-Net’s plain regression terms do - their background zero is a real value rather than a missing one. Both are offered and neither is guessed; <code>foreground</code> is the default because it is the reading whose number means something.
+<code>foreground</code> asks the loader for the mask, which is the same mechanism <code>boundary</code> uses for its distance map. It is never read off the target: a flow field is exactly zero at every object’s centre, so a mask taken from the non-zero voxels would drop precisely the seeds - and the seeds are what limits this approach (<code>pyplatypus#211</code>).
+</dd>
+<dt><code>name</code></dt>
+<dd>
+text — <code>smooth_l1</code>
+Which loss, and it decides which other keys this block accepts: <code>tversky</code> takes <code>alpha</code>, <code>focal</code> takes <code>gamma</code>, and giving a key the chosen loss does not have is refused by name rather than ignored.
+</dd>
+<dt><code>beta</code></dt>
+<dd>
+a number — <code>1.0</code>
+Where the quadratic part ends and the linear one begins, in the target’s own units. For a flow field scaled to roughly [-1, 1] the default makes the whole range quadratic, so lower it to get any of the robustness this loss is for.
 </dd>
 </dl>
 </section>
