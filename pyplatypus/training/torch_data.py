@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader, Dataset, Sampler
 
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.detection import DetectionDataset
-from pyplatypus.data.masks import signed_distance
+from pyplatypus.data.masks import onehot_to_foreground, signed_distance
 
 
 def to_channels_first(array: np.ndarray) -> torch.Tensor:
@@ -23,6 +23,18 @@ def to_channels_first(array: np.ndarray) -> torch.Tensor:
 
 class TorchSegmentationDataset(Dataset):
     """A thin adapter. All the work already happened in `SegmentationDataset`.
+
+    Either flag adds **one** extra tensor to the pair, and the two are never both set: a
+    regression loss is not a region loss and `boundary` takes only region losses, which is
+    what lets the third slot be "whatever this loss asked the loader for" rather than a pair
+    of optional ones the trainer would have to tell apart by position. `make_loader` refuses
+    the combination rather than leaving it to be discovered.
+
+    With `with_foreground` the extra tensor is the mask of the voxels the target is defined
+    on, which is what a regression loss needs and what it must not read off its own target -
+    see `onehot_to_foreground`. It is cheap, unlike the distance map, and still belongs here:
+    it is a function of the augmented mask, so computing it anywhere upstream would describe
+    a shape that has since moved.
 
     With `with_distance` it also computes the signed distance map of the mask, which is
     **why this is here and not in the loss**. Measured on this machine, one Euclidean
@@ -36,9 +48,21 @@ class TorchSegmentationDataset(Dataset):
     longer there - and it would do it silently, since the map is never looked at.
     """
 
-    def __init__(self, base: SegmentationDataset, *, with_distance: bool = False):
+    def __init__(
+        self,
+        base: SegmentationDataset,
+        *,
+        with_distance: bool = False,
+        with_foreground: bool = False,
+    ):
+        if with_distance and with_foreground:
+            raise ValueError(
+                "a loader carries one extra tensor, and no loss asks for both the signed "
+                "distance map and the foreground mask"
+            )
         self.base = base
         self.with_distance = with_distance
+        self.with_foreground = with_foreground
 
     def __len__(self) -> int:
         return len(self.base)
@@ -47,6 +71,13 @@ class TorchSegmentationDataset(Dataset):
         image, mask = self.base[index]
         if mask is None:
             return to_channels_first(image)
+        if self.with_foreground:
+            foreground = onehot_to_foreground(mask, multilabel=self.base.data.multilabel)
+            return (
+                to_channels_first(image),
+                to_channels_first(mask),
+                to_channels_first(foreground),
+            )
         if not self.with_distance:
             return to_channels_first(image), to_channels_first(mask)
         distance = signed_distance(mask, spacing=self._spacing())
@@ -116,6 +147,7 @@ def make_loader(
     num_workers: int = 0,
     drop_last: bool = False,
     with_distance: bool = False,
+    with_foreground: bool = False,
 ) -> DataLoader:
     # A tiled dataset is shuffled in windows rather than wholesale; see `TileShuffle`. An
     # untiled one has nothing to reuse, so it takes torch's own shuffling and this changes
@@ -129,7 +161,9 @@ def make_loader(
         )
 
     return DataLoader(
-        TorchSegmentationDataset(base, with_distance=with_distance),
+        TorchSegmentationDataset(
+            base, with_distance=with_distance, with_foreground=with_foreground
+        ),
         batch_size=batch_size,
         shuffle=shuffle if sampler is None else False,
         sampler=sampler,

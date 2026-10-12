@@ -31,7 +31,7 @@ COMPONENTS = sorted(
 
 def test_the_search_finds_every_component():
     """Or this file passes by looking at four of them."""
-    assert len(COMPONENTS) == 29
+    assert len(COMPONENTS) == 32
     names = {model for model, _ in COMPONENTS}
     # one of each kind, so a union dropping out of the schema fails here rather than later
     for expected in ("DiceLoss", "ClDiceMetric", "Sgd", "TerminateOnNaN"):

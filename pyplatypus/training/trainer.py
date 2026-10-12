@@ -155,19 +155,24 @@ class Trainer:
         )
         self.callbacks = callbacks if callbacks is not None else build_callbacks(spec.callbacks)
         self._frozen: bool | None = None
-        self._wants_distance = getattr(self.loss_fn, "needs_distance", False)
+        # Two flags, one slot. Both ask the loader for a tensor the loss cannot compute
+        # for itself, and no loss sets both - so the trainer only has to know *whether*
+        # a third argument is wanted, never which of the two it is.
+        self._wants_extra = getattr(self.loss_fn, "needs_distance", False) or getattr(
+            self.loss_fn, "needs_mask", False
+        )
 
     def _loss_and_final(
-        self, batch_x: torch.Tensor, batch_y: torch.Tensor, distance: torch.Tensor | None = None
+        self, batch_x: torch.Tensor, batch_y: torch.Tensor, extra: torch.Tensor | None = None
     ):
         out = self.model(batch_x)
-        # The flag, not the value: a loss that does not want a distance map must not be
-        # handed one, and eight of the nine take two arguments. Read with a default
-        # because `loss_fn` need only be callable - the NaN test substitutes a bare
-        # function - and something that does not say it wants a distance map does not.
+        # The flag, not the value: a loss that does not want a third tensor must not be
+        # handed one, and most of them take two arguments. Read with a default because
+        # `loss_fn` need only be callable - the NaN test substitutes a bare function - and
+        # something that does not say it wants an extra tensor does not.
         call = (
-            (lambda o: self.loss_fn(o, batch_y, distance))
-            if self._wants_distance
+            (lambda o: self.loss_fn(o, batch_y, extra))
+            if self._wants_extra
             else (lambda o: self.loss_fn(o, batch_y))
         )
         if isinstance(out, tuple):
@@ -207,16 +212,17 @@ class Trainer:
 
         with torch.set_grad_enabled(train):
             for batch in loader:
-                # Two items or three: the third is the signed distance map, which the
-                # loader produces only when the loss asked for it. Unpacked by length
-                # rather than by a flag, so a loader and a trainer cannot disagree.
+                # Two items or three: the third is whatever the loss asked the loader
+                # for - the signed distance map, or the foreground mask - and the loader
+                # produces it only then. Unpacked by length rather than by a flag, so a
+                # loader and a trainer cannot disagree about how many there are.
                 batch_x, batch_y = batch[0], batch[1]
-                distance = batch[2].to(self.device, non_blocking=True) if len(batch) > 2 else None
+                extra = batch[2].to(self.device, non_blocking=True) if len(batch) > 2 else None
                 batch_x = batch_x.to(self.device, non_blocking=True)
                 batch_y = batch_y.to(self.device, non_blocking=True)
                 if train:
                     self.optimizer.zero_grad(set_to_none=True)
-                loss, final = self._loss_and_final(batch_x, batch_y, distance)
+                loss, final = self._loss_and_final(batch_x, batch_y, extra)
                 if train:
                     loss.backward()
                     self.optimizer.step()

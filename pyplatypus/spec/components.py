@@ -369,6 +369,89 @@ class BoundaryLoss(_Loss):
     )
 
 
+# --------------------------------------------------------------- regression losses
+# The only family here that scores a continuous target rather than an overlap, and the
+# only one whose input is used unactivated. They exist for `flows` and `hv` - a continuous
+# instance target has nothing in the ten overlap-and-cross-entropy losses to be trained
+# against - and `where` is their whole content. `pyplatypus#209`.
+#
+# `supports_multilabel` stays at the inherited True, and the honest reading is that the
+# question does not arise: nothing here turns an output into a probability, so there is no
+# softmax-against-sigmoid decision to get wrong.
+_WHERE = (
+    "Where the target means anything, and so where the error is averaged.\n\n"
+    "A continuous instance target is defined on the objects and undefined off them - there "
+    "is no direction towards the centre for a pixel in no object - so the builder writes "
+    "zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is "
+    "**13.97% of the pixels at 256x256** (13.48% at native size, 0.03% to 59.2% per case, "
+    "167 cases under 5%), so `everywhere` spends 86% of the objective on a value a single "
+    "output bias satisfies exactly.\n\n"
+    "`foreground` divides by the mask's own total, which makes the number mean *average "
+    "error per object voxel*. `everywhere` is the other defensible answer and is what "
+    "CellPose and HoVer-Net's plain regression terms do - their background zero is a real "
+    "value rather than a missing one. Both are offered and neither is guessed; `foreground` "
+    "is the default because it is the reading whose number means something.\n\n"
+    "`foreground` asks the loader for the mask, which is the same mechanism `boundary` uses "
+    "for its distance map. It is never read off the target: a flow field is exactly zero at "
+    "every object's centre, so a mask taken from the non-zero voxels would drop precisely "
+    "the seeds - and the seeds are what limits this approach (`pyplatypus#211`)."
+)
+
+
+class _Regression(_Loss):
+    where: Literal["foreground", "everywhere"] = Field("foreground", description=_WHERE)
+
+
+class MseLoss(_Regression):
+    """Squared error on a continuous target.
+
+    For `flows` and `hv`, and for nothing a mask can do: run against a one-hot target this
+    scores raw output against 0 and 1 with no activation in between, which is not a
+    segmentation objective. The gradient grows with the error, so one badly wrong voxel
+    counts for a lot - right when the large values of the target are the informative ones,
+    wrong when the labels are noisy.
+
+    ```yaml
+    loss:
+      name: mse
+      where: foreground
+    ```
+    """
+
+    name: Literal["mse"] = Field("mse", description=_LOSS_NAME)
+
+
+class L1Loss(_Regression):
+    """Absolute error on a continuous target.
+
+    The same gradient however wrong the voxel is, which makes it robust to a handful of bad
+    labels and indifferent to being nearly right. Reach for it where the target has
+    outliers you do not want the model chasing.
+    """
+
+    name: Literal["l1"] = Field("l1", description=_LOSS_NAME)
+
+
+class SmoothL1Loss(_Regression):
+    """`mse` close to the truth and `l1` far from it, switching at `beta`.
+
+    The usual compromise, and the one the detector already uses on box size. At a very small
+    `beta` this is `l1` and at a very large one it is `mse` scaled by `beta`, which is worth
+    knowing before tuning it as if it were a third thing.
+    """
+
+    name: Literal["smooth_l1"] = Field("smooth_l1", description=_LOSS_NAME)
+    beta: float = Field(
+        1.0,
+        gt=0,
+        description=(
+            "Where the quadratic part ends and the linear one begins, in the target's own "
+            "units. For a flow field scaled to roughly [-1, 1] the default makes the whole "
+            "range quadratic, so lower it to get any of the robustness this loss is for."
+        ),
+    )
+
+
 LossSpec = Annotated[
     IouLoss
     | DiceLoss
@@ -379,7 +462,10 @@ LossSpec = Annotated[
     | FocalTverskyLoss
     | ComboLoss
     | LovaszLoss
-    | BoundaryLoss,
+    | BoundaryLoss
+    | MseLoss
+    | L1Loss
+    | SmoothL1Loss,
     Field(discriminator="name"),
 ]
 

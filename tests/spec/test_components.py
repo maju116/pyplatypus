@@ -20,6 +20,9 @@ from pyplatypus import ConfigError, available_transforms, from_dict
         "focal_tversky",
         "combo",
         "lovasz",
+        "mse",
+        "l1",
+        "smooth_l1",
     ],
 )
 def test_every_loss_is_reachable(config, name):

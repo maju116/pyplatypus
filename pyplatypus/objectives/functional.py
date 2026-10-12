@@ -323,3 +323,67 @@ def lovasz_softmax(
     merged_p = probs.transpose(0, 1).reshape(probs.shape[1], -1)
     merged_t = target.transpose(0, 1).reshape(target.shape[1], -1)
     return one(merged_p, merged_t)
+
+
+# ------------------------------------------------------------------ regression
+# These three are the odd family here, in a way worth stating before the code: **nothing
+# activates their input.** Everything above turns logits into probabilities first, because
+# an overlap only means something between 0 and 1; a flow field or a distance in pixels is
+# unbounded, and putting a sigmoid in front of one would squash it into (0, 1) while still
+# producing a number and a gradient - §4's worst available outcome. So `prediction` here is
+# the model's raw output used as the prediction, and the word "logits" does not apply.
+
+
+def masked_mean(error: torch.Tensor, mask: torch.Tensor | None = None) -> torch.Tensor:
+    """Mean of `error` over the voxels `mask` selects, or over all of them if it is None.
+
+    The mean is **per selected voxel, not per voxel of the picture**: dividing by the mask's
+    own total is what makes the number "average error where the target is defined" rather
+    than a quantity that shrinks as the object does. A mask of (B, 1, *spatial) is expanded
+    across channels, so one foreground selects every component of a vector target.
+
+    An empty mask gives exactly 0 - there is nothing to average - and the clamp is what
+    keeps that from being 0/0. That is the honest answer for a tile with no object in it,
+    and it is worth knowing that such a tile then contributes no gradient at all: on this
+    data 167 of 536 Data Science Bowl cases are under 5% foreground, so with small tiles
+    the empty ones are not a corner case.
+    """
+    if mask is None:
+        return error.mean()
+    if mask.shape[0] != error.shape[0] or mask.shape[2:] != error.shape[2:]:
+        raise ValueError(
+            f"the mask's shape {tuple(mask.shape)} does not match the target's "
+            f"{tuple(error.shape)} in batch or space"
+        )
+    weights = mask.expand_as(error)
+    return (error * weights).sum() / weights.sum().clamp_min(1.0)
+
+
+def mse(
+    prediction: torch.Tensor, target: torch.Tensor, *, mask: torch.Tensor | None = None
+) -> torch.Tensor:
+    """Squared error, averaged where the mask says the target means something."""
+    return masked_mean(F.mse_loss(prediction, target, reduction="none"), mask)
+
+
+def l1(
+    prediction: torch.Tensor, target: torch.Tensor, *, mask: torch.Tensor | None = None
+) -> torch.Tensor:
+    """Absolute error, averaged where the mask says the target means something."""
+    return masked_mean(F.l1_loss(prediction, target, reduction="none"), mask)
+
+
+def smooth_l1(
+    prediction: torch.Tensor,
+    target: torch.Tensor,
+    beta: float = 1.0,
+    *,
+    mask: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Squared inside `beta` of the truth and absolute outside it.
+
+    The gradient of `mse` grows without bound in the error, so one badly wrong voxel can
+    dominate a batch; `l1`'s gradient is constant, which makes it indifferent to being
+    nearly right. This is the usual compromise, and `beta` is where it switches.
+    """
+    return masked_mean(F.smooth_l1_loss(prediction, target, reduction="none", beta=beta), mask)
