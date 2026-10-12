@@ -24,7 +24,7 @@ from pyplatypus.data.splits import group_of
 from pyplatypus.errors import PlatypusError
 from pyplatypus.models import build_model
 from pyplatypus.models.encoders import PretrainedEncoder
-from pyplatypus.objectives.losses import loss_needs_distance
+from pyplatypus.objectives.losses import loss_needs_distance, loss_needs_mask
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.spec.spec import PlatypusSpec, SegmentationSpec
 from pyplatypus.training.torch_data import make_loader
@@ -315,14 +315,15 @@ class Engine(EngineBase):
             shuffle: Shuffle between epochs. Training only, for the same reason.
             only_images: Read images alone, with no targets.
             for_loss: Whether these batches are going to the loss. When they are and the
-                loss is `boundary`, each batch carries a third item - the signed distance
-                map - computed in the loader's workers rather than in the loss, because
-                the transform costs more than an epoch of a small 3D model and the paths
-                that only score or predict should not pay for it.
+                loss asks for one, each batch carries a third item: the signed distance map
+                for `boundary`, or the foreground mask for a regression loss scoring the
+                foreground. Both are computed in the loader's workers rather than in the
+                loss - the distance transform costs more than an epoch of a small 3D model -
+                and the paths that only score or predict should not pay for either.
 
         Returns:
             A `torch.utils.data.DataLoader`. Batches hold two items, or three when the
-            loss asks for a distance map.
+            loss asked the loader for something.
         """
         # `boundary` needs the signed distance map of its target and nothing else does, so
         # the loader computes it only when the loss asks - the transform costs more than an
@@ -332,12 +333,18 @@ class Engine(EngineBase):
         # `for_loss=False` is for the paths that score or predict rather than optimise:
         # they never call the loss, so a map built for them would be pure waste - 700 ms a
         # sample at 128^3, on work that does not read it.
+        #
+        # A regression loss asks for the other extra tensor, the mask of the voxels its
+        # target is defined on. Same question, same place, same reason it is asked of the
+        # spec; the two are never both true, and `TorchSegmentationDataset` refuses the
+        # combination rather than silently serving one of them.
         return make_loader(
             self.dataset(model, split, augmented=augmented, only_images=only_images),
             batch_size=model.batch_size,
             shuffle=shuffle,
             num_workers=self.num_workers,
             with_distance=for_loss and loss_needs_distance(model.loss),
+            with_foreground=for_loss and loss_needs_mask(model.loss),
         )
 
     # ----------------------------------------------------------------- weights

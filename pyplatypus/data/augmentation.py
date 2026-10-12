@@ -5,6 +5,36 @@ is the backend; swapping or adding one later must not touch a single spec.
 
 Masks travel through here as class indices, never as one-hot or RGB, so a geometric
 transform moves labels around instead of blending them into colours that match no class.
+
+**And never as a continuous target**, which is the decision `pyplatypus#210` settled rather
+than a restatement of the line above. A flow field or a pair of horizontal and vertical
+distances is a vector per voxel: a horizontal flip has to negate its x component, a rotation
+has to rotate the vectors, and augmenting one as a mask produces a target that is
+geometrically consistent and physically wrong - every arrow pointing somewhere else, with a
+loss that still falls and a model that still trains.
+
+Two measurements settled which way to fix that, both in `tests/data/test_vector_targets.py`
+where a library bump re-runs them:
+
+* **albumentations 2.0.8 never invents a label value.** Sixteen transforms, twenty seeded
+  draws each, a label map of forty distinct ids: not one output value was absent from the
+  input. So an *instance* label map can travel through here unharmed, and a continuous
+  target can be built from it afterwards. Ids are lost where the geometry removes them -
+  463 of 800 over twenty 32-pixel crops - which is the frame doing its job.
+* **A crop moves an object's centre, and no correction can answer that.** Negating x after a
+  horizontal flip is exact: 0.0% of foreground voxels disagree with a field rebuilt from the
+  flipped labels, at 0.0 degrees. After a 32-pixel crop, **49.5% disagree, by a median of
+  8.9 degrees and up to 180** - the surviving half of an object has a new centre, so the old
+  arrows point at a place that is no longer there. There is no component to negate.
+
+So the target is **rebuilt from the augmented label map**, never corrected, and that is
+correct by construction for every transform rather than for an admissible list of them.
+`loss_boundary` already establishes the precedent - it computes its distance transform in
+the loader's workers because the alternative costs more than the training. It also means
+tiling is covered: a tile is a crop, it happens before augmentation, and a 2048-pixel retina
+cut into sixteen would otherwise carry sixteen fields built for the whole picture.
+
+`_refuse_continuous_mask` is what keeps that decision from being quietly undone.
 """
 
 from __future__ import annotations
@@ -24,7 +54,12 @@ class AugmentationError(PlatypusError):
 
 
 class Augmenter(Protocol):
-    """Takes an image and its class-index mask, returns both transformed."""
+    """Takes an image and its class-index mask, returns both transformed.
+
+    A mask here is one integer per voxel - a class index, or an instance label. Never a
+    continuous target; see this module's docstring for why, and `_refuse_continuous_mask`
+    for what happens if one is passed anyway.
+    """
 
     def __call__(
         self, image: np.ndarray, mask: np.ndarray | None = None
@@ -75,10 +110,37 @@ class AlbumentationsAugmenter:
         self, image: np.ndarray, mask: np.ndarray | None = None
     ) -> tuple[np.ndarray, np.ndarray | None]:
         image_key, mask_key = ("volume", "mask3d") if self.rank == 3 else ("image", "mask")
+        if mask is not None:
+            _refuse_continuous_mask(mask)
         if mask is None:
             return self._pipeline(**{image_key: image})[image_key], None
         out = self._pipeline(**{image_key: image, mask_key: mask})
         return out[image_key], out[mask_key]
+
+
+def _refuse_continuous_mask(mask: np.ndarray) -> None:
+    """Refuse a floating-point mask, because the failure it would cause is silent.
+
+    This is the one guard in the package whose whole value is that it fires early. A flow
+    field sent through as a mask comes back the right shape, the right dtype and the right
+    range, with its arrows pointing the wrong way; the loss falls, the model trains and
+    every number downstream is plausible. Nothing further on could tell - which is the same
+    shape as a permuted channel, and `channels_from` refuses that one by construction too.
+
+    A class index or an instance label is an integer, and every path in this package that
+    reaches here sends one: `labels_to_classes`, `colours_to_classes` and
+    `labels_to_regions` all return `int64`. So the check costs nothing it should not.
+    """
+    if np.issubdtype(np.asarray(mask).dtype, np.floating):
+        raise AugmentationError(
+            f"a mask of dtype {np.asarray(mask).dtype} is a continuous target, and a "
+            "continuous target cannot be augmented as a mask: a horizontal flip would have "
+            "to negate a flow field's x component and a crop moves the centre every arrow "
+            "points at, which nothing can correct. Send the integer label map through here "
+            "and build the target from what comes back - it is a function of the labels, so "
+            "that is correct for every transform. Masks arrive as class indices or instance "
+            "labels, which are integers."
+        )
 
 
 def _refuse_flat_transforms(

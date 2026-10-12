@@ -59,7 +59,7 @@ def test_a_listing_names_exactly_what_the_schema_accepts(listing, model, field):
 def test_the_listings_are_not_trivially_short():
     """Or every comparison above could pass on an empty set meeting an empty set, which is
     §4's "two numbers that were both zero" in its usual costume."""
-    assert len(available_losses()) == 10
+    assert len(available_losses()) == 13
     assert len(available_metrics()) == 4
     assert len(available_optimizers()) == 8
     assert len(available_callbacks()) == 7

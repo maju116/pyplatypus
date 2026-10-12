@@ -1,6 +1,86 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a17] - 2026-10-12
+
+The two gates in front of `flows` and `hv` (#212, #213), and neither is about either of them:
+a continuous target has nothing in the ten overlap-and-cross-entropy losses to be trained
+against (#209), and augmented as a mask it comes back geometrically consistent and physically
+wrong (#210). Both were to be settled before any number produced with them could be believed.
+
+### Added
+
+ - **`mse`, `l1` and `smooth_l1`, and the question they exist to force: where is the target
+   defined?** (#209) A continuous instance target - a flow field, or horizontal and vertical
+   distances - is defined on the objects and undefined off them, so a builder writes zero on
+   the background. Measured on the 536 Data Science Bowl cases: the foreground is **13.97% of
+   the pixels at 256x256** (13.48% at native size, 0.03% to 59.2% per case, 167 cases under
+   5%), so an unmasked mean spends 86% of the objective on a value a single output bias
+   satisfies exactly.
+
+   So `where:` is a field rather than a convention. `foreground` divides by the mask's own
+   total, which makes the number mean *average error per object voxel*; `everywhere` is the
+   other defensible answer and is what CellPose and HoVer-Net's plain regression terms do -
+   their background zero is a real value rather than a missing one. `foreground` is the
+   default because it is the reading whose number means something, and because the trap is
+   otherwise on by default.
+
+   **The mask is asked of the loader, never read off the target.** `needs_mask` and
+   `loss_needs_mask(spec)` are the same mechanism `boundary` uses for its distance map, for
+   the same reason - the loader is built before the loss. Reading it off the target is the one
+   shape this family refuses: a flow field is exactly zero at the centre of every object and
+   the `hv` maps are each zero along a line through it, so "the voxels where the target is
+   non-zero" excludes precisely the seeds - and #211's oracle measured that the seeds, not the
+   seams, are what limits this approach. A mask inferred that way would be wrong in the one
+   place the method depends on and right everywhere a test would look.
+
+   **Nothing activates the prediction**, which is the other sigmoid-shaped way to be wrong
+   here: squashing an unbounded flow into (0, 1) would still return a number and a gradient.
+
+ - **`onehot_to_foreground()`**, one home for a convention the package already depends on
+   everywhere: channel 0 is background in the two exclusive namings, because
+   `labels_to_classes` and `colours_to_classes` both send an unmatched voxel to index 0, and
+   `regions` has no background channel at all. Its own docstring states the limit, which is
+   filed as `maju116/platypus#153`: `labels: [1, 2]` makes the first entry a real class and
+   there is then nothing that means background.
+
+### Decided
+
+ - **A vector target is rebuilt from the augmented label map, never corrected** (#210). Two
+   measurements, both in `tests/data/test_vector_targets.py` where a library bump re-runs
+   them:
+
+   * **albumentations 2.0.8 never invents a label value.** Sixteen transforms, twenty seeded
+     draws each, a label map of forty distinct ids: not one output value was absent from the
+     input, and the control is that the same transform with the map sent down the *image* path
+     invents hundreds. So an *instance* label map travels through the augmenter unharmed and
+     the target can be built from what comes back.
+   * **A crop moves an object's centre, and no correction can answer that.** Negating x after
+     a horizontal flip is exact - 0.0% of foreground voxels disagree with a field rebuilt from
+     the flipped labels, at 0.0 degrees, against a median of 90 and a maximum of 167.3 if the
+     negation is left out. After a 32-pixel crop **49.5% disagree, by a median of 8.9 degrees
+     and up to 180**, and there is no component to negate: the surviving part of an object has
+     a new centre, so the arrows carried in point at a place that is no longer in the picture.
+
+   Rebuilding is therefore correct by construction for every transform rather than for an
+   admissible list of them, which also retires the idea of refusing transforms by name. It
+   covers tiling for free - a tile is a crop, it happens before augmentation, and a
+   2048-pixel retina cut into sixteen would otherwise carry sixteen fields built for the whole
+   picture.
+
+   The data path already had the right shape and the wrong array in it: masks are augmented as
+   class indices and one-hotted afterwards, which is exactly the route, but `_to_classes`
+   throws instance identity away first. So #212 carries the *instance* label map into the
+   dataset rather than deriving a target offline, and a test pins that ordering instead of a
+   docstring claiming it.
+
+ - **`AlbumentationsAugmenter` refuses a floating-point mask**, which is what keeps that
+   decision from being quietly undone. A flow field sent through as a mask comes back the
+   right shape, the right dtype and the right range with its arrows pointing the wrong way;
+   the loss falls, the model trains, and nothing downstream can tell. Every path in this
+   package sends an integer - `labels_to_classes`, `colours_to_classes` and `labels_to_regions`
+   all return `int64` - so the guard costs nothing it should not.
+
 ## [0.8.0a16] - 2026-10-12
 
 ### Added

@@ -207,6 +207,32 @@ def classes_to_onehot(classes: np.ndarray, n_class: int) -> np.ndarray:
     return np.eye(n_class, dtype=np.float32)[classes]
 
 
+def onehot_to_foreground(onehot: np.ndarray, *, multilabel: bool = False) -> np.ndarray:
+    """Which voxels the mask assigns to something, as a channels-last 0/1 array.
+
+    One place for a convention the package already depends on everywhere else: in the two
+    exclusive namings **channel 0 is background**, because `colours_to_classes` and
+    `labels_to_classes` both send an unmatched voxel to index 0 and a colormap puts the
+    background first. With `regions` there is no background channel at all, so foreground
+    is any channel being hot - `region_vocabulary`'s row of zeros is what makes an
+    unmentioned value land in none of them.
+
+    This exists for the regression losses, which need to know where a continuous target is
+    defined. It is deliberately *not* read off the values of that target: a flow field is
+    zero at the centre of every object, so the non-zero voxels are the foreground minus
+    exactly the seeds.
+
+    The limit worth stating: with `labels` that do not list 0 the first entry is a real
+    class rather than background, and then this reads that class as background. Nothing in
+    the spec forbids `labels: [1, 2]`, and nothing else in the package treats it any
+    differently - index 0 doubles as "matched nothing" there, which is the older wart this
+    one rides on. Measured and filed as `maju116/platypus#153`.
+    """
+    hot = np.asarray(onehot) >= 0.5
+    foreground = hot.any(axis=-1) if multilabel else ~hot[..., 0]
+    return foreground.astype(np.float32)[..., None]
+
+
 def onehot_to_colours(onehot: np.ndarray, colormap: list[tuple[int, int, int]]) -> np.ndarray:
     """A predicted one-hot (or probability) array back to an RGB picture.
 
