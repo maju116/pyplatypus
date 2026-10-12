@@ -30,6 +30,11 @@ class SegmentationMetric(nn.Module):
     #: as one image. False for a metric that reads the shape of a whole mask.
     accumulates = True
 
+    #: Whether the channels are independent questions. Set by `build_metrics` from the
+    #: data's `regions`. It changes two things here: how a hard prediction is taken, and
+    #: whether `include_background` has anything to exclude.
+    multilabel = False
+
     def __init__(self, smooth: float = 1.0, include_background: bool = True):
         super().__init__()
         self.smooth = smooth
@@ -50,7 +55,16 @@ class SegmentationMetric(nn.Module):
         return self.combine(*f.overlaps(prediction, target))
 
     def reduce(self, per_class: torch.Tensor) -> torch.Tensor:
-        """One number from per-class scores, honouring include_background."""
+        """One number from per-class scores, honouring include_background.
+
+        With nested regions there is nothing to honour: `regions` has no background entry,
+        so channel 0 is the first region a user asked for and dropping it would drop a class
+        rather than a convention. The flag is ignored here rather than refused, because
+        `cldice` defaults it to False and a default is not a request - the spec refuses the
+        combination only when it was written down.
+        """
+        if self.multilabel:
+            return per_class.mean()
         if not self.include_background:
             if per_class.shape[-1] < 2:
                 raise ValueError(
@@ -61,7 +75,15 @@ class SegmentationMetric(nn.Module):
 
     @torch.no_grad()
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        hard = f.as_onehot(logits.argmax(dim=1), logits.shape[1])
+        # `logits > 0` is `sigmoid(logits) > 0.5` exactly, without computing the sigmoid -
+        # and the point is that each channel decides for itself. An argmax here would hand
+        # back one class per voxel, which is the answer the model was not asked for: a voxel
+        # in both the core and the whole tumour would be reported in whichever scored higher.
+        hard = (
+            (logits > 0).to(target.dtype)
+            if self.multilabel
+            else f.as_onehot(logits.argmax(dim=1), logits.shape[1])
+        )
         return self.reduce(self.coefficient(hard, target))  # (batch, class) -> scalar
 
 
@@ -115,7 +137,7 @@ class ClDice(SegmentationMetric):
         Checked after the background is dropped, so a background too solid to skeletonise -
         which is ordinary - does not stop a run that never asked about it.
         """
-        chosen = per_class if self.include_background else per_class[..., 1:]
+        chosen = per_class if self.include_background or self.multilabel else per_class[..., 1:]
         if torch.isnan(chosen).any():
             raise ValueError(
                 f"clDice at iterations={self.iterations} found no centreline in a mask that "
@@ -144,13 +166,17 @@ _BUILDERS = {
 }
 
 
-def build_metric(spec: MetricSpec) -> SegmentationMetric:
+def build_metric(spec: MetricSpec, *, multilabel: bool = False) -> SegmentationMetric:
     builder = _BUILDERS.get(type(spec))
     if builder is None:  # pragma: no cover
         raise KeyError(f"no implementation for metric {type(spec).__name__}")
-    return builder(spec)
+    metric = builder(spec)
+    metric.multilabel = multilabel
+    return metric
 
 
-def build_metrics(specs: list[MetricSpec]) -> dict[str, SegmentationMetric]:
+def build_metrics(
+    specs: list[MetricSpec], *, multilabel: bool = False
+) -> dict[str, SegmentationMetric]:
     """Keyed by name, because that is how they end up in the history table."""
-    return {spec.name: build_metric(spec) for spec in specs}
+    return {spec.name: build_metric(spec, multilabel=multilabel) for spec in specs}

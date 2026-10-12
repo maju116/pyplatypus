@@ -214,6 +214,57 @@ class SegmentationSpec(PlatypusSpec):
         return config
 
     @model_validator(mode="after")
+    def overlapping_classes_rule_out_two_settings(self):
+        """What `regions` cannot be combined with, said here rather than at training time.
+
+        Two things, and they fail differently.
+
+        **`lovasz`** is not a tuning away from working. The Lovasz-Softmax surrogate sorts
+        the errors of a softmax over mutually exclusive classes and walks the Lovasz
+        extension of the Jaccard loss along that order; the independent form is the
+        Lovasz-Hinge, a different construction. Run as it stands on sigmoid channels it
+        would produce a number and a gradient, which is the worst available outcome.
+
+        **`include_background: false`** has nothing to exclude: `regions` has no background
+        entry, so channel 0 is the first region somebody asked for and dropping it would
+        drop a class. Refused only when it was *written* - `cldice` defaults it to False, and
+        a default is not a request. `model_fields_set` is what tells those apart, the same
+        way `channels_match_the_data` tells a stated `channels` from the one that was there
+        anyway.
+        """
+        if not self.data.multilabel:
+            return self
+        offenders = [
+            f"{model.name}: loss {model.loss.name}"
+            for model in self.models
+            if not model.loss.supports_multilabel
+        ]
+        if offenders:
+            listed = "\n  - ".join(offenders)
+            raise ValueError(
+                "`regions` makes each channel an independent question, and these losses are "
+                f"defined over mutually exclusive classes:\n  - {listed}\n"
+                "Lovasz-Softmax would still return a number on sigmoid channels, which is "
+                "why this is refused rather than warned about. Use dice, iou, cce, "
+                "cce_dice, focal, tversky, focal_tversky, combo or boundary."
+            )
+        excluding = [
+            f"{model.name}: metric {metric.name}"
+            for model in self.models
+            for metric in model.metrics
+            if "include_background" in metric.model_fields_set and not metric.include_background
+        ]
+        if excluding:
+            listed = "\n  - ".join(excluding)
+            raise ValueError(
+                "`include_background: false` asks to leave out a class `regions` does not "
+                f"have:\n  - {listed}\nWith regions there is no background entry, so "
+                "channel 0 is the first region named and dropping it would drop a class. "
+                "Leave the setting out; with regions it is ignored rather than honoured."
+            )
+        return self
+
+    @model_validator(mode="after")
     def nothing_watches_a_validation_number_that_will_not_arrive(self):
         """A callback cannot wait for `val_loss` in a run that has no validation set.
 

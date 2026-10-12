@@ -358,16 +358,26 @@ class Engine(EngineBase):
         return load_into(model, reference, spec, extra=self._class_fingerprint())
 
     def _class_fingerprint(self) -> dict:
-        """What the data says the classes are. One of `colormap` and `labels` is set.
+        """What the data says the classes are. Exactly one of the three namings is set.
 
         `n_class` is here rather than on the model because the data decides it. It used to
         be a model field, which made it a setting that could disagree with its own data and
         needed a validator to say so; now there is nothing to disagree with. The count is
         still compared when weights are loaded - it is simply contributed by the half of the
         specification that knows it.
+
+        The naming itself goes in because this dictionary is written into every run record
+        and every weights sidecar, and `n_class` alone cannot tell the two worlds apart:
+        three exclusive classes and three overlapping regions are the same count and not the
+        same model, so weights from one must not be read back as the other.
         """
         data = self.spec.data
         classes = {"n_class": data.n_class}
+        if data.regions is not None:
+            return {
+                **classes,
+                "regions": [{"name": r.name, "of": list(r.of)} for r in data.regions],
+            }
         if data.labels is not None:
             return {**classes, "labels": list(data.labels)}
         return {**classes, "colormap": [list(colour) for colour in data.colormap]}
@@ -441,9 +451,15 @@ class Engine(EngineBase):
                 f"  A class with no examples has no gradient towards it: the run would "
                 f"finish, the loss would fall, and the model would answer 'background' "
                 f"everywhere.\n"
-                f"  Either the colormap or labels do not describe these masks, or "
-                f"n_class counts a class the data does not contain.\n"
-                f"  Classes that do appear: {report.present_classes}.\n"
+                + (
+                    "  A region matching nothing is a channel of zeros: it trains to "
+                    "predict nothing and scores a Dice of 0 while every other number "
+                    "looks ordinary. Check its `of` values against the label map.\n"
+                    if self.spec.data.multilabel
+                    else "  Either the colormap or labels do not describe these masks, or "
+                    "n_class counts a class the data does not contain.\n"
+                )
+                + f"  Classes that do appear: {report.present_classes}.\n"
                 f"  To look at more of the data than this check does:\n"
                 f"    engine.dataset(spec.models[0], 'train').inspect_masks(limit=500)\n"
                 f"  If the class is real but rarer than that, Engine(..., "
@@ -451,7 +467,11 @@ class Engine(EngineBase):
                 f"examples present."
             )
 
-        if report.unmatched > _UNMATCHED_WARNING:
+        # Nested regions have no background entry on purpose, so every background voxel is
+        # unmatched and the fraction sits near 1 on any dataset where the thing being found
+        # is small. Warning there would fire on every correct BraTS run and teach the reader
+        # to ignore the one case where it means something.
+        if report.unmatched > _UNMATCHED_WARNING and not self.spec.data.multilabel:
             warnings.warn(
                 f"model '{model_spec.name}': {report.unmatched:.1%} of the training "
                 f"masks' voxels match no colormap entry or label, and become background. "
@@ -465,7 +485,10 @@ class Engine(EngineBase):
         data = self.spec.data
         parts = []
         for index in indices:
-            if data.label_map and data.labels is not None and index < len(data.labels):
+            if data.regions is not None and index < len(data.regions):
+                region = data.regions[index]
+                parts.append(f"region '{region.name}' (of {list(region.of)})")
+            elif data.label_map and data.labels is not None and index < len(data.labels):
                 parts.append(f"class {index} (label {data.labels[index]})")
             elif data.colormap is not None and index < len(data.colormap):
                 parts.append(f"class {index} (colour {tuple(data.colormap[index])})")
@@ -547,7 +570,9 @@ class Engine(EngineBase):
             if model_spec.weights:
                 self._load_weights(network, model_spec.weights, model_spec)
 
-            trainer = Trainer(network, model_spec, device=self.device)
+            trainer = Trainer(
+                network, model_spec, device=self.device, multilabel=self.spec.data.multilabel
+            )
             run = ModelRun(
                 name=model_spec.name, spec=model_spec, model=trainer.model, trainer=trainer
             )

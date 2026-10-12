@@ -25,6 +25,60 @@ from pyplatypus.spec.common import WINDOWS, DataMode, SpecModel
 Colour = Annotated[tuple[int, int, int], Field(description="RGB, each channel 0-255.")]
 
 
+class Region(SpecModel):
+    """One scored class, named as a union of the values a label map already holds.
+
+    The case this exists for is the one where overlapping classes are a *convention applied
+    to exclusive data* rather than a different file format. BraTS gives every voxel one of
+    `{0, 1, 2, 4}` and scores three regions that are unions of those values:
+
+        enhancing tumour  of: [4]
+        tumour core       of: [1, 4]
+        whole tumour      of: [1, 2, 4]
+
+    The same shape appears wherever a lesion sits inside an organ - liver and tumour, kidney
+    and cyst, lung and nodule - and nothing new has to be read off disk for it.
+
+    `of` is a membership test, which is why nothing here has to declare the full vocabulary
+    of values the mask holds: a value no region mentions is simply absent from every channel.
+    That is also the mistake this invites, so `inspect_masks()` counts what each region
+    matched - a region naming a value the data does not hold is a channel of zeros, and a
+    channel of zeros trains to predict nothing and scores a Dice of 0 without complaining.
+    """
+
+    name: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "What this region is called. It names a channel of the output, so it is what a "
+            "per-class score is reported under and what `save_class_masks` puts in a "
+            "filename. Distinct from every other region's name."
+        ),
+    )
+    of: list[int] = Field(
+        ...,
+        min_length=1,
+        description=(
+            "The label-map values belonging to this region, in any order. A voxel is in the "
+            "region when its value is one of these, so regions may overlap - that is the "
+            "point - and a single value is normal: BraTS's enhancing tumour is `of: [4]`. "
+            "Disjoint regions are allowed and mean something useful, grouping several "
+            "labels into one class and dropping the background channel; they are not "
+            "a mistake and are not refused."
+        ),
+    )
+
+    @field_validator("of")
+    @classmethod
+    def values_are_distinct(cls, value: list[int]):
+        if len(set(value)) != len(value):
+            raise ValueError(
+                f"a region lists {value}; a repeated value says nothing twice and is "
+                "more likely a typo than an intention"
+            )
+        return value
+
+
 class SplitSpec(SpecModel):
     """How to divide one folder, when there is only one folder.
 
@@ -285,6 +339,20 @@ class SegmentationData(DataSpec):
             "Exactly one of `colormap` and `labels` is given."
         ),
     )
+    regions: list[Region] | None = Field(
+        None,
+        min_length=2,
+        description=(
+            "Overlapping classes, named as unions of a label map's values - the third way of "
+            "saying what a mask's classes are, and the only one that lets a voxel belong to "
+            "more than one. Each entry gives a `name` and the values it is made `of`. With "
+            "`regions` the model's channels are independent binary questions: a sigmoid per "
+            "channel rather than one softmax across them, and **no background entry**, for "
+            "the same reason detection's `classes` has none. Exactly one of `colormap`, "
+            "`labels` and `regions` is given. Two regions are the minimum - one region is "
+            "ordinary binary segmentation, which `labels: [0, 1]` already says."
+        ),
+    )
     channels_from: list[str] | None = Field(
         None,
         min_length=2,
@@ -353,29 +421,83 @@ class SegmentationData(DataSpec):
             )
         return value
 
+    @field_validator("regions")
+    @classmethod
+    def regions_are_distinct(cls, value: list[Region] | None):
+        if value is None:
+            return value
+        names = [region.name for region in value]
+        if len(set(names)) != len(names):
+            raise ValueError(
+                f"region names must be distinct, got {names} - a name identifies a channel "
+                "of the output and a per-class score is reported under it"
+            )
+        sets = [frozenset(region.of) for region in value]
+        if len(set(sets)) != len(sets):
+            repeated = next(s for s in sets if sets.count(s) > 1)
+            raise ValueError(
+                f"two regions are both made of {sorted(repeated)}; they would be two "
+                "channels asking one question, which makes one measurement into two"
+            )
+        return value
+
     @model_validator(mode="after")
     def one_way_of_naming_classes(self):
-        """Exactly one of `colormap` and `labels`.
+        """Exactly one of `colormap`, `labels` and `regions`.
 
-        Not both, even when they agree: two sources for the number of classes is two places
-        to change it and one of them will be forgotten. Not neither, because nothing else in
-        the spec says how many classes a mask holds - and guessing it from the data would
+        Not two of them, even when they agree: two sources for the number of classes is two
+        places to change it and one of them will be forgotten. Not none, because nothing else
+        in the spec says how many classes a mask holds - and guessing it from the data would
         mean a dataset whose validation set happens to contain no tumour trains a model with
         one class fewer.
+
+        `regions` is the third and it reads the same file `labels` does, which is why it
+        replaces it rather than joining it: a region is a membership test over the values in
+        a label map, so the complete list of those values never has to be written down.
         """
-        if (self.colormap is None) == (self.labels is None):
+        given = [
+            name
+            for name, value in (
+                ("colormap", self.colormap),
+                ("labels", self.labels),
+                ("regions", self.regions),
+            )
+            if value is not None
+        ]
+        if len(given) != 1:
             raise ValueError(
-                "give exactly one of `colormap` (masks stored as pictures) and `labels` "
-                "(masks stored as label maps, which is how volumes do it)"
+                "give exactly one of `colormap` (masks stored as pictures), `labels` (masks "
+                "stored as label maps, which is how volumes do it) and `regions` "
+                "(overlapping classes as unions of a label map's values)"
+                + (f"; got {given}" if given else "; got none of them")
             )
         return self
 
     @property
     def n_class(self) -> int:
-        """How many classes there are. The colormap or the labels decide; nothing else."""
-        return len(self.colormap if self.colormap is not None else self.labels)
+        """How many classes there are. One of the three namings decides; nothing else.
+
+        With `regions` this is the number of regions and there is no background among them,
+        so the same count means something different: `labels: [0, 1, 2, 4]` is four channels
+        one of which is background, and three regions over the same file is three channels
+        none of which is.
+        """
+        for naming in (self.colormap, self.labels, self.regions):
+            if naming is not None:
+                return len(naming)
+        raise AssertionError("one_way_of_naming_classes should have refused this spec")
 
     @property
     def label_map(self) -> bool:
         """Whether masks are label maps rather than pictures."""
-        return self.labels is not None
+        return self.labels is not None or self.regions is not None
+
+    @property
+    def multilabel(self) -> bool:
+        """Whether a voxel may belong to more than one class.
+
+        The single switch the rest of the package reads. It decides a sigmoid per channel
+        instead of a softmax across them, a per-channel threshold instead of an `argmax`,
+        and whether `save_masks` can write a colour map at all.
+        """
+        return self.regions is not None

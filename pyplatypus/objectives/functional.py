@@ -31,8 +31,15 @@ def as_onehot(target: torch.Tensor, n_class: int) -> torch.Tensor:
     return onehot.permute(0, -1, *range(1, target.ndim)).float()
 
 
-def probabilities(logits: torch.Tensor) -> torch.Tensor:
-    return logits.softmax(dim=1)
+def probabilities(logits: torch.Tensor, *, multilabel: bool = False) -> torch.Tensor:
+    """Logits to probabilities, and the one line where mutual exclusivity lives.
+
+    A softmax across channels says the channels are alternatives and makes them sum to one;
+    a sigmoid per channel says each is its own yes-or-no. Everything overlap-based above
+    reads this function and nothing else, so nested regions reach Dice, IoU, Tversky and the
+    surface term through this argument alone.
+    """
+    return logits.sigmoid() if multilabel else logits.softmax(dim=1)
 
 
 def _dilate(x: torch.Tensor) -> torch.Tensor:
@@ -202,23 +209,74 @@ def focal(
     return -(target * weight * log_probs).sum(dim=1).mean()
 
 
+def binary_cross_entropy(
+    logits: torch.Tensor, target: torch.Tensor, label_smoothing: float = 0.0
+) -> torch.Tensor:
+    """Cross-entropy for channels that are independent questions, not alternatives.
+
+    **The reduction differs from the categorical form, and deliberately.** There, the target
+    is one-hot, so `sum(dim=1)` picks out the one true class and the result is the negative
+    log probability of that class. Here every channel contributes a term, so a sum would make
+    the loss grow with the number of regions - three regions would read three times the scale
+    of one, and `cce_weight` in a blended loss would mean something different per dataset.
+    The mean over channels keeps one voxel worth the same whatever it was asked.
+
+    `label_smoothing` divides by two rather than by `n_class` for the same reason: each
+    channel is a two-outcome question, and smoothing it towards `n_class` outcomes would pull
+    a binary target towards a number that is not in it.
+    """
+    if label_smoothing > 0:
+        target = target * (1 - label_smoothing) + label_smoothing / 2
+    return F.binary_cross_entropy_with_logits(logits, target, reduction="mean")
+
+
+def binary_focal(
+    logits: torch.Tensor, target: torch.Tensor, gamma: float = 2.0, alpha: float | None = None
+) -> torch.Tensor:
+    """Focal loss per channel, where the easy answer may be "no" rather than "background".
+
+    `alpha` means something different from its categorical namesake and there is no way to
+    make it mean the same thing. There, it weights the foreground classes against the
+    background *channel*, which nested regions do not have. Here it weights the positive
+    answer against the negative one **within each channel** - `alpha` on the voxels in the
+    region, `1 - alpha` on those outside it - which is the original two-class formulation and
+    the only reading available once no channel is background.
+    """
+    log_positive = F.logsigmoid(logits)
+    log_negative = F.logsigmoid(-logits)
+    # The probability assigned to whichever answer is true, without re-exponentiating a
+    # sigmoid: pt = p where target is 1, 1 - p where it is 0.
+    log_pt = target * log_positive + (1 - target) * log_negative
+    weight = (1 - log_pt.exp()).clamp_min(0).pow(gamma)
+    if alpha is not None:
+        weight = weight * (target * alpha + (1 - target) * (1 - alpha))
+    return -(weight * log_pt).mean()
+
+
 def combo(
     logits: torch.Tensor,
     target: torch.Tensor,
     alpha: float = 0.5,
     ce_ratio: float = 0.5,
     smooth: float = 1.0,
+    *,
+    multilabel: bool = False,
 ) -> torch.Tensor:
     """Taghanaki's Combo loss: a lopsided cross-entropy blended with Dice.
 
     `ce_ratio` tilts the cross-entropy between punishing false negatives (towards 1) and
     false positives (towards 0); `alpha` sets how much of the total each half provides.
+
+    Its cross-entropy half is already written out per channel rather than through
+    `cross_entropy`, so `multilabel` only has to reach the probabilities: with a sigmoid the
+    two terms stop being one voxel's two halves and become each channel's own question,
+    which is what the formula was doing to the background channel anyway.
     """
-    probs = probabilities(logits).clamp(EPS, 1 - EPS)
+    probs = probabilities(logits, multilabel=multilabel).clamp(EPS, 1 - EPS)
     weighted_ce = -(
         ce_ratio * target * probs.log() + (1 - ce_ratio) * (1 - target) * (1 - probs).log()
     ).mean()
-    dice_loss = 1 - dice_coefficient(probabilities(logits), target, smooth).mean()
+    dice_loss = 1 - dice_coefficient(probs, target, smooth).mean()
     return alpha * weighted_ce + (1 - alpha) * dice_loss
 
 

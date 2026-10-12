@@ -21,6 +21,8 @@ from pyplatypus.data.masks import (
     classes_to_onehot,
     colours_to_classes,
     labels_to_classes,
+    labels_to_regions,
+    region_vocabulary,
     unite_masks,
 )
 from pyplatypus.data.paths import Sample
@@ -125,6 +127,15 @@ class SegmentationDataset:
         self.data = data
         self.augmenter = augmenter
         self.only_images = only_images
+        # Nested regions read a label map into a vocabulary of its values and expand to one
+        # binary channel per region at the very end. Built once: the pair has to agree, and
+        # a table indexed with a vocabulary it was not built from still produces a plausible
+        # target. None when the classes are exclusive, which is what `multilabel` asks.
+        self._region_values, self._region_table = (
+            region_vocabulary([region.of for region in data.regions])
+            if data.multilabel
+            else (None, None)
+        )
         self._cache: OrderedDict[int, tuple[np.ndarray, np.ndarray | None]] = OrderedDict()
         #: How many decoded samples are kept. Public because the loader sizes its shuffle
         #: window from it: a window wider than the cache would evict a sample while its own
@@ -325,7 +336,15 @@ class SegmentationDataset:
         return crop_or_pad(resampled, size)
 
     def _to_classes(self, mask: np.ndarray) -> tuple[np.ndarray, float]:
-        """Whichever way this dataset names its classes."""
+        """Whichever way this dataset names its classes.
+
+        All three return one integer per voxel, which is the point: tiling and augmentation
+        operate on a single-channel array and neither has to know which naming produced it.
+        For `regions` the integer indexes the region vocabulary rather than a class, and 0
+        means a value no region mentions.
+        """
+        if self.data.multilabel:
+            return labels_to_regions(mask, self._region_values)
         if self.data.label_map:
             return labels_to_classes(mask, self.data.labels)
         return colours_to_classes(mask, self.data.colormap)
@@ -351,6 +370,11 @@ class SegmentationDataset:
         image = to_float(image)
         if classes is None:
             return image, None
+        if self.data.multilabel:
+            # The exclusive case is `np.eye(n_class)[classes]`; this is the same indexing
+            # with a table whose rows are region membership instead of the identity, so a
+            # voxel can land in several channels at once - or, from row 0, in none.
+            return image, self._region_table[classes]
         return image, classes_to_onehot(classes, self.data.n_class)
 
     def colormap_coverage(self, limit: int = 20) -> float:
@@ -388,6 +412,15 @@ class SegmentationDataset:
         same measurement the correct colormap gave per-class counts of [15984, 400] and
         the wrong one gave [16384, 0] - 400 pixels against exactly none, at any lesion
         size.
+
+        **With `regions`, read `unmatched` differently and `missing_classes` the same way.**
+        Nested regions have no background entry on purpose, so every background voxel counts
+        as unmatched and the fraction sits near 1 on any dataset where the thing being found
+        is small - on BraTS it is the correct answer and it looks like the catastrophic one.
+        `missing_classes` keeps its meaning exactly, and gains the failure `regions` invites:
+        `of: [3]` against data holding `4` is a region matching nothing, which trains to
+        predict nothing and scores a Dice of 0 while every other number looks ordinary. It is
+        reported here by region index.
         """
         if self.only_images:
             raise DataError("there are no masks to check")
@@ -422,7 +455,15 @@ class SegmentationDataset:
                 ]
             classes, fraction = self._to_classes(unite_masks(masks))
             unmatched.append(fraction)
-            seen.update(int(value) for value in np.unique(classes))
+            if self.data.multilabel:
+                # `classes` indexes the vocabulary, not the regions, so the table says which
+                # regions those values put a voxel in. Without this step `missing_classes`
+                # would compare vocabulary positions against region positions and report a
+                # plausible, wrong answer.
+                present = self._region_table[np.unique(classes)].any(axis=0)
+                seen.update(int(region) for region in np.flatnonzero(present))
+            else:
+                seen.update(int(value) for value in np.unique(classes))
             read += 1
         return MaskReport(
             unmatched=float(np.mean(unmatched)) if unmatched else 0.0,
