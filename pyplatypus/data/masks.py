@@ -7,6 +7,8 @@ what that class looks like on disk. Everything here is rank-agnostic - nothing i
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
 
 from pyplatypus.errors import PlatypusError
@@ -95,6 +97,73 @@ def labels_to_classes(
     return classes, float(1.0 - matched.mean())
 
 
+def region_vocabulary(sets: Sequence[Sequence[int]]) -> tuple[list[int], np.ndarray]:
+    """The label-map values nested regions mention, and which regions each one belongs to.
+
+    Returns `(values, table)`. `values` is every value any region lists, sorted, and it is
+    the vocabulary a label map is read into. `table` has one row per vocabulary entry plus
+    one at the front, and one column per region, so `table[index]` is the set of regions a
+    voxel reading `values[index - 1]` belongs to.
+
+    **Row 0 is zeros, and it is the whole reason this is one function rather than two.** It
+    means "a value no region mentions", and such a voxel has to be absent from every channel.
+    `labels_to_classes` sends an unmatched voxel to index 0 because index 0 is a class there -
+    the background a colormap puts first - and reusing that unchanged here would make
+    background a member of whichever region holds the lowest value. On BraTS, where
+    `TC = {1, 4}` and `WT = {1, 2, 4}`, it would put every background voxel in both.
+
+    Returning the pair together is deliberate: a table built against one vocabulary and
+    indexed with another is wrong in a way that still produces a plausible target.
+
+        >>> values, table = region_vocabulary([[4], [1, 4], [1, 2, 4]])
+        >>> values
+        [1, 2, 4]
+        >>> table.tolist()
+        [[0.0, 0.0, 0.0], [0.0, 1.0, 1.0], [0.0, 0.0, 1.0], [1.0, 1.0, 1.0]]
+    """
+    if not sets:
+        raise MaskError("no regions to build a vocabulary from")
+    values = sorted({int(value) for one in sets for value in one})
+    table = np.zeros((len(values) + 1, len(sets)), dtype=np.float32)
+    for column, one in enumerate(sets):
+        for value in one:
+            table[values.index(int(value)) + 1, column] = 1.0
+    return values, table
+
+
+def labels_to_regions(
+    mask: np.ndarray, values: Sequence[int], *, tolerance: float = 0.5
+) -> tuple[np.ndarray, float]:
+    """Map a label map to indices into a region vocabulary, dropping the channel axis.
+
+    The counterpart of `labels_to_classes` for nested regions, and it differs in one place:
+    **index 0 is reserved for a value no region mentions**, so the listed values start at 1.
+    The returned array is still one integer per voxel, which is what lets tiling and
+    augmentation stay untouched - the expansion to one binary channel per region happens in
+    the last step before the loss, through the table `region_vocabulary` returns.
+
+    Compared with a tolerance for the reason `labels_to_classes` is: the values arrive as
+    floats, and a label map that has been resampled or merely round-tripped through float32
+    will not satisfy `== 2` reliably.
+    """
+    if mask.ndim < 2:
+        raise MaskError(f"a mask needs at least 2 dimensions, got shape {mask.shape}")
+    actual = mask[..., 0] if mask.shape[-1] == 1 else mask
+    if actual.shape != mask.shape[:-1]:
+        raise MaskError(
+            f"a label map must have one channel, got shape {mask.shape}. A mask with "
+            "several channels is a picture - use a colormap for it."
+        )
+
+    indices = np.zeros(actual.shape, dtype=np.int64)
+    matched = np.zeros(actual.shape, dtype=bool)
+    for position, value in enumerate(values, start=1):
+        hit = np.abs(actual - float(value)) <= tolerance
+        indices[hit] = position
+        matched |= hit
+    return indices, float(1.0 - matched.mean())
+
+
 def signed_distance(onehot: np.ndarray, spacing: tuple[float, ...] | None = None) -> np.ndarray:
     """Distance to the nearest boundary, negative inside each class and positive outside.
 
@@ -139,10 +208,30 @@ def classes_to_onehot(classes: np.ndarray, n_class: int) -> np.ndarray:
 
 
 def onehot_to_colours(onehot: np.ndarray, colormap: list[tuple[int, int, int]]) -> np.ndarray:
-    """A predicted one-hot (or probability) array back to an RGB picture."""
+    """A predicted one-hot (or probability) array back to an RGB picture.
+
+    Refuses an array where some voxel is confidently in two classes at once, rather than
+    taking the `argmax` and writing one of them. **A colour map cannot hold an overlap**:
+    one voxel gets one colour, so a voxel in both the tumour core and the whole tumour would
+    be written as whichever channel happened to read higher, and the picture would be a
+    plausible answer to a question nobody asked. Nested regions therefore have no colormap
+    at all, and this is the function that says so instead of guessing.
+
+    Detected from the array rather than from a flag, because that is what a caller holding
+    only a prediction can answer. A softmax output never trips it: its channels sum to one,
+    so at most one can reach half.
+    """
     if onehot.shape[-1] != len(colormap):
         raise MaskError(
             f"prediction has {onehot.shape[-1]} channels but the colormap defines "
             f"{len(colormap)} classes"
+        )
+    hot = np.asarray(onehot) >= 0.5
+    overlapping = int(hot.sum(axis=-1).max(initial=0))
+    if overlapping > 1:
+        raise MaskError(
+            f"a voxel is in {overlapping} classes at once, and one voxel gets one colour - "
+            "taking the strongest would write a plausible picture of something else. "
+            "Overlapping classes are written one file per class, not as a colour map."
         )
     return np.asarray(colormap, dtype=np.uint8)[onehot.argmax(axis=-1)]

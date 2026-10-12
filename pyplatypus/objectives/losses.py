@@ -37,6 +37,22 @@ class SegmentationLoss(nn.Module):
 
     needs_distance: bool = False
 
+    #: Whether the channels are independent questions rather than alternatives. Set by
+    #: `build_loss` from the data's `regions`, never guessed from the target: a channel of
+    #: all zeros is ordinary in both worlds, so there is nothing in the tensors to read it
+    #: off, and a loss that inferred it would be right most of the time.
+    multilabel: bool = False
+
+    def probabilities(self, logits: torch.Tensor) -> torch.Tensor:
+        """Logits to probabilities, the way this loss was told to.
+
+        Every overlap-based loss here goes through this rather than calling the functional
+        form directly, so the softmax-or-sigmoid decision has exactly one home. A method for
+        the reason `needs_distance` is a flag: the loss is asked, rather than several places
+        knowing which losses care.
+        """
+        return f.probabilities(logits, multilabel=self.multilabel)
+
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         """Two arguments here, three in a loss that sets `needs_distance`.
 
@@ -52,7 +68,7 @@ class Dice(SegmentationLoss):
         self.smooth = smooth
 
     def forward(self, logits, target):
-        return 1 - f.dice_coefficient(f.probabilities(logits), target, self.smooth).mean()
+        return 1 - f.dice_coefficient(self.probabilities(logits), target, self.smooth).mean()
 
 
 class Iou(SegmentationLoss):
@@ -61,7 +77,7 @@ class Iou(SegmentationLoss):
         self.smooth = smooth
 
     def forward(self, logits, target):
-        return 1 - f.iou_coefficient(f.probabilities(logits), target, self.smooth).mean()
+        return 1 - f.iou_coefficient(self.probabilities(logits), target, self.smooth).mean()
 
 
 class Cce(SegmentationLoss):
@@ -70,6 +86,8 @@ class Cce(SegmentationLoss):
         self.label_smoothing = label_smoothing
 
     def forward(self, logits, target):
+        if self.multilabel:
+            return f.binary_cross_entropy(logits, target, self.label_smoothing)
         return f.cross_entropy(logits, target, self.label_smoothing)
 
 
@@ -83,8 +101,12 @@ class CceDice(SegmentationLoss):
         self.smooth = smooth
 
     def forward(self, logits, target):
-        cce = f.cross_entropy(logits, target)
-        dice = 1 - f.dice_coefficient(f.probabilities(logits), target, self.smooth).mean()
+        cce = (
+            f.binary_cross_entropy(logits, target)
+            if self.multilabel
+            else f.cross_entropy(logits, target)
+        )
+        dice = 1 - f.dice_coefficient(self.probabilities(logits), target, self.smooth).mean()
         return self.cce_weight * cce + (1 - self.cce_weight) * dice
 
 
@@ -95,6 +117,8 @@ class Focal(SegmentationLoss):
         self.alpha = alpha
 
     def forward(self, logits, target):
+        if self.multilabel:
+            return f.binary_focal(logits, target, self.gamma, self.alpha)
         return f.focal(logits, target, self.gamma, self.alpha)
 
 
@@ -106,7 +130,7 @@ class Tversky(SegmentationLoss):
 
     def forward(self, logits, target):
         coefficient = f.tversky_coefficient(
-            f.probabilities(logits), target, self.alpha, self.smooth
+            self.probabilities(logits), target, self.alpha, self.smooth
         )
         return 1 - coefficient.mean()
 
@@ -120,7 +144,7 @@ class FocalTversky(SegmentationLoss):
 
     def forward(self, logits, target):
         coefficient = f.tversky_coefficient(
-            f.probabilities(logits), target, self.alpha, self.smooth
+            self.probabilities(logits), target, self.alpha, self.smooth
         )
         return (1 - coefficient).clamp_min(0).pow(self.gamma).mean()
 
@@ -132,7 +156,7 @@ class Combo(SegmentationLoss):
         self.ce_ratio = ce_ratio
 
     def forward(self, logits, target):
-        return f.combo(logits, target, self.alpha, self.ce_ratio)
+        return f.combo(logits, target, self.alpha, self.ce_ratio, multilabel=self.multilabel)
 
 
 class Boundary(SegmentationLoss):
@@ -169,7 +193,7 @@ class Boundary(SegmentationLoss):
                 "loader computes when the loss asks for it. Reaching here without one "
                 "means the loader was built without `with_distance=True`."
             )
-        surface = (f.probabilities(logits) * distance).mean()
+        surface = (self.probabilities(logits) * distance).mean()
         return self.alpha * self.region(logits, target) + (1 - self.alpha) * surface
 
 
@@ -192,7 +216,7 @@ _BUILDERS = {
     FocalTverskyLoss: lambda s: FocalTversky(s.alpha, s.gamma, s.smooth),
     ComboLoss: lambda s: Combo(s.alpha, s.ce_ratio),
     LovaszLoss: lambda s: Lovasz(s.per_image),
-    BoundaryLoss: lambda s: Boundary(build_loss(s.region), s.alpha),
+    BoundaryLoss: lambda s: Boundary(build_loss(s.region), s.alpha),  # flag set below
 }
 
 
@@ -206,9 +230,34 @@ def loss_needs_distance(spec: LossSpec) -> bool:
     return isinstance(spec, BoundaryLoss)
 
 
-def build_loss(spec: LossSpec) -> SegmentationLoss:
-    """Spec to module. The spec already guaranteed the name and the ranges are valid."""
+def loss_supports_multilabel(spec: LossSpec) -> bool:
+    """Whether this loss means anything when a voxel may be in several classes at once.
+
+    Answered by the loss specification itself, which carries `supports_multilabel`. Kept as
+    a function because this is the question callers ask, and because an `isinstance` list
+    here would be a second place to update when a loss is added - the kind of pair that
+    stays agreed right up until it does not.
+    """
+    return spec.supports_multilabel
+
+
+def build_loss(spec: LossSpec, *, multilabel: bool = False) -> SegmentationLoss:
+    """Spec to module. The spec already guaranteed the name and the ranges are valid.
+
+    `multilabel` travels into nested losses too - `boundary` wraps a region loss, and a
+    surface term computed from a softmax inside a sigmoid model would be wrong in a way
+    that still trains.
+    """
+    if multilabel and not loss_supports_multilabel(spec):
+        raise ValueError(
+            f"{type(spec).__name__} cannot be used with overlapping classes; see "
+            "loss_supports_multilabel"
+        )
     builder = _BUILDERS.get(type(spec))
     if builder is None:  # pragma: no cover - unreachable while the union is exhaustive
         raise KeyError(f"no implementation for loss {type(spec).__name__}")
-    return builder(spec)
+    loss = builder(spec)
+    loss.multilabel = multilabel
+    if isinstance(loss, Boundary):
+        loss.region.multilabel = multilabel
+    return loss

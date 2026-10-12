@@ -1,6 +1,145 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a14] - 2026-10-12
+
+### Added
+
+ - **`regions`: overlapping classes, named as unions of a label map's values.** The first half
+   of multilabel segmentation (#91), and the decision in front of it was the author's: nested
+   regions first, one binary file per class deferred.
+
+   The case is BraTS and the lesion-inside-an-organ family - liver and tumour, kidney and cyst,
+   lung and nodule. The ground truth gives every voxel one of `{0, 1, 2, 4}` and the three
+   scored classes are unions of those values:
+
+        regions:
+          - name: enhancing
+            of: [4]
+          - name: core
+            of: [1, 4]
+          - name: whole
+            of: [1, 2, 4]
+
+   So **the overlap is a convention applied to exclusive data**, not a different file format,
+   and nothing new is read off disk. `regions` is a third way of naming classes rather than an
+   addition to `labels`: a region is a membership test, so the complete vocabulary of values
+   never has to be declared. Exactly one of `colormap`, `labels` and `regions` is given, and -
+   as with detection's `classes`, for the same reason - **regions have no background entry**,
+   because each channel is an independent binary question.
+
+   **Why nested first was the cheaper half as well as the one the data wanted.** One integer
+   per voxel survives tiling and augmentation, both of which operate on a single-channel array
+   today, so neither had to learn anything. The expansion to channels stays in the last step
+   before the loss, where `classes_to_onehot` already was:
+
+        exclusive    onehot = np.eye(n_class)[classes]
+        overlapping  onehot = table[classes]      table[v] = the regions value v belongs to
+
+   Same indexing; `np.eye` is the special case where the table is the identity. The one
+   difference that matters is **row 0, which is zeros rather than a class**. `labels_to_classes`
+   sends an unmatched voxel to index 0 because index 0 *is* a class there - the background a
+   colormap puts first - so reusing it unchanged would have made background a member of
+   whichever region holds the lowest value. On BraTS that is 1, which is in both `core` and
+   `whole`, so every background voxel would have been in two of the three regions and the
+   model would have trained on it without complaint.
+
+ - **Per-channel objectives, and the four places mutual exclusivity was hiding.** `probabilities`
+   gained a `multilabel` argument and is the single home of the softmax-or-sigmoid decision;
+   every overlap-based loss reads it through `SegmentationLoss.probabilities` rather than
+   calling the functional form, so Dice, IoU, Tversky, focal Tversky, combo and the surface
+   term all moved with one line. `cce` and `focal` gained binary forms, metrics threshold each
+   channel instead of taking an `argmax`, and `predict` returns a stack whose channels do not
+   sum to one.
+
+   **`binary_focal` agrees with `torchvision.ops.sigmoid_focal_loss` to within float32's
+   resolution** over five (gamma, alpha) settings, and reduces *exactly* to
+   `binary_cross_entropy` at `gamma=0` - a control the implementation could not satisfy by
+   accident. Both are in the suite, and the torchvision numbers are baked in rather than
+   imported because torchvision arrives only with the `encoders` extra.
+
+   No tighter number than that is pinned, because there is not one to pin: these are float32
+   reductions over 384 elements, so the last digit belongs to the order the hardware adds them
+   in. macOS on ARM and Linux on x86 disagree by **8.6e-08 relative**, under float32's eps of
+   1.19e-07, and a first version of the test asserting 2e-08 absolute turned one macOS job red
+   while being right about the arithmetic. The bound that replaced it is `rel=1e-6`, chosen
+   against both ends: twelve times the platform noise, and five orders of magnitude under the
+   55% to 67% that the mutation this test exists to catch actually moves the numbers by.
+
+   **The reduction differs from the categorical form and that is deliberate.** Categorical
+   cross-entropy sums over channels, which picks out the one true class of a one-hot target.
+   Here every channel contributes, so a sum would make the loss grow with the number of
+   regions: three regions would read three times the scale of one, and `cce_weight` in a
+   blended loss would mean something different on every dataset. The mean keeps one voxel worth
+   the same whatever it was asked. `label_smoothing` divides by two rather than by `n_class`
+   for the same reason - each channel is a two-outcome question.
+
+ - **A metric now reports what the model was asked.** With an `argmax`, a voxel correctly
+   predicted in both the core and the whole tumour was credited to whichever channel read
+   higher and scored as a miss in the other. On the smallest case that can show it - one voxel,
+   in two regions, both predicted - Dice went from 0.833 to 1.000.
+
+### Changed
+
+ - **`inspect_masks` reports regions by name, and `unmatched` means something different there.**
+   `missing_classes` keeps its meaning exactly and gains the failure `regions` invites: `of: [3]`
+   against data holding `4` is a channel of zeros, which trains to predict nothing and scores a
+   Dice of 0 while every other number looks ordinary. It is refused before training with the
+   region named. `unmatched`, on the other hand, counts background - which is deliberately not
+   a region - so it sits near 1 on any dataset where the thing being found is small. On BraTS
+   that is the correct answer and it looks like the catastrophic one, so the warning that reads
+   it is suppressed for `regions` rather than left to cry wolf on every correct run.
+
+ - **The class fingerprint written into every run record and weights sidecar now names the
+   regions.** `n_class` alone cannot tell three exclusive classes from three overlapping ones,
+   and weights from one must not be read back as the other.
+
+### Refused rather than served
+
+ - **`lovasz` with `regions`.** Lovasz-Softmax sorts the errors of a softmax over mutually
+   exclusive classes; the independent form is the Lovasz-Hinge, a different construction rather
+   than a setting on this one. Run as it stands on sigmoid channels it would return a number and
+   a gradient, which is the worst available outcome. The property lives on the loss
+   *specification* (`supports_multilabel`), so the refusal arrives at load time and
+   `pyplatypus.objectives.losses` reads it rather than keeping a second list.
+
+ - **`include_background: false` with `regions`**, but only when it was written down. There is
+   no background entry, so channel 0 is the first region somebody asked for and dropping it
+   would drop a class. `cldice` defaults the flag to False and a default is not a request, so
+   with regions the setting is ignored rather than honoured - `model_fields_set` tells those
+   apart, the same way `channels_match_the_data` already does for `channels`.
+
+ - **A colour map holding an overlap.** `onehot_to_colours` refuses an array where some voxel
+   is confidently in two classes instead of taking the `argmax` and writing one of them, which
+   would have produced a plausible picture of something else. Detected from the array rather
+   than from a flag, so a caller holding only a prediction can answer it; a softmax output never
+   trips it, because its channels sum to one.
+
+### Not done, so it is not looked for
+
+ - **`classes_from` - one binary file per class** - is the only shape that can express
+   genuinely independent overlap, a vessel crossing an organ or two annotators' masks.
+   Deferred, not dropped: #91 stays open for it and `unite_masks`'s element-wise maximum is
+   still where per-file identity is destroyed.
+ - **Drawing a multilabel prediction.** What one picture of three overlapping regions should
+   look like is a real question with no answer yet, and half of one would be worse than none.
+   `onehot_to_colours` refuses rather than guessing, which is the honest state until it is
+   designed.
+ - **A guide section.** The guide's section list is pinned and paired with the R package's
+   ("change both or neither"), so a narrative section on `regions` lands with the R half rather
+   than documenting in R something R cannot do. The field's own description is on the generated
+   configuration reference now, which is where a reader meets it.
+
+### For the R package
+
+ - **Nothing moves yet, and the pin should not.** `regions` is reachable from R the moment the
+   pin moves, because R forwards the data block it is given - but `available_weights()`-style
+   free inheritance is not what this is: the R surface documents its fields by hand, so
+   `regions` needs roxygen prose of its own, and `save_masks()` needs the refusal the author
+   chose for an overlapping prediction. Both are the R half's work, filed as its own issue.
+ - **The field-prose ledger will fire**, and that is the mechanism working: `regions` and
+   `Region.of` are new descriptions R has never been written against.
+
 ## [0.8.0a13] - 2026-10-12
 
 ### Added

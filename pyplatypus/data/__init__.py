@@ -23,7 +23,9 @@ from pyplatypus.data.masks import (
     classes_to_onehot,
     colours_to_classes,
     labels_to_classes,
+    labels_to_regions,
     onehot_to_colours,
+    region_vocabulary,
     unite_masks,
 )
 from pyplatypus.data.paths import Discovery, Sample, discover, discover_samples
@@ -56,11 +58,13 @@ __all__ = [
     "discover_samples",
     "group_of",
     "labels_to_classes",
+    "labels_to_regions",
     "looks_like_dicom_series",
     "match_channels",
     "onehot_to_colours",
     "read_dicom_series",
     "read_image",
+    "region_vocabulary",
     "series_spacing",
     "split_dataset",
     "split_samples",

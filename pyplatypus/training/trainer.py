@@ -134,12 +134,17 @@ class Trainer:
         *,
         device: str | None = None,
         callbacks: list[Callback] | None = None,
+        multilabel: bool = False,
     ):
         self.spec = spec
         self.device = pick_device(device)
         self.model = model.to(self.device)
-        self.loss_fn = build_loss(spec.loss)
-        self.metrics = build_metrics(spec.metrics)
+        #: Whether the model's channels are independent questions. It belongs to the data
+        #: rather than to the model, so it is passed in: a trainer is built from a
+        #: `SegmentationModel` and the `regions` that decide this live on the data spec.
+        self.multilabel = multilabel
+        self.loss_fn = build_loss(spec.loss, multilabel=multilabel)
+        self.metrics = build_metrics(spec.metrics, multilabel=multilabel)
         # The layers that arrived pretrained, if any. Held separately because both
         # `encoder_learning_rate` and `freeze_encoder` act on exactly that part and on
         # nothing else - the full-resolution stage in front of them is ours and random.
@@ -366,7 +371,11 @@ class Trainer:
             out = self.model(batch_x)
             if isinstance(out, tuple):
                 out = out[-1]
-            hard = f.as_onehot(out.argmax(dim=1), out.shape[1])
+            hard = (
+                (out > 0).to(batch_y.dtype)
+                if self.multilabel
+                else f.as_onehot(out.argmax(dim=1), out.shape[1])
+            )
             tp, fp, fn = f.overlaps(hard, batch_y)
             # Untiled, an example *is* a whole mask, so the metric is read straight off
             # the batch while it exists. Tiled, it waits for the rest of its image.
@@ -442,7 +451,7 @@ class Trainer:
             out = self.model(batch_x.to(self.device))
             if isinstance(out, tuple):
                 out = out[-1]
-            probabilities = out.softmax(dim=1).cpu().numpy()
+            probabilities = f.probabilities(out, multilabel=self.multilabel).cpu().numpy()
             # One array per example rather than per batch: an image's tiles can straddle a
             # batch boundary, so the buffer counts examples and not batches.
             for tile in np.moveaxis(probabilities, 1, -1):

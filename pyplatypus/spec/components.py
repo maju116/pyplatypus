@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from difflib import get_close_matches
 from functools import lru_cache
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import Field, field_validator, model_validator
 
@@ -53,7 +53,12 @@ _OPTIMIZER_NAME = (
 
 
 class _Loss(SpecModel):
-    pass
+    #: Whether this loss means anything when a voxel may be in several classes at once -
+    #: `regions`, where each channel is an independent question rather than one of a set of
+    #: alternatives. True for every loss here but `lovasz`, and it is a property of the
+    #: specification rather than of the module because the refusal belongs before anything
+    #: is built. `pyplatypus.objectives.losses` reads this rather than keeping its own list.
+    supports_multilabel: ClassVar[bool] = True
 
 
 class IouLoss(_Loss):
@@ -256,7 +261,16 @@ class LovaszLoss(_Loss):
     is given, which costs more than the elementwise losses, and `per_image` decides whether
     that happens per image or over the batch: per image is the harsher reading and on mostly
     empty images it is also the noisier one.
+
+    **Mutually exclusive classes only.** The Lovasz-Softmax surrogate sorts the errors of a
+    softmax over classes that are alternatives and walks the Lovasz extension of the Jaccard
+    loss along that order. The independent form is the Lovasz-Hinge, a different construction
+    over signed margins rather than a setting on this one - so `regions` is refused here
+    rather than silently served, because run on sigmoid channels this would return a number
+    and a gradient, which is the worst available outcome.
     """
+
+    supports_multilabel: ClassVar[bool] = False
 
     name: Literal["lovasz"] = Field("lovasz", description=_LOSS_NAME)
     per_image: bool = Field(
