@@ -553,3 +553,149 @@ def test_the_oracle_s_support_is_the_mask_and_the_truth_so_a_cut_object_stays_on
         "the premise: with the support cut to the mask alone the far half has no heat and "
         "comes back as an object of its own"
     )
+
+
+# ------------------------------------------------------------------ hv, #213's cheap test
+#
+# The two marker recipes live in `separation_ceiling.py` rather than in the package, because
+# `#160` has not named `separation: hv` and the measurement below is the reason it may never
+# need to. They are tested here for the same reason the flow script's functions are: nothing
+# else decides what the maps mean.
+
+
+def _ceiling_script():
+    return __import__("separation_ceiling")
+
+
+def _touching(width_one=6, width_two=14, height=12):
+    """Two rectangles sharing an edge, of deliberately different sizes."""
+    import numpy as np
+
+    labels = np.zeros((height + 4, width_one + width_two + 4), dtype=np.int32)
+    labels[2 : 2 + height, 2 : 2 + width_one] = 1
+    labels[2 : 2 + height, 2 + width_one : 2 + width_one + width_two] = 2
+    return labels
+
+
+def test_the_hv_maps_run_from_minus_one_to_one_inside_every_object():
+    """ "Normalised per object" is the whole of #213's target and it is one line to check.
+
+    Both objects have to reach -1 and 1 along both axes however big they are, and the maps
+    have to be exactly zero off the foreground - a non-zero background would put a gradient
+    at every object's outer edge for the gradient recipe and a marker in the background for
+    the centre one.
+    """
+    import numpy as np
+
+    script = _ceiling_script()
+    labels = _touching()
+    maps = script.hv_from_instances(labels)
+
+    assert maps.shape == (2, *labels.shape)
+    assert maps.dtype == np.float32
+    assert not maps[:, labels == 0].any(), "zero off the objects, both channels"
+    for value in (1, 2):
+        for channel in (0, 1):
+            inside = maps[channel][labels == value]
+            assert inside.min() == pytest.approx(-1.0, abs=1e-6), (value, channel)
+            assert inside.max() == pytest.approx(1.0, abs=1e-6), (value, channel)
+
+
+def test_the_first_hv_channel_varies_along_columns_and_the_second_along_rows():
+    """The axis order, which is a contract and not a convention: both marker recipes take a
+    derivative of channel 0 along columns and of channel 1 along rows, so a swap would give
+    each of them the other's derivative and still look like a field."""
+    import numpy as np
+
+    script = _ceiling_script()
+    labels = np.zeros((14, 14), dtype=np.int32)
+    labels[3:11, 3:11] = 1
+    maps = script.hv_from_instances(labels)
+
+    assert np.ptp(maps[0][labels == 1].reshape(8, 8), axis=1).min() > 1.5, (
+        "channel 0 sweeps the full range along every row of the object"
+    )
+    assert np.allclose(np.ptp(maps[0][labels == 1].reshape(8, 8), axis=0), 0.0), (
+        "and does not change down a column, which is what makes it the horizontal map"
+    )
+    assert np.ptp(maps[1][labels == 1].reshape(8, 8), axis=0).min() > 1.5
+    assert np.allclose(np.ptp(maps[1][labels == 1].reshape(8, 8), axis=1), 0.0)
+
+
+def test_two_touching_objects_meet_at_a_jump_of_two_whatever_their_sizes():
+    """Why the maps are normalised per object, as the number the normalisation buys.
+
+    The gradient recipe calls a seam a seam because the horizontal map jumps from +1 to -1
+    across it. Without the per-object normalisation that jump would be the sum of two object
+    radii in pixels, so a small object beside a large one would present a smaller seam than
+    the large one's own interior slope, and one global threshold could not serve both.
+    """
+    script = _ceiling_script()
+    labels = _touching(width_one=6, width_two=14)
+    maps = script.hv_from_instances(labels)
+
+    seam = 2 + 6  # the first column of object two
+    row = 2 + 6
+    jump = maps[0][row, seam] - maps[0][row, seam - 1]
+    assert jump == pytest.approx(-2.0, abs=0.35), (
+        f"the seam is a jump of about two, measured {jump:.3f}"
+    )
+
+
+def test_the_centre_markers_are_one_per_object_and_inside_it():
+    """Including the object whose centroid is not inside it, which is the case the straight-line
+    flow mode is structurally wrong about and this recipe is not: the marker is where the maps
+    are *near* zero, and those pixels belong to the object by construction."""
+    import numpy as np
+    from scipy import ndimage
+
+    script = _ceiling_script()
+    labels = np.zeros((40, 40), dtype=np.int32)
+    rows, columns = np.ogrid[:40, :40]
+    outer = (rows - 20) ** 2 + (columns - 20) ** 2 <= 14**2
+    inner = (rows - 20) ** 2 + (columns - 14) ** 2 <= 10**2
+    labels[outer & ~inner] = 1  # a crescent: its centroid falls in the bite
+    assert labels[20, 20] == 0, "the premise: the centroid is outside the object"
+
+    maps = script.hv_from_instances(labels)
+    markers = script.markers_from_hv_centres(maps, labels > 0, 0.6)
+    found = int(ndimage.label(markers, structure=np.ones((3, 3), bool))[1])
+
+    assert markers.any(), "the object got a marker"
+    assert not (markers & (labels == 0)).any(), "and every marker voxel is inside the object"
+    assert found <= 2, f"a crescent may split into two arms, not into {found} markers"
+
+    # And the condition is both maps at once rather than either. Either-or would give each
+    # object a band across its whole width, the two bands would meet at the seam, and two
+    # touching objects would come back as one marker - which is the one thing a marker
+    # recipe for this problem must not do.
+    pair = _touching()
+    both = script.markers_from_hv_centres(script.hv_from_instances(pair), pair > 0, 0.6)
+    assert int(ndimage.label(both, structure=np.ones((3, 3), bool))[1]) == 2
+
+
+def test_the_gradient_markers_part_at_the_seam_the_maps_jump_across():
+    """The premise of the published route, on the fixture its argument is about: the markers
+    have to be two, and they have to be two because of the seam rather than because the
+    rectangles were separate to begin with."""
+    import numpy as np
+    from scipy import ndimage
+
+    script = _ceiling_script()
+    labels = _touching()
+    foreground = labels > 0
+    assert ndimage.label(foreground, structure=np.ones((3, 3), bool))[1] == 1, (
+        "the premise: the foreground is one connected blob, so connected components cannot "
+        "tell these apart and anything that does is the hv signal"
+    )
+
+    markers, surface = script.markers_from_hv_gradient(
+        script.hv_from_instances(labels), foreground, 0.6
+    )
+    found = int(ndimage.label(markers, structure=np.ones((3, 3), bool))[1])
+    assert found == 2, f"two objects, {found} markers"
+    assert surface.shape == labels.shape
+    assert surface[foreground].max() > surface[~foreground].max(), (
+        "the surface the watershed would climb is highest inside the foreground, where the "
+        "seam is, and not in the background it was masked out of"
+    )

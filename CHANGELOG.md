@@ -3,9 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## [0.8.0a19] - 2026-10-12
 
-Looking at instance results instead of reading their arrays (#214), and the trained half of
-`flows` (#212), which closes it with a measured no of the useful kind: the route works, the
-signal is worth something, and what limits it is not the route.
+Looking at instance results instead of reading their arrays (#214), the trained half of
+`flows` (#212), and `#213`'s cheap test answered before anything was trained for it. All
+three end in the same place, which is the entry's finding rather than three coincidences:
+the separation signal is not what limits instance segmentation on this data. The mask is.
 
 ### Added
 
@@ -88,6 +89,39 @@ signal is worth something, and what limits it is not the route.
    `diffusion`, receive no heat and keep a zero vector. Under `centroid` they would cost
    nothing - a straight line to a sink needs no path - and the run prints the count beside
    the row with the mode it belongs to.
+
+ - **`separation_ceiling.py --separation hv`**, which is `#213`'s own cheap test and answers
+   it before a model is trained. The issue, after `#211` narrowed it: *"if the markers from
+   `hv` do not beat eroded interiors on the ground truth, they will not beat them predicted
+   either, and this issue closes before a model is trained"*. They do not. Both recipes for
+   getting markers out of HoVer-Net's two distance maps are swept, over the 134 held-out
+   cases and 6000 objects:
+
+        marker source                 AP    over the bar   markers   objects with none
+        eroded interiors, 1 px    0.9807        +0.2224      6030                   0
+        hv centres, |h|,|v|<=0.6  0.9382        +0.1799      5900                   5
+        hv gradient, >=0.6        0.7995        +0.0412      5404                   0
+        connected components      0.7583          the bar
+
+   The maps' own zeros - `#213`'s own narrowing, *the extrema as seeds rather than the
+   gradient as a surface* - are the better of the two and still **0.0425 below a one-pixel
+   erosion**. HoVer-Net's published gradient route recovers **a fifth** of what that erosion
+   does over the bar. Both curves turn over at 0.6 rather than at an edge of the range
+   (`--hv-sweep` prints them), so neither number is a tuning artefact, and the erosion's
+   thin-object fallback cannot account for the difference: it rescues **4 objects of 6000**.
+
+   **Two rows of that table are controls.** The connected-components bar and the
+   eroded-interior ceiling reproduce `0.8.0a18`'s recorded **0.7583 and 0.9807 to four
+   decimals**, which is how a reader knows this measurement is on the same pictures as those
+   - and the direct answer to the provenance failure that left `#159`'s ceiling without a
+   set it could be reproduced on.
+
+   The two marker functions live in the example rather than in the package, because `#160`
+   has not named `separation: hv` and this measurement is the reason it may never need to.
+   Seven mutations, six caught; the seventh is named in the code as uncatchable with the
+   reason, rather than left as a gap.
+
+   **`--separation both` is now `--separation all`**, because there are three signals.
 
 ## [0.8.0a18] - 2026-10-12
 
