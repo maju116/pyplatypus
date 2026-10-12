@@ -15,7 +15,10 @@ from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.plots import (
+    flow_to_colours,
     overlay_agreement,
+    overlay_instance_agreement,
+    overlay_instances,
     overlay_mask,
     plot_anchors,
     plot_boxes,
@@ -48,7 +51,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a18"
+__version__ = "0.8.0a19"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -72,9 +75,12 @@ __all__ = [
     "build_engine",
     "drawing_style",
     "export_weights",
+    "flow_to_colours",
     "from_dict",
     "from_yaml",
     "overlay_agreement",
+    "overlay_instance_agreement",
+    "overlay_instances",
     "overlay_mask",
     "plot_anchors",
     "plot_boxes",

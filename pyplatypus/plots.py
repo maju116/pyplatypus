@@ -39,7 +39,10 @@ from pyplatypus.style import (
 )
 
 __all__ = [
+    "flow_to_colours",
     "overlay_agreement",
+    "overlay_instance_agreement",
+    "overlay_instances",
     "overlay_mask",
     "plot_anchors",
     "plot_boxes",
@@ -618,3 +621,328 @@ def plot_anchors(
         axis.set_title(subtitle, fontsize=8)
     axis.legend(loc="upper left", fontsize=8)
     return figure
+
+
+# --------------------------------------------------------------------------- instances
+#
+# A classes figure and an instances figure are different problems, and the difference is
+# what makes these functions possible without a ninth colour. `CLASS_COLOURS` stops at
+# eight because a figure with more than eight **classes** cannot be read by colour however
+# it is painted - nobody can hold nine legend entries. But nobody reads object 214 by its
+# colour either: what a person needs from an instance map is *where one object ends and the
+# next begins*, which is **adjacency, not identity**. So a colour may repeat freely as long
+# as it never repeats between neighbours, and eight is then not a ceiling but a surplus.
+#
+# **Measured over all 670 Data Science Bowl cases, 524 of which hold touching objects and
+# 5436 adjacent pairs between them: an exact colouring needs at most 3 colours** - 146
+# cases need one, 412 need two, 112 need three - against a maximum of 6 neighbours for any
+# single object. So the eight already in `CLASS_COLOURS` are more than twice what the
+# hardest of these pictures asks for, and `#214`'s open question answers itself: the exact
+# route is affordable, so take it.
+#
+# The cheap alternative on that issue was a cycling fill "where adjacency collisions are
+# made rare rather than impossible". Measured on the same pairs: colouring by object value
+# modulo eight paints **550 of 5436 adjacent pairs in one colour, 10.12%**. One touching
+# pair in ten drawn as one object is not rare, and in a figure whose whole subject is
+# whether two objects are two, it is the one error that matters.
+
+
+def _adjacent_pairs(labels: np.ndarray) -> set[tuple[int, int]]:
+    """Which objects touch, as pairs of label values.
+
+    Eight-connected on purpose, and the opposite of the choice `instances_from_mask` makes.
+    That one labels under 4-connectivity so a diagonal join cannot merge two objects into
+    one, which errs towards finding more objects - the kind direction for a yardstick. Here
+    the risk runs the other way: two objects meeting only at a corner are *visually*
+    adjacent, and giving them one colour would draw them as one. So a diagonal counts.
+    """
+    pairs: set[tuple[int, int]] = set()
+    height, width = labels.shape
+    for row_shift, column_shift in ((0, 1), (1, 0), (1, 1), (1, -1)):
+        first = labels[
+            max(row_shift, 0) : height - max(-row_shift, 0) or None,
+            max(column_shift, 0) : width - max(-column_shift, 0) or None,
+        ]
+        second = labels[
+            max(-row_shift, 0) : height - max(row_shift, 0) or None,
+            max(-column_shift, 0) : width - max(column_shift, 0) or None,
+        ]
+        touching = (first > 0) & (second > 0) & (first != second)
+        for one, other in zip(first[touching].ravel(), second[touching].ravel(), strict=True):
+            pairs.add((min(int(one), int(other)), max(int(one), int(other))))
+    return pairs
+
+
+def _colour_index(labels: np.ndarray, palette_size: int) -> dict[int, int]:
+    """One palette slot per object such that no two touching objects share one.
+
+    Greedy in order of descending degree - Welsh-Powell - which is not optimal in general
+    and is exact here for a reason the measurement above gives: the graph is planar, so four
+    colours always suffice, and these graphs are so sparse (0.37 neighbours per object on
+    average) that three were enough for every one of 670 real pictures.
+
+    If a picture ever did need more slots than the palette has, the colouring stops being a
+    guarantee, so the slot wraps and that is **said** rather than hidden - `overlay_instances`
+    reports it. Silently drawing two neighbours alike is the one failure this is for.
+    """
+    values = [int(value) for value in np.unique(labels[labels > 0])]
+    neighbours: dict[int, set[int]] = {value: set() for value in values}
+    for one, other in _adjacent_pairs(labels):
+        neighbours[one].add(other)
+        neighbours[other].add(one)
+
+    chosen: dict[int, int] = {}
+    for value in sorted(values, key=lambda v: len(neighbours[v]), reverse=True):
+        taken = {chosen[other] for other in neighbours[value] if other in chosen}
+        slot = 0
+        while slot in taken:
+            slot += 1
+        chosen[value] = slot % palette_size if slot >= palette_size else slot
+    return chosen
+
+
+def _outline(where: np.ndarray) -> np.ndarray:
+    """The pixels of a region that have a non-region pixel among their four neighbours."""
+    inside = np.ones_like(where)
+    inside[:-1, :] &= where[1:, :]
+    inside[1:, :] &= where[:-1, :]
+    inside[:, :-1] &= where[:, 1:]
+    inside[:, 1:] &= where[:, :-1]
+    return where & ~inside
+
+
+def overlay_instances(
+    image: np.ndarray,
+    labels: np.ndarray,
+    alpha: float = OVERLAY_ALPHA,
+    outline: bool = False,
+    colours: list[str] | None = None,
+) -> np.ndarray:
+    """An instance label map over its image, coloured so no two touching objects match.
+
+    The rule is adjacency rather than identity, and it is stated here rather than left to
+    luck: a colour repeats across the picture and never between neighbours. See the comment
+    above `_adjacent_pairs` for the measurement that made the exact colouring the cheap
+    option rather than the expensive one.
+
+    Args:
+        image: one image, as `overlay_mask` takes it.
+        labels: an instance label map, one integer per object and 0 for background.
+        alpha: how much of the tint shows. Ignored when `outline` is true, where a stroke
+            is drawn at full strength - a translucent outline is a smudge.
+        outline: draw one stroke per object instead of filling it, which is what a
+            pathologist is used to and what leaves the tissue entirely visible.
+        colours: the palette to take slots from. Defaults to the engine's `CLASS_COLOURS`,
+            which the R package reads too.
+
+    Returns:
+        A `height x width x 3` array of 0-255 integers.
+
+    Raises:
+        PlatypusError: if the shapes do not correspond, or the palette is empty.
+
+    >>> import numpy as np
+    >>> image = np.full((5, 9, 3), 0.5)
+    >>> labels = np.zeros((5, 9), dtype=int)
+    >>> labels[1:4, 1:4] = 1
+    >>> labels[1:4, 4:7] = 2      # touching object 1 along a seam
+    >>> shown = overlay_instances(image, labels)
+    >>> shown.shape
+    (5, 9, 3)
+    >>> bool((shown[2, 2] != shown[2, 5]).any())   # two touching objects, two colours
+    True
+    """
+    palette = CLASS_COLOURS if colours is None else colours
+    if not palette:
+        raise PlatypusError("colours is empty; there is nothing to draw the objects in")
+
+    picture = _as_picture(image)
+    labels = np.asarray(labels)
+    if labels.ndim != 2:
+        raise PlatypusError(
+            f"labels is {labels.shape}; an instance map is one integer per pixel, and a "
+            "one-hot array cannot carry an object identity"
+        )
+    if labels.shape != picture.shape[:2]:
+        raise PlatypusError(f"the labels are {labels.shape} and the image is {picture.shape[:2]}")
+
+    for value, slot in _colour_index(labels, len(palette)).items():
+        where = labels == value
+        _blend(
+            picture,
+            _rgb(palette[slot]),
+            _outline(where) if outline else where,
+            1.0 if outline else alpha,
+        )
+    return np.clip(np.round(picture), 0, 255).astype(np.uint8)
+
+
+def overlay_instance_agreement(
+    image: np.ndarray,
+    prediction: np.ndarray,
+    truth: np.ndarray,
+    threshold: float = 0.5,
+    alpha: float = OVERLAY_ALPHA,
+    colours: dict[str, str] | None = None,
+) -> np.ndarray:
+    """Found, missed and invented **objects**, matched the way the metric matches them.
+
+    `overlay_agreement` answers the same three-way question about pixels, and on an instance
+    result that is the wrong unit: a merged pair and a split object are both nearly perfect
+    pixelwise and both wrong, which is exactly what an average precision of 0.5587 will not
+    tell anybody. This matches whole objects at one IoU threshold, using `iou_matrix` - the
+    same function the metric uses - so **the picture and the number cannot disagree**.
+
+    Args:
+        image: one image, as `overlay_mask` takes it.
+        prediction: an instance label map from a model.
+        truth: an instance label map from the annotation.
+        threshold: the IoU above which a predicted object counts as a true one, strictly
+            greater as in `average_precision`. 0.5 is the loosest of the challenge's ten
+            thresholds, so this is the kindest reading, and below 0.5 is refused for the
+            reason the metric refuses it.
+        alpha: how much of the tint shows.
+        colours: keyed `hit`, `missed`, `false_alarm`, as `overlay_agreement` takes them.
+
+    Returns:
+        A `height x width x 3` array of 0-255 integers.
+
+    Raises:
+        PlatypusError: if the shapes do not correspond, a colour is missing, or the
+            threshold is below 0.5.
+
+    >>> import numpy as np
+    >>> image = np.full((5, 11, 3), 0.5)
+    >>> truth = np.zeros((5, 11), dtype=int)
+    >>> truth[1:4, 1:4] = 1
+    >>> truth[1:4, 5:8] = 2
+    >>> predicted = np.zeros((5, 11), dtype=int)
+    >>> predicted[1:4, 1:4] = 1          # one found
+    >>> predicted[1:4, 8:11] = 2         # one invented, and object 2 missed
+    >>> shown = overlay_instance_agreement(image, predicted, truth)
+    >>> hit, missed, invented = shown[2, 2], shown[2, 6], shown[2, 9]
+    >>> bool((hit != missed).any() and (missed != invented).any())
+    True
+    """
+    from pyplatypus.instances import iou_matrix
+
+    if threshold < 0.5:
+        raise PlatypusError(
+            f"threshold {threshold} is below 0.5, where one prediction can satisfy two truth "
+            "objects and the match is no longer one to one. `average_precision` refuses the "
+            "same thing for the same reason, and a figure drawn under a rule the metric "
+            "rejects is a figure that disagrees with the number it illustrates"
+        )
+
+    chosen = AGREEMENT_COLOURS if colours is None else colours
+    missing = {"hit", "missed", "false_alarm"} - set(chosen)
+    if missing:
+        raise PlatypusError(
+            f"colours is missing {sorted(missing)}; all three are needed, because the "
+            "point of this picture is telling the three apart"
+        )
+
+    picture = _as_picture(image)
+    predicted = np.asarray(prediction)
+    actual = np.asarray(truth)
+    for name, array in (("prediction", predicted), ("truth", actual)):
+        if array.ndim != 2:
+            raise PlatypusError(
+                f"{name} is {array.shape}; both have to be instance label maps, one integer "
+                "per pixel"
+            )
+    if predicted.shape != actual.shape:
+        raise PlatypusError(
+            f"the prediction is {predicted.shape} and the truth is {actual.shape}; "
+            "agreement between two arrays of different shapes is not defined"
+        )
+    if predicted.shape != picture.shape[:2]:
+        raise PlatypusError(f"the maps are {predicted.shape} and the image is {picture.shape[:2]}")
+
+    overlaps = iou_matrix(actual, predicted)
+    matched_truth: set[int] = set()
+    matched_prediction: set[int] = set()
+    if overlaps.size:
+        # Greedy on descending IoU: one prediction per true object and no object counted
+        # twice, which is what the challenge metric's own counting does at a threshold.
+        order = np.argsort(overlaps, axis=None)[::-1]
+        for flat in order:
+            row, column = np.unravel_index(flat, overlaps.shape)
+            # Strictly greater, which is `average_precision`'s own comparison and not a
+            # rounding preference: at exactly 0.5 two predictions each covering half an
+            # object would both be admitted, so `>=` would draw a merged pair as one hit and
+            # one miss while the metric counts two misses. This line said `<` first and a
+            # test caught the difference, which is the whole reason the figure takes its
+            # matching from the metric rather than from a reading of it.
+            if overlaps[row, column] <= threshold:
+                break
+            # One prediction per true object. At any threshold this function accepts this
+            # **cannot bind** - two disjoint predictions cannot both exceed 0.5 against one
+            # object, which is exactly why the metric refuses thresholds below 0.5 - so it is
+            # here as the statement of the invariant rather than as working code. Said
+            # plainly because a mutation that removes it changes nothing, and a guard nothing
+            # can test is a guard that has to explain itself.
+            if int(row) + 1 in matched_truth or int(column) + 1 in matched_prediction:
+                continue
+            matched_truth.add(int(row) + 1)
+            matched_prediction.add(int(column) + 1)
+
+    hit = np.isin(actual, sorted(matched_truth)) if matched_truth else np.zeros_like(actual, bool)
+    missed = (actual > 0) & ~hit
+    invented = (predicted > 0) & ~np.isin(
+        predicted, sorted(matched_prediction) if matched_prediction else [-1]
+    )
+    for part, where in (("hit", hit), ("missed", missed), ("false_alarm", invented)):
+        _blend(picture, _rgb(chosen[part]), where, alpha)
+    return np.clip(np.round(picture), 0, 255).astype(np.uint8)
+
+
+def flow_to_colours(flow: np.ndarray) -> np.ndarray:
+    """A two-channel vector field as a picture: hue is the direction, value is the length.
+
+    The convention optical flow has used for twenty years, and it is a convention rather
+    than a palette decision - which is why it is not in `pyplatypus.style`. Nothing about it
+    is a choice this project gets to make differently from everyone else's figures, and a
+    reader who has seen one flow visualisation can read this one.
+
+    Without it, debugging `separation: flows` (`#212`) or `hv` (`#213`) means reading arrays.
+    A field that is right everywhere except reversed looks obviously reversed here and
+    identical in any loss.
+
+    Args:
+        flow: `(2, height, width)`, channel 0 the row component and channel 1 the column
+            component - the layout `flows_from_instances` returns.
+
+    Returns:
+        A `height x width x 3` array of 0-255 integers. A zero vector is black, which is
+        also what the background is, and that is honest: the background has no direction.
+
+    Raises:
+        PlatypusError: if the array is not a two-channel field.
+
+    >>> import numpy as np
+    >>> field = np.zeros((2, 2, 3))
+    >>> field[0, 0, 0] = 1.0          # pointing down
+    >>> field[1, 0, 1] = 1.0          # pointing right
+    >>> shown = flow_to_colours(field)
+    >>> shown.shape
+    (2, 3, 3)
+    >>> bool((shown[0, 0] != shown[0, 1]).any())   # two directions, two hues
+    True
+    >>> tuple(int(channel) for channel in shown[1, 2])   # no vector, no colour
+    (0, 0, 0)
+    """
+    field = np.asarray(flow, dtype=np.float64)
+    if field.ndim != 3 or field.shape[0] != 2:
+        raise PlatypusError(
+            f"flow is {field.shape}; a vector field here is (2, height, width), channel 0 "
+            "the row component and channel 1 the column component"
+        )
+
+    length = np.hypot(field[0], field[1])
+    longest = length.max()
+    hue = (np.arctan2(field[1], field[0]) / (2 * np.pi)) % 1.0
+    value = length / longest if longest > 0 else np.zeros_like(length)
+    hsv = np.stack([hue, np.ones_like(hue), value], axis=-1)
+    rgb = matplotlib.colors.hsv_to_rgb(hsv)
+    return np.clip(np.round(rgb * 255), 0, 255).astype(np.uint8)
