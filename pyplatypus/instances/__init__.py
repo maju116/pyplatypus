@@ -23,6 +23,7 @@ from pyplatypus.instances.metrics import (
     summarise_instances,
 )
 from pyplatypus.instances.postprocess import (
+    instances_by_watershed,
     instances_from_mask,
     instances_from_parts,
     parts_from_instances,
@@ -33,6 +34,7 @@ __all__ = [
     "CHALLENGE_THRESHOLDS",
     "InstanceError",
     "average_precision",
+    "instances_by_watershed",
     "instances_from_mask",
     "instances_from_parts",
     "iou_matrix",

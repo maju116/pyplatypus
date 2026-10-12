@@ -57,9 +57,11 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
+from scipy import ndimage
 
 import pyplatypus as pp
 from pyplatypus.instances import (
+    instances_by_watershed,
     instances_from_mask,
     instances_from_parts,
     parts_from_instances,
@@ -207,7 +209,8 @@ def main() -> None:
     # would either refuse or resize one of them and compare a different picture.
     predictions = engine.predict("separation", split="validation", space="source")
 
-    separated, naive, dice, rim_dice, interior_dice = [], [], [], [], []
+    separated, flooded, oracle, naive = [], [], [], []
+    dice, rim_dice, interior_dice = [], [], []
     for sample, probabilities in zip(samples, predictions, strict=True):
         # The truth comes from the *original* tree, never the derived one. The derived case
         # holds a single three-class label map in `masks/`, so reading it as per-object files
@@ -218,9 +221,35 @@ def main() -> None:
         classes = probabilities.argmax(axis=-1)
         interior = classes == 1
         foreground = classes > 0
+        # Needed twice below - by the oracle surface and by the per-part Dice - so computed
+        # once, here, before either.
+        true_interior, true_rim = parts_from_instances(truth, width=arguments.width)
 
         separated.append((name, truth, instances_from_parts(interior, foreground)))
         naive.append((name, truth, instances_from_mask(foreground)))
+        # The same parts, flooded over the model's own rim evidence rather than split by
+        # distance. One trained model, two decodings - which is why `decode` is a list.
+        flooded.append(
+            (name, truth, instances_by_watershed(interior, foreground, probabilities[..., 2]))
+        )
+        # A DIAGNOSTIC AND NOT A ROUTE: the same predicted interiors and foreground, flooded
+        # over a surface built from the *ground truth* rim. It answers one question and only
+        # one - is the watershed held back by the quality of the signal it climbs, or by
+        # being the wrong decoding? If this row jumps, the signal is the problem; if it does
+        # not move, the decoding is.
+        #
+        # The surface is the negated distance to the true rim rather than the rim itself:
+        # a binary rim is flat, so the flood would have nothing to climb, which is exactly
+        # what makes the ceiling run uninformative about this decoding.
+        oracle.append(
+            (
+                name,
+                truth,
+                instances_by_watershed(
+                    interior, foreground, -ndimage.distance_transform_edt(~true_rim)
+                ),
+            )
+        )
         # The mask on its own, so a moved instance score can be attributed. Two classes
         # against three is not the comparison; foreground against foreground is.
         overlap = np.logical_and(foreground, truth > 0).sum()
@@ -229,7 +258,6 @@ def main() -> None:
         # The two parts on their own, because "separation did not help" has two very
         # different causes and the foreground Dice cannot tell them apart: a rim the model
         # never learned, or a rim it learned while the interiors still failed to come apart.
-        true_interior, true_rim = parts_from_instances(truth, width=arguments.width)
         for predicted, actual, into in (
             (classes == 2, true_rim, rim_dice),
             (interior, true_interior, interior_dice),
@@ -241,6 +269,8 @@ def main() -> None:
 
     rows = score_cases(separated)
     instances = summarise_instances(rows)
+    by_watershed = summarise_instances(score_cases(flooded))
+    by_oracle = summarise_instances(score_cases(oracle))
     merged = summarise_instances(score_cases(naive))
 
     print("\n--- the mask, so a moved instance score can be attributed ---")
@@ -256,9 +286,20 @@ def main() -> None:
     found = sum(row["predicted"] for row in rows)
     in_truth = sum(row["truth"] for row in rows)
     print(f"  objects found / in truth  {found} / {in_truth}   ({found / in_truth:.1%})")
-    print("\n--- instances ---")
-    print(f"  with separation           {instances['mean_average_precision']:.4f}")
-    print(f"  this model, merged by connected components   {merged['mean_average_precision']:.4f}")
+    print("\n--- instances, three decodings of ONE trained model ---")
+    print(f"  rim + nearest_seed        {instances['mean_average_precision']:.4f}")
+    print(
+        f"  rim + watershed           {by_watershed['mean_average_precision']:.4f}"
+        "   <- surface is the predicted rim probability"
+    )
+    print(
+        f"  connected_components      {merged['mean_average_precision']:.4f}"
+        "   <- the signal thrown away entirely"
+    )
+    print(
+        f"  rim + watershed, ORACLE   {by_oracle['mean_average_precision']:.4f}"
+        "   <- surface from the TRUE rim; a diagnostic, not a route"
+    )
     print("\n--- the bars, both measured on the ground truth over these cases ---")
     print("  connected components can never pass          0.7655")
     print("  this post-process can never pass             0.9846")
@@ -281,6 +322,8 @@ def main() -> None:
                     "interior_dice": float(np.nanmean(interior_dice)),
                     "rim_dice": float(np.nanmean(rim_dice)),
                     "instances": instances,
+                    "by_watershed": by_watershed,
+                    "by_watershed_oracle_surface": by_oracle,
                     "same_model_merged": merged,
                     "cases": rows,
                 },

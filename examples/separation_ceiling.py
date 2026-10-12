@@ -11,9 +11,15 @@ new in the model, the loss or the metrics.
 **This script trains nothing and loads no weights.** It feeds the ground truth through that
 post-process and scores the result against the same ground truth, which is the best the shape
 of solution could ever reach however good the model predicting the parts turns out to be. The
-same cases go through plain connected components beside it, so the two numbers in the output
+same cases go through plain connected components beside it, so the numbers in the output
 are the ceiling of the new route and the ceiling of the old one, measured on one set of
 pictures in one run.
+
+**The watershed row is a floor, not a comparison, and the script says so where it prints
+it.** A ceiling run has perfect parts, so the rim is binary and the surface the flood
+climbs is flat; the watershed has nothing to climb and nearest-seed is already the optimal
+distance split. The decoding can only show its worth on a trained model, where the surface
+is a predicted probability with evidence in it.
 
 Why this comes first: `#157` built the metric before the model because a model chosen before
 there is a way to score it is a model chosen on nothing. The same argument applies one step
@@ -28,8 +34,10 @@ import json
 from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 
 from pyplatypus.instances import (
+    instances_by_watershed,
     instances_from_mask,
     instances_from_parts,
     parts_from_instances,
@@ -64,7 +72,7 @@ def main() -> None:
         raise SystemExit(f"no case directories under {data}")
     print(f"{len(cases)} cases under {data}")
 
-    separated, naive = [], []
+    separated, flooded, naive = [], [], []
     truth_objects = recovered_objects = 0
     erased_by_the_strict_erosion = thin_cases = 0
     split_objects = split_cases = 0
@@ -90,6 +98,21 @@ def main() -> None:
         separated.append((case.name, truth, recovered))
         naive.append((case.name, truth, instances_from_mask(foreground)))
 
+        # The watershed's surface, for a ceiling run specifically. The ground truth's rim is
+        # binary, so it is flat and gives the flood nothing to climb; the inverted distance
+        # transform is the classic substitute and is what makes this the distance-transform
+        # watershed rather than a more expensive nearest-seed. A *trained* run passes the
+        # predicted rim probability instead, which is the whole point of the decoding.
+        flooded.append(
+            (
+                case.name,
+                truth,
+                instances_by_watershed(
+                    interior, foreground, -ndimage.distance_transform_edt(foreground)
+                ),
+            )
+        )
+
         truth_objects += int(truth.max())
         recovered_objects += int(recovered.max())
         if int(recovered.max()) > int(truth.max()):
@@ -100,14 +123,31 @@ def main() -> None:
 
     rows = score_cases(separated)
     ceiling = summarise_instances(rows)
+    watershed_ceiling = summarise_instances(score_cases(flooded))
     components = summarise_instances(score_cases(naive))
 
-    print("\n--- the ceiling of interior-plus-rim, on the ground truth ---")
-    print(f"  instance average precision   {ceiling['mean_average_precision']:.4f}")
-    print(f"  median                       {ceiling['median']:.4f}")
-    print(f"  worst case                   {ceiling['worst']}")
-    print("\n--- the ceiling of connected components, on the same cases ---")
-    print(f"  instance average precision   {components['mean_average_precision']:.4f}")
+    print("\n--- the ceilings, all on the ground truth and the same cases ---")
+    print(
+        f"  rim + nearest_seed           {ceiling['mean_average_precision']:.4f}   "
+        f"median {ceiling['median']:.4f}   worst {ceiling['worst'][:16]}"
+    )
+    print(
+        f"  rim + watershed              {watershed_ceiling['mean_average_precision']:.4f}   "
+        f"median {watershed_ceiling['median']:.4f}   worst {watershed_ceiling['worst'][:16]}"
+    )
+    print(
+        f"  connected_components         {components['mean_average_precision']:.4f}   "
+        "<- the bar any model using it is capped by"
+    )
+    print(
+        "\n  Read the watershed row as a floor and not as a comparison. A ceiling run has\n"
+        "  perfect parts, so its rim is binary and the surface the flood climbs is flat -\n"
+        "  there is no evidence in it, and with a flat surface nearest-seed IS the optimal\n"
+        "  distance split while the watershed only adds flooding-order artefacts. What this\n"
+        "  row shows is that the decoding loses nothing it should not; whether it GAINS\n"
+        "  anything is only answerable on a trained model, whose predicted rim probability\n"
+        "  is a surface with real evidence in it."
+    )
 
     print("\n--- what the decomposition costs, counted rather than assumed ---")
     print(f"  objects in the truth                        {truth_objects}")
@@ -135,6 +175,7 @@ def main() -> None:
             json.dumps(
                 {
                     "ceiling": ceiling,
+                    "watershed_ceiling": watershed_ceiling,
                     "connected_components": components,
                     "truth_objects": truth_objects,
                     "recovered_objects": recovered_objects,
