@@ -1,6 +1,78 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a13] - 2026-10-12
+
+### Added
+
+ - **`pyplatypus.instances`: the Data Science Bowl's own metric, and the number the published
+   weights score under it.** First piece of instance segmentation, and it deliberately builds
+   no model. Detection worked here because it was built metrics-first - every piece checked
+   against something outside itself - and a model chosen before there is a way to score it is
+   a model chosen on nothing.
+
+   **The baseline, measured on the exact 134 cases `dsbowl-unet`'s card reports:**
+
+        Dice, on the model's grid                   0.9205
+        instance average precision, source grid     0.4888
+
+   The card for those weights says *semantic, not instance*, and that caveat has been true and
+   unmeasured since they were published. Touching nuclei come back as one region; connected
+   components found 4658 objects where the data holds 5774, and every nucleus a merged region
+   swallows costs twice - a false negative, and a false positive through the region that
+   swallowed it.
+
+   **The split is reproduced rather than assumed, and the Dice is the control that proves it.**
+   The 134 directories sitting in `stage1_validation` on the machine this was measured on are
+   a *different* 134 from the card's - the card's worst case is not among them - so scoring
+   those and quoting the published Dice beside it would have compared two different sets of
+   images. `split_dataset` with the card's fractions and seed rebuilds the right ones, and the
+   script refuses to report anything unless Dice comes back as the sidecar's
+   `0.9205236150257623` to seven decimals. That mistake has a history on this dataset: a
+   directory of 134 images and a card measuring 134 held-out images were taken for the same
+   134 once before.
+
+   What is in the module:
+
+   * `label_map()` and `read_instances()` - the per-object files read as instances instead of
+     united into one mask. `unite_masks()` takes the element-wise maximum, which is where
+     instance identity is thrown away at read time; nothing new had to be collected.
+   * `iou_matrix()` - pairwise IoU from a contingency table rather than pair by pair, because
+     one image in this dataset holds 375 objects and the pairwise form is 140,000 full-image
+     comparisons. **Checked against `pycocotools` to 1e-12** on three seeded problems, then
+     baked in, so the suite needs no dependency - the arrangement the detection metrics
+     already have with that library.
+   * `average_precision()` - the challenge's `TP / (TP + FP + FN)` at ten thresholds from 0.5
+     to 0.95, averaged. Not a precision-recall curve and nothing interpolated, because nothing
+     is ranked: an instance post-process produces regions, not scored proposals.
+   * `instances_from_mask()` - connected components, 4-connectivity, untuned. A yardstick, not
+     a contribution, and a baseline that has been tuned is no longer what later work is
+     compared against.
+   * `summarise_instances()` - the mean over images, which is what the challenge ranked on,
+     **and** the pooled number beside it. This dataset holds images of 2 objects and images of
+     375, so the two differ and reporting one alone is how it gets quoted as the other.
+
+   **Thresholds below 0.5 are refused, and the strictness of the comparison is load-bearing.**
+   Above 0.5 a prediction can satisfy at most one object - two disjoint regions cannot each
+   cover more than half of the same third region - so counting matches is exact and needs no
+   assignment algorithm. The comparison is `iou > threshold`, not `>=`: with `>=`, two
+   predictions each covering exactly half of one object would both count, and the test that
+   catches this is the one where a merged region scores two true positives instead of none.
+
+   Overlapping truth is refused rather than resolved. A mask layer that holds more than one
+   thing per pixel is open work - `pyplatypus#158` with `pyplatypus#91` - and a metric that
+   quietly took the topmost label would answer that question wrongly rather than decline it.
+
+   Closes pyplatypus#157.
+
+### For the R package
+
+Nothing, and the pin stays where it is. These names live under `pyplatypus.instances` rather
+than in `__all__`, so they are not on the reference page and R cannot reach them: instance
+segmentation becomes a configuration people write when `task: instance_segmentation` lands
+(`pyplatypus#160`), and that is the release where the reference groups and R's shared order
+move together. `platypus#103` is the R issue and it says the same thing.
+
 ## [0.8.0a12] - 2026-10-12
 
 ### Added

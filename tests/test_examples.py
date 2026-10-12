@@ -125,6 +125,28 @@ def test_detection_configuration_is_accepted():
     assert config["task"] == "object_detection"
 
 
+def test_the_instance_baseline_asks_for_the_published_weights_and_no_training():
+    """The script that measures the instance baseline must not train anything.
+
+    It exists to score weights that are already published, and a configuration that trained
+    would quietly produce a different model and a baseline nobody could reproduce. `fit:
+    false` and the registry name are the two things that make it the measurement it claims to
+    be, so both are asserted rather than read.
+    """
+    import score_dsbowl_instances as script
+
+    config = script.specification("train.csv", "validation.csv", 256)
+    _validate(config)
+
+    model = config["models"][0]
+    assert model["fit"] is False, "this script measures, it does not train"
+    assert model["weights"] == script.WEIGHTS
+    assert model["input_shape"] == [256, 256], (
+        "the published weights were trained at 256; the sidecar refuses another shape, and "
+        "this test fails here rather than in the loader"
+    )
+
+
 def test_published_fives_weights_configuration_is_accepted():
     """The published weights' configuration is the example's, and the flags have to match.
 
