@@ -308,3 +308,248 @@ def test_every_example_imports(name):
     """Importing is its own assertion: a script naming a function the package has dropped
     fails here rather than in front of whoever copied it."""
     __import__(name)
+
+
+# ----------------------------------------------------------------- the flow training script
+#
+# `#212`'s second half runs outside `Engine`, because a flow model's head is `2 + n_class`
+# wide and the engine takes its width from `spec.data.n_class`. That makes the script's own
+# functions the only place the target's layout is decided, so they are tested here rather
+# than left to the run that uses them.
+
+
+def _flow_script():
+    import train_instance_flows as script
+
+    return script
+
+
+def test_the_flow_target_is_two_vectors_then_the_two_semantic_channels():
+    """The layout is the contract between the loss, the mask and the decode."""
+    import numpy as np
+
+    script = _flow_script()
+    labels = np.zeros((9, 11), dtype=np.int32)
+    labels[2:7, 1:6] = 1
+    labels[2:7, 6:11] = 2
+
+    target = script.build_target(labels, "diffusion")
+    assert target.shape == (4, 9, 11)
+    assert target.dtype == np.float32
+    foreground = labels > 0
+    assert np.array_equal(target[3] > 0.5, foreground), "channel 3 is the foreground"
+    assert np.array_equal(target[2] > 0.5, ~foreground), "channel 2 is the background"
+    assert np.allclose(target[2] + target[3], 1.0), "and the two are a one-hot, not two masks"
+
+
+def test_the_mask_the_loss_uses_is_the_semantic_channel_and_not_the_flow_s_own_zeros():
+    """The reason `build_target` carries a foreground channel at all.
+
+    A flow field is exactly zero at every object's sink, so its non-zero voxels are the
+    foreground **minus precisely the seeds** — and `#211`'s oracle measured the seeds as what
+    limits this family of methods. Channel 3 has no such hole, and the difference is exactly
+    one voxel per object.
+    """
+    import numpy as np
+
+    script = _flow_script()
+    labels = np.zeros((9, 11), dtype=np.int32)
+    labels[2:7, 1:6] = 1
+    labels[2:7, 6:11] = 2
+    target = script.build_target(labels, "diffusion")
+
+    moving = np.hypot(target[0], target[1]) > 0
+    assert int((target[3] > 0.5).sum()) - int(moving.sum()) == 2, "two objects, two sinks"
+
+
+def test_resizing_an_instance_map_leaves_no_hole_in_the_numbering():
+    """An object can vanish in a nearest-neighbour resize, and a gap would read as a missing
+    object the truth does not contain — the metric counts objects by their values."""
+    import numpy as np
+
+    script = _flow_script()
+    labels = np.zeros((64, 64), dtype=np.int32)
+    labels[4:20, 4:20] = 1
+    labels[30, 30] = 2  # one pixel, which an eight-fold shrink is free to drop
+    labels[40:56, 40:56] = 3
+
+    small = script.resize_labels(labels, 8)
+    present = sorted(int(v) for v in np.unique(small) if v)
+    assert present == list(range(1, len(present) + 1)), present
+    assert len(present) < 3, "the premise: the one-pixel object does not survive this shrink"
+
+
+def test_the_angle_metric_reads_zero_for_agreement_and_one_eighty_for_reversal():
+    import numpy as np
+
+    script = _flow_script()
+    truth = np.zeros((2, 4, 4), dtype=np.float32)
+    truth[0] = 1.0
+    where = np.ones((4, 4), dtype=bool)
+
+    assert script.angles_between(truth, truth, where).max() == pytest.approx(0.0, abs=1e-4)
+    assert script.angles_between(-truth, truth, where).min() == pytest.approx(180.0, abs=1e-3)
+    assert script.angles_between(truth, truth, np.zeros((4, 4), dtype=bool)).size == 0
+
+
+def test_the_dataset_augments_the_label_map_and_builds_the_flow_target_afterwards(tmp_path):
+    """`#210`'s rule, pinned in the script that depends on it.
+
+    The augmenter has to see integers — an instance label map — and the vectors have to be
+    built from what it returns. A target built first comes back geometrically consistent and
+    physically wrong, and the loss falls either way, so nothing downstream can tell. The
+    recording augmenter below is the only instrument that can.
+    """
+    import numpy as np
+    from PIL import Image
+
+    script = _flow_script()
+    case = tmp_path / "case"
+    (case / "images").mkdir(parents=True)
+    (case / "masks").mkdir()
+    Image.fromarray(np.zeros((16, 16, 3), np.uint8)).save(case / "images" / "case.png")
+    for index, (row, column) in enumerate(((2, 2), (2, 9)), start=1):
+        one = np.zeros((16, 16), np.uint8)
+        one[row : row + 5, column : column + 5] = 255
+        Image.fromarray(one).save(case / "masks" / f"{index}.png")
+
+    seen = {}
+
+    class Recording(script.Cases):
+        def __init__(self):
+            super().__init__([case], 16, augment=False, mode="diffusion")
+            self.augmenter = self._record
+
+        def _record(self, image, mask=None):
+            seen["dtype"] = np.asarray(mask).dtype
+            seen["ndim"] = np.asarray(mask).ndim
+            seen["values"] = sorted(int(v) for v in np.unique(mask))
+            return image, mask
+
+    _, target = Recording()[0]
+
+    assert np.issubdtype(seen["dtype"], np.integer), seen["dtype"]
+    assert seen["ndim"] == 2, "a channel axis means this is not an instance label map"
+    assert seen["values"] == [0, 1, 2], "the augmenter saw instances, not classes"
+    assert tuple(target.shape) == (4, 16, 16), "and the four-channel target was built after"
+
+
+def _discs(size=48, centres=((14, 14), (14, 34), (34, 24)), radius=7):
+    """Three round objects, far enough apart that nothing about them is a near miss."""
+    import numpy as np
+
+    labels = np.zeros((size, size), dtype=np.int32)
+    rows, columns = np.ogrid[:size, :size]
+    for index, (row, column) in enumerate(centres, start=1):
+        labels[(rows - row) ** 2 + (columns - column) ** 2 <= radius**2] = index
+    return labels
+
+
+def test_the_true_identity_oracle_does_not_shatter_a_mask_the_truth_does_not_cover():
+    """The defect this function was written for, as a number.
+
+    The oracle row started life as `flows_from_instances(labels)` handed to the model's own
+    mask, and it scored **0.2220 against 0.5315 for the predicted field** with **18758
+    objects back against 5999** in the truth. The cause is not the field's quality: a flow
+    field is identically zero off its own objects, a zero field moves nothing, so every voxel
+    the mask got wrong stands still and lands in a basin of its own. A mask one pixel too
+    generous is enough to show it, and no model is needed - the same probe on twelve discs
+    took 48 objects to 93, one spurious ring each.
+    """
+    import numpy as np
+    from scipy import ndimage
+
+    from pyplatypus.instances import flows_from_instances, instances_by_flows
+
+    script = _flow_script()
+    labels = _discs()
+    mask = ndimage.binary_dilation(labels > 0, iterations=1)
+
+    raw = instances_by_flows(flows_from_instances(labels, mode="diffusion"), mask)
+    assert int(raw.max()) == 2 * int(labels.max()), (
+        "the premise, and it is exact: the truth's own field gives every object a ring of "
+        "stationary voxels, so three objects come back as six. If this stops being true the "
+        "test below is no longer measuring anything"
+    )
+
+    fixed = instances_by_flows(script.truth_field_on(labels, mask, "diffusion"), mask)
+    assert int(fixed.max()) == int(labels.max()), np.bincount(fixed.ravel())
+
+
+def test_the_oracle_leaves_no_voxel_of_the_mask_without_a_vector_but_the_sinks():
+    """What "replace exactly one part of the pipeline" means here, voxel by voxel.
+
+    The field has to be defined wherever the decode will start from, and it is zero at a sink
+    by construction - so the count of voxels without a vector is the number of objects and
+    nothing else. One more than that is a hole the oracle would be reading as a result.
+    """
+    import numpy as np
+    from scipy import ndimage
+
+    script = _flow_script()
+    labels = _discs()
+    mask = ndimage.binary_dilation(labels > 0, iterations=2)
+
+    field = script.truth_field_on(labels, mask, "diffusion")
+    still = mask & (np.hypot(field[0], field[1]) == 0)
+    assert int(still.sum()) == int(labels.max()), "one sink per object, no other hole"
+    outside = ~(mask | (labels > 0))
+    assert not (field[:, outside] != 0).any(), (
+        "and nothing outside the support, which is `mask | truth` and not `mask` - said "
+        "this way round because a dilated mask contains the truth, so a claim about `mask` "
+        "alone would pass here by fixture rather than by code"
+    )
+
+
+def test_a_detached_piece_of_mask_joins_the_nearest_object_under_one_mode_only():
+    """The oracle's one remaining blind spot, which the run counts rather than hides.
+
+    Identity is assigned by distance, so a piece of predicted foreground touching no object
+    at all still joins the nearest one. Whether it gets a *vector* depends on the target's
+    shape and not on the oracle: a straight line to the sink needs no path through the
+    object, while the diffusion is heat spread inside it and a disconnected piece receives
+    none. The run prints how many such pieces there are beside the row, because each one
+    lands as a basin the field did not earn.
+    """
+    import numpy as np
+
+    script = _flow_script()
+    labels = _discs()
+    mask = labels > 0
+    mask[44, 44] = True  # ten pixels clear of the nearest object
+
+    straight = script.truth_field_on(labels, mask, "centroid")[:, 44, 44]
+    assert np.hypot(*straight) == pytest.approx(1.0, abs=1e-5)
+    assert straight[0] < 0 and straight[1] < 0, "pointing back at the object it was given to"
+
+    heat = script.truth_field_on(labels, mask, "diffusion")[:, 44, 44]
+    assert np.hypot(*heat) == 0.0, "and the counted blind spot is this, in this mode"
+
+
+def test_the_oracle_s_support_is_the_mask_and_the_truth_so_a_cut_object_stays_one():
+    """Why the support is a union rather than the mask, measured.
+
+    A mask that cuts an object in half leaves one half without the sink, and the diffusion
+    confined to that half would receive no heat - the same zero-field shatter the function
+    exists to remove, arriving by a different door. Including the truth's own body in the
+    support keeps the object connected for the heat to cross, and costs nothing, because
+    `follow_flows` only ever starts from the mask.
+    """
+    import numpy as np
+
+    script = _flow_script()
+    from pyplatypus.instances import flows_from_instances, instances_by_flows
+
+    labels = np.zeros((48, 48), dtype=np.int32)
+    labels[10:38, 10:38] = 1
+    mask = labels > 0
+    mask[23:25] = False  # a band straight through it: two halves, one sink
+
+    field = script.truth_field_on(labels, mask, "diffusion")
+    assert int(instances_by_flows(field, mask).max()) == 1, "both halves reach the one sink"
+
+    confined = flows_from_instances(np.where(mask, labels, 0), mode="diffusion")
+    assert int(instances_by_flows(confined, mask).max()) == 2, (
+        "the premise: with the support cut to the mask alone the far half has no heat and "
+        "comes back as an object of its own"
+    )

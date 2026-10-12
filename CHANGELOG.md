@@ -1,6 +1,94 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a19] - 2026-10-12
+
+Looking at instance results instead of reading their arrays (#214), and the trained half of
+`flows` (#212), which closes it with a measured no of the useful kind: the route works, the
+signal is worth something, and what limits it is not the route.
+
+### Added
+
+ - **`overlay_instances()`, `overlay_instance_agreement()` and `flow_to_colours()`** in
+   `pyplatypus.plots`. An instance result has no figure today - `overlay_mask` paints every
+   object one colour, which is the one thing an instance map must not do - and `#159`'s four
+   training runs were read entirely off tables.
+
+   **`overlay_instances` colours an exact graph colouring and that was an open question on
+   `#214`, settled by measurement rather than by preference.** What a reader needs from an
+   instance map is *where one object ends and the next begins*, which is **adjacency, not
+   identity**, so a colour may repeat as long as it never repeats between neighbours.
+   Measured over all 670 Data Science Bowl cases, 524 of which hold touching objects and
+   **5436 adjacent pairs** between them: an exact colouring (Welsh-Powell) needs **at most
+   3 of the 8 colours `CLASS_COLOURS` already has** - 146 cases need one, 412 two, 112
+   three - against at most 6 neighbours for any one object. The cheap alternative the issue
+   offered, cycling the palette by object value, **paints 550 of those 5436 pairs in one
+   colour: 10.12%**. One touching pair in ten drawn as one object, in a figure whose whole
+   subject is whether two objects are two.
+
+   **`overlay_instance_agreement` matches objects with `iou_matrix`, the function the metric
+   uses, and at the same strictness** - which is a correction rather than a design note. It
+   matched at `iou >= threshold` for an hour; `average_precision` compares strictly greater,
+   and a merged pair sitting over two equal truth objects lands at exactly 0.5, so the
+   figure would have drawn one hit where the metric counts two misses. Caught by a test
+   written against what the figure *means* rather than what it draws, and pinned by one.
+   The threshold below 0.5 that the metric refuses is refused here too, in the metric's own
+   words.
+
+   **Nothing was added to `pyplatypus.style`**, which is why the R pin does not move for
+   this (`§3E`): hue-for-direction is the convention optical flow has used for twenty years
+   and not a decision this project gets to make differently, and the drawing style R reads
+   from the engine is unchanged. `platypus#154` carries the R half.
+
+ - **`examples/train_instance_flows.py`**, the second half of `#212`: the flow target
+   trained and scored, with the pair of oracles that says which half of the pipeline the
+   result is limited by. Sixty epochs on `dsbowl-unet`'s architecture and the 536/134
+   directory split, the target rebuilt from the augmented label map on every sample
+   (`#210`), and the model assembled outside `Engine` because a flow head is `2 + n_class`
+   wide and the engine takes its width from `spec.data.n_class` - the derivation `#160` has
+   yet to name. The script says so in its own docstring rather than leaving it to be
+   inferred.
+
+        134 cases, 5999 objects, 256x256     score   objects back
+        foreground Dice                     0.9029
+        flow angle, median of case medians    6.6 degrees
+        AP flows                            0.5278           5424
+        AP connected components             0.4598           4686   same mask, no signal
+        TRUE identity, this mask            0.5941           6138   perfect vectors
+        this field, TRUE mask               0.7676           5421   perfect mask
+
+   **The flow signal is worth +0.0680** over connected components on the same predicted
+   mask, which is the only honest comparison here - same model, same mask, same pictures,
+   with and without the signal. The rim route was worth **+0.0640** on its own set
+   (`#159`, `JOURNAL.md` §4bo), and the difference between the two, 0.0040, is **below the
+   0.0074 run-to-run spread** of one configuration at a fixed seed that `§4bo` measured. So
+   the structural argument for flows - that it spends no pixel on being a boundary, where a
+   rim wide enough to learn hollows the object out - **does not show up in the score**. Two
+   runs of this configuration here came back 0.5278 and 0.5315, a difference of 0.0037,
+   which is consistent with that spread and is still two runs rather than a spread of its
+   own.
+
+   **And the oracle pair says why, which is the part worth keeping.** A perfect mask is
+   worth **+0.2398** and perfect vectors **+0.0663**: the mask is the limit by a factor of
+   3.6, and `0.7676` with a perfect mask is already about what connected components reaches
+   on the truth (`0.7505`). A third separation target would be measured against the same
+   wall, which is what `#213` now has to answer for rather than assume.
+
+   Each row prints **the number of objects it handed back**, and that is not decoration. The
+   first version of the TRUE-field oracle scored 0.2220 with **18758 objects back against
+   5999** in the truth, because it handed `flows_from_instances(labels)` - zero everywhere
+   off the truth's own objects - to the model's mask, and a zero field moves nothing, so
+   every voxel the mask got wrong stood still and became a basin of its own. It is
+   `truth_field_on` now, substituting **identity** and not the field: every voxel of the
+   mask joins the nearest truth object and the field is built from that. An average
+   precision alone cannot tell a route that mislabels from one that shatters; an object
+   count can. One blind spot is left and it is counted rather than argued about: **259 of
+   the 6138 objects** the TRUE-identity row returns are pieces of predicted foreground
+   holding no truth voxel at all, which join the nearest object by identity but, under
+   `diffusion`, receive no heat and keep a zero vector. Under `centroid` they would cost
+   nothing - a straight line to a sink needs no path - and the run prints the count beside
+   the row with the mode it belongs to.
+
 ## [0.8.0a18] - 2026-10-12
 
 The first half of `flows` (#212): the target, its decoding, and their ceiling measured on the
