@@ -123,6 +123,31 @@ the separation signal is not what limits instance segmentation on this data. The
 
    **`--separation both` is now `--separation all`**, because there are three signals.
 
+### Fixed
+
+ - **`labels` without 0 is refused when any voxel matches none of them** (`platypus#153`).
+   Index 0 means two things in this package and always has: the first entry of a naming, and
+   *matched nothing*. `labels: [0, ...]` makes them agree, and `labels` is the one naming
+   where the 0 can be left out - after which every unmatched voxel, which is usually most of
+   the image, is trained as the **first declared class**. Measured on the issue:
+   `labels: [1, 2]` over a mask of 0s, 1s and 2s put the background into class `1` with an
+   unmatched fraction of 0.5, and nothing in the shape of the target gives it away - it is in
+   range, one-hot and plausible.
+
+   Refused in `fit`'s existing mask check, which already reads a sample of the training
+   masks, and **only when the data actually has unmatched voxels**: `labels: [1, 2]` over
+   masks that really do fill every voxel is correct and keeps working. That was the author's
+   reading on the issue, between four options, because the failure is in the data rather than
+   in the configuration.
+
+   The threshold is **any unmatched voxel at all**, not the 5% the unmatched *warning* uses,
+   and that is a calibration rather than strictness: a label map holds integers, is read
+   nearest-neighbour and compared with half a unit of tolerance, so a naming that describes
+   it matches **exactly** everything. The compression and antialiasing the 5% exists for
+   belong to colormaps, and a colormap cannot omit a background entry. Five mutations, five
+   caught - including the one where the refusal is hung on the warning threshold, which the
+   fixture is deliberately sized to catch at 1.6%.
+
 ## [0.8.0a18] - 2026-10-12
 
 The first half of `flows` (#212): the target, its decoding, and their ceiling measured on the
