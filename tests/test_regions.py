@@ -251,6 +251,15 @@ def test_probabilities_are_a_sigmoid_and_do_not_sum_to_one():
 #: arrives only with the `encoders` extra, so a test importing it would skip on the ordinary
 #: install - and a skip reads exactly like a pass. The same arrangement the detection metrics
 #: have with `pycocotools`.
+#:
+#: **Compared loosely on purpose, and the bound is measured rather than chosen.** These are
+#: float32 reductions over 384 elements, so the last digit belongs to the order the hardware
+#: adds them in: macOS on ARM and Linux on x86 disagree here by 8.6e-08 *relative*, which is
+#: below float32's eps of 1.19e-07. Pinning tighter than that pins the platform, which cost
+#: one red macOS job on the first push of this file. The mutation this test exists to catch -
+#: `alpha` no longer weighting the negative answer - moves the same numbers by **55% and
+#: 67%**, so `rel=1e-6` sits a factor of twelve above the noise and five orders of magnitude
+#: below the defect.
 TORCHVISION_FOCAL = {
     (2.0, None): 0.34679388999938965,
     (2.0, 0.25): 0.1932813674211502,
@@ -280,7 +289,7 @@ def test_the_focal_reference_problem_is_not_trivial():
 def test_binary_focal_agrees_with_torchvision(gamma, alpha):
     logits, target = focal_reference_problem()
     assert f.binary_focal(logits, target, gamma, alpha).item() == pytest.approx(
-        TORCHVISION_FOCAL[(gamma, alpha)], abs=2e-8
+        TORCHVISION_FOCAL[(gamma, alpha)], rel=1e-6
     )
 
 

@@ -52,9 +52,19 @@ All notable changes to this project will be documented in this file.
    channel instead of taking an `argmax`, and `predict` returns a stack whose channels do not
    sum to one.
 
-   **`binary_focal` agrees with `torchvision.ops.sigmoid_focal_loss` to 1.5e-08** over three
-   (gamma, alpha) settings, and reduces *exactly* to `binary_cross_entropy` at `gamma=0` - a
-   control the implementation could not satisfy by accident. Both are in the suite.
+   **`binary_focal` agrees with `torchvision.ops.sigmoid_focal_loss` to within float32's
+   resolution** over five (gamma, alpha) settings, and reduces *exactly* to
+   `binary_cross_entropy` at `gamma=0` - a control the implementation could not satisfy by
+   accident. Both are in the suite, and the torchvision numbers are baked in rather than
+   imported because torchvision arrives only with the `encoders` extra.
+
+   No tighter number than that is pinned, because there is not one to pin: these are float32
+   reductions over 384 elements, so the last digit belongs to the order the hardware adds them
+   in. macOS on ARM and Linux on x86 disagree by **8.6e-08 relative**, under float32's eps of
+   1.19e-07, and a first version of the test asserting 2e-08 absolute turned one macOS job red
+   while being right about the arithmetic. The bound that replaced it is `rel=1e-6`, chosen
+   against both ends: twelve times the platform noise, and five orders of magnitude under the
+   55% to 67% that the mutation this test exists to catch actually moves the numbers by.
 
    **The reduction differs from the categorical form and that is deliberate.** Categorical
    cross-entropy sums over channels, which picks out the one true class of a one-hot target.
