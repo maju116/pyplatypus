@@ -11,8 +11,20 @@ and a rim, grown back to instances, **measured against the ground truth before a
 trained** - because the post-process is what caps the approach, and a cap can be measured
 without the thing it caps. On the Data Science Bowl's 134 held-out cases that ceiling is an
 instance AP of 0.9846 where the same truth through connected components reaches 0.7655.
+
+`flows` (#212) is the second separation signal and was written in the same order, which is
+now the pattern rather than a one-off: the target and its decoding first, their ceiling
+measured on the ground truth, and only then a training run. It exists because `#159` closed
+measured-and-no for a structural reason - an interior and a rim are two classes competing for
+the same pixels - and a flow field spends no pixel on being a boundary.
 """
 
+from pyplatypus.instances.flows import (
+    FLOW_MODES,
+    flows_from_instances,
+    follow_flows,
+    instances_by_flows,
+)
 from pyplatypus.instances.metrics import (
     CHALLENGE_THRESHOLDS,
     InstanceError,
@@ -32,8 +44,12 @@ from pyplatypus.instances.read import read_instance_masks, read_instances
 
 __all__ = [
     "CHALLENGE_THRESHOLDS",
+    "FLOW_MODES",
     "InstanceError",
     "average_precision",
+    "flows_from_instances",
+    "follow_flows",
+    "instances_by_flows",
     "instances_by_watershed",
     "instances_from_mask",
     "instances_from_parts",

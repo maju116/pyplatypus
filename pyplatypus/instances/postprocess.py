@@ -211,9 +211,11 @@ def instances_from_parts(
     objects part. This splits on distance alone. For nuclei - small, roughly convex, meeting
     along a short seam - the two agree closely; where objects are long or interlocking they do
     not, and that is a reason to revisit this rather than an argument that it is wrong here.
-    `scikit-image` is not a dependency and is not worth adding for one function;
-    `scipy.ndimage.watershed_ift` is available but wants integer markers and implements a
-    different algorithm from the one its name suggests.
+    `scikit-image` was not a dependency when this was written and this paragraph used to say
+    so; `instances_by_watershed` made it a hard one in `0.8.0a16`, which is why that function
+    exists beside this one rather than instead of it. `scipy.ndimage.watershed_ift` is still
+    not the substitute it looks like: it wants integer markers and implements the
+    image-foresting transform rather than the algorithm the literature on this problem means.
 
     A foreground pixel that no seed can reach - because the prediction found no interior
     anywhere - stays background rather than becoming an instance of its own. That is the

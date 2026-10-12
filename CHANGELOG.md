@@ -1,6 +1,95 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a18] - 2026-10-12
+
+The first half of `flows` (#212): the target, its decoding, and their ceiling measured on the
+ground truth **before anything is trained** - the order `#159` was done in, now the pattern
+rather than a one-off. `#212` stays open; what is here is everything that can be settled
+without a training run, and it settled more than expected.
+
+### Added
+
+ - **`flows_from_instances()` and `instances_by_flows()`, with `FLOW_MODES` as the question
+   they exist to answer.** A unit vector per foreground pixel pointing at its own object's
+   sink, decoded by following the field until the pixels that arrive together are one object.
+   No interior, no rim, nothing eroded - which is the premise of `#212`, because `#159` closed
+   measured-and-no for a structural reason: an interior and a rim are two classes competing
+   for the same pixels, so a rim wide enough to learn hollows the object out. A flow field
+   spends no pixel on being a boundary, and an object one pixel wide is an ordinary object
+   with a sink in it rather than a case for `parts_from_instances`'s fallback.
+
+   **The ceilings, one run over 134 held-out Data Science Bowl cases and 6000 objects:**
+
+        flows:diffusion + follow     0.9924      6043 objects back
+        flows:centroid  + follow     0.9478      6268
+        rim + nearest_seed           0.9807      6074
+        rim + watershed              0.9703
+        connected_components         0.7583      the bar any model using it is capped by
+
+   So the flow route's ceiling is **0.0117 above the rim route's** on the same pictures, and
+   the route is not what caps a model either way. `separation_ceiling.py --separation both`
+   prints all five rows and the set they belong to.
+
+ - **`follow_flows()` exposed on its own**, because the decoding's parameters are not equally
+   dangerous and only a measurement says which is which. The **step count does not matter**:
+   AP 0.9914 at one step against 0.9923 converged over fifteen cases, a span of 0.0009, below
+   the 0.0013 run-to-run spread of a training run. The reason is structural - the field is
+   continuous, so one object's endpoints stay a connected set however far along they get, and
+   it diverges at a seam, so the gap between two objects opens on the first step. **The step
+   size is a cliff**: 0.9923 at 1.0 or below, **0.4715 at 2.0** with 868 objects back where
+   the truth has 633, and 0.0303 at 10.0 with 4337. A step longer than a pixel jumps past the
+   sink and keeps jumping. Both are in the suite with both ends written down.
+
+### Measured, and it changed the design
+
+ - **The two flow targets differ by 0.0446 of AP, and the obvious explanation was measured at
+   0.32%.** The cheap mode aims a straight line at the sink, and the reading everybody reaches
+   for is that it fails on concave objects whose centroid falls outside them - of 6000 objects
+   **19 do**. The cause is one level down: a straight line between two pixels of a *discrete*
+   set can step outside the set even when the set looks convex, because the boundary is
+   ragged. Measured on 274 of those objects: 0.27% of foreground pixels have such a path, 6
+   objects come back split, and **every one of the 6 has pixels whose path leaves it** while
+   10 objects have such pixels and survive. Necessary, not sufficient.
+
+ - **The build cost is the number that decides the training half, and it is 23x apart between
+   the modes**: 4.9 ms per case for `centroid` against 113.6 ms for `diffusion`, with decoding
+   at ~335 ms for both. `#210` says the target is rebuilt from the augmented label map on
+   every sample, so the build is paid once per image per epoch: 429 training cases at 113.6 ms
+   is **48.7 s against a 15.5 s training epoch**, 3.1x it serially and absorbed by the
+   loader's four workers rather than eliminated. The decode is paid once per evaluation and
+   the step-count measurement above makes it twenty times cheaper than its default.
+
+### Fixed
+
+ - **The diffusion target carried a full unit vector at every object's sink**, found by the
+   mutation gate rather than by a test: `(0.707, 0.707)`, because normalising the residue a
+   central difference leaves across a maximum produces a unit vector from nothing. A model
+   trained on that learns noise at exactly the pixel the method is about. **The decoding
+   survived it unchanged** - 0.9925 before the fix against 0.9924 after - which is why nothing
+   noticed, and is the shape of the whole category: the defect was in the target and the only
+   instrument pointed at the decode. The sink is now zeroed by construction, and the test that
+   should have caught it is parametrised over both modes; with the default mode alone it was
+   asserting a property of the *straight-line* field.
+
+ - **`instances_from_parts`'s docstring said `scikit-image` is not a dependency.** It became a
+   hard one in `0.8.0a16` and nothing re-read the sentence.
+
+### Measured and unresolved
+
+ - **The ceiling of 0.9846 and the bar of 0.7655 on the record for "the 134 held-out cases"
+   are not reproducible from anything on this disk**, and `separation_ceiling.py` now prints
+   the case and object count beside every number so this cannot recur. Four candidate sets
+   were measured: the 134 directories of `stage1_validation` give **0.9807 and 0.7583** over
+   6000 objects, the seed-1 fifth of `stage1_train` gives 0.9905 and 0.7876 over 107 cases and
+   4044 objects, all 536 of `stage1_train` give 0.9818 and 0.7618 over 23461, and the same 134
+   at the training resolution give 0.9627 and 0.7504. The recorded object count of **5774
+   appears in none of them**.
+
+   **No conclusion drawn against that bar changes** - `#159`'s 0.5587 and `#211`'s 0.5561 are
+   below every one of these - but a new number cannot be put beside an old one, which is why
+   the table above is one run over one set of pictures and quotes nothing from before it.
+
 ## [0.8.0a17] - 2026-10-12
 
 The two gates in front of `flows` and `hv` (#212, #213), and neither is about either of them:
