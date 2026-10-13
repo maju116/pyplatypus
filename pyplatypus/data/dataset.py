@@ -22,6 +22,7 @@ from pyplatypus.data.masks import (
     colours_to_classes,
     labels_to_classes,
     labels_to_regions,
+    onehot_to_foreground,
     region_vocabulary,
     unite_masks,
 )
@@ -376,6 +377,18 @@ class SegmentationDataset:
             # voxel can land in several channels at once - or, from row 0, in none.
             return image, self._region_table[classes]
         return image, classes_to_onehot(classes, self.data.n_class)
+
+    def foreground_of(self, mask: np.ndarray) -> np.ndarray:
+        """Which voxels the mask assigns to something, for a loss that needs to know.
+
+        A method rather than the loader calling `onehot_to_foreground` directly, because
+        the answer depends on which channels are classes and the instance dataset's are not
+        in the same place: a `flows` target's channel 0 is the row component of a vector
+        field, and read as background it would call the whole image foreground. One question
+        asked of whichever dataset is in the loader - the `EngineBase` lesson applied one
+        layer down, where two datasets had begun to need two answers.
+        """
+        return onehot_to_foreground(mask, multilabel=self.data.multilabel)
 
     def colormap_coverage(self, limit: int = 20) -> float:
         """Fraction of mask voxels matching no colour, or no label value.

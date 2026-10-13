@@ -4,9 +4,10 @@ Specification, data pipeline, U-shaped models, losses and metrics, training, spl
 patient and scoring per case, in 2D and 3D. Volumes arrive as NIfTI, reoriented to canonical
 and windowed in real units; masks are colour pictures or label maps.
 
-Two tasks, chosen by `task` in the specification: segmentation through `Engine`, and object
-detection through `DetectionEngine`. `build_engine(spec)` returns the right one, so holding
-a spec is enough.
+Three tasks, chosen by `task` in the specification: semantic segmentation through `Engine`,
+object detection through `DetectionEngine`, and instance segmentation, whose specification
+validates while its engine is still being built (`pyplatypus#160`). `build_engine(spec)`
+returns the right one for the first two, so holding a spec is enough.
 """
 
 from pyplatypus.data.images import read_image
@@ -14,6 +15,7 @@ from pyplatypus.data.splits import split_dataset, split_samples
 from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
+from pyplatypus.instance_engine import InstanceEngine
 from pyplatypus.plots import (
     flow_to_colours,
     overlay_agreement,
@@ -27,14 +29,18 @@ from pyplatypus.plots import (
 from pyplatypus.runs import read_record, write_record
 from pyplatypus.spec import (
     DetectionSpec,
+    InstanceSpec,
     PlatypusSpec,
     SegmentationSpec,
+    Separation,
     Task,
     available_callbacks,
+    available_decodings,
     available_losses,
     available_metrics,
     available_models,
     available_optimizers,
+    available_separations,
     available_tasks,
     available_transforms,
     from_dict,
@@ -51,24 +57,29 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a19"
+__version__ = "0.8.0a20"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
     "DetectionReport",
     "DetectionSpec",
     "Engine",
+    "InstanceEngine",
+    "InstanceSpec",
     "PlatypusError",
     "PlatypusSpec",
     "SegmentationSpec",
+    "Separation",
     "Task",
     "WeightsError",
     "__version__",
     "available_callbacks",
+    "available_decodings",
     "available_losses",
     "available_metrics",
     "available_models",
     "available_optimizers",
+    "available_separations",
     "available_tasks",
     "available_transforms",
     "available_weights",

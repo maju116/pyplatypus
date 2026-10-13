@@ -44,7 +44,12 @@ from pyplatypus.detection.metrics import (
 from pyplatypus.detection.yolo3 import build_yolo3
 from pyplatypus.engine import EngineBase, EngineError
 from pyplatypus.spec.detection import DetectionModel
-from pyplatypus.spec.spec import DetectionSpec, PlatypusSpec, SegmentationSpec
+from pyplatypus.spec.spec import (
+    DetectionSpec,
+    InstanceSpec,
+    PlatypusSpec,
+    SegmentationSpec,
+)
 from pyplatypus.training.detection_trainer import DetectionTrainer
 from pyplatypus.training.torch_data import make_detection_loader
 from pyplatypus.training.trainer import History, seed_everything
@@ -1038,9 +1043,10 @@ def build_engine(spec: PlatypusSpec, **kwargs):
         **kwargs: Passed to the engine's constructor.
 
     Returns:
-        An `Engine` for a segmentation specification, a `DetectionEngine` for a
-        detection one. Both discover their splits and refuse a missing or unlabelled
-        one by name, because that half is shared.
+        An `Engine` for a semantic segmentation specification, an `InstanceEngine` for an
+        instance one, a `DetectionEngine` for a detection one. All three discover their
+        splits and refuse a missing or unlabelled one by name, because that half is
+        shared.
 
     Raises:
         EngineError: For a specification whose task has no engine - which today means
@@ -1055,4 +1061,8 @@ def build_engine(spec: PlatypusSpec, **kwargs):
         return DetectionEngine(spec, **kwargs)
     if isinstance(spec, SegmentationSpec):
         return Engine(spec, **kwargs)
+    if isinstance(spec, InstanceSpec):
+        from pyplatypus.instance_engine import InstanceEngine
+
+        return InstanceEngine(spec, **kwargs)
     raise EngineError(f"no engine for task '{getattr(spec, 'task', '?')}'")

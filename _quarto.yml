@@ -62,9 +62,11 @@ website:
         - reference/from_yaml.qmd
         - reference/save_spec.qmd
         - reference/SegmentationSpec.qmd
+        - reference/InstanceSpec.qmd
         - reference/DetectionSpec.qmd
         - reference/PlatypusSpec.qmd
         - reference/Task.qmd
+        - reference/Separation.qmd
         - reference/spec_schema.qmd
         - reference/write_schema.qmd
       - section: What a model is made of
@@ -75,6 +77,8 @@ website:
         - reference/available_metrics.qmd
         - reference/available_optimizers.qmd
         - reference/available_callbacks.qmd
+        - reference/available_decodings.qmd
+        - reference/available_separations.qmd
         - reference/available_transforms.qmd
       - section: The data on disk
         contents:
@@ -83,6 +87,8 @@ website:
         - reference/split_samples.qmd
         - reference/Engine.dataset.qmd
         - reference/Engine.loader.qmd
+        - reference/InstanceEngine.dataset.qmd
+        - reference/InstanceEngine.loader.qmd
         - reference/DetectionEngine.dataset.qmd
         - reference/DetectionEngine.loader.qmd
       - section: Training
@@ -90,6 +96,8 @@ website:
         - reference/build_engine.qmd
         - reference/Engine.qmd
         - reference/Engine.fit.qmd
+        - reference/InstanceEngine.qmd
+        - reference/InstanceEngine.fit.qmd
         - reference/DetectionEngine.qmd
         - reference/DetectionEngine.fit.qmd
         - reference/DetectionEngine.fit_anchors.qmd
@@ -101,6 +109,11 @@ website:
         - reference/Engine.evaluate_cases.qmd
         - reference/summarise_cases.qmd
         - reference/Engine.best_model.qmd
+        - reference/InstanceEngine.predict.qmd
+        - reference/InstanceEngine.predict_instances.qmd
+        - reference/InstanceEngine.evaluate.qmd
+        - reference/InstanceEngine.evaluate_cases.qmd
+        - reference/InstanceEngine.best_model.qmd
         - reference/DetectionEngine.predict.qmd
         - reference/DetectionEngine.evaluate.qmd
         - reference/DetectionEngine.evaluate_classes.qmd
@@ -119,6 +132,7 @@ website:
         - reference/resolve_weights.qmd
         - reference/export_weights.qmd
         - reference/Engine.export_weights.qmd
+        - reference/InstanceEngine.export_weights.qmd
         - reference/DetectionEngine.export_weights.qmd
       - section: Records
         contents:
@@ -171,9 +185,11 @@ quartodoc:
     - from_yaml
     - save_spec
     - SegmentationSpec
+    - InstanceSpec
     - DetectionSpec
     - PlatypusSpec
     - Task
+    - Separation
     - spec_schema
     - write_schema
   - title: What a model is made of
@@ -190,6 +206,8 @@ quartodoc:
     - available_metrics
     - available_optimizers
     - available_callbacks
+    - available_decodings
+    - available_separations
     - available_transforms
   - title: The data on disk
     desc: 'Splitting by patient rather than by slice, and looking at what will actually be read
@@ -202,6 +220,8 @@ quartodoc:
     - split_samples
     - Engine.dataset
     - Engine.loader
+    - InstanceEngine.dataset
+    - InstanceEngine.loader
     - DetectionEngine.dataset
     - DetectionEngine.loader
   - title: Training
@@ -210,6 +230,8 @@ quartodoc:
     - build_engine
     - Engine
     - Engine.fit
+    - InstanceEngine
+    - InstanceEngine.fit
     - DetectionEngine
     - DetectionEngine.fit
     - DetectionEngine.fit_anchors
@@ -225,6 +247,11 @@ quartodoc:
     - Engine.evaluate_cases
     - summarise_cases
     - Engine.best_model
+    - InstanceEngine.predict
+    - InstanceEngine.predict_instances
+    - InstanceEngine.evaluate
+    - InstanceEngine.evaluate_cases
+    - InstanceEngine.best_model
     - DetectionEngine.predict
     - DetectionEngine.evaluate
     - DetectionEngine.evaluate_classes
@@ -247,6 +274,7 @@ quartodoc:
     - resolve_weights
     - export_weights
     - Engine.export_weights
+    - InstanceEngine.export_weights
     - DetectionEngine.export_weights
   - title: Records
     desc: What a run wrote down about itself, including the engine version that made it.

@@ -434,6 +434,17 @@ class Trainer:
             rows.append(row)
         return rows
 
+    def activate(self, out: torch.Tensor) -> torch.Tensor:
+        """Raw output to the numbers a caller reads, which is one line and one decision.
+
+        A softmax across channels says they are alternatives; a sigmoid per channel says
+        each is its own yes-or-no. A method rather than the call inlined below, because an
+        instance model's head is **both at once** - two raw vector channels in front of a
+        block of classes - and a softmax taken across all of them would return a number,
+        a gradient and no error anywhere. `InstanceTrainer` overrides exactly this.
+        """
+        return f.probabilities(out, multilabel=self.multilabel)
+
     @torch.no_grad()
     def predict_stream(self, loader: DataLoader) -> Iterator[np.ndarray]:
         """One source image's class probabilities at a time, channels-last, tiles stitched.
@@ -457,7 +468,7 @@ class Trainer:
             out = self.model(batch_x.to(self.device))
             if isinstance(out, tuple):
                 out = out[-1]
-            probabilities = f.probabilities(out, multilabel=self.multilabel).cpu().numpy()
+            probabilities = self.activate(out).cpu().numpy()
             # One array per example rather than per batch: an image's tiles can straddle a
             # batch boundary, so the buffer counts examples and not batches.
             for tile in np.moveaxis(probabilities, 1, -1):

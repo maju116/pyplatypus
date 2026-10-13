@@ -115,6 +115,48 @@ def test_retinal_vessel_configuration_is_accepted():
     assert config["models"][0]["splits"], "the example exists to exercise tiling"
 
 
+def test_the_instance_configuration_file_is_accepted_and_says_what_it_compares():
+    """The YAML this example exists to run, validated rather than only parsed.
+
+    Three claims, because the file is the example: it asks for the instance task, it holds
+    both separation signals, and every model's `decode` list carries
+    `connected_components`. The last of those is what makes the table readable - it is the
+    row that ignores the separation signal, so it is what the signal's own row has to beat -
+    and a file that dropped it would still run and produce numbers nothing could be read
+    against.
+    """
+    import yaml
+
+    config = yaml.safe_load((EXAMPLES / "data_science_bowl_instances.yaml").read_text())
+    _validate(config)
+    spec = from_dict(config, check_paths=False)
+    assert spec.task.value == "instance_segmentation"
+    assert {model.signal.value for model in spec.models} == {"rim", "flows"}
+    for model in spec.models:
+        decodings = [block.name for block in model.decodings]
+        assert "connected_components" in decodings, model.name
+        assert decodings[0] != "connected_components", (
+            f"{model.name} reads its own signal's decoding first; the yardstick is what it "
+            "is compared against"
+        )
+    # The widths the engine derives, which is the line this whole task turns on.
+    assert [model.head_channels(spec.data.n_class) for model in spec.models] == [3, 4]
+
+
+def test_the_instance_example_overrides_only_the_epoch_count():
+    """A flag per setting would make the published table depend on a command nobody wrote
+    down, which is why this example takes one and reads the rest from the file."""
+    import compare_instance_separations as script
+
+    config = {"models": [{"name": "m", "epochs": 60}, {"name": "n", "epochs": 60}]}
+    from argparse import Namespace
+
+    assert script.overridden(config, Namespace(epochs=None)) == config
+    changed = script.overridden(config, Namespace(epochs=2))
+    assert [model["epochs"] for model in changed["models"]] == [2, 2]
+    assert config["models"][0]["epochs"] == 60, "the original is left alone"
+
+
 def test_detection_configuration_is_accepted():
     import detect_blood_cells as script
 
@@ -248,7 +290,7 @@ def test_the_quality_polarity_check_can_refuse():
 
 def test_the_examples_were_found():
     """An empty glob parametrizes nothing, and zero tests read exactly like six passing ones."""
-    assert len(SCRIPTS) >= 8, SCRIPTS
+    assert len(SCRIPTS) >= 9, SCRIPTS
 
 
 def test_the_separation_ceiling_runs_and_beats_connected_components(tmp_path, capsys):
@@ -312,10 +354,14 @@ def test_every_example_imports(name):
 
 # ----------------------------------------------------------------- the flow training script
 #
-# `#212`'s second half runs outside `Engine`, because a flow model's head is `2 + n_class`
-# wide and the engine takes its width from `spec.data.n_class`. That makes the script's own
-# functions the only place the target's layout is decided, so they are tested here rather
-# than left to the run that uses them.
+# `#212`'s second half ran outside `Engine`, because a flow model's head is `2 + n_class`
+# wide and the engine took its width from `spec.data.n_class`. `#160` derives it now, and
+# `examples/compare_instance_separations.py` is the configuration-driven path - but this
+# script stays, because the measurement in its docstring came out of it, and its own
+# functions are still the only place *its* target layout is decided. The engine's
+# equivalents are tested in `tests/data/test_instance_dataset.py`, and the two targets are
+# compared against each other nowhere: that would be a test of two implementations agreeing
+# rather than of either being right.
 
 
 def _flow_script():

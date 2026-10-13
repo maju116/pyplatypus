@@ -9,14 +9,20 @@ the **0.7583** where connected components caps any model. A ceiling is not a res
 `#159`'s whole lesson is that a route with a fine ceiling can still turn over - the rim's
 ceiling was 0.9807 and the trained model reached **0.5587**, which is the number to beat.
 
-**This script does not go through `Engine`, and that is a decision rather than a shortcut.** A
-flow model's head is `2 + n_class` wide, and the engine takes its head width from
-`spec.data.n_class` - which is exactly the thing `#160` names as *the head's width becomes
-`f(separation, n_class)` and must be derived rather than stated*. Naming that axis before the
-number exists would promise a model nobody has measured, which `§8` forbids in as many words.
-So the model, the loader and the loop are assembled here from public pieces - `build_model`,
-`Mse`, `CceDice`, `AlbumentationsAugmenter`, `flows_from_instances`, `instances_by_flows` - and
-`#160` gets to name them afterwards knowing what they are worth.
+**This script did not go through `Engine`, and that was a decision rather than a shortcut -
+which `#160` has since settled.** A flow model's head is `2 + n_class` wide and the engine
+took its head width from `spec.data.n_class`, so naming the axis before the number existed
+would have promised a model nobody had measured, which `§8` forbids in as many words. The
+number exists now and the axis is named: `task: instance_segmentation` derives the width
+from `separation`, whose block carries `mode`, `loss` and `weight` - the three this script
+takes as command-line arguments - and `examples/compare_instance_separations.py` runs both
+signals from one configuration file.
+
+So this script is **the record of the measurement above and no longer the way to run one**.
+It is kept because a negative result nobody can reproduce is an opinion: every row of that
+table came out of this file, assembled from public pieces - `build_model`, `Mse`, `CceDice`,
+`AlbumentationsAugmenter`, `flows_from_instances`, `instances_by_flows` - and rewriting it to
+go through the engine would mean the table was produced by code that no longer exists.
 
 **The data path is `#210`'s and not a way around it.** The *instance* label map is what the
 augmenter sees, as integers; the flow target is built from what comes back. A target built
@@ -91,8 +97,12 @@ def model_spec(size: int) -> SegmentationModel:
 
     `from_dict` validates the data paths, and rightly - it is just that nothing here asks the
     spec for data, so the only honest thing to hand it would be paths it would then never
-    read. The head width is passed to `build_model` separately, which is the line the engine
-    cannot write today and the reason this script exists outside it.
+    read. The head width is passed to `build_model` separately, which **was** the line the
+    engine could not write - `#160` has since derived it, so
+    `examples/compare_instance_separations.py` is the path to copy and this script is the
+    record of the measurement it produced. Kept rather than rewritten: the numbers in the
+    docstring above came out of this file, and a negative result nobody can reproduce is an
+    opinion.
     """
     return SegmentationModel(
         name="flows",
@@ -281,8 +291,9 @@ def main() -> None:
         raise SystemExit("no case directories under one of the two paths")
 
     device = torch.device(arguments.device or ("cuda" if torch.cuda.is_available() else "cpu"))
-    # Two flow channels plus the two semantic ones. This is the line the engine cannot write
-    # today, and #160 is where it belongs.
+    # Two flow channels plus the two semantic ones. This was the line the engine could not
+    # write; `InstanceModel.head_channels` derives it now (`#160`), which is why this script
+    # is the record of a measurement rather than the way to run one.
     model = build_model(model_spec(arguments.size), n_class=4).to(device)
 
     train = torch.utils.data.DataLoader(

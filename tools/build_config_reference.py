@@ -35,6 +35,10 @@ FAMILIES = [
     ("Metrics", "metrics", "SegmentationModel"),
     ("Optimisers", "optimizer", "SegmentationModel"),
     ("Callbacks", "callbacks", "SegmentationModel"),
+    # Read off `InstanceModel`, which is the only model that has them. The four above are
+    # read off the semantic model and are the same unions on every task that chooses them.
+    ("Separations", "separation", "InstanceModel"),
+    ("Decodings", "decode", "InstanceModel"),
 ]
 
 
@@ -294,7 +298,12 @@ def main() -> None:
     for tag, ref in tasks:
         spec_name = ref.rsplit("/", 1)[-1]
         definition = defs[spec_name]
-        short = "segmentation" if tag == "semantic_segmentation" else "detection"
+        # Derived from the tag rather than branched on one of them. This read
+        # `"segmentation" if tag == "semantic_segmentation" else "detection"` while there
+        # were two tasks, so the third one's `data:` and `models:` were published under
+        # "for detection" - two headings with one name, which is the defect the comment
+        # below was written about, arriving by way of a binary over a set that grew.
+        short = tag.replace("_", " ")
         out += [
             f"## `task: {tag}` {{#{_task_anchor(tag)}}}",
             "",
@@ -303,7 +312,7 @@ def main() -> None:
             *field_table(definition, defs),
             "",
         ]
-        # The headings name the task, because both tasks have a `data:` and a `models:`, and
+        # The headings name the task, because every task has a `data:` and a `models:`, and
         # two headings with one name leave one of them an anchor nobody can guess.
         for field in ("data", "models"):
             node = _unwrap(definition["properties"].get(field, {}))

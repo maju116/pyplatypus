@@ -19,6 +19,11 @@ measured-and-no for a structural reason - an interior and a rim are two classes 
 the same pixels - and a flow field spends no pixel on being a boundary.
 """
 
+from pyplatypus.instances.decode import (
+    Reading,
+    decode_instances,
+    read_prediction,
+)
 from pyplatypus.instances.flows import (
     FLOW_MODES,
     flows_from_instances,
@@ -41,14 +46,18 @@ from pyplatypus.instances.postprocess import (
     parts_from_instances,
 )
 from pyplatypus.instances.read import read_instance_masks, read_instances
+from pyplatypus.instances.targets import instance_target, resize_labels
 
 __all__ = [
     "CHALLENGE_THRESHOLDS",
     "FLOW_MODES",
     "InstanceError",
+    "Reading",
     "average_precision",
+    "decode_instances",
     "flows_from_instances",
     "follow_flows",
+    "instance_target",
     "instances_by_flows",
     "instances_by_watershed",
     "instances_from_mask",
@@ -58,6 +67,8 @@ __all__ = [
     "parts_from_instances",
     "read_instance_masks",
     "read_instances",
+    "read_prediction",
+    "resize_labels",
     "score_cases",
     "summarise_instances",
 ]

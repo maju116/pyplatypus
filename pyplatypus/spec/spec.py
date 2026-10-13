@@ -3,12 +3,12 @@
 Both `platypus_spec(...)` in R and a YAML file produce this object. Nothing downstream
 can tell which one was used, which is the entire point.
 
-`task` chooses between two of them. It is a discriminator rather than a setting because
+`task` chooses between three of them. It is a discriminator rather than a setting because
 it decides the *type* of `data` and of every entry in `models`: a detection spec holding
 a `colormap`, or a segmentation spec holding `anchors`, is not a spec with a stray field
 but two intentions in one file. Pydantic reads the tag first and then validates against
 one shape, so a mistake is reported against the task that was asked for instead of as a
-list of everything both tasks would have accepted.
+list of everything the tasks would between them have accepted.
 
 One task per spec, not one per model, for the same reason there is one rank per spec:
 every model shares a data pipeline, and masks and boxes are not the same pipeline.
@@ -23,6 +23,7 @@ from pydantic import Field, TypeAdapter, model_validator
 from pyplatypus.spec.common import SpecModel, Task
 from pyplatypus.spec.data import SegmentationData
 from pyplatypus.spec.detection import DetectionData, DetectionModel
+from pyplatypus.spec.instances import InstanceData, InstanceModel
 from pyplatypus.spec.models import SegmentationModel
 
 
@@ -37,12 +38,15 @@ class PlatypusSpec(SpecModel):
 
     task: Task = Field(
         description=(
-            "What kind of problem this is: `semantic_segmentation` or `object_detection`. "
+            "What kind of problem this is: `semantic_segmentation`, "
+            "`instance_segmentation` or `object_detection`. "
             "Required, and it decides the shape of everything below - `data` and `models` "
             "are validated against the task's own types, so a detection configuration "
             "without this was read as segmentation and complained about `anchors_per_grid` "
             "as an extra field instead of naming the tag. Both words are spelled out because "
-            "`segmentation` stops naming one thing the moment instance segmentation exists."
+            "`segmentation` stops naming one thing the moment instance segmentation exists - "
+            "which it now does, so the two segmentation tasks are told apart by their tags "
+            "rather than by which fields they happen to carry."
         ),
     )
 
@@ -162,6 +166,39 @@ class PlatypusSpec(SpecModel):
         return self.model_dump(mode="json")
 
 
+def _refuse_watching_a_number_no_split_will_produce(spec):
+    """A callback cannot wait for `val_loss` in a run that has no validation set.
+
+    The model knows which quantities it reports and the data knows whether any of them
+    will be measured on a second split; neither alone can answer this, which is why it is
+    here rather than beside `callbacks_watch_something_that_exists`. Without it the run
+    trains to the last epoch while early stopping waits for a number that never comes, and
+    model checkpointing writes nothing - silently, both of them.
+
+    A function called by two tasks' validators rather than a method on `PlatypusSpec`,
+    because detection is the third task and does not get it: that would be a change to a
+    released surface made on the way past, which is how `EngineBase` diverged twice. The
+    two that share it share it from one place; the third is a decision of its own.
+    """
+    if spec.data.validation:
+        return spec
+    offenders = [
+        f"{model.name}: {callback.name} watches '{callback.monitor}'"
+        for model in spec.models
+        for callback in model.callbacks
+        if getattr(callback, "monitor", None) is not None
+        and str(callback.monitor).startswith("val_")
+    ]
+    if offenders:
+        listed = "\n  - ".join(offenders)
+        raise ValueError(
+            f"`validation: false` means no `val_` number is ever produced, and these "
+            f"would wait for one:\n  - {listed}\nWatch the training quantity instead, "
+            f"or give the run a validation set."
+        )
+    return spec
+
+
 class SegmentationSpec(PlatypusSpec):
     task: Literal[Task.SEMANTIC_SEGMENTATION] = Field(
         Task.SEMANTIC_SEGMENTATION,
@@ -266,31 +303,8 @@ class SegmentationSpec(PlatypusSpec):
 
     @model_validator(mode="after")
     def nothing_watches_a_validation_number_that_will_not_arrive(self):
-        """A callback cannot wait for `val_loss` in a run that has no validation set.
-
-        The model knows which quantities it reports and the data knows whether any of them
-        will be measured on a second split; neither alone can answer this, which is why it
-        is here rather than beside `callbacks_watch_something_that_exists`. Without it the
-        run trains to the last epoch while early stopping waits for a number that never
-        comes, and model checkpointing writes nothing - silently, both of them.
-        """
-        if self.data.validation:
-            return self
-        offenders = [
-            f"{model.name}: {callback.name} watches '{callback.monitor}'"
-            for model in self.models
-            for callback in model.callbacks
-            if getattr(callback, "monitor", None) is not None
-            and str(callback.monitor).startswith("val_")
-        ]
-        if offenders:
-            listed = "\n  - ".join(offenders)
-            raise ValueError(
-                f"`validation: false` means no `val_` number is ever produced, and these "
-                f"would wait for one:\n  - {listed}\nWatch the training quantity instead, "
-                f"or give the run a validation set."
-            )
-        return self
+        """A callback cannot wait for `val_loss` in a run that has no validation set."""
+        return _refuse_watching_a_number_no_split_will_produce(self)
 
     @model_validator(mode="after")
     def channels_match_the_data(self):
@@ -320,6 +334,48 @@ class SegmentationSpec(PlatypusSpec):
         return self
 
 
+class InstanceSpec(PlatypusSpec):
+    """Objects rather than classes: which object every pixel belongs to, scored as instances.
+
+    The same images and the same U-shaped networks as `semantic_segmentation`, with the
+    masks read one file per object instead of united into one. Two fields are new on a
+    model - `separation`, what the network predicts, and `decode`, a list of ways to turn
+    those channels into objects - and `pyplatypus.spec.instances` is where both are
+    documented, measurements included.
+
+    **What this task is honestly worth, said here because the tag's name promises more.**
+    A reader who writes `task: instance_segmentation` gets a semantic model with a
+    separation target, decoded into objects and scored by the Data Science Bowl's own
+    average precision. On that dataset the separation signal is worth +0.068 at best while
+    a perfect mask is worth +0.2398, so the limit is the mask rather than the separation -
+    and `connected_components`, which ignores the signal entirely, is always available as
+    the row every other row is read against. The capability is real, the ceiling is
+    measured, and both are in the documentation rather than in a footnote.
+    """
+
+    task: Literal[Task.INSTANCE_SEGMENTATION] = Field(
+        Task.INSTANCE_SEGMENTATION,
+        description="Fixed for this specification: `instance_segmentation`.",
+    )
+    data: InstanceData = Field(
+        description="Where the images and their per-object masks are, and how to read them."
+    )
+    models: list[InstanceModel] = Field(
+        min_length=1,
+        description=(
+            "One or more models, trained in turn against the same data. Names must be "
+            "unique, for the same reason as in a segmentation specification. Several "
+            "entries differing only in `separation` is the comparison this task exists to "
+            "make easy - and `decode` widens the table again without a second run."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def nothing_watches_a_validation_number_that_will_not_arrive(self):
+        """A callback cannot wait for `val_loss` in a run that has no validation set."""
+        return _refuse_watching_a_number_no_split_will_produce(self)
+
+
 class DetectionSpec(PlatypusSpec):
     task: Literal[Task.OBJECT_DETECTION] = Field(
         description="Fixed for this specification: `object_detection`.",
@@ -337,6 +393,6 @@ class DetectionSpec(PlatypusSpec):
 
 
 #: Validate through this, never through one class, so `task` picks the shape.
-AnySpec = Annotated[SegmentationSpec | DetectionSpec, Field(discriminator="task")]
+AnySpec = Annotated[SegmentationSpec | InstanceSpec | DetectionSpec, Field(discriminator="task")]
 
-SPEC_ADAPTER: TypeAdapter[SegmentationSpec | DetectionSpec] = TypeAdapter(AnySpec)
+SPEC_ADAPTER: TypeAdapter[SegmentationSpec | InstanceSpec | DetectionSpec] = TypeAdapter(AnySpec)

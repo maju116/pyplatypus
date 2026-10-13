@@ -63,11 +63,12 @@ def test_the_task_selects_the_detection_shape(detection_config):
     assert isinstance(spec.models[0], DetectionModel)
 
 
-def test_an_unknown_task_lists_the_two_that_exist(detection_config):
+def test_an_unknown_task_lists_the_ones_that_exist(detection_config):
     with pytest.raises(ConfigError) as caught:
         build({**detection_config, "task": "detction"})
     message = str(caught.value)
-    assert "'semantic_segmentation', 'object_detection'" in message
+    for member in Task:
+        assert repr(member.value) in message
     # pydantic renders an enum tag with repr; the value is what a user types, and the
     # class name is an implementation detail that would read as the thing to write.
     assert "Task." not in message
@@ -429,5 +430,5 @@ def test_the_engine_refuses_a_detection_spec(detection_config, tmp_path):
             },
         }
     )
-    with pytest.raises(EngineError, match="trains segmentation"):
+    with pytest.raises(EngineError, match="trains semantic segmentation"):
         Engine(spec)

@@ -88,7 +88,7 @@ def test_build_engine_follows_the_task(detection_config, config, nested_root):
 
 
 def test_each_engine_refuses_the_other_task(detection_config, config):
-    with pytest.raises(EngineError, match="trains segmentation"):
+    with pytest.raises(EngineError, match="trains semantic segmentation"):
         Engine(from_dict(detection_config))
     with pytest.raises(EngineError, match="trains detectors"):
         DetectionEngine(from_dict(config))

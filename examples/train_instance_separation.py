@@ -28,6 +28,13 @@ Three mutually exclusive classes - background, object interior, object rim - whi
 this needs nothing new from the engine: it is `labels: [0, 1, 2]` on the softmax path, the
 same U-Net the published `dsbowl-unet` weights are, with one more class.
 
+**Since `#160` there is a shorter way to say the same thing**: `task: instance_segmentation`
+and `separation: {name: rim}` builds that target from the per-object files rather than asking
+for a three-class label map to be written to disk first, and
+`examples/compare_instance_separations.py` is that path. This script stays as the record of
+the table above - `derive_parts` wrote the maps the four runs were measured on, and a result
+whose code was rewritten underneath it is not reproducible.
+
 **The comparison is deliberately one variable.** Same architecture, same blocks and filters,
 same input size, same loss, same split, same seed, same epochs as the card for those weights
 records. The only difference is that the mask names three classes instead of two. Anything

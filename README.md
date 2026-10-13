@@ -132,6 +132,16 @@ Semantic segmentation in 2D, end to end:
 - **Nine losses** (IoU, Dice, CCE, CCE-Dice, Focal, Tversky, Focal-Tversky, Combo,
   Lovász) and three metrics, all reducing over every axis except batch and channel — so
   they already work on volumes.
+- **Instances, and what they are worth**: `task: instance_segmentation` keeps the
+  per-object masks apart instead of uniting them, derives the head's width from a
+  `separation:` block named `rim` or `flows`, and scores the Data Science Bowl's own average
+  precision after a post-process. `decode:` is a **list**, because several decodings share
+  one forward pass - a second one costs 1.41 s against 16 minutes for a second training
+  run - so `evaluate()` returns a row per (model, decoding) with `connected_components`
+  always among them. Read that row first: it ignores the separation signal, and a *perfect*
+  semantic mask scores 0.7655 through it on this data, because touching nuclei are one
+  region. The signal itself is worth +0.068 at best where a perfect mask is worth +0.2398 -
+  measured, three ways, and the reason that number is here rather than in a footnote.
 - **Tiling that goes both ways**: cut a large image into a grid instead of shrinking it,
   and get a full-size mask back.
 - **DICOM, read properly**: stored values converted to real units through the modality

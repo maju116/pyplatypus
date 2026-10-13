@@ -1,6 +1,96 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a20] - 2026-10-13
+
+`task: instance_segmentation`: the third task, and the last engine piece of the instance
+work (#160). Two axes on a model - `separation`, one per model, and `decode`, a list - a
+head whose width is derived rather than stated, and a score computed after a post-process
+rather than from `(logits, target)`.
+
+**What the tag is honestly worth is in its own documentation and it is not flattering.** On
+the Data Science Bowl the separation signal is worth +0.068 of instance average precision at
+best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6.
+`connected_components` - which ignores the signal entirely - is in every model's decodings
+whether it was asked for or not, because it is the row the signal's row has to be read
+against, and a *perfect* semantic mask scores 0.7655 through it. The capability is real, the
+ceiling is measured, and both are in the configuration reference rather than in a footnote.
+
+### Added
+
+- `task: instance_segmentation`, with `InstanceData`, `InstanceModel` and `InstanceSpec`.
+  Two new fields and everything else inherited: `input_shape`, `channels`, `blocks`,
+  `filters`, `batch_size`, `epochs`, `splits`, the pretrained encoders, the callbacks and
+  the augmentation all mean what they mean for a semantic model.
+- `separation:`, **a block named `rim` or `flows`** carrying that mechanism's own settings,
+  which sets the head's width and which losses are admissible. **`hv` is deliberately not a
+  name**: its markers lose to a one-pixel erosion on perfect inputs (0.9382 against 0.9807),
+  so naming it would promise a mechanism #213 measured as absent.
+- `decode:`, a list of blocks keyed on `name` - `connected_components`, `nearest_seed`,
+  `watershed`, `follow_flows` - with each block declaring which separation it can read, so
+  `follow_flows` with `separation: {name: rim}` is refused at load time with both halves
+  named. Left unset it derives to the signal's own decoding plus the yardstick.
+- The mechanisms' own settings, **inside the block they belong to**: `width` under `rim`,
+  and `mode`, `loss` and `weight` under `flows`. So a setting crossed with the wrong
+  mechanism is not a refusal somebody had to write, it is an unknown key - the first shape
+  of this field was `separation: rim` beside `rim_width`, `flow_mode`, `flow_loss` and
+  `flow_weight`, which parses on every model and therefore needed a table of which field
+  belongs to which mechanism and a validator reading it. `extra="forbid"` was already doing
+  that job for every other key in a specification.
+  `mode` defaults to `diffusion` on a measurement (0.9924 decoded against `centroid`'s
+  0.9478); **`width` defaults to 2 on an argument rather than a measurement**, and the field
+  says so - the published sweep peaked at 3 pixels of *source* resolution, which on a
+  520-pixel case read at 256 is about 1.5 pixels of model input, and a sweep in model pixels
+  has not been run.
+- `InstanceEngine`, on `EngineBase`: `fit`, `evaluate`, `evaluate_cases`, `predict`,
+  `predict_instances`, `export_weights`, `best_model`, `dataset`, `loader`. `evaluate()`
+  returns one row per (model, decoding); `evaluate_cases()` is one row per case for one
+  decoding, so `summarise_cases` keeps meaning what it means.
+- `InstanceDataset`, which reads the per-object files as a label map instead of uniting
+  them, and builds the target **after** the resize, the tiling and the augmentation -
+  `pyplatypus#210`'s rule, pinned here by a recording augmenter.
+- `pyplatypus.instances.targets` and `pyplatypus.instances.decode`: the channel contract
+  going in and coming back, with a test that a perfect prediction decodes into the objects
+  it was built from. That is the only check that catches a channel swapped between the two,
+  because both arrays keep the right shape and range.
+- `available_decodings()`, with a `needs` column read off each decoding rather than written
+  down; `available_separations()`, with the head width each signal needs derived rather than
+  stated; and a third row in `available_tasks()`.
+- `examples/data_science_bowl_instances.yaml` and
+  `examples/compare_instance_separations.py`: both signals and five decodings from one
+  configuration file. **This is the test of whether the tag earned its place** - the script
+  says where the data is and the engine does the rest.
+- A refusal specific to this task: a split whose objects have all vanished in the resize.
+  The objects are on disk, the resize removes them, and without the check the loss falls,
+  every metric stays finite and the run learns to answer "nothing here". Some cases losing
+  theirs is a warning with the count; all of them is an error naming `input_shape`.
+
+### Changed
+
+- `Trainer.activate` is a method rather than one inlined call, which is what `InstanceTrainer`
+  overrides: a flows head is two raw vector channels in front of a block of classes, and a
+  softmax across all of them would return a number, a gradient and no error anywhere.
+- A dataset answers `foreground_of` for its own channels. The loader used to call
+  `onehot_to_foreground`, which reads channel 0 as background - for a flows target that is
+  the row component of a vector field, and the loss would have been handed a mask of
+  everything.
+- `labels_in_test_split` is one function the two mask-reading engines share, rather than the
+  same method written twice. `EngineBase` diverged twice before, and the second time the fix
+  was written twice on the same night.
+- `tests/test_engine_base.py` has a third column rather than a second file: the thing worth
+  asserting is that the three engines give *the same* answer, which a file per engine cannot
+  say.
+- The two hand-assembled instance scripts say what they now are - the record of the
+  measurements they produced, not the way to run one - and the sentence claiming the engine
+  could not derive a flow head's width is corrected rather than quietly deleted.
+
+### Fixed
+
+- The configuration reference published the third task's `data:` and `models:` under the
+  heading "for detection". `short = "segmentation" if tag == "semantic_segmentation" else
+  "detection"` was a binary over a set that grew, and the heading-collision test is what
+  caught it rather than anybody reading the page.
+
 ## [0.8.0a19] - 2026-10-12
 
 Looking at instance results instead of reading their arrays (#214), the trained half of
