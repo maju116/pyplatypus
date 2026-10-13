@@ -8,7 +8,7 @@ correcting it, and these tests are the two measurements that decision rests on p
 guard that keeps it from being undone.
 
 The flow field here is built by this file rather than by the package: the builder belongs to
-`separation: flows` (`pyplatypus#212`) and what is being tested is the route, not the target.
+a `flows` separation (`pyplatypus#212`) and what is being tested is the route, not the target.
 """
 
 import albumentations as A

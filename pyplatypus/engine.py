@@ -216,12 +216,26 @@ class Engine(EngineBase):
         check_masks: bool = True,
     ):
         if not isinstance(spec, SegmentationSpec):
+            # Named per task rather than as one sentence about "not segmentation": the two
+            # other tasks are at different stages, and a message that lumped them together
+            # would send an instance specification to the detection examples.
+            elsewhere = {
+                "object_detection": (
+                    "The detection half of the spec exists and validates, but nothing "
+                    "trains from it yet - until it does, a detector is assembled by hand "
+                    "from pyplatypus.detection, the way examples/detect_blood_cells.py does."
+                ),
+                "instance_segmentation": (
+                    "`InstanceEngine` trains that one - the head is wider than the class "
+                    "count and the score is computed after a post-process, which is why it "
+                    "is a different engine rather than a flag on this one. "
+                    "`build_engine(spec)` picks by the tag, so holding a specification is "
+                    "enough."
+                ),
+            }
             raise EngineError(
-                f"this engine trains segmentation; the specification's task is "
-                f"'{spec.task.value}'. The detection half of the spec exists and "
-                f"validates, but nothing trains from it yet - until it does, a detector "
-                f"is assembled by hand from pyplatypus.detection, the way "
-                f"examples/detect_blood_cells.py does."
+                f"this engine trains semantic segmentation; the specification's task is "
+                f"'{spec.task.value}'. " + elsewhere.get(spec.task.value, "")
             )
         self.spec = spec
         self.device = device
@@ -235,24 +249,7 @@ class Engine(EngineBase):
 
     def _has_any_labels(self) -> bool:
         """Whether the test split carries masks for anything, without reading them."""
-        from pyplatypus.spec.common import DataMode
-
-        path = Path(self.spec.data.test_path)
-        if self.spec.data.mode is DataMode.CONFIG_FILE:
-            if not path.is_file():
-                return False
-            header = path.read_text().splitlines()[:1]
-            if not header:
-                return False
-            return self.spec.data.label_column in [name.strip() for name in header[0].split(",")]
-        if not path.is_dir():
-            return False
-        wanted = self.spec.data.subdirs[1]
-        return any(
-            (entry / wanted).is_dir() and any((entry / wanted).iterdir())
-            for entry in path.iterdir()
-            if entry.is_dir()
-        )
+        return labels_in_test_split(self.spec.data)
 
     def dataset(
         self,
@@ -1060,6 +1057,38 @@ def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def labels_in_test_split(data) -> bool:
+    """Whether a test split carries labels for anything, without reading any of them.
+
+    Shared by the two engines that read masks, from one place. The question is about the
+    *layout* - is the label subdirectory there and not empty, does the CSV name the column -
+    and the layout is identical whether those files are united into one mask or read as one
+    object each. What differs is everything after they are read.
+
+    A function rather than a method on `EngineBase`, for the reason the callback validator
+    in the spec layer is one: detection answers this differently and must not be changed on
+    the way past. The two that share an answer share it; the third keeps its own.
+    """
+    from pyplatypus.spec.common import DataMode
+
+    path = Path(data.test_path)
+    if data.mode is DataMode.CONFIG_FILE:
+        if not path.is_file():
+            return False
+        header = path.read_text().splitlines()[:1]
+        if not header:
+            return False
+        return data.label_column in [name.strip() for name in header[0].split(",")]
+    if not path.is_dir():
+        return False
+    wanted = data.subdirs[1]
+    return any(
+        (entry / wanted).is_dir() and any((entry / wanted).iterdir())
+        for entry in path.iterdir()
+        if entry.is_dir()
+    )
 
 
 def split_from_train(data, discover, *, strict: bool) -> dict[str, tuple]:

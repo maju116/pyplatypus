@@ -24,9 +24,11 @@ groups:
   - from_yaml
   - save_spec
   - SegmentationSpec
+  - InstanceSpec
   - DetectionSpec
   - PlatypusSpec
   - Task
+  - Separation
   - spec_schema
   - write_schema
 - title: What a model is made of
@@ -43,6 +45,8 @@ groups:
   - available_metrics
   - available_optimizers
   - available_callbacks
+  - available_decodings
+  - available_separations
   - available_transforms
 - title: The data on disk
   desc: 'Splitting by patient rather than by slice, and looking at what will actually be read
@@ -55,6 +59,8 @@ groups:
   - split_samples
   - Engine.dataset
   - Engine.loader
+  - InstanceEngine.dataset
+  - InstanceEngine.loader
   - DetectionEngine.dataset
   - DetectionEngine.loader
 - title: Training
@@ -63,6 +69,8 @@ groups:
   - build_engine
   - Engine
   - Engine.fit
+  - InstanceEngine
+  - InstanceEngine.fit
   - DetectionEngine
   - DetectionEngine.fit
   - DetectionEngine.fit_anchors
@@ -78,6 +86,11 @@ groups:
   - Engine.evaluate_cases
   - summarise_cases
   - Engine.best_model
+  - InstanceEngine.predict
+  - InstanceEngine.predict_instances
+  - InstanceEngine.evaluate
+  - InstanceEngine.evaluate_cases
+  - InstanceEngine.best_model
   - DetectionEngine.predict
   - DetectionEngine.evaluate
   - DetectionEngine.evaluate_classes
@@ -100,6 +113,7 @@ groups:
   - resolve_weights
   - export_weights
   - Engine.export_weights
+  - InstanceEngine.export_weights
   - DetectionEngine.export_weights
 - title: Records
   desc: What a run wrote down about itself, including the engine version that made it.

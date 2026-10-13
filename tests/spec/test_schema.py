@@ -19,18 +19,20 @@ def test_the_top_level_is_a_choice_of_task():
         "propertyName": "task",
         "mapping": {
             "semantic_segmentation": "#/$defs/SegmentationSpec",
+            "instance_segmentation": "#/$defs/InstanceSpec",
             "object_detection": "#/$defs/DetectionSpec",
         },
     }
     assert {ref["$ref"] for ref in schema["oneOf"]} == {
         "#/$defs/SegmentationSpec",
+        "#/$defs/InstanceSpec",
         "#/$defs/DetectionSpec",
     }
 
 
 def test_each_task_still_requires_its_data_and_models():
     defs = spec_schema()["$defs"]
-    for name in ("SegmentationSpec", "DetectionSpec"):
+    for name in ("SegmentationSpec", "InstanceSpec", "DetectionSpec"):
         assert set(defs[name]["required"]) >= {"data", "models"}, name
 
 

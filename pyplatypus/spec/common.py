@@ -54,6 +54,10 @@ class Task(str, Enum):
     #: also the two words the 2022 package used for its top-level configuration keys.
     SEMANTIC_SEGMENTATION = "semantic_segmentation"
     OBJECT_DETECTION = "object_detection"
+    #: One mask per class says *what* every pixel is; this one says *which object* it
+    #: belongs to, which is a different question and a different pipeline - the masks
+    #: arrive one file per object and keep their identity instead of being united.
+    INSTANCE_SEGMENTATION = "instance_segmentation"
 
 
 class Architecture(str, Enum):

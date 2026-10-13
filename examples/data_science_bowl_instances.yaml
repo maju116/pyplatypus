@@ -1,0 +1,100 @@
+# 2018 Data Science Bowl: tell the nuclei apart, rather than find them.
+#
+# The same images and the same directories as `data_science_bowl.yaml`, read differently:
+# that file unites the per-nucleus masks into one mask, and this one keeps their identity.
+# Nothing new had to be collected.
+#
+# **Two models and five rows, in one file.** `separation` is one block per model, because
+# the network is trained to predict one signal and that signal's own settings belong with
+# it; `decode` is a list, because several decodings share one forward pass - a second
+# decoding of 134 images costs 1.41 s against 16 minutes for a second training run. `connected_components` is in both models' lists on purpose: it
+# ignores the separation signal, so it is the row the other rows have to be read against.
+#
+# **What this file is worth is measured and it is not flattering.** On this dataset the
+# separation signal is worth +0.068 of instance average precision at best, while a perfect
+# mask is worth +0.2398 - so the mask is the limit by a factor of 3.6, and every row here
+# is read against a `connected_components` row that a perfect mask caps at 0.7655.
+# `pyplatypus#159`, `#212`, `#213`; `JOURNAL.md` §4bq.
+
+task: instance_segmentation
+
+data:
+  train_path: examples/data/data_science_bowl/stage1_train
+  validation_path: examples/data/data_science_bowl/stage1_validation
+  mode: nested_dirs
+  shuffle: true
+
+output_dir: examples/output
+seed: 0
+
+models:
+  # Three mutually exclusive classes - background, interior, rim - so this needs nothing
+  # new from the loss: it is the same objective the published `dsbowl-unet` weights were
+  # trained with, over one more class.
+  - name: rim
+    architecture: u_net
+    separation:
+      name: rim
+      width: 2
+    input_shape: [256, 256]
+    channels: 3
+    blocks: 4
+    filters: 16
+    loss:
+      name: cce_dice
+    metrics:
+      - name: dice
+      - name: iou
+    optimizer:
+      name: adam
+      learning_rate: 0.001
+    augmentation:
+      - name: HorizontalFlip
+        params: {p: 0.5}
+      - name: VerticalFlip
+        params: {p: 0.5}
+      - name: RandomRotate90
+        params: {p: 0.5}
+    epochs: 60
+    batch_size: 32
+    decode:
+      - name: nearest_seed
+      - name: watershed
+      - name: connected_components
+
+  # Two vector channels in front of the two semantic ones. No pixel is spent on being a
+  # boundary, which is the structural argument for it - and on this data it is worth 0.0040
+  # more than the rim route, below the 0.0074 two runs of one configuration differ by.
+  - name: flows
+    architecture: u_net
+    separation:
+      name: flows
+      mode: diffusion
+      loss:
+        name: mse
+        where: foreground        # the foreground is 13.97% of these images
+      weight: 1.0
+    input_shape: [256, 256]
+    channels: 3
+    blocks: 4
+    filters: 16
+    loss:
+      name: cce_dice
+    metrics:
+      - name: dice
+      - name: iou
+    optimizer:
+      name: adam
+      learning_rate: 0.001
+    augmentation:
+      - name: HorizontalFlip
+        params: {p: 0.5}
+      - name: VerticalFlip
+        params: {p: 0.5}
+      - name: RandomRotate90
+        params: {p: 0.5}
+    epochs: 60
+    batch_size: 32
+    decode:
+      - name: follow_flows
+      - name: connected_components

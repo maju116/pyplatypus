@@ -25,7 +25,7 @@ import pytest
 import yaml
 
 import pyplatypus
-from pyplatypus import DetectionEngine, Engine
+from pyplatypus import DetectionEngine, Engine, InstanceEngine
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GROUPS = yaml.safe_load((ROOT / "tools" / "reference-groups.yml").read_text())["groups"]
@@ -39,7 +39,7 @@ CONFIG = yaml.safe_load(
 def public_surface() -> set[str]:
     """What a reader can reach: `__all__`, and the engines' methods under their class."""
     names = {name for name in pyplatypus.__all__ if name != "__version__"}
-    for cls in (Engine, DetectionEngine):
+    for cls in (Engine, DetectionEngine, InstanceEngine):
         for name, _ in inspect.getmembers(cls, predicate=inspect.isfunction):
             if not name.startswith("_"):
                 names.add(f"{cls.__name__}.{name}")

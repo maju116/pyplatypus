@@ -2,7 +2,7 @@
 
 `available_transforms()` and `available_weights()` already answer that verb for two
 things. These answer it for the rest: the losses, the metrics, the optimisers, the
-callbacks, the architectures and the tasks. The point is not convenience - it is that
+callbacks, the architectures, the decodings and the tasks. The point is not convenience - it is that
 the number of named components keeps growing, and **a list maintained by hand is a list
 that will be wrong**. Everything below is read from the same pydantic models the schema
 is generated from, so a loss added to `LossSpec` appears here with nothing else edited.
@@ -28,6 +28,7 @@ from pyplatypus.errors import PlatypusError
 from pyplatypus.spec.common import Architecture, Task
 from pyplatypus.spec.components import CallbackSpec, LossSpec, MetricSpec, OptimizerSpec
 from pyplatypus.spec.detection import DetectionArchitecture, DetectionModel
+from pyplatypus.spec.instances import DecodeSpec, InstanceModel, SeparationSpec
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.spec.schema import spec_schema
 
@@ -122,17 +123,17 @@ def _task(task: str | Task) -> Task:
 def available_tasks() -> list[dict[str, Any]]:
     """What this package can be asked to do at all.
 
-    Two rows today and the weakest of this family as a list - it earns its place as the
-    entry point, which is the question somebody asks before they have read anything.
+    Three rows, and the weakest of this family as a list - it earns its place as the entry
+    point, which is the question somebody asks before they have read anything.
 
     Returns:
         One row per task: the value you write under `task`, the components it lets you
         choose, and what it is for.
 
     >>> [row["name"] for row in available_tasks()]
-    ['object_detection', 'semantic_segmentation']
-    >>> "masks" in available_tasks()[1]["description"] or True
-    True
+    ['instance_segmentation', 'object_detection', 'semantic_segmentation']
+    >>> next(r for r in available_tasks() if r["name"] == "instance_segmentation")["chooses"]
+    ('models', 'separation', 'decode', 'loss', 'metrics', 'optimizer', 'callbacks', 'augmentation')
     """
     descriptions = _descriptions()
     rows = [
@@ -141,6 +142,24 @@ def available_tasks() -> list[dict[str, Any]]:
             "chooses": ("models", "loss", "metrics", "optimizer", "callbacks", "augmentation"),
             "description": _summary(descriptions.get("SegmentationSpec", ""))
             or "A mask per class, scored by overlap.",
+        },
+        {
+            "name": Task.INSTANCE_SEGMENTATION.value,
+            # `separation` and `decode` are listed beside the components every task
+            # chooses, because they are the two the task exists for and a reader scanning
+            # this table should not have to open the model spec to find out it has them.
+            "chooses": (
+                "models",
+                "separation",
+                "decode",
+                "loss",
+                "metrics",
+                "optimizer",
+                "callbacks",
+                "augmentation",
+            ),
+            "description": _summary(descriptions.get("InstanceSpec", ""))
+            or "Which object every pixel belongs to, scored as instances.",
         },
         {
             "name": Task.OBJECT_DETECTION.value,
@@ -163,7 +182,26 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     ['linknet', 'res_u_net', 'u_net', 'u_net_plus_plus']
     >>> [row["name"] for row in available_models("object_detection")]
     ['yolo3']
+    >>> "separation" in available_models("instance_segmentation")[0]["arguments"]
+    True
     """
+    if _task(task) is Task.INSTANCE_SEGMENTATION:
+        # The same four architectures - an instance model is a U-shaped network with a
+        # wider head, which is the argument `#160` settled the shape on: folding CellPose
+        # and HoVer-Net into `architecture` would make "CellPose on a LinkNet backbone"
+        # inexpressible. What differs is the arguments, so those are read from the
+        # instance model rather than from the semantic one.
+        arguments = tuple(
+            field for field in InstanceModel.model_fields if field not in ("name", "architecture")
+        )
+        return [
+            {
+                "name": member.value,
+                "arguments": arguments,
+                "description": _ARCHITECTURE_NOTES[member],
+            }
+            for member in Architecture
+        ]
     if _task(task) is Task.OBJECT_DETECTION:
         arguments = tuple(
             field for field in DetectionModel.model_fields if field not in ("name", "architecture")
@@ -235,6 +273,67 @@ def available_metrics(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dic
             "is why there is nothing here to list."
         )
     return _rows(MetricSpec)
+
+
+def available_separations() -> list[dict[str, Any]]:
+    """The separation signals you can name under `separation`, and what each one costs.
+
+    `instance_segmentation` only, and one block per model rather than a list: this is what
+    the network is trained to predict, so it sets the width of the head and which losses
+    are admissible, and several targets do not share a training run.
+
+    Returns:
+        One row per signal: the name, the arguments its block accepts, how wide a head it
+        needs at `n_class` 2, and what it predicts. The widths differ by where the extra
+        channels go - `rim` adds a third class, `flows` adds two continuous channels in
+        front of the classes - which is why nothing states a head width in a file.
+
+    >>> [row["name"] for row in available_separations()]
+    ['flows', 'rim']
+    >>> next(r for r in available_separations() if r["name"] == "rim")["arguments"]
+    ('width',)
+    >>> next(r for r in available_separations() if r["name"] == "flows")["arguments"]
+    ('mode', 'loss', 'weight')
+    >>> [(r["name"], r["head_channels"]) for r in available_separations()]
+    [('flows', 4), ('rim', 3)]
+    """
+    rows = _rows(SeparationSpec)
+    for row, model in zip(
+        sorted(rows, key=lambda row: row["name"]),
+        sorted(_members(SeparationSpec), key=lambda m: m.model_fields["name"].default),
+        strict=True,
+    ):
+        row["head_channels"] = model.signal.head_channels(2)
+    return rows
+
+
+def available_decodings() -> list[dict[str, Any]]:
+    """The decodings you can name in `decode`, and which separation signal each one reads.
+
+    `instance_segmentation` only - the other two tasks have nothing to decode - and the
+    one row of this family that carries a constraint rather than only a description: the
+    two axes are a tree, so a decoding says which targets it can be fed.
+
+    Returns:
+        One row per decoding: the name, the arguments it accepts, which `separation`
+        values it reads, and what it does. An empty `needs` means every target, which is
+        `connected_components` and is why that one is the yardstick.
+
+    >>> [row["name"] for row in available_decodings()]
+    ['connected_components', 'follow_flows', 'nearest_seed', 'watershed']
+    >>> next(r for r in available_decodings() if r["name"] == "follow_flows")["needs"]
+    ('flows',)
+    >>> next(r for r in available_decodings() if r["name"] == "connected_components")["needs"]
+    ()
+    """
+    rows = _rows(DecodeSpec)
+    for row, model in zip(
+        sorted(rows, key=lambda row: row["name"]),
+        sorted(_members(DecodeSpec), key=lambda m: m.model_fields["name"].default),
+        strict=True,
+    ):
+        row["needs"] = tuple(sorted(signal.value for signal in model.needs))
+    return rows
 
 
 def available_optimizers() -> list[dict[str, Any]]:

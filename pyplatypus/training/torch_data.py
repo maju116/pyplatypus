@@ -13,7 +13,8 @@ from torch.utils.data import DataLoader, Dataset, Sampler
 
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.detection import DetectionDataset
-from pyplatypus.data.masks import onehot_to_foreground, signed_distance
+from pyplatypus.data.instances import InstanceDataset
+from pyplatypus.data.masks import signed_distance
 
 
 def to_channels_first(array: np.ndarray) -> torch.Tensor:
@@ -22,7 +23,12 @@ def to_channels_first(array: np.ndarray) -> torch.Tensor:
 
 
 class TorchSegmentationDataset(Dataset):
-    """A thin adapter. All the work already happened in `SegmentationDataset`.
+    """A thin adapter. All the work already happened in the dataset it wraps.
+
+    Either dataset: a semantic one or an instance one, which present the same pair of
+    channels-last arrays and differ only in what the channels mean. Everything this class
+    needs that depends on that meaning - the foreground a regression loss scores on - is
+    asked of the base rather than decided here.
 
     Either flag adds **one** extra tensor to the pair, and the two are never both set: a
     regression loss is not a region loss and `boundary` takes only region losses, which is
@@ -50,7 +56,7 @@ class TorchSegmentationDataset(Dataset):
 
     def __init__(
         self,
-        base: SegmentationDataset,
+        base: SegmentationDataset | InstanceDataset,
         *,
         with_distance: bool = False,
         with_foreground: bool = False,
@@ -72,7 +78,10 @@ class TorchSegmentationDataset(Dataset):
         if mask is None:
             return to_channels_first(image)
         if self.with_foreground:
-            foreground = onehot_to_foreground(mask, multilabel=self.base.data.multilabel)
+            # Asked of the dataset: the instance target's class block does not start at
+            # channel 0, so reading background there would call a flow field's row
+            # component the background and hand the loss a mask of everything.
+            foreground = self.base.foreground_of(mask)
             return (
                 to_channels_first(image),
                 to_channels_first(mask),
@@ -140,7 +149,7 @@ class TileShuffle(Sampler[int]):
 
 
 def make_loader(
-    base: SegmentationDataset,
+    base: SegmentationDataset | InstanceDataset,
     *,
     batch_size: int = 8,
     shuffle: bool = False,

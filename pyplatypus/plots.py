@@ -905,7 +905,7 @@ def flow_to_colours(flow: np.ndarray) -> np.ndarray:
     is a choice this project gets to make differently from everyone else's figures, and a
     reader who has seen one flow visualisation can read this one.
 
-    Without it, debugging `separation: flows` (`#212`) or `hv` (`#213`) means reading arrays.
+    Without it, debugging a `flows` separation (`#212`) or `hv` (`#213`) means reading arrays.
     A field that is right everywhere except reversed looks obviously reversed here and
     identical in any loss.
 

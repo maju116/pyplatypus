@@ -60,6 +60,15 @@ class _Loss(SpecModel):
     #: is built. `pyplatypus.objectives.losses` reads this rather than keeping its own list.
     supports_multilabel: ClassVar[bool] = True
 
+    #: Whether the target this scores is continuous rather than a set of classes. The same
+    #: shape of claim as the flag above and for the same reason: `instance_segmentation`
+    #: has to refuse `loss: mse` over a one-hot target, and a flow block's own
+    #: `loss: dice` over a vector field, by name and before anything is built - and a list
+    #: of names kept in the instance spec would be a second place for the answer to live.
+    #: Read by `InstanceModel` and by `Flows`, between them the only things that have both
+    #: kinds of channel at once.
+    continuous: ClassVar[bool] = False
+
 
 class IouLoss(_Loss):
     """Dice's harsher twin: the same ordering, a lower number.
@@ -399,6 +408,8 @@ _WHERE = (
 
 
 class _Regression(_Loss):
+    continuous: ClassVar[bool] = True
+
     where: Literal["foreground", "everywhere"] = Field("foreground", description=_WHERE)
 
 

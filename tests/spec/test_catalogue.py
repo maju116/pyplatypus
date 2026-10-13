@@ -13,6 +13,7 @@ import pytest
 
 from pyplatypus import (
     available_callbacks,
+    available_decodings,
     available_losses,
     available_metrics,
     available_models,
@@ -38,6 +39,14 @@ def union_names(model: str, field: str) -> set[str]:
     models say. For a list-valued field the union sits under `items`.
     """
     body = DEFS[model]["properties"][field]
+    # An optional field arrives as `anyOf: [<the type>, {type: null}]`, which `decode` is
+    # and the other four are not - it is derived when left unset rather than defaulted in
+    # the field, so the schema says it may be null. Step through that wrapper rather than
+    # letting this read as "the union has no discriminator".
+    if "anyOf" in body:
+        real = [option for option in body["anyOf"] if option.get("type") != "null"]
+        assert len(real) == 1, f"{model}.{field} is a union of more than one real type"
+        body = real[0]
     body = body.get("items", body)
     return set(body["discriminator"]["mapping"])
 
@@ -49,8 +58,9 @@ def union_names(model: str, field: str) -> set[str]:
         (available_metrics, "SegmentationModel", "metrics"),
         (available_optimizers, "SegmentationModel", "optimizer"),
         (available_callbacks, "SegmentationModel", "callbacks"),
+        (available_decodings, "InstanceModel", "decode"),
     ],
-    ids=["losses", "metrics", "optimizers", "callbacks"],
+    ids=["losses", "metrics", "optimizers", "callbacks", "decodings"],
 )
 def test_a_listing_names_exactly_what_the_schema_accepts(listing, model, field):
     assert {row["name"] for row in listing()} == union_names(model, field)
@@ -64,7 +74,9 @@ def test_the_listings_are_not_trivially_short():
     assert len(available_optimizers()) == 8
     assert len(available_callbacks()) == 7
     assert len(available_models()) == 4
-    assert len(available_tasks()) == 2
+    assert len(available_models("instance_segmentation")) == 4
+    assert len(available_decodings()) == 4
+    assert len(available_tasks()) == 3
 
 
 def test_architectures_come_from_the_enum_and_every_member_has_a_note():
@@ -149,8 +161,11 @@ def test_detection_chooses_no_metrics_and_names_the_ones_it_reports():
 
 
 def test_an_unknown_task_lists_the_ones_there_are():
+    # The unknown tag used to be "instance_segmentation", which became a real task - so the
+    # test was asserting that a listing refuses something it now answers, and would have
+    # gone green again for the wrong reason if the branch had returned an empty list.
     with pytest.raises(PlatypusError) as raised:
-        available_losses("instance_segmentation")
+        available_losses("panoptic_segmentation")
     for member in Task:
         assert member.value in str(raised.value)
 
