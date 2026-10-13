@@ -55,8 +55,35 @@ models:
         params: {p: 0.5}
       - name: RandomRotate90
         params: {p: 0.5}
-    epochs: 60
+    # 120 against the flow model's 60, which is a deliberate asymmetry and not a typo.
+    # Measured on 2026-10-13 at 60 epochs each: this model was still climbing - val_dice
+    # +0.0144 over its last thirty epochs - while the flow model had flattened at +0.0034.
+    # A table that ranks two models needs both of them converged, or a column reports the
+    # budget rather than the signal. It cost 98.8 minutes against the flow model's 86.5,
+    # and the last twenty epochs bought +0.0018, so this is a ceiling rather than a floor.
+    #
+    # The second reason this comment used to give was wrong and is kept here corrected
+    # rather than deleted: it read that at 60/60 "the two masks came out 0.8453 and 0.9469,
+    # a tenth of a Dice apart". Those two numbers are not the same quantity. `dice` is a
+    # mean over each model's own class channels - three here (background, interior, rim)
+    # and two for flows - so this model's is dragged down by a thin rim class that scores
+    # 0.6857 while its background and interior score 0.9852 and 0.8721. Measured by
+    # identical code on both on 2026-10-13, the binary foreground Dice is 0.9159 here and
+    # 0.9097 for flows: 0.0062 apart, not 0.09, and this model's mask is the better one.
+    epochs: 120
     batch_size: 32
+    callbacks:
+      # Without this a two-hour run keeps nothing: the first one wrote only `run.json`, so
+      # redrawing a figure cost the whole run again.
+      #
+      # `.pt` and not `.safetensors`: this callback is `torch.save(state_dict())`, which is
+      # a pickle, and `export_weights()` is the safetensors path. Naming a pickle after the
+      # format this package chose *because* it is not a pickle is the kind of label that
+      # gets believed - this file said `.safetensors` for one run and the file was a zip.
+      - name: model_checkpoint
+        path: examples/output/rim/weights.pt
+        monitor: val_dice
+        save_best_only: true
     decode:
       - name: nearest_seed
       - name: watershed
@@ -93,8 +120,14 @@ models:
         params: {p: 0.5}
       - name: RandomRotate90
         params: {p: 0.5}
+    # 60 is where this one converges; see the rim model's note on the asymmetry.
     epochs: 60
     batch_size: 32
+    callbacks:
+      - name: model_checkpoint
+        path: examples/output/flows/weights.pt
+        monitor: val_dice
+        save_best_only: true
     decode:
       - name: follow_flows
       - name: connected_components

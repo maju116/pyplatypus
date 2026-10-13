@@ -1,6 +1,73 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+The second entry under this heading and the same reason as the first: it records an
+**outcome**, and `examples/` is not in the wheel so there is nothing to ship. What is new
+here is that the outcome includes a correction to a column this project printed.
+
+### Measured
+
+ - **Both separation signals, five decodings, one command** (#215, the instance milestone's
+   deliverable). `examples/compare_instance_separations.py` against
+   `examples/data_science_bowl_instances.yaml`, 185 minutes on one machine, scored on the
+   134 validation cases `--expect-cases` pins by name:
+
+        model  separation  decode                class dice  AP      objects  truth
+        rim    rim         nearest_seed          0.8550      0.5442  5414     5999
+        rim    rim         watershed             0.8550      0.5396  5414     5999
+        rim    rim         connected_components  0.8550      0.4767  4875     5999
+        flows  flows       follow_flows          0.9464      0.5174  5400     5999
+        flows  flows       connected_components  0.9464      0.4512  4849     5999
+
+   **The signal is worth +0.0676 to the rim route and +0.0661 to the flow route**, over each
+   route's own connected-components row. Both reproduce what was measured separately -
+   +0.0640 in `0.8.0a15`'s sweep and +0.0680 in #212 - so §4bq's reading stands: a perfect
+   mask is worth +0.2398 and the mask is the limit by a factor of 3.6.
+
+   The noise floor is measured here rather than borrowed. The flow model was configured
+   identically in both runs of this file and its average precision moved **0.0112** between
+   them, which is larger than the 0.0074 two runs of one configuration differed by in
+   `0.8.0a15`'s sweep - so a gap smaller than 0.0112 says nothing on this table, and the rim
+   route's 0.0268 lead over the flow route is 2.4x it on a sample of two runs.
+
+ - **The rim model was undertrained at 60 epochs and is not undertrained at 120**, which is
+   why the two models' epoch counts differ in the configuration and why that asymmetry is a
+   comment rather than a typo. Doubling it bought +0.0451 of average precision; the last
+   twenty epochs of the hundred and twenty bought +0.0018, and the best epoch was 118 of 120.
+
+### Fixed
+
+ - **The table's `fg dice` column was neither a foreground Dice nor one quantity**, and is
+   now called `class dice`. It is the engine's `dice` metric, a mean over the class channels
+   the model's head actually has: three for `rim` - background, interior and the rim band -
+   and two for `flows`, whose metrics are shown the class block alone. So the rim model's
+   number is averaged against a thin band scoring 0.6857 where its own background and
+   interior score 0.9852 and 0.8721, and reading it across the two models compares two
+   different things.
+
+   **Measured by identical code on both, on the same 134 cases: the binary foreground Dice
+   is 0.9159 for the rim model and 0.9097 for the flow model.** Where the column read them
+   0.09 apart it is 0.0062, and the sign is the other way round - the rim model has the
+   better mask. The control is the Unreleased entry above this one: foreground Dice held at
+   **0.917-0.920** across four rim runs there, which is the family 0.9159 belongs to and
+   0.8565 does not.
+
+   `examples/train_instance_separation.py:261` had already written the rule down - *"against
+   three is not the comparison; foreground against foreground is"* - and computes the
+   quantity by hand at line 263. So this is a lesson lost rather than one learnt, which is
+   §4's "documentation rots in the direction of the work having been done" wearing a column
+   heading. What #215 asked for, a foreground Dice the table can be read across, needs the
+   engine to return one: `evaluate()` has no such column and two example scripts now have
+   their own copy.
+
+ - `examples/data_science_bowl_instances.yaml` named its checkpoints `weights.safetensors`
+   while `model_checkpoint` is `torch.save` - a pickle in a zip, whatever the path says.
+   They are `weights.pt` now. `export_weights()` remains the safetensors path, and naming a
+   pickle after the format this package chose *because* it is not a pickle is the kind of
+   label that gets believed.
+
 ## [0.8.0a20] - 2026-10-13
 
 `task: instance_segmentation`: the third task, and the last engine piece of the instance

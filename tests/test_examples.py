@@ -143,18 +143,143 @@ def test_the_instance_configuration_file_is_accepted_and_says_what_it_compares()
     assert [model.head_channels(spec.data.n_class) for model in spec.models] == [3, 4]
 
 
-def test_the_instance_example_overrides_only_the_epoch_count():
-    """A flag per setting would make the published table depend on a command nobody wrote
-    down, which is why this example takes one and reads the rest from the file."""
+def test_the_instance_table_does_not_call_its_dice_a_foreground_dice():
+    """The column is a mean over each model's own classes, and the two models differ.
+
+    This guards a label rather than a computation, because the label is what was wrong: the
+    column was called `fg dice` and read across the two models, which made the rim model's
+    mask look a tenth of a Dice worse than the flow model's. It is neither a foreground
+    score nor one quantity - `dice` reduces over the class channels the metric is shown,
+    with the background among them, and `rim`'s head is three classes against `flows`'
+    two.
+
+    Two assertions, because either alone passes for the wrong reason: the channel counts
+    are what makes the column incomparable, and the title is what stops a reader comparing
+    it. Measured 2026-10-13 - the binary foreground Dice, by identical code on both, is
+    0.9159 and 0.9097, where this column read 0.8565 and 0.9476.
+    """
+    import yaml
+
+    sys.path.insert(0, str(EXAMPLES))
     import compare_instance_separations as script
 
-    config = {"models": [{"name": "m", "epochs": 60}, {"name": "n", "epochs": 60}]}
-    from argparse import Namespace
+    config = yaml.safe_load((EXAMPLES / "data_science_bowl_instances.yaml").read_text())
+    spec = from_dict(config, check_paths=False)
 
-    assert script.overridden(config, Namespace(epochs=None)) == config
-    changed = script.overridden(config, Namespace(epochs=2))
+    seen = {}
+    for model in spec.models:
+        # What the metric is handed: the head, minus any channel in front of the classes.
+        # `_MetricOnClasses` is given exactly this window, and `rim` has no vectors so it
+        # is the whole head.
+        start = int(model.separation.semantic_from)
+        seen[model.signal.value] = model.head_channels(spec.data.n_class) - start
+        assert all(getattr(metric, "include_background", True) for metric in model.metrics), (
+            f"{model.name} drops the background, which would change what this column is"
+        )
+    assert seen == {"rim": 3, "flows": 2}, (
+        f"the two models' metrics see {seen} class channels; the column is a mean over "
+        "them, so it is one quantity only while those two numbers are equal"
+    )
+
+    title = next(title for title, key, _ in script.COLUMNS if key == "dice")
+    assert "fg" not in title and "foreground" not in title, (
+        f"the column is called {title!r}; it is a mean over each model's own classes, "
+        "background included, and calling it a foreground score invites the comparison "
+        "across models that the counts above say cannot be made"
+    )
+
+
+def test_the_instance_example_selects_rows_and_never_invents_one():
+    """`--separation` and `--decode` narrow what the file describes and cannot add to it.
+
+    A flag per *setting* would make the published table depend on a command nobody wrote
+    down, so `--epochs` is still the only thing that changes what the file says. The two
+    selectors `pyplatypus#215` asks for are a different kind: they pick a subset of the rows
+    already in the file, which is what somebody debugging one row wants and is safe to have
+    because the bare invocation remains the whole table.
+
+    The invariant worth pinning is the one a reader of the published numbers depends on:
+    **no selection can produce a (separation, decode) pair the file did not list.** Pinned
+    over every subset of both flags rather than over an example of each, because the way
+    this would break is one combination, not the common case.
+    """
+    from argparse import Namespace
+    from itertools import chain, combinations
+
+    import compare_instance_separations as script
+
+    def flags(**kwargs):
+        base = {"separation": None, "decode": None, "epochs": None, "config": "f.yaml"}
+        return Namespace(**{**base, **kwargs})
+
+    config = {
+        "task": "instance_segmentation",
+        "models": [
+            {
+                "name": "rim",
+                "epochs": 60,
+                "separation": {"name": "rim"},
+                "decode": [{"name": "nearest_seed"}, {"name": "connected_components"}],
+            },
+            {
+                "name": "flows",
+                "epochs": 60,
+                "separation": {"name": "flows"},
+                "decode": [{"name": "follow_flows"}, {"name": "connected_components"}],
+            },
+        ],
+    }
+    allowed = {
+        (model["separation"]["name"], block["name"])
+        for model in config["models"]
+        for block in model["decode"]
+    }
+
+    assert script.selected(config, flags()) == config, "no flag, no change"
+
+    changed = script.selected(config, flags(epochs=2))
     assert [model["epochs"] for model in changed["models"]] == [2, 2]
     assert config["models"][0]["epochs"] == 60, "the original is left alone"
+
+    separations = ["rim", "flows"]
+    decodings = ["nearest_seed", "follow_flows", "connected_components"]
+
+    def subsets(xs):
+        return chain.from_iterable(combinations(xs, n) for n in range(len(xs) + 1))
+
+    seen = set()
+    for chosen_separations in subsets(separations):
+        for chosen_decodings in subsets(decodings):
+            arguments = flags(
+                separation=list(chosen_separations) or None,
+                decode=list(chosen_decodings) or None,
+            )
+            narrowed = script.selected(config, arguments)
+            pairs = {
+                (model["separation"]["name"], block["name"])
+                for model in narrowed["models"]
+                for block in model["decode"]
+            }
+            assert pairs <= allowed, (
+                f"{chosen_separations}/{chosen_decodings} invented {pairs - allowed}"
+            )
+            if chosen_separations:
+                assert {m["separation"]["name"] for m in narrowed["models"]} <= set(
+                    chosen_separations
+                )
+            # The yardstick is never selected away, because a table without it cannot be read.
+            for model in narrowed["models"]:
+                assert script.YARDSTICK in [block["name"] for block in model["decode"]], (
+                    f"{chosen_decodings} dropped the yardstick from {model['name']}"
+                )
+            seen |= pairs
+    assert seen == allowed, "some subset of the flags never reached a row the file lists"
+
+    # Selecting nothing is a refusal rather than an empty table: a run that scores no rows
+    # prints a green nothing, which reads exactly like a comparison that found no difference.
+    with pytest.raises(SystemExit) as caught:
+        script.selected(config, flags(separation=["hv"]))
+    assert "selects none of the models" in str(caught.value)
 
 
 def test_detection_configuration_is_accepted():
