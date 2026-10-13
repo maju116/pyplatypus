@@ -1612,7 +1612,7 @@
             }
           ],
           "default": null,
-          "description": "For masks stored as label maps rather than pictures: the voxel value of each class, in class order. This is how volumes label anything - NIfTI holds integers, not colours - and how a single-channel PNG mask can be read too. Exactly one of `colormap` and `labels` is given.",
+          "description": "For masks stored as label maps rather than pictures: the voxel value of each class, in class order. This is how volumes label anything - NIfTI holds integers, not colours - and how a single-channel PNG mask can be read too. Exactly one of `colormap` and `labels` is given. **Include 0 unless the masks really do fill every voxel**: a value matching no entry falls back to the first class, so a list without 0 trains the background as whatever that first class is, and `fit` refuses the combination rather than let it look plausible.",
           "title": "Labels"
         },
         "mode": {

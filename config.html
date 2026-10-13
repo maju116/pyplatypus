@@ -649,6 +649,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instance_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instance_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/flow_to_colours.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">flow_to_colours</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference/drawing_style.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">drawing_style</span></a>
   </div>
@@ -1002,7 +1020,7 @@ One colour per class; index in this list is the class index.
 <dt><code>labels</code></dt>
 <dd>
 a list of whole numbers — unset
-For masks stored as label maps rather than pictures: the voxel value of each class, in class order. This is how volumes label anything - NIfTI holds integers, not colours - and how a single-channel PNG mask can be read too. Exactly one of <code>colormap</code> and <code>labels</code> is given.
+For masks stored as label maps rather than pictures: the voxel value of each class, in class order. This is how volumes label anything - NIfTI holds integers, not colours - and how a single-channel PNG mask can be read too. Exactly one of <code>colormap</code> and <code>labels</code> is given. <strong>Include 0 unless the masks really do fill every voxel</strong>: a value matching no entry falls back to the first class, so a list without 0 trains the background as whatever that first class is, and <code>fit</code> refuses the combination rather than let it look plausible.
 </dd>
 <dt><code>regions</code></dt>
 <dd>
