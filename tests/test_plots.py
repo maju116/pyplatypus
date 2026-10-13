@@ -353,3 +353,230 @@ def test_a_class_missing_from_a_split_does_not_recolour_the_others():
 
     assert colour_of(full, "WBC") == colour_of(partial, "WBC")
     assert [c.get_label() for c in partial.axes[0].collections][:2] == ["WBC", "Platelets"]
+
+
+# ------------------------------------------------------------------- instances (#214)
+#
+# A classes figure and an instances figure are different problems, and these tests are
+# mostly about the claim that makes the second one possible: a colour may repeat across
+# the picture but never between neighbours. That claim is checkable, so it is checked
+# rather than promised - on grids built to make it hard, and on every pair.
+
+
+def grid_of_instances(rows: int = 2, columns: int = 8, block: int = 3) -> np.ndarray:
+    """A chequerboard of touching blocks, numbered so a cycling palette is sure to fail.
+
+    Real nuclei average 0.37 neighbours each and never need more than three colours. This is
+    deliberately worse than real, and **eight columns wide on purpose**: in a grid that wide
+    the object above any other differs from it by exactly 8, so colouring by value modulo the
+    eight-entry palette gives every vertical pair one colour. A narrower grid passes the
+    control by accident - measured, on a 3x3 version where the two values that collide under
+    the modulo are opposite corners and never touch, so the control did not fire and the test
+    proved nothing about the choice it exists to justify.
+    """
+    labels = np.zeros((rows * block, columns * block), dtype=int)
+    identifier = 0
+    for row in range(rows):
+        for column in range(columns):
+            identifier += 1
+            labels[row * block : (row + 1) * block, column * block : (column + 1) * block] = (
+                identifier
+            )
+    return labels
+
+
+def picture(height: int, width: int) -> np.ndarray:
+    """A grey image of a given shape, since the instance maps here are not square."""
+    return np.full((height, width, 3), 0.5)
+
+
+def touching_pairs(labels: np.ndarray) -> set[tuple[int, int]]:
+    """Every pair of object values within one step of each other, diagonals included."""
+    pairs = set()
+    height, width = labels.shape
+    for row in range(height):
+        for column in range(width):
+            here = int(labels[row, column])
+            if here == 0:
+                continue
+            for dr in (-1, 0, 1):
+                for dc in (-1, 0, 1):
+                    r, c = row + dr, column + dc
+                    if 0 <= r < height and 0 <= c < width:
+                        other = int(labels[r, c])
+                        if other and other != here:
+                            pairs.add((min(here, other), max(here, other)))
+    return pairs
+
+
+def test_no_two_touching_objects_are_drawn_in_one_colour():
+    """The rule the figure rests on, checked on every adjacent pair rather than sampled.
+
+    Measured over all 670 Data Science Bowl cases, 5436 adjacent pairs: an exact colouring
+    needs at most 3 of the palette's 8 slots. The alternative on `#214` was a cycling fill
+    whose collisions are "rare rather than impossible" - on those same pairs it paints
+    **550 of 5436, 10.12%**, of touching pairs alike, which is the control below.
+    """
+    labels = grid_of_instances()
+    pairs = touching_pairs(labels)
+    assert len(pairs) >= 20, f"the premise: this grid has to be hard, got {len(pairs)} pairs"
+
+    drawn = pyplatypus.overlay_instances(picture(*labels.shape), labels, alpha=1.0)
+    centres = {
+        value: tuple(
+            int(c) for c in drawn[tuple(np.argwhere(labels == value).mean(axis=0).astype(int))]
+        )
+        for value in np.unique(labels[labels > 0])
+    }
+    for one, other in pairs:
+        assert centres[one] != centres[other], f"objects {one} and {other} touch and match"
+
+    # The control: colouring by value modulo the palette, which is what was rejected.
+    palette = style.CLASS_COLOURS
+    collisions = [(u, v) for u, v in pairs if u % len(palette) == v % len(palette)]
+    assert collisions, (
+        "the control did not fire, so this grid cannot tell the two schemes apart and the "
+        "assertions above prove nothing about the choice"
+    )
+
+
+def test_an_outline_leaves_the_object_s_interior_showing():
+    labels = np.zeros((9, 9), dtype=int)
+    labels[2:7, 2:7] = 1
+    before = picture(9, 9)
+    outlined = pyplatypus.overlay_instances(before, labels, outline=True)
+    filled = pyplatypus.overlay_instances(before, labels)
+
+    middle = (4, 4)
+    edge = (2, 4)
+    assert tuple(outlined[middle]) == tuple(np.round(before[middle] * 255).astype(int)), (
+        "an outline must not touch the interior, which is the whole reason to want one"
+    )
+    assert tuple(outlined[edge]) != tuple(outlined[middle]), "and it must touch the border"
+    assert tuple(filled[middle]) != tuple(outlined[middle]), "a fill does cover the interior"
+
+
+def test_a_one_hot_array_is_refused_because_it_cannot_carry_an_identity():
+    onehot = np.zeros((8, 8, 3))
+    with pytest.raises(PlatypusError, match="one integer per pixel"):
+        pyplatypus.overlay_instances(image(), onehot)
+
+
+def test_an_empty_palette_is_refused_rather_than_drawing_nothing():
+    with pytest.raises(PlatypusError, match="nothing to draw"):
+        pyplatypus.overlay_instances(image(), np.zeros((8, 8), dtype=int), colours=[])
+
+
+def test_the_instance_agreement_figure_separates_found_missed_and_invented():
+    """And it matches whole objects, which is the unit a pixel figure cannot show."""
+    truth = np.zeros((5, 11), dtype=int)
+    truth[1:4, 1:4] = 1
+    truth[1:4, 5:8] = 2
+    predicted = np.zeros((5, 11), dtype=int)
+    predicted[1:4, 1:4] = 1
+    predicted[1:4, 8:11] = 2
+
+    shown = pyplatypus.overlay_instance_agreement(picture(5, 11), predicted, truth)
+    hit, missed, invented = shown[2, 2], shown[2, 6], shown[2, 9]
+    assert (hit != missed).any() and (missed != invented).any() and (hit != invented).any()
+
+
+def test_a_merged_pair_reads_as_two_misses_rather_than_as_nearly_right():
+    """The figure `#214` is for: a merge is almost perfect pixelwise and wrong as objects.
+
+    One prediction covering two true objects can match at most one of them at any threshold,
+    so neither true object is matched at 0.5 - and the pixel figure shows the same thing as a
+    near-total hit.
+
+    The hit colour is taken from a figure where everything *is* a hit rather than computed
+    from the palette and the alpha: reproducing the blend here would make the test a copy of
+    the code it checks, and a copy agrees with a wrong original.
+    """
+    truth = np.zeros((5, 9), dtype=int)
+    truth[1:4, 1:4] = 1
+    truth[1:4, 4:7] = 2
+    merged = np.zeros((5, 9), dtype=int)
+    merged[1:4, 1:7] = 1
+
+    everything_matched = pyplatypus.overlay_instance_agreement(picture(5, 9), truth, truth)
+    hit_colour = everything_matched[2, 2]
+    shown = pyplatypus.overlay_instance_agreement(picture(5, 9), merged, truth)
+    assert not (shown.reshape(-1, 3) == hit_colour).all(axis=1).any(), (
+        "a merged pair must not be drawn as a hit anywhere in the figure"
+    )
+
+    pixels = pyplatypus.overlay_agreement(picture(5, 9), merged, truth)
+    assert (pixels[2, 2] == pixels[2, 5]).all(), (
+        "the premise: the pixel figure cannot tell this apart, which is why the object one "
+        "has to exist"
+    )
+
+
+def test_two_instance_maps_of_different_shapes_are_refused():
+    with pytest.raises(PlatypusError, match="different shapes"):
+        pyplatypus.overlay_instance_agreement(
+            picture(5, 5), np.zeros((5, 5), dtype=int), np.zeros((4, 4), dtype=int)
+        )
+
+
+def test_a_flow_field_reads_as_hue_for_direction_and_value_for_length():
+    field = np.zeros((2, 1, 4))
+    field[0, 0, 0] = 1.0  # down
+    field[1, 0, 1] = 1.0  # right
+    field[0, 0, 2] = -1.0  # up
+    shown = pyplatypus.flow_to_colours(field)
+
+    assert shown.shape == (1, 4, 3)
+    hues = {tuple(int(c) for c in shown[0, index]) for index in range(3)}
+    assert len(hues) == 3, f"three directions, three colours, got {hues}"
+    assert tuple(int(c) for c in shown[0, 3]) == (0, 0, 0), "no vector, no colour"
+
+
+def test_a_reversed_field_is_obvious_here_and_invisible_in_any_loss():
+    """Why this function exists at all: `#210`'s silent failure, made visible."""
+    field = np.zeros((2, 4, 4))
+    field[0] = 1.0
+    assert (pyplatypus.flow_to_colours(field) != pyplatypus.flow_to_colours(-field)).any()
+
+
+def test_a_field_that_is_not_two_channels_is_refused():
+    with pytest.raises(PlatypusError, match="2, height, width"):
+        pyplatypus.flow_to_colours(np.zeros((3, 4, 4)))
+
+
+def test_the_instance_figure_matches_at_the_same_strictness_as_the_metric():
+    """The one way this figure can lie, pinned at the boundary where it did.
+
+    `average_precision` compares `iou > threshold` and says why in its own module: at
+    exactly 0.5, `>=` would admit two predictions each covering half an object. A merged
+    prediction over two equal true objects scores exactly 0.5 against both, so it is the
+    case that separates the two readings - and the drawing used the looser one until this
+    test was written.
+    """
+    from pyplatypus.instances import average_precision, iou_matrix
+
+    truth = np.zeros((5, 9), dtype=int)
+    truth[1:4, 1:4] = 1
+    truth[1:4, 4:7] = 2
+    merged = np.zeros((5, 9), dtype=int)
+    merged[1:4, 1:7] = 1
+
+    overlaps = iou_matrix(truth, merged)
+    assert np.allclose(overlaps, 0.5), f"the premise: this has to sit on the boundary, {overlaps}"
+    assert average_precision(overlaps, [0.5]) == 0.0, "the metric counts no hit here"
+
+    everything_matched = pyplatypus.overlay_instance_agreement(picture(5, 9), truth, truth)
+    shown = pyplatypus.overlay_instance_agreement(picture(5, 9), merged, truth)
+    assert not (shown.reshape(-1, 3) == everything_matched[2, 2]).all(axis=1).any(), (
+        "and so must the figure, or the picture and the number disagree at 0.5"
+    )
+
+
+def test_a_threshold_the_metric_refuses_is_refused_here_too():
+    """Below 0.5 the match stops being one to one, so the figure would draw a rule the
+    number does not use. `average_precision` refuses it; this refuses it in the same words'
+    worth of reason."""
+    truth = np.zeros((5, 9), dtype=int)
+    truth[1:4, 1:4] = 1
+    with pytest.raises(PlatypusError, match="below 0.5"):
+        pyplatypus.overlay_instance_agreement(picture(5, 9), truth, truth, threshold=0.4)

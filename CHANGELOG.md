@@ -1,6 +1,153 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a19] - 2026-10-12
+
+Looking at instance results instead of reading their arrays (#214), the trained half of
+`flows` (#212), and `#213`'s cheap test answered before anything was trained for it. All
+three end in the same place, which is the entry's finding rather than three coincidences:
+the separation signal is not what limits instance segmentation on this data. The mask is.
+
+### Added
+
+ - **`overlay_instances()`, `overlay_instance_agreement()` and `flow_to_colours()`** in
+   `pyplatypus.plots`. An instance result has no figure today - `overlay_mask` paints every
+   object one colour, which is the one thing an instance map must not do - and `#159`'s four
+   training runs were read entirely off tables.
+
+   **`overlay_instances` colours an exact graph colouring and that was an open question on
+   `#214`, settled by measurement rather than by preference.** What a reader needs from an
+   instance map is *where one object ends and the next begins*, which is **adjacency, not
+   identity**, so a colour may repeat as long as it never repeats between neighbours.
+   Measured over all 670 Data Science Bowl cases, 524 of which hold touching objects and
+   **5436 adjacent pairs** between them: an exact colouring (Welsh-Powell) needs **at most
+   3 of the 8 colours `CLASS_COLOURS` already has** - 146 cases need one, 412 two, 112
+   three - against at most 6 neighbours for any one object. The cheap alternative the issue
+   offered, cycling the palette by object value, **paints 550 of those 5436 pairs in one
+   colour: 10.12%**. One touching pair in ten drawn as one object, in a figure whose whole
+   subject is whether two objects are two.
+
+   **`overlay_instance_agreement` matches objects with `iou_matrix`, the function the metric
+   uses, and at the same strictness** - which is a correction rather than a design note. It
+   matched at `iou >= threshold` for an hour; `average_precision` compares strictly greater,
+   and a merged pair sitting over two equal truth objects lands at exactly 0.5, so the
+   figure would have drawn one hit where the metric counts two misses. Caught by a test
+   written against what the figure *means* rather than what it draws, and pinned by one.
+   The threshold below 0.5 that the metric refuses is refused here too, in the metric's own
+   words.
+
+   **Nothing was added to `pyplatypus.style`**, which is why the R pin does not move for
+   this (`§3E`): hue-for-direction is the convention optical flow has used for twenty years
+   and not a decision this project gets to make differently, and the drawing style R reads
+   from the engine is unchanged. `platypus#154` carries the R half.
+
+ - **`examples/train_instance_flows.py`**, the second half of `#212`: the flow target
+   trained and scored, with the pair of oracles that says which half of the pipeline the
+   result is limited by. Sixty epochs on `dsbowl-unet`'s architecture and the 536/134
+   directory split, the target rebuilt from the augmented label map on every sample
+   (`#210`), and the model assembled outside `Engine` because a flow head is `2 + n_class`
+   wide and the engine takes its width from `spec.data.n_class` - the derivation `#160` has
+   yet to name. The script says so in its own docstring rather than leaving it to be
+   inferred.
+
+        134 cases, 5999 objects, 256x256     score   objects back
+        foreground Dice                     0.9029
+        flow angle, median of case medians    6.6 degrees
+        AP flows                            0.5278           5424
+        AP connected components             0.4598           4686   same mask, no signal
+        TRUE identity, this mask            0.5941           6138   perfect vectors
+        this field, TRUE mask               0.7676           5421   perfect mask
+
+   **The flow signal is worth +0.0680** over connected components on the same predicted
+   mask, which is the only honest comparison here - same model, same mask, same pictures,
+   with and without the signal. The rim route was worth **+0.0640** on its own set
+   (`#159`, `JOURNAL.md` §4bo), and the difference between the two, 0.0040, is **below the
+   0.0074 run-to-run spread** of one configuration at a fixed seed that `§4bo` measured. So
+   the structural argument for flows - that it spends no pixel on being a boundary, where a
+   rim wide enough to learn hollows the object out - **does not show up in the score**. Two
+   runs of this configuration here came back 0.5278 and 0.5315, a difference of 0.0037,
+   which is consistent with that spread and is still two runs rather than a spread of its
+   own.
+
+   **And the oracle pair says why, which is the part worth keeping.** A perfect mask is
+   worth **+0.2398** and perfect vectors **+0.0663**: the mask is the limit by a factor of
+   3.6, and `0.7676` with a perfect mask is already about what connected components reaches
+   on the truth (`0.7505`). A third separation target would be measured against the same
+   wall, which is what `#213` now has to answer for rather than assume.
+
+   Each row prints **the number of objects it handed back**, and that is not decoration. The
+   first version of the TRUE-field oracle scored 0.2220 with **18758 objects back against
+   5999** in the truth, because it handed `flows_from_instances(labels)` - zero everywhere
+   off the truth's own objects - to the model's mask, and a zero field moves nothing, so
+   every voxel the mask got wrong stood still and became a basin of its own. It is
+   `truth_field_on` now, substituting **identity** and not the field: every voxel of the
+   mask joins the nearest truth object and the field is built from that. An average
+   precision alone cannot tell a route that mislabels from one that shatters; an object
+   count can. One blind spot is left and it is counted rather than argued about: **259 of
+   the 6138 objects** the TRUE-identity row returns are pieces of predicted foreground
+   holding no truth voxel at all, which join the nearest object by identity but, under
+   `diffusion`, receive no heat and keep a zero vector. Under `centroid` they would cost
+   nothing - a straight line to a sink needs no path - and the run prints the count beside
+   the row with the mode it belongs to.
+
+ - **`separation_ceiling.py --separation hv`**, which is `#213`'s own cheap test and answers
+   it before a model is trained. The issue, after `#211` narrowed it: *"if the markers from
+   `hv` do not beat eroded interiors on the ground truth, they will not beat them predicted
+   either, and this issue closes before a model is trained"*. They do not. Both recipes for
+   getting markers out of HoVer-Net's two distance maps are swept, over the 134 held-out
+   cases and 6000 objects:
+
+        marker source                 AP    over the bar   markers   objects with none
+        eroded interiors, 1 px    0.9807        +0.2224      6030                   0
+        hv centres, |h|,|v|<=0.6  0.9382        +0.1799      5900                   5
+        hv gradient, >=0.6        0.7995        +0.0412      5404                   0
+        connected components      0.7583          the bar
+
+   The maps' own zeros - `#213`'s own narrowing, *the extrema as seeds rather than the
+   gradient as a surface* - are the better of the two and still **0.0425 below a one-pixel
+   erosion**. HoVer-Net's published gradient route recovers **a fifth** of what that erosion
+   does over the bar. Both curves turn over at 0.6 rather than at an edge of the range
+   (`--hv-sweep` prints them), so neither number is a tuning artefact, and the erosion's
+   thin-object fallback cannot account for the difference: it rescues **4 objects of 6000**.
+
+   **Two rows of that table are controls.** The connected-components bar and the
+   eroded-interior ceiling reproduce `0.8.0a18`'s recorded **0.7583 and 0.9807 to four
+   decimals**, which is how a reader knows this measurement is on the same pictures as those
+   - and the direct answer to the provenance failure that left `#159`'s ceiling without a
+   set it could be reproduced on.
+
+   The two marker functions live in the example rather than in the package, because `#160`
+   has not named `separation: hv` and this measurement is the reason it may never need to.
+   Seven mutations, six caught; the seventh is named in the code as uncatchable with the
+   reason, rather than left as a gap.
+
+   **`--separation both` is now `--separation all`**, because there are three signals.
+
+### Fixed
+
+ - **`labels` without 0 is refused when any voxel matches none of them** (`platypus#153`).
+   Index 0 means two things in this package and always has: the first entry of a naming, and
+   *matched nothing*. `labels: [0, ...]` makes them agree, and `labels` is the one naming
+   where the 0 can be left out - after which every unmatched voxel, which is usually most of
+   the image, is trained as the **first declared class**. Measured on the issue:
+   `labels: [1, 2]` over a mask of 0s, 1s and 2s put the background into class `1` with an
+   unmatched fraction of 0.5, and nothing in the shape of the target gives it away - it is in
+   range, one-hot and plausible.
+
+   Refused in `fit`'s existing mask check, which already reads a sample of the training
+   masks, and **only when the data actually has unmatched voxels**: `labels: [1, 2]` over
+   masks that really do fill every voxel is correct and keeps working. That was the author's
+   reading on the issue, between four options, because the failure is in the data rather than
+   in the configuration.
+
+   The threshold is **any unmatched voxel at all**, not the 5% the unmatched *warning* uses,
+   and that is a calibration rather than strictness: a label map holds integers, is read
+   nearest-neighbour and compared with half a unit of tolerance, so a naming that describes
+   it matches **exactly** everything. The compression and antialiasing the 5% exists for
+   belong to colormaps, and a colormap cannot omit a background entry. Five mutations, five
+   caught - including the one where the refusal is hung on the warning threshold, which the
+   fixture is deliberately sized to catch at 1.6%.
+
 ## [0.8.0a18] - 2026-10-12
 
 The first half of `flows` (#212): the target, its decoding, and their ceiling measured on the

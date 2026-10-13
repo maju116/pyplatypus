@@ -437,6 +437,23 @@ class Engine(EngineBase):
         measured 0.72% on Kvasir-SEG, and antialiasing does the same. The threshold sits
         in the gap between that and a wholesale mistake, which measured 19.8% for a wrong
         foreground colour and 100% for a wrong background.
+
+        **`labels` without 0 and any unmatched voxel at all is refused**, which is the one
+        place the threshold above is wrong rather than loose (`platypus#153`). Index 0 means
+        two things here and always has: the first entry of a naming, and *matched nothing*.
+        Everywhere else that ambiguity is harmless because `labels: [0, ...]` makes them
+        agree. Take the 0 away and every unmatched voxel - the background, usually most of
+        the image - becomes the **first declared class**, so the model is trained to call
+        background a nucleus with nothing in the shape of the target to give it away: the
+        target is in range, one-hot and plausible.
+
+        Refused at *any* unmatched voxel rather than at the warning threshold, because this
+        is a label map and not a picture. Label maps hold integers, are read
+        nearest-neighbour and compared with half a unit of tolerance, so the legitimate case
+        - `labels: [1, 2]` over masks that really do fill every voxel - produces an unmatched
+        fraction of **exactly zero**, and that case keeps working. The compression and
+        antialiasing that justify the 5% threshold belong to colormaps, which cannot hit
+        this check: a naming without 0 is only expressible in `labels`.
         """
         if not self.check_masks:
             return
@@ -446,6 +463,23 @@ class Engine(EngineBase):
         limit = 8 if model_spec.rank == 3 else 50
         dataset = self.dataset(model_spec, "train")
         report = dataset.inspect_masks(limit=limit)
+
+        labels = self.spec.data.labels
+        if labels is not None and 0 not in labels and report.unmatched > 0:
+            raise EngineError(
+                f"labels={labels} does not contain 0, and {report.unmatched:.1%} of the "
+                f"training masks' voxels match none of those labels - checked "
+                f"{report.samples_checked} of {report.total_samples}.\n"
+                f"  Index 0 is the class a voxel matching nothing falls back to, so those "
+                f"voxels are being trained as '{labels[0]}' - the first label - and the "
+                f"target stays in range, one-hot and plausible while it happens.\n"
+                f"  If those voxels are background, add 0 to labels: "
+                f"{[0, *labels]}, which is one more class and one more channel.\n"
+                f"  If they are not background, something else does not describe these "
+                f"masks: labels that do fill every voxel give exactly 0% unmatched.\n"
+                f"  To see what the values actually are:\n"
+                f"    engine.dataset(spec.models[0], 'train').inspect_masks(limit=500)"
+            )
 
         if report.missing_classes:
             described = self._describe_classes(report.missing_classes)

@@ -178,7 +178,10 @@ Semantic segmentation in 2D, end to end:
   most of a medical image, and the model learns to answer "nothing here". `fit()` now reads a
   sample of the training masks first and **refuses when a declared class appears in none of
   them** - which is provable rather than suspicious, since a class with no examples has no
-  gradient towards it. `Engine(..., check_masks=False)` proceeds anyway.
+  gradient towards it. It also refuses `labels` that leave out 0 when any voxel matches none
+  of them, because index 0 is both the first entry of a naming and where an unmatched voxel
+  goes - so without it the background trains as a real class and the target stays plausible
+  while it happens. `Engine(..., check_masks=False)` proceeds anyway.
 - **Many models from one file**, with a comparison table at the end - which is how you find
   out that on some problems the architecture is not what matters. See below.
 - **A pretrained backbone as the contracting path**: `encoder: resnet34` builds that

@@ -117,6 +117,9 @@ groups:
   - plot_anchors
   - overlay_mask
   - overlay_agreement
+  - overlay_instances
+  - overlay_instance_agreement
+  - flow_to_colours
   - drawing_style
 
 - title: When something is wrong

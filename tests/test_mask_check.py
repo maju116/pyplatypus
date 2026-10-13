@@ -298,3 +298,125 @@ def test_any_prefix_of_the_visit_order_spans_the_dataset(tmp_path):
     assert _spread(1, 5) == [0]
     assert _spread(0, 5) == []
     assert sorted(_spread(6, 50)) == list(range(6))
+
+
+# --- labels without 0, where the fallback class is a real class (platypus#153) -----------
+#
+# Index 0 means two things in this package and always has: the first entry of a naming, and
+# *matched nothing*. `labels: [0, ...]` makes them agree and the ambiguity is harmless.
+# `labels` is the one naming where a user can take the 0 away, and then every unmatched
+# voxel - the background, usually most of the image - is trained as the first declared
+# class, with a target that stays in range, one-hot and plausible throughout.
+
+
+def label_map_root(root, *, background: bool, n=6, size=32, second=8):
+    """Single-channel PNG label maps, with or without a background value.
+
+    `background=True` leaves zeros around two blocks of 1 and 2; `background=False` fills
+    the whole picture with 1 and 2, which is the legitimate case `labels: [1, 2]` exists for
+    and the one a refusal must not break. `second` is the side of the block of 2s, so a
+    caller can put the unmatched fraction either side of the 5% the *warning* uses.
+    """
+    for index in range(n):
+        sample = root / f"case_{index:02d}"
+        (sample / "images").mkdir(parents=True, exist_ok=True)
+        (sample / "masks").mkdir(parents=True, exist_ok=True)
+        mask = np.zeros((size, size), np.uint8) if background else np.ones((size, size), np.uint8)
+        mask[4:12, 4:12] = 1
+        mask[20 : 20 + second, 20 : 20 + second] = 2
+        Image.fromarray(mask, mode="L").save(sample / "masks" / "m.png")
+        Image.fromarray(np.full((size, size, 3), 30, np.uint8)).save(sample / "images" / "a.png")
+    return root
+
+
+def labels_spec(root, labels, size=32):
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "labels": labels,
+                "mode": "nested_dirs",
+            },
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [size, size],
+                    "channels": 3,
+                    "blocks": 1,
+                    "filters": 4,
+                    "epochs": 1,
+                    "batch_size": 2,
+                }
+            ],
+        }
+    )
+
+
+def test_labels_without_zero_over_masks_that_have_a_background_is_refused(tmp_path):
+    """The measured case from `platypus#153`: three quarters of the picture is 0, `labels`
+    does not mention 0, so those voxels become the class for label 1."""
+    root = label_map_root(tmp_path / "bg", background=True)
+    with pytest.raises(EngineError) as raised:
+        Engine(labels_spec(root, [1, 2])).fit()
+
+    message = str(raised.value)
+    assert "does not contain 0" in message
+    assert "trained as '1'" in message, "it names the class the background is becoming"
+    assert "[0, 1, 2]" in message, "and the fix, as the list to write"
+    assert "inspect_masks" in message
+
+
+def test_labels_without_zero_over_masks_that_fill_every_voxel_still_trains(tmp_path):
+    """The thing option 1 of that issue would have forbidden, and the reason this refusal
+    is about the data instead.
+
+    It also calibrates the threshold, which is `> 0` rather than the 5% the unmatched
+    *warning* uses: a label map holds integers, is read nearest-neighbour and compared with
+    half a unit of tolerance, so a naming that really does describe it matches **exactly**
+    everything. The compression and antialiasing that justify 5% belong to colormaps, and a
+    colormap cannot reach this check - only `labels` can omit the 0.
+    """
+    root = label_map_root(tmp_path / "filled", background=False)
+    spec = labels_spec(root, [1, 2])
+    report = Engine(spec, check_masks=False).dataset(spec.models[0], "train").inspect_masks()
+
+    assert report.unmatched == 0.0, "exactly zero, which is what makes `> 0` a calibration"
+    assert report.missing_classes == []
+    Engine(spec).fit()  # and it trains, which is the point of the test
+
+
+def test_the_refusal_reads_the_data_rather_than_the_list(tmp_path):
+    """Same masks that passed above, one label changed so the 2s match nothing. The naming
+    is the same shape - two labels, no zero - and the data decides.
+
+    And the unmatched fraction here is **1.6%**, deliberately below the 5% the warning uses:
+    if this refusal were hung on that threshold instead of on "any at all", 1.6% of every
+    picture would train as label 1 and nothing would say so. That is the mutation this test
+    exists to catch, and the fixture is sized for it rather than for convenience.
+    """
+    root = label_map_root(tmp_path / "wrong", background=False, second=4)
+    spec = labels_spec(root, [1, 3])
+    report = Engine(spec, check_masks=False).dataset(spec.models[0], "train").inspect_masks()
+    assert 0 < report.unmatched < 0.05, f"the premise of this test: {report.unmatched:.3%}"
+
+    with pytest.raises(EngineError, match="does not contain 0"):
+        Engine(spec).fit()
+
+
+def test_labels_with_zero_are_not_refused_even_when_voxels_match_nothing(tmp_path):
+    """The control, and it has to carry unmatched voxels or it controls for nothing.
+
+    `labels: [0, 1]` over masks that also hold 2s leaves those 2s matching no entry, so they
+    fall back to class 0 - the background - which is the ordinary, documented ambiguity and
+    is warned about rather than refused. Written this way round on purpose: a control using
+    masks the labels describe perfectly would pass for a check that ignored the 0 entirely,
+    and that mutation survived until this test was rewritten.
+    """
+    root = label_map_root(tmp_path / "withzero", background=True, second=4)
+    spec = labels_spec(root, [0, 1])
+    report = Engine(spec, check_masks=False).dataset(spec.models[0], "train").inspect_masks()
+    assert report.unmatched > 0, "the premise: there are voxels matching nothing"
+
+    Engine(spec).fit()  # and it trains, because 0 is there to receive them
