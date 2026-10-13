@@ -484,6 +484,28 @@
       "title": "ComboLoss",
       "type": "object"
     },
+    "ConnectedComponents": {
+      "additionalProperties": false,
+      "description": "Label the thresholded foreground and ignore the separation signal entirely.\n\n**The yardstick, and the reason it is compatible with every target.** It is what any\nsemantic model already gives for free, so a row of it beside the signal's own row is\nwhat makes the signal's number readable: the same model, the same mask, the same\npictures, with and without the thing being measured. Everything else is 1 ms an image\nagainst the 11 ms the others cost, so there is no reason to leave it out.\n\nIt is also a ceiling nothing can pass: touching objects are one region, so on the Data\nScience Bowl's held-out cases a **perfect** semantic mask scores 0.7655 through this at\nnative size and 0.7505 at 256x256. A run that lands between the published weights'\n0.4888 and that number has improved its mask and said nothing about separation.\n\n```yaml\ndecode:\n  - name: connected_components\n```",
+      "properties": {
+        "minimum_area": {
+          "default": 0,
+          "description": "Drop an object smaller than this many pixels. 0 keeps everything, which is the default because the right floor is a property of the data rather than of the method - a nucleus at 256x256 in the Data Science Bowl runs from 4 pixels up, so a floor chosen here would silently delete the smallest real objects in one dataset while letting speckle through in another.\n\nIt is applied after the objects are formed, so it removes answers rather than changing how they were reached.",
+          "minimum": 0,
+          "title": "Minimum Area",
+          "type": "integer"
+        },
+        "name": {
+          "const": "connected_components",
+          "default": "connected_components",
+          "description": "Which decoding, and it decides which other keys this block accepts - `follow_flows` takes `steps` and `step_size`, the others do not. A decoding the chosen `separation` cannot feed is refused by name with both halves stated, rather than returning a label map of something else.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "ConnectedComponents",
+      "type": "object"
+    },
     "CosineAnnealing": {
       "additionalProperties": false,
       "description": "Decay the learning rate along a cosine, from its initial value to `min_lr`.\n\nNo `monitor`: it is a function of how far through the run you are, not of how the run\nis going. That is the difference from `reduce_lr_on_plateau`, and a run may want both.",
@@ -1128,6 +1150,109 @@
       "title": "EarlyStopping",
       "type": "object"
     },
+    "Flows": {
+      "additionalProperties": false,
+      "description": "A unit vector field pointing at each object's sink, plus the semantic channels.\n\nTwo continuous channels in front of the classes, and **no pixel spent on being a\nboundary** - which is the structural argument for it, and the reason it was built after\n`rim` closed measured-and-no. It makes the objective composite and the activation\npartial: the vectors stay as the network produced them while the classes are softmaxed,\nand `InstanceObjective` is where those two halves meet. `Separation.FLOWS` has what it\nturned out to be worth.\n\n```yaml\nseparation:\n  name: flows\n  mode: diffusion\n  loss:\n    name: smooth_l1\n    where: foreground\n  weight: 1.0\n```",
+      "properties": {
+        "loss": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "boundary": "#/$defs/BoundaryLoss",
+                  "cce": "#/$defs/CceLoss",
+                  "cce_dice": "#/$defs/CceDiceLoss",
+                  "combo": "#/$defs/ComboLoss",
+                  "dice": "#/$defs/DiceLoss",
+                  "focal": "#/$defs/FocalLoss",
+                  "focal_tversky": "#/$defs/FocalTverskyLoss",
+                  "iou": "#/$defs/IouLoss",
+                  "l1": "#/$defs/L1Loss",
+                  "lovasz": "#/$defs/LovaszLoss",
+                  "mse": "#/$defs/MseLoss",
+                  "smooth_l1": "#/$defs/SmoothL1Loss",
+                  "tversky": "#/$defs/TverskyLoss"
+                },
+                "propertyName": "name"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/IouLoss"
+                },
+                {
+                  "$ref": "#/$defs/DiceLoss"
+                },
+                {
+                  "$ref": "#/$defs/CceLoss"
+                },
+                {
+                  "$ref": "#/$defs/CceDiceLoss"
+                },
+                {
+                  "$ref": "#/$defs/FocalLoss"
+                },
+                {
+                  "$ref": "#/$defs/TverskyLoss"
+                },
+                {
+                  "$ref": "#/$defs/FocalTverskyLoss"
+                },
+                {
+                  "$ref": "#/$defs/ComboLoss"
+                },
+                {
+                  "$ref": "#/$defs/LovaszLoss"
+                },
+                {
+                  "$ref": "#/$defs/BoundaryLoss"
+                },
+                {
+                  "$ref": "#/$defs/MseLoss"
+                },
+                {
+                  "$ref": "#/$defs/L1Loss"
+                },
+                {
+                  "$ref": "#/$defs/SmoothL1Loss"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The objective on the two vector channels, which is a different question from the model's own `loss` - that one scores the mask. A continuous target has nothing in the overlap-and-cross-entropy losses to be trained against, so this is one of `mse`, `l1` or `smooth_l1`, and anything else is refused by name: `loss: dice` against a vector field would return a number and a gradient, which is the worst available outcome.\n\nLeft unset it is `mse` with `where: foreground`, which is what the measured run used. `where` is the field to read before changing it, because the foreground is 13.97% of a Data Science Bowl image and `everywhere` spends 86% of the objective on a background zero.",
+          "title": "Loss"
+        },
+        "mode": {
+          "default": "diffusion",
+          "description": "How the vector field is built: towards each object's centroid in a straight line, or down the gradient of heat diffused inside it.\n\n**`diffusion` is the default because the two were measured on the ground truth before anything was trained**: decoded back into objects they reach 0.9924 and 0.9478. The obvious explanation for the gap is not the cause - only 19 of 6000 objects have their centroid outside themselves, 0.32% - and the real one is one level down: a straight line between two pixels of a discrete set can leave the set even when the object looks convex, which splits an object whose own centroid is inside it.\n\n`centroid` is 23 times cheaper to build (4.9 ms a case against 113.6 ms), which is the reason to reach for it and is small beside an epoch.",
+          "enum": [
+            "centroid",
+            "diffusion"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "name": {
+          "const": "flows",
+          "default": "flows",
+          "description": "Which separation signal, and it decides which other keys this block accepts: `rim` takes `width`, `flows` takes `mode`, `loss` and `weight`. A setting that belongs to the other mechanism is not refused here, it is **unwritable** - `width` under `name: flows` is an unknown key, which is the answer every typo in a specification gets.\n\nThat is this block's reason to be a block, and it was built flat first: `separation: rim` beside `rim_width`, `flow_mode`, `flow_loss` and `flow_weight`. The flat form parses, so it needs a validator and a table of which field belongs to which mechanism to refuse half of what it accepts, and it shows every reader four fields of which two can apply to them. This form shows a reader of `name: rim` one field, and the refusal is gone rather than written - `extra=\"forbid\"` was already doing that job for every other key in the file.",
+          "title": "Name",
+          "type": "string"
+        },
+        "weight": {
+          "default": 1.0,
+          "description": "How much the vector term counts against the mask term, which are summed. The default is 1.0 and it is measured rather than conventional: on the 60-epoch run the two terms are the same order of magnitude throughout - 0.5937 against 0.6345 after the first epoch and 0.0734 against 0.0659 at the last - so neither half of the objective is drowning the other at this weight.",
+          "exclusiveMinimum": 0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "title": "Flows",
+      "type": "object"
+    },
     "FocalLoss": {
       "additionalProperties": false,
       "description": "Cross-entropy that loses interest in the voxels it already gets right.\n\n`gamma` is the whole feature: at 0 this is exactly cross-entropy - measured, the two\nagree to floating point - and raising it pushes the loss onto the hard voxels. Worth\nhaving where the easy background dominates the gradient. The cost is that a model that\nis right but unconfident everywhere is barely trained at all.",
@@ -1202,6 +1327,42 @@
       "title": "FocalTverskyLoss",
       "type": "object"
     },
+    "FollowFlows": {
+      "additionalProperties": false,
+      "description": "Follow the field from every foreground pixel and label the basins they arrive in.\n\n**No seed, no interior, nothing eroded**, which is the point of the flow target: pixels\nthat arrive at the same place are one object, and the places are found rather than\nassumed. The highest ceiling of the four on perfect parts, 0.9873.",
+      "properties": {
+        "minimum_area": {
+          "default": 0,
+          "description": "Drop an object smaller than this many pixels. 0 keeps everything, which is the default because the right floor is a property of the data rather than of the method - a nucleus at 256x256 in the Data Science Bowl runs from 4 pixels up, so a floor chosen here would silently delete the smallest real objects in one dataset while letting speckle through in another.\n\nIt is applied after the objects are formed, so it removes answers rather than changing how they were reached.",
+          "minimum": 0,
+          "title": "Minimum Area",
+          "type": "integer"
+        },
+        "name": {
+          "const": "follow_flows",
+          "default": "follow_flows",
+          "description": "Which decoding, and it decides which other keys this block accepts - `follow_flows` takes `steps` and `step_size`, the others do not. A decoding the chosen `separation` cannot feed is refused by name with both halves stated, rather than returning a label map of something else.",
+          "title": "Name",
+          "type": "string"
+        },
+        "step_size": {
+          "default": 1.0,
+          "description": "How far one step moves, in pixels, on a unit-length field. **This one is a cliff**: 0.9923 at 1.0, 0.4715 at 2.0, 0.0303 at 10.0. A step longer than a pixel jumps over the sink it was converging on and lands in a neighbour's basin, so this is not a speed knob - raise it and the decoding stops working.",
+          "exclusiveMinimum": 0,
+          "title": "Step Size",
+          "type": "number"
+        },
+        "steps": {
+          "default": 200,
+          "description": "How many Euler steps each pixel takes. **Measured as not mattering**: one step scores 0.9914 against 0.9923 converged, a span below the 0.0013 two runs differ by. The field is continuous, so one object's pixels stay together, and it diverges at a seam, so the gap between two objects opens on the first step rather than after many. Left adjustable because that argument is about this data's object sizes, and lowering it is the cheap thing to try on larger ones.",
+          "minimum": 1,
+          "title": "Steps",
+          "type": "integer"
+        }
+      },
+      "title": "FollowFlows",
+      "type": "object"
+    },
     "Initialiser": {
       "enum": [
         "he_normal",
@@ -1211,6 +1372,635 @@
       ],
       "title": "Initialiser",
       "type": "string"
+    },
+    "InstanceData": {
+      "additionalProperties": false,
+      "description": "Where the images and their per-object masks are.\n\n**The one thing this says that a semantic data block cannot**: the masks are read one\nfile per object and keep their identity. `unite_masks()` is what the semantic pipeline\ndoes with the same files, and its own docstring says the cost - the element-wise maximum\nmerges them, so instance identity is gone at read time. Nothing new has to be collected\nto train or score instances on the Data Science Bowl, which ships 670 cases of exactly\nthis shape; it only has to be read differently.\n\nThere is no `colormap`, no `labels` and no `regions` here, because none of them is how\nthis data names anything: a directory of per-object files says where the objects are and\nsays nothing about what kind they are. `n_class` is therefore 2 and derived rather than\ndeclared - see the property.",
+      "properties": {
+        "column_sep": {
+          "default": ";",
+          "description": "For `config_file`, what separates several paths inside one cell - a sample with one mask file per object, as Data Science Bowl has, or one file per channel.",
+          "title": "Column Sep",
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/DataMode",
+          "default": "nested_dirs",
+          "description": "How the files are arranged: `nested_dirs` for one directory per sample, `config_file` for a CSV whose columns name the files. The CSV form is what to use when the data cannot be moved or copied into a layout."
+        },
+        "shuffle": {
+          "default": true,
+          "description": "Shuffle the training data between epochs. Only the training data: validation is read in order so that two epochs measure the same thing in the same way.",
+          "title": "Shuffle",
+          "type": "boolean"
+        },
+        "split": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SplitSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Divide `train_path` instead of naming a second folder. Nothing is written: the samples that were already discovered are partitioned, so a specification stays a description and leaves no files behind. `split_dataset()` is the tool when the CSVs are the point - to keep, to hand to a colleague, or to cite."
+        },
+        "subdirs": {
+          "default": [
+            "images",
+            "masks"
+          ],
+          "description": "For `nested_dirs`, the two subdirectories of each sample directory: the images, and **one mask file per object**. A case with 375 nuclei has 375 files here, which is the Data Science Bowl's own layout; they are read as a label map with one value per object rather than united into one mask, which is the whole difference between this task and `semantic_segmentation`.",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Subdirs",
+          "type": "array"
+        },
+        "test_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A third set, scored only when asked. Whether it can be scored at all depends on whether it carries labels: a folder of images alone is accepted and `predict` works on it, while `evaluate` refuses it by name rather than failing two layers down on the first missing mask.",
+          "title": "Test Path"
+        },
+        "train_path": {
+          "description": "Where the training data is. For `nested_dirs`, a directory of sample directories; for `config_file`, a CSV naming the files. With a `split`, this is the only path given and the divisions are cut from it.",
+          "title": "Train Path",
+          "type": "string"
+        },
+        "validation": {
+          "default": true,
+          "description": "Whether this run validates at all. `false` is the third and last way of answering the question `validation_path` and `split` answer, and it has to be written down.\n\nA final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. What is *not* legitimate is arriving here by omission: a specification with neither a path nor a split is still an error, because 'I have no validation set' and 'I forgot' look identical and only one of them is a decision.\n\nWith `false`, giving `validation_path` or `split` as well is refused: they say where the validation set comes from and this says there is not one.",
+          "title": "Validation",
+          "type": "boolean"
+        },
+        "validation_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional only in the sense that `split` is the other way to get one, and `validation: false` the third. Exactly one of them, because two sources for the validation set are two places to change it.",
+          "title": "Validation Path"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": "auto",
+          "description": "How values in real units are mapped to 0-1: a named window such as 'lung' or 'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole range present. A fixed window is what makes two scans comparable: scaling each one by its own extremes lets a single bright voxel rescale everything else. Ignored for ordinary pictures, which are already 0-255. Accepted as `dicom_window` too, the name it had while DICOM was the only format that needed it.",
+          "title": "Window"
+        }
+      },
+      "required": [
+        "train_path"
+      ],
+      "title": "InstanceData",
+      "type": "object"
+    },
+    "InstanceModel": {
+      "additionalProperties": false,
+      "description": "One instance model: a U-shaped network, a separation target, and how to decode it.\n\nEverything a semantic model has, plus the two axes. `loss` and `metrics` keep their\nmeaning and apply to the **semantic channels** - the mask - which is why the first\nnumber any of these runs reports is foreground Dice: if the mask moved, the instance\nnumber moved for a reason that is not separation, and nothing else in the table can\ntell those apart.",
+      "properties": {
+        "activation": {
+          "$ref": "#/$defs/Activation",
+          "default": "relu",
+          "description": "The non-linearity between convolutions, the same one throughout."
+        },
+        "architecture": {
+          "$ref": "#/$defs/Architecture",
+          "default": "u_net",
+          "description": "Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 between images within any one of them, and 0.0012 from re-running one of them with another seed. On that problem the architecture is not where the result comes from. Adopted from the weights file when `weights` names one."
+        },
+        "augmentation": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/AugmentationStep"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "albumentations transforms, applied to the training data only - never to validation, where the point is to measure the same thing every epoch. Each step is probed at the model's own input size while the pipeline is built, because support for volumes is uneven and a transform that cannot take one raises from inside the library.",
+          "title": "Augmentation"
+        },
+        "batch_normalization": {
+          "default": true,
+          "description": "Normalise between convolutions. On by default, and worth knowing about when weights are averaged: `swa` has to recompute these statistics over the training data, because an averaged weight tensor inherits them from whichever epoch was last rather than averaging them.",
+          "title": "Batch Normalization",
+          "type": "boolean"
+        },
+        "batch_size": {
+          "default": 8,
+          "description": "How many samples go through the network at once. Limited by memory rather than by the problem, and it is the first thing to lower when a 3D run will not fit. It interacts with `batch_normalization`: statistics taken over very few samples are noisy.",
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "block_width": {
+          "default": 2,
+          "description": "Convolutions per block, at every level. 2 is what every U-Net paper uses and what the published weights were trained with; raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them.",
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Block Width",
+          "type": "integer"
+        },
+        "blocks": {
+          "default": 4,
+          "description": "How many times the resolution is halved, so how much context the deepest layer sees. `input_shape` must divide by 2^blocks. Adopted from the weights file when `weights` is given and this is not; with an `encoder`, the backbone's own depth is the ceiling.",
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Blocks",
+          "type": "integer"
+        },
+        "callbacks": {
+          "description": "Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching `val_*` in a run with no validation set.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "cosine_annealing": "#/$defs/CosineAnnealing",
+                "csv_logger": "#/$defs/CsvLogger",
+                "early_stopping": "#/$defs/EarlyStopping",
+                "model_checkpoint": "#/$defs/ModelCheckpoint",
+                "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
+                "swa": "#/$defs/Swa",
+                "terminate_on_nan": "#/$defs/TerminateOnNaN"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/EarlyStopping"
+              },
+              {
+                "$ref": "#/$defs/ModelCheckpoint"
+              },
+              {
+                "$ref": "#/$defs/ReduceLrOnPlateau"
+              },
+              {
+                "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Swa"
+              },
+              {
+                "$ref": "#/$defs/CsvLogger"
+              },
+              {
+                "$ref": "#/$defs/TerminateOnNaN"
+              }
+            ]
+          },
+          "title": "Callbacks",
+          "type": "array"
+        },
+        "channels": {
+          "default": 3,
+          "description": "How many channels the network takes: 3 for colour, 1 for greyscale, and one per sequence for multi-modal data such as the four MRI sequences in BraTS. Derived rather than declared when `channels_from` names the files, because then the data decides. Not adopted from a weights file - the data pipeline needs it before a network exists, and a specification has to be checkable offline.",
+          "minimum": 1,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "decode": {
+          "anyOf": [
+            {
+              "items": {
+                "discriminator": {
+                  "mapping": {
+                    "connected_components": "#/$defs/ConnectedComponents",
+                    "follow_flows": "#/$defs/FollowFlows",
+                    "nearest_seed": "#/$defs/NearestSeed",
+                    "watershed": "#/$defs/Watershed"
+                  },
+                  "propertyName": "name"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/ConnectedComponents"
+                  },
+                  {
+                    "$ref": "#/$defs/NearestSeed"
+                  },
+                  {
+                    "$ref": "#/$defs/Watershed"
+                  },
+                  {
+                    "$ref": "#/$defs/FollowFlows"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the predicted channels become objects. **A list**, because several decodings share one forward pass: a second decoding of 134 images costs 1.41 s against 16 minutes for a second training run, so this is `metrics:` rather than `callbacks:` - `evaluate()` returns one row per (model, decoding).\n\nEach entry is a block with a `name` and that decoding's own parameters. A decoding the `separation` cannot feed - `follow_flows` with `rim`, say - is refused at load time with both halves named, rather than returning a label map of something else.\n\n**Left unset it is the signal's own decoding plus `connected_components`**, which is the pair that makes a row readable: the same model and the same mask with and without the separation signal. Write the list to choose; leave it out and the comparison every one of these runs needs is already there.\n\nWith `splits`, decoding happens after the tiles are stitched, never per tile - an object crossing a seam would otherwise become two objects, and that is a constraint of the task rather than a setting.",
+          "title": "Decode"
+        },
+        "deep_supervision": {
+          "default": false,
+          "description": "Train every decoder depth rather than only the last, each at input resolution. `u_net_plus_plus` only, since it is the architecture with intermediate outputs to supervise.",
+          "title": "Deep Supervision",
+          "type": "boolean"
+        },
+        "dropout": {
+          "default": 0.0,
+          "description": "Drop this fraction during training. 0 switches it off, which is the default because these models are small enough that batch normalisation usually carries the regularisation on its own.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Dropout",
+          "type": "number"
+        },
+        "encoder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A timm backbone to use as the contracting path, e.g. 'resnet34'. Leave unset for the built-in encoder, which is the only one that works in 3D.",
+          "title": "Encoder"
+        },
+        "encoder_learning_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. The full-resolution stage added in front of them is ours and starts random, so it trains at the optimizer's own rate. Unset means one rate for the whole network.",
+          "title": "Encoder Learning Rate"
+        },
+        "epochs": {
+          "default": 10,
+          "description": "How many passes over the training data. The default is deliberately small: it is enough to see that a run works and not enough to mistake for a result. With `cosine_annealing` this is also the length the schedule is spread over.",
+          "minimum": 1,
+          "title": "Epochs",
+          "type": "integer"
+        },
+        "filters": {
+          "default": 16,
+          "description": "Filters in the first block, doubled at every level, so this sets the model's size more than anything else does. Adopted from the weights file when `weights` is given and this is not.",
+          "minimum": 1,
+          "title": "Filters",
+          "type": "integer"
+        },
+        "fit": {
+          "default": true,
+          "description": "Set false to load weights and skip training.",
+          "title": "Fit",
+          "type": "boolean"
+        },
+        "freeze_encoder": {
+          "default": 0,
+          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random decoder settle before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
+          "minimum": 0,
+          "title": "Freeze Encoder",
+          "type": "integer"
+        },
+        "initialiser": {
+          "$ref": "#/$defs/Initialiser",
+          "default": "he_normal",
+          "description": "How the weights start. The `he_*` family is scaled for ReLU-like activations and `glorot_*` for symmetric ones, so this and `activation` are a pair."
+        },
+        "input_shape": {
+          "description": "Spatial size: (height, width) in 2D, (depth, height, width) in 3D.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Input Shape",
+          "type": "array"
+        },
+        "loss": {
+          "description": "The objective trained against. The `loss` column of a score table is comparable only between models trained on the same one - a Focal-Tversky of 0.05 is not better than a cross-entropy of 0.14, it is not the same question - which is why the table carries the loss's name beside it.",
+          "discriminator": {
+            "mapping": {
+              "boundary": "#/$defs/BoundaryLoss",
+              "cce": "#/$defs/CceLoss",
+              "cce_dice": "#/$defs/CceDiceLoss",
+              "combo": "#/$defs/ComboLoss",
+              "dice": "#/$defs/DiceLoss",
+              "focal": "#/$defs/FocalLoss",
+              "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "iou": "#/$defs/IouLoss",
+              "l1": "#/$defs/L1Loss",
+              "lovasz": "#/$defs/LovaszLoss",
+              "mse": "#/$defs/MseLoss",
+              "smooth_l1": "#/$defs/SmoothL1Loss",
+              "tversky": "#/$defs/TverskyLoss"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/IouLoss"
+            },
+            {
+              "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceDiceLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalLoss"
+            },
+            {
+              "$ref": "#/$defs/TverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalTverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/ComboLoss"
+            },
+            {
+              "$ref": "#/$defs/LovaszLoss"
+            },
+            {
+              "$ref": "#/$defs/BoundaryLoss"
+            },
+            {
+              "$ref": "#/$defs/MseLoss"
+            },
+            {
+              "$ref": "#/$defs/L1Loss"
+            },
+            {
+              "$ref": "#/$defs/SmoothL1Loss"
+            }
+          ],
+          "title": "Loss"
+        },
+        "metrics": {
+          "description": "What to report beside the loss, computed on the mask rather than on the objective, so these stay comparable across models. A callback watching `val_<metric>` is refused when nothing here will produce it.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "cldice": "#/$defs/ClDiceMetric",
+                "dice": "#/$defs/DiceMetric",
+                "iou": "#/$defs/IouMetric",
+                "tversky": "#/$defs/TverskyMetric"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/IouMetric"
+              },
+              {
+                "$ref": "#/$defs/DiceMetric"
+              },
+              {
+                "$ref": "#/$defs/TverskyMetric"
+              },
+              {
+                "$ref": "#/$defs/ClDiceMetric"
+              }
+            ]
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "name": {
+          "description": "Unique within a spec; names the outputs.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "optimizer": {
+          "description": "How the weights are updated. `name` selects which one and decides which other keys this block accepts.",
+          "discriminator": {
+            "mapping": {
+              "adadelta": "#/$defs/Adadelta",
+              "adagrad": "#/$defs/Adagrad",
+              "adam": "#/$defs/Adam",
+              "adamax": "#/$defs/Adamax",
+              "adamw": "#/$defs/AdamW",
+              "nadam": "#/$defs/NAdam",
+              "rmsprop": "#/$defs/RmsProp",
+              "sgd": "#/$defs/Sgd"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Adam"
+            },
+            {
+              "$ref": "#/$defs/AdamW"
+            },
+            {
+              "$ref": "#/$defs/Sgd"
+            },
+            {
+              "$ref": "#/$defs/RmsProp"
+            },
+            {
+              "$ref": "#/$defs/Adagrad"
+            },
+            {
+              "$ref": "#/$defs/Adadelta"
+            },
+            {
+              "$ref": "#/$defs/Adamax"
+            },
+            {
+              "$ref": "#/$defs/NAdam"
+            }
+          ],
+          "title": "Optimizer"
+        },
+        "pretrained": {
+          "default": false,
+          "description": "Load the encoder's ImageNet weights. Separate from `encoder` on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.",
+          "title": "Pretrained",
+          "type": "boolean"
+        },
+        "separable_conv": {
+          "default": false,
+          "description": "Depthwise-separable convolutions: far fewer parameters for the same shape, and a little slower to converge.",
+          "title": "Separable Conv",
+          "type": "boolean"
+        },
+        "separation": {
+          "description": "What the network predicts so that one mask can become many objects: a block named `rim` or `flows`, carrying that mechanism's own settings. **Required, with no default**, because it decides the width of the head and which losses are admissible - the two things a model cannot be built without - and because neither value is a safe guess at what somebody meant.\n\nA block rather than a bare name because the settings differ between the two and belong inside the one they describe: `width` under `name: flows` is an unknown key rather than something a validator has to refuse.\n\nIt is also the field whose documentation carries a result: on the Data Science Bowl the two are worth +0.0640 and +0.0680 of instance average precision over the same mask through `connected_components`, a difference below the noise between two runs of one configuration, while a perfect mask is worth +0.2398. Read the blocks' own descriptions for what that means before planning a comparison around this axis.",
+          "discriminator": {
+            "mapping": {
+              "flows": "#/$defs/Flows",
+              "rim": "#/$defs/Rim"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Rim"
+            },
+            {
+              "$ref": "#/$defs/Flows"
+            }
+          ],
+          "title": "Separation"
+        },
+        "spatial_dropout": {
+          "default": true,
+          "description": "Drop whole feature maps rather than individual activations. The right kind for images, because neighbouring pixels in one map are correlated and dropping them one at a time removes less than it appears to. Has no effect unless `dropout` is above 0.",
+          "title": "Spatial Dropout",
+          "type": "boolean"
+        },
+        "splits": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Cut each image into a grid of tiles instead of shrinking it. One entry per spatial dimension, e.g. [2, 3] cuts into 2 rows by 3 columns. The source is read at splits * input_shape and divided; every tile is input_shape. Leave unset to resize the whole image instead. Training then shuffles in windows rather than over every tile, so one decode serves all of a sample's tiles: measured on 2048-pixel retinas cut sixteen ways, the loader costs 254 ms a tile shuffled wholesale against 49 ms this way, and a batch still draws from several sources.",
+          "title": "Splits"
+        },
+        "upsample": {
+          "default": false,
+          "description": "Upsample+conv instead of transposed convolution.",
+          "title": "Upsample",
+          "type": "boolean"
+        },
+        "weights": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Registry name (e.g. 'dsbowl-unet') or a path to a local checkpoint.",
+          "title": "Weights"
+        }
+      },
+      "required": [
+        "name",
+        "input_shape",
+        "separation"
+      ],
+      "title": "InstanceModel",
+      "type": "object"
+    },
+    "InstanceSpec": {
+      "additionalProperties": false,
+      "description": "Objects rather than classes: which object every pixel belongs to, scored as instances.\n\nThe same images and the same U-shaped networks as `semantic_segmentation`, with the\nmasks read one file per object instead of united into one. Two fields are new on a\nmodel - `separation`, what the network predicts, and `decode`, a list of ways to turn\nthose channels into objects - and `pyplatypus.spec.instances` is where both are\ndocumented, measurements included.\n\n**What this task is honestly worth, said here because the tag's name promises more.**\nA reader who writes `task: instance_segmentation` gets a semantic model with a\nseparation target, decoded into objects and scored by the Data Science Bowl's own\naverage precision. On that dataset the separation signal is worth +0.068 at best while\na perfect mask is worth +0.2398, so the limit is the mask rather than the separation -\nand `connected_components`, which ignores the signal entirely, is always available as\nthe row every other row is read against. The capability is real, the ceiling is\nmeasured, and both are in the documentation rather than in a footnote.",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/InstanceData",
+          "description": "Where the images and their per-object masks are, and how to read them."
+        },
+        "deterministic": {
+          "default": false,
+          "description": "Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - `seed` alone does not, and the field above says so.\n\n**It is an opt-in because the cost is real and arrives late.** Some convolutions become much slower, and an operation that has no deterministic implementation raises *when it is reached* - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.\n\nNeeds `seed`: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.",
+          "title": "Deterministic",
+          "type": "boolean"
+        },
+        "models": {
+          "description": "One or more models, trained in turn against the same data. Names must be unique, for the same reason as in a segmentation specification. Several entries differing only in `separation` is the comparison this task exists to make easy - and `decode` widens the table again without a second run.",
+          "items": {
+            "$ref": "#/$defs/InstanceModel"
+          },
+          "minItems": 1,
+          "title": "Models",
+          "type": "array"
+        },
+        "output_dir": {
+          "default": "platypus_output",
+          "description": "Where a run record is written, and where `fit()` puts anything it is asked to save. Nothing is written unless something asks to write: naming this does not by itself create a directory.",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Makes a run repeatable as far as the arithmetic is deterministic, which goes further on some hardware than others - so it is worth knowing where it stops.\n\n**Repeatable:** the split (`split_dataset` gives the same partition on any machine), a detector's fitted anchors, the order the data arrives in and its augmentation - including inside the loader's worker processes - and, on the processor, every number to twelve decimal places.\n\n**Not repeatable:** a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and `0.8.0a3` did exactly that.\n\nSo it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.",
+          "title": "Seed"
+        },
+        "task": {
+          "const": "instance_segmentation",
+          "default": "instance_segmentation",
+          "description": "Fixed for this specification: `instance_segmentation`.",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "models"
+      ],
+      "title": "InstanceSpec",
+      "type": "object"
     },
     "IouLoss": {
       "additionalProperties": false,
@@ -1420,6 +2210,28 @@
       "title": "NAdam",
       "type": "object"
     },
+    "NearestSeed": {
+      "additionalProperties": false,
+      "description": "Grow the predicted interiors outward: every other foreground pixel joins the nearest.\n\nA Voronoi partition of the foreground around the interiors, which one distance\ntransform answers. Not a watershed: it splits on distance alone, so the join lands on\nthe geometric midline wherever the picture says the objects part. For nuclei - small,\nroughly convex, meeting along a short seam - the two agree closely.\n\n**The better of the two rim decodings, measured**: 0.5561 against the watershed's\n0.5458 on one trained model, and 0.9846 against 0.9703 on the ground truth. A\nforeground pixel no seed can reach stays background rather than becoming an object of\nits own, which is the honest answer when the model said \"object here\" and \"no centre\nanywhere\".",
+      "properties": {
+        "minimum_area": {
+          "default": 0,
+          "description": "Drop an object smaller than this many pixels. 0 keeps everything, which is the default because the right floor is a property of the data rather than of the method - a nucleus at 256x256 in the Data Science Bowl runs from 4 pixels up, so a floor chosen here would silently delete the smallest real objects in one dataset while letting speckle through in another.\n\nIt is applied after the objects are formed, so it removes answers rather than changing how they were reached.",
+          "minimum": 0,
+          "title": "Minimum Area",
+          "type": "integer"
+        },
+        "name": {
+          "const": "nearest_seed",
+          "default": "nearest_seed",
+          "description": "Which decoding, and it decides which other keys this block accepts - `follow_flows` takes `steps` and `step_size`, the others do not. A decoding the chosen `separation` cannot feed is refused by name with both halves stated, rather than returning a label map of something else.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "NearestSeed",
+      "type": "object"
+    },
     "ReduceLrOnPlateau": {
       "additionalProperties": false,
       "description": "Cut the learning rate when the evidence says the run has stalled.\n\nThe difference from `cosine_annealing` is that this one reacts rather than follows a\nschedule, so it may never fire at all - which is why a cosine beside `swa` is refused\nand this is not. Pairs with a run whose plateau arrives at an epoch nobody can predict.",
@@ -1488,6 +2300,28 @@
         "of"
       ],
       "title": "Region",
+      "type": "object"
+    },
+    "Rim": {
+      "additionalProperties": false,
+      "description": "Background, object interior, object rim - three classes, one extra channel.\n\nThe cheapest signal there is: the head is one channel wider than the data's class\ncount and the ordinary softmax losses apply to all of it unchanged, so nothing about\nthe objective or the activation is special. What it costs is that the rim is taken out\nof the objects, which is the trade `Separation.RIM` has the numbers for.\n\n```yaml\nseparation:\n  name: rim\n  width: 2          # in pixels of the model's input, and not the published sweep's 3\ndecode:\n  - name: nearest_seed\n  - name: connected_components\n```",
+      "properties": {
+        "name": {
+          "const": "rim",
+          "default": "rim",
+          "description": "Which separation signal, and it decides which other keys this block accepts: `rim` takes `width`, `flows` takes `mode`, `loss` and `weight`. A setting that belongs to the other mechanism is not refused here, it is **unwritable** - `width` under `name: flows` is an unknown key, which is the answer every typo in a specification gets.\n\nThat is this block's reason to be a block, and it was built flat first: `separation: rim` beside `rim_width`, `flow_mode`, `flow_loss` and `flow_weight`. The flat form parses, so it needs a validator and a table of which field belongs to which mechanism to refuse half of what it accepts, and it shows every reader four fields of which two can apply to them. This form shows a reader of `name: rim` one field, and the refusal is gone rather than written - `extra=\"forbid\"` was already doing that job for every other key in the file.",
+          "title": "Name",
+          "type": "string"
+        },
+        "width": {
+          "default": 2,
+          "description": "How many pixels wide the rim class is, **in pixels of the model's own input** - so it means the same thing whether the image was resized or tiled, because the target is built after the resize and the augmentation rather than before (`pyplatypus#210`).\n\n**There is a measured sweep of this quantity and it is not a sweep of this field, which is worth knowing before quoting either.** Four runs differing in nothing else scored 0.5169, 0.5486, **0.5587** and 0.5306 of instance average precision at widths 1 to 4, against a 0.0074 spread between two runs of one configuration - but that pipeline derived the rim at the *source* resolution and resized the three-class map afterwards. A Data Science Bowl case is around 520 pixels and the model reads 256, so the peak of that sweep is roughly 1.5 pixels of model input, not 3. The default is the nearest width above it. A sweep in these units has not been run.\n\nWhat that sweep does establish is the shape of the trade, which is the part that transfers: **a rim wide enough to learn is wide enough to hollow the object out**, so rim Dice climbed 0.48 to 0.76 across those widths while interior Dice fell 0.90 to 0.81, and past the peak the model found *more* regions and matched fewer of them. Both halves are reported per run, because a single instance number cannot say which of them moved.",
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "title": "Rim",
       "type": "object"
     },
     "RmsProp": {
@@ -2445,11 +3279,34 @@
       },
       "title": "TverskyMetric",
       "type": "object"
+    },
+    "Watershed": {
+      "additionalProperties": false,
+      "description": "Flood the foreground from the predicted interiors, over the rim evidence as terrain.\n\nThe interiors are the markers and the model's own rim probability is the surface, so a\njoin lands on a ridge rather than on the midline between two seeds - which is the\ninformation `nearest_seed` throws away when it thresholds the rim and never looks at it\nagain. The engine passes that probability; there is nothing to configure, because the\none defensible choice of surface is the model's own.\n\n**Measured, and it does not pay here.** On one trained model it reaches 0.5458 against\n`nearest_seed`'s 0.5561 - 0.0103 below, which is 7.8 times the 0.0013 standard deviation\nof three runs of the identical configuration. Surface quality matters a great deal to\nit, and to nothing: a *perfect* rim as the surface is worth +0.0132, ten times that\nstandard deviation, and only draws level with the decoding that ignores the surface\naltogether. So the seeds decide which objects exist and the seam between them is\nsecond-order. `pyplatypus#211`, closed measured-and-no.",
+      "properties": {
+        "minimum_area": {
+          "default": 0,
+          "description": "Drop an object smaller than this many pixels. 0 keeps everything, which is the default because the right floor is a property of the data rather than of the method - a nucleus at 256x256 in the Data Science Bowl runs from 4 pixels up, so a floor chosen here would silently delete the smallest real objects in one dataset while letting speckle through in another.\n\nIt is applied after the objects are formed, so it removes answers rather than changing how they were reached.",
+          "minimum": 0,
+          "title": "Minimum Area",
+          "type": "integer"
+        },
+        "name": {
+          "const": "watershed",
+          "default": "watershed",
+          "description": "Which decoding, and it decides which other keys this block accepts - `follow_flows` takes `steps` and `step_size`, the others do not. A decoding the chosen `separation` cannot feed is refused by name with both halves stated, rather than returning a label map of something else.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "Watershed",
+      "type": "object"
     }
   },
   "$id": "https://maju116.github.io/pyplatypus/schema/spec.schema.json",
   "discriminator": {
     "mapping": {
+      "instance_segmentation": "#/$defs/InstanceSpec",
       "object_detection": "#/$defs/DetectionSpec",
       "semantic_segmentation": "#/$defs/SegmentationSpec"
     },
@@ -2458,6 +3315,9 @@
   "oneOf": [
     {
       "$ref": "#/$defs/SegmentationSpec"
+    },
+    {
+      "$ref": "#/$defs/InstanceSpec"
     },
     {
       "$ref": "#/$defs/DetectionSpec"
