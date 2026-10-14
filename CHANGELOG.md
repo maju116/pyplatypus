@@ -4,8 +4,10 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 The second entry under this heading and the same reason as the first: it records an
-**outcome**, and `examples/` is not in the wheel so there is nothing to ship. What is new
-here is that the outcome includes a correction to a column this project printed.
+**outcome**, and neither `examples/` nor the guide page is in the wheel. What *is* in the
+wheel is one docstring, so nothing here changes what a run does. What is new is that the
+outcome includes two corrections to things this project had written down - a column it
+printed, and a claim about a table it builds.
 
 ### Measured
 
@@ -37,7 +39,43 @@ here is that the outcome includes a correction to a column this project printed.
    comment rather than a typo. Doubling it bought +0.0451 of average precision; the last
    twenty epochs of the hundred and twenty bought +0.0018, and the best epoch was 118 of 120.
 
+### Documentation
+
+ - **The configuration guide has a section on the third task**, in both packages:
+   *Instances instead of one mask*, between the model's own fields and detection. It is the
+   §3C rule that a change to how a run is written belongs in the guide on both sides with the
+   same sections, and `task: instance_segmentation` shipped in `0.8.0a20` without it - the
+   guide had zero occurrences of the word.
+
+   What a reader needs that no reference page tells them: the data block gets **shorter**
+   (there is no `colormap` and no `labels`, because the classes are always background and
+   object and the per-object files are what name the objects), `separation` is one block per
+   model with no default while `decode` is a list, no value appears in both because one is a
+   noun and the other a verb, and a model's own `loss` scores the mask while a `flows` block
+   carries its own for the vector channels. The section also carries what the task is worth -
+   +0.068 against a perfect mask's +0.2398 - for the same reason the reference does.
+
+   Both guides' YAML is validated by each suite, and the new block is: it was mutated to name
+   `follow_flows` under `separation: rim` and the Python test failed on that line.
+
 ### Fixed
+
+ - **`evaluate()`'s own docstring claimed the yardstick is in every model's rows "whether it
+   was asked for or not", and it is not.** `connected_components` is in the pair `decode`
+   *derives* to when a model stayed silent; a model that writes a `decode` list gets the list
+   it wrote and nothing added. The code is right - the engine does not add a row to somebody's
+   table that they did not ask for - and three pieces of prose were wrong, including
+   `0.8.0a20`'s own entry, which is corrected in place below with the correction left visible.
+
+   **It went unnoticed because only the kind half had a test.**
+   `test_the_yardstick_is_in_the_table_without_being_asked_for` covers the derived pair and
+   says so in its docstring; nothing covered a written list, so the claim about the branch
+   with no test is the one that drifted. `test_a_written_decode_list_is_what_you_get` is the
+   missing half, and it fails when the code is mutated to make the old sentence true.
+
+   `examples/compare_instance_separations.py` already kept the yardstick in its own `--decode`
+   handling, which in hindsight is the evidence: an example compensating for behaviour the
+   engine was documented as having.
 
  - **The table's `fg dice` column was neither a foreground Dice nor one quantity**, and is
    now called `class dice`. It is the engine's `dice` metric, a mean over the class channels
@@ -142,9 +180,11 @@ rather than from `(logits, target)`.
 **What the tag is honestly worth is in its own documentation and it is not flattering.** On
 the Data Science Bowl the separation signal is worth +0.068 of instance average precision at
 best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6.
-`connected_components` - which ignores the signal entirely - is in every model's decodings
-whether it was asked for or not, because it is the row the signal's row has to be read
-against, and a *perfect* semantic mask scores 0.7655 through it. The capability is real, the
+`connected_components` - which ignores the signal entirely - is in the pair `decode` derives
+to when a model stayed silent, because it is the row the signal's row has to be read against,
+and a *perfect* semantic mask scores 0.7655 through it. (This sentence read "in every model's
+decodings whether it was asked for or not" until the Unreleased entry above corrected it: that
+was never true of a model which wrote its own `decode` list.) The capability is real, the
 ceiling is measured, and both are in the configuration reference rather than in a footnote.
 
 ### Added
