@@ -149,6 +149,9 @@ website:
         - reference/overlay_instance_agreement.qmd
         - reference/flow_to_colours.qmd
         - reference/drawing_style.qmd
+      - section: Masks and volumes
+        contents:
+        - reference/save_class_masks.qmd
       - section: When something is wrong
         contents:
         - reference/PlatypusError.qmd
@@ -295,6 +298,13 @@ quartodoc:
     - overlay_instance_agreement
     - flow_to_colours
     - drawing_style
+  - title: Masks and volumes
+    desc: 'Overlapping classes cannot be one picture, so they are one picture each. The rest of
+      this group is R''s: reading and uniting masks is where an R user meets them.
+
+      '
+    contents:
+    - save_class_masks
   - title: When something is wrong
     desc: 'Three kinds, because they are three different problems: a configuration that cannot
       be read, an engine that cannot run it, and weights that do not belong to the model.

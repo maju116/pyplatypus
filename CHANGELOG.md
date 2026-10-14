@@ -3,6 +3,70 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.8.0a23] - 2026-10-14
+
+A writer the package had promised twice and never had, and the test that finds the next
+promise of that kind. `onehot_to_colours` has refused an overlapping prediction since
+`regions` shipped in `0.8.0a14`, and its refusal ends *"overlapping classes are written one
+file per class, not as a colour map"* - nine releases in which nothing wrote that file.
+
+### Added
+
+ - **`save_class_masks()` writes one binary picture per class**, which is what that refusal
+   points at and what `Region.name`'s own `description=` has been naming since `0.8.0a14`.
+   `<case><suffix>_<region>.png`, mode `L`, 0 or 255, in channel order - which is the order
+   the regions were written in and the order every per-class score is reported in.
+
+   Four decisions in it, each one a failure this project has already made once in another
+   shape:
+
+    - **A region's name is not a filename.** `whole tumour` becomes `whole_tumour` through
+      `class_filename`, and two names that become the **same** filename are refused rather
+      than written: one file would hold the second channel, the first would be silently
+      gone, and the number of returned paths would still be right. That is the quiet shape,
+      so it is the one that is refused by name.
+    - **The name is not lowercased.** `Core` and `core` are one file on one platform and two
+      on another, and the package already has one case-sensitivity story without a second.
+    - **A channel nothing reaches is an empty picture, not a missing file.** A missing file
+      reads as *the run did not produce that class*; an empty one reads as *it did and the
+      answer was nothing*. Those are different findings and only one of them is true.
+    - **A volume stack is refused.** A PNG carries neither voxel spacing nor orientation, so
+      a volume written as pictures cannot be laid back over the scan it came from. Only rank
+      5 is refused, because a single volume `(d, h, w, c)` and a stack of images have the
+      same rank and nothing in the array tells them apart - the same limit `save_masks` has
+      on the R side, and it is stated rather than guessed at.
+
+   `threshold` defaults to `0.5`, which is what every metric in the package thresholds a
+   multilabel channel at. A different number writes a picture that disagrees with the score
+   printed beside it, and the docstring says so.
+
+   Filed under **Masks and volumes** in the reference, which is the group R files
+   `save_masks` and `save_volumes` under and which held nothing here until now. The shared
+   order already carried the title; `tests/test_reference_groups.py` now pins the name's
+   placement in both suites, which is the fifth such pair.
+
+### Fixed
+
+ - **The schema's prose named two functions that do not exist here, and now a test says it
+   cannot.** `tests/test_schema_prose_names.py` reads every `description` out of
+   `spec_schema()` - the strings `tools/build_config_reference.py` publishes as the
+   configuration reference - and asserts every `` `name()` `` in them resolves to something
+   this package has. It found the two it was written for and one it was not:
+
+    - `save_class_masks`, named in `Region.name` and built above. The name was decided on
+      `maju116/platypus#91` and written into the schema before anything existed; nothing
+      read the sentence again for nine releases.
+    - `training_history()`, in `CsvLogger.path` and its class docstring, which is the **R**
+      package's function. True for the R reader it was written with in mind and a dead end
+      for the Python reader the generated page is for. Both now say `fit()`, which is what
+      this package answers the same question with.
+
+   §4's *"an instruction addressed to a human is code nothing runs"*, in the one place this
+   project generates documentation out of code. The test is the engine's because the schema
+   and the page are the engine's, and it carries the usual guard against passing by looking
+   at nothing - it asserts it found more than 150 descriptions and more than five names
+   before asserting anything about them.
+
 ### Documentation
 
  - **The guide has a section on overlapping classes**, which `0.8.0a14` shipped the field for
@@ -19,11 +83,11 @@ All notable changes to this project will be documented in this file.
    the page - checked by breaking it, which fails that test at its line rather than passing
    quietly.
 
-   One thing the section does **not** do: name a function for writing an overlapping
-   prediction back out. It says one voxel gets one colour and a voxel here may be in three
-   classes, which is the honest statement while `save_class_masks` - named in `Region.name`'s
-   own `description=` - exists in neither package. `maju116/rplatypus#152` carries that
-   decision.
+   The section says one voxel gets one colour and a voxel here may be in three classes, and
+   it now names what writes such a prediction out: `save_class_masks()`, added in this same
+   release. It was written without that sentence, because the function existed in neither
+   package at the time and the honest thing was to say nothing rather than to name it;
+   `maju116/rplatypus#152` is where the decision to build it was taken.
 
 ### Changed
 

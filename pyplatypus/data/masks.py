@@ -3,13 +3,20 @@
 The colormap is the contract: position in the list is the class index, and the colour is
 what that class looks like on disk. Everything here is rank-agnostic - nothing indexes
 `[:, :]`, so a volume works the same as an image.
+
+`save_class_masks` is the one thing here that touches disk, and it is here rather than
+beside the readers because it is what `onehot_to_colours`'s refusal points at: the pair is
+the point. Overlapping classes cannot be one picture, so they are one picture each.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 from pyplatypus.errors import PlatypusError
 
@@ -261,3 +268,122 @@ def onehot_to_colours(onehot: np.ndarray, colormap: list[tuple[int, int, int]]) 
             "Overlapping classes are written one file per class, not as a colour map."
         )
     return np.asarray(colormap, dtype=np.uint8)[onehot.argmax(axis=-1)]
+
+
+def class_filename(name: str) -> str:
+    """A region's name as a filename fragment, which is not the same string.
+
+    `regions` names are written for a reader - `whole tumour`, `enhancing` - and a reader is
+    not a filesystem. Anything outside `[A-Za-z0-9._-]` becomes `_`, runs collapse, and the
+    name is otherwise left alone: lowercasing it would make two platforms disagree about
+    whether `Core` and `core` are one file, and this package already has a case-sensitivity
+    story it does not need a second one of.
+    """
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
+    if not cleaned:
+        raise MaskError(
+            f"the region name {name!r} has no character a filename can hold, so there is "
+            "nothing to call its file. Name it in letters, digits, dot, dash or underscore."
+        )
+    return cleaned
+
+
+def save_class_masks(
+    prediction: np.ndarray,
+    directory: str | Path,
+    *,
+    names: Sequence[str],
+    cases: Sequence[str] | None = None,
+    threshold: float = 0.5,
+    suffix: str = "",
+) -> list[Path]:
+    """One binary picture per class, which is how an overlapping prediction reaches disk.
+
+    `onehot_to_colours` refuses a prediction where a voxel is in two classes at once, and
+    its refusal says overlapping classes are written one file per class. This is that file
+    per class. `regions` gives a channel per named region and a sigmoid per channel, so the
+    channels neither compete nor sum to one, and the only lossless thing a picture can hold
+    is one channel.
+
+    Each file is `<case><suffix>_<region>.png`, mode `L`, 0 or 255 - a mask anything opens
+    and anything thresholds back, rather than a colour that has to be looked up. The region
+    name comes from `names` and goes through `class_filename`, so `whole tumour` is
+    `whole_tumour` on disk.
+
+    What this does **not** do is decide for you. A channel where nothing reaches `threshold`
+    is written as an empty picture rather than skipped: a missing file reads as "this run did
+    not produce that class", and an empty one reads as "it did and the answer was nothing",
+    which are different findings and only one of them is true.
+
+    Args:
+        prediction: Channels-last probabilities or a one-hot array, either `(h, w, c)` for
+            one image or `(n, h, w, c)` for a stack. A **volume** cannot come here: a PNG
+            carries no voxel spacing and no orientation, so a volume mask written as
+            pictures cannot be laid back over the scan it was computed from. Only rank 5 is
+            refused, because a single volume `(d, h, w, c)` and a stack of images have the
+            same rank and nothing in the array can tell them apart.
+        directory: Where to write. Created, with parents, if it does not exist.
+        names: One name per channel, in channel order - `[region.name for region in
+            spec.data.regions]`. Channel order is the order the regions were written in,
+            which is also the order every per-class score is reported in.
+        cases: One name per image, usually the source filenames' stems. Defaults to
+            `mask_0001` and so on.
+        threshold: A channel is hot where it reaches this. 0.5 is what every metric in the
+            package thresholds a multilabel channel at, so a different number here writes a
+            picture that disagrees with the score printed beside it.
+        suffix: Added before the class, so two models can write into one directory.
+
+    Returns:
+        The paths written, image by image and within an image channel by channel.
+    """
+    array = np.asarray(prediction)
+    if array.ndim >= 5:
+        raise MaskError(
+            f"this is a stack of volumes ({' x '.join(str(size) for size in array.shape)}), "
+            "and a PNG carries neither voxel spacing nor orientation - a volume written as "
+            "pictures cannot be laid back over the scan it came from. Write each channel as "
+            "NIfTI with the geometry of its source instead."
+        )
+    if array.ndim == 3:
+        array = array[None]
+    if array.ndim != 4:
+        raise MaskError(
+            f"expected a channels-last prediction, got shape "
+            f"{' x '.join(str(size) for size in np.asarray(prediction).shape)}"
+        )
+
+    channels = array.shape[-1]
+    if len(names) != channels:
+        raise MaskError(
+            f"the prediction has {channels} channels and {len(names)} names were given. "
+            "One name per channel, in the order the regions were written."
+        )
+
+    files = [class_filename(str(name)) for name in names]
+    if len(set(files)) != len(files):
+        # Two names the filesystem cannot keep apart would be one file holding the second
+        # channel, with the first silently gone and the count of written paths still right.
+        clash = sorted({name for name in files if files.count(name) > 1})
+        raise MaskError(
+            f"two region names become the same filename: {', '.join(clash)}. They differ as "
+            "prose and not as paths, so one class would overwrite the other."
+        )
+
+    count = len(array)
+    if cases is None:
+        cases = [f"mask_{index + 1:04d}" for index in range(count)]
+    elif len(cases) != count:
+        raise MaskError(f"there are {count} predictions and {len(cases)} case names were given")
+
+    target = Path(directory)
+    target.mkdir(parents=True, exist_ok=True)
+    hot = array >= threshold
+
+    written: list[Path] = []
+    for index, case in enumerate(cases):
+        for channel, name in enumerate(files):
+            path = target / f"{case}{suffix}_{name}.png"
+            picture = np.where(hot[index, ..., channel], 255, 0).astype(np.uint8)
+            Image.fromarray(picture, mode="L").save(path)
+            written.append(path)
+    return written
