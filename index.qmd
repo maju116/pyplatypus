@@ -2,13 +2,13 @@
 title: pyplatypus
 ---
 
-The engine behind [platypus](https://maju116.github.io/platypus/): semantic segmentation
+The engine behind [rplatypus](https://maju116.github.io/rplatypus/): semantic segmentation
 and object detection in PyTorch, described by one specification and run from it.
 
 ::: {.callout-note}
 ## Working in R?
 
-Read [the R package's documentation](https://maju116.github.io/platypus/) instead. It is
+Read [the R package's documentation](https://maju116.github.io/rplatypus/) instead. It is
 the same engine with an R surface on top, and its pages are written for that - it installs
 this package for you and you never import it.
 :::
