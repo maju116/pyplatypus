@@ -40,6 +40,12 @@ file per class, not as a colour map"* - nine releases in which nothing wrote tha
    multilabel channel at. A different number writes a picture that disagrees with the score
    printed beside it, and the docstring says so.
 
+   The class names arrive as `classes=` rather than `names=`, decided by §3A before the
+   function was released: R's `save_masks` and `save_volumes` already use `names` for the
+   **files** they write, and a sibling writer where the same word means the classes is the
+   quiet kind - a call copied from one to the other would pass filenames as class names, the
+   counts would match whenever they happened to, and nothing would refuse it.
+
    Filed under **Masks and volumes** in the reference, which is the group R files
    `save_masks` and `save_volumes` under and which held nothing here until now. The shared
    order already carried the title; `tests/test_reference_groups.py` now pins the name's

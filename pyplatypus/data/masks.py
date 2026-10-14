@@ -292,7 +292,7 @@ def save_class_masks(
     prediction: np.ndarray,
     directory: str | Path,
     *,
-    names: Sequence[str],
+    classes: Sequence[str],
     cases: Sequence[str] | None = None,
     threshold: float = 0.5,
     suffix: str = "",
@@ -306,9 +306,14 @@ def save_class_masks(
     is one channel.
 
     Each file is `<case><suffix>_<region>.png`, mode `L`, 0 or 255 - a mask anything opens
-    and anything thresholds back, rather than a colour that has to be looked up. The region
-    name comes from `names` and goes through `class_filename`, so `whole tumour` is
-    `whole_tumour` on disk.
+    and anything thresholds back, rather than a colour that has to be looked up. The class
+    name goes through `class_filename`, so `whole tumour` is `whole_tumour` on disk.
+
+    The argument is `classes` rather than `names` because the R package's `save_masks` and
+    `save_volumes` already use `names` for the **files** they write, and a sibling writer
+    where the same word means the classes instead is the quiet kind of mistake: a call
+    copied from one to the other would pass filenames as class names, the counts would
+    match whenever they happened to, and nothing would refuse it.
 
     What this does **not** do is decide for you. A channel where nothing reaches `threshold`
     is written as an empty picture rather than skipped: a missing file reads as "this run did
@@ -323,7 +328,7 @@ def save_class_masks(
             refused, because a single volume `(d, h, w, c)` and a stack of images have the
             same rank and nothing in the array can tell them apart.
         directory: Where to write. Created, with parents, if it does not exist.
-        names: One name per channel, in channel order - `[region.name for region in
+        classes: One name per channel, in channel order - `[region.name for region in
             spec.data.regions]`. Channel order is the order the regions were written in,
             which is also the order every per-class score is reported in.
         cases: One name per image, usually the source filenames' stems. Defaults to
@@ -353,13 +358,13 @@ def save_class_masks(
         )
 
     channels = array.shape[-1]
-    if len(names) != channels:
+    if len(classes) != channels:
         raise MaskError(
-            f"the prediction has {channels} channels and {len(names)} names were given. "
-            "One name per channel, in the order the regions were written."
+            f"the prediction has {channels} channels and {len(classes)} class names were "
+            "given. One name per channel, in the order the regions were written."
         )
 
-    files = [class_filename(str(name)) for name in names]
+    files = [class_filename(str(name)) for name in classes]
     if len(set(files)) != len(files):
         # Two names the filesystem cannot keep apart would be one file holding the second
         # channel, with the first silently gone and the count of written paths still right.
