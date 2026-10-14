@@ -836,16 +836,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#unreleased" id="toc-unreleased" class="nav-link" data-scroll-target="#unreleased">[Unreleased]</a>
   <ul class="collapse">
+  <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">Documentation</a></li>
   <li><a href="#changed" id="toc-changed" class="nav-link" data-scroll-target="#changed">Changed</a></li>
   <li><a href="#measured" id="toc-measured" class="nav-link" data-scroll-target="#measured">Measured</a></li>
-  <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">Documentation</a></li>
+  <li><a href="#documentation-1" id="toc-documentation-1" class="nav-link" data-scroll-target="#documentation-1">Documentation</a></li>
   <li><a href="#fixed" id="toc-fixed" class="nav-link" data-scroll-target="#fixed">Fixed</a></li>
   </ul></li>
   <li><a href="#a22---2026-10-14" id="toc-a22---2026-10-14" class="nav-link" data-scroll-target="#a22---2026-10-14">[0.8.0a22] - 2026-10-14</a>
   <ul class="collapse">
   <li><a href="#added" id="toc-added" class="nav-link" data-scroll-target="#added">Added</a></li>
   <li><a href="#fixed-1" id="toc-fixed-1" class="nav-link" data-scroll-target="#fixed-1">Fixed</a></li>
-  <li><a href="#documentation-1" id="toc-documentation-1" class="nav-link" data-scroll-target="#documentation-1">Documentation</a></li>
+  <li><a href="#documentation-2" id="toc-documentation-2" class="nav-link" data-scroll-target="#documentation-2">Documentation</a></li>
   <li><a href="#the-r-half" id="toc-the-r-half" class="nav-link" data-scroll-target="#the-r-half">The R half</a></li>
   </ul></li>
   <li><a href="#a21---2026-10-14" id="toc-a21---2026-10-14" class="nav-link" data-scroll-target="#a21---2026-10-14">[0.8.0a21] - 2026-10-14</a>
@@ -1148,6 +1149,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>All notable changes to this project will be documented in this file.</p>
 <section id="unreleased" class="level2">
 <h2 class="anchored" data-anchor-id="unreleased">[Unreleased]</h2>
+<section id="documentation" class="level3">
+<h3 class="anchored" data-anchor-id="documentation">Documentation</h3>
+<ul>
+<li><p><strong>The guide has a section on overlapping classes</strong>, which <code>0.8.0a14</code> shipped the field for and deliberately did not document in narrative form: <em>Overlapping classes instead of one per voxel</em>, between the augmentation section and the instance one, because <code>regions</code> is still <code>semantic_segmentation</code> and what changes is what a channel means. The page’s section list is pinned by a test here and the same list in R’s suite, so <strong>this lands in both repositories or neither</strong>; <code>maju116/rplatypus#152</code> is the other half.</p>
+<p>The numbers in it are measured rather than asserted: the same masks are <strong>four</strong> classes written as <code>labels: [0, 1, 2, 4]</code> and <strong>three</strong> channels written as the three BraTS regions, and a voxel whose value is <code>4</code> belongs to all three at once. The YAML block is validated by <code>test_every_configuration_in_the_guide_is_accepted</code> like every other block on the page - checked by breaking it, which fails that test at its line rather than passing quietly.</p>
+<p>One thing the section does <strong>not</strong> do: name a function for writing an overlapping prediction back out. It says one voxel gets one colour and a voxel here may be in three classes, which is the honest statement while <code>save_class_masks</code> - named in <code>Region.name</code>’s own <code>description=</code> - exists in neither package. <code>maju116/rplatypus#152</code> carries that decision.</p></li>
+</ul>
+</section>
 <section id="changed" class="level3">
 <h3 class="anchored" data-anchor-id="changed">Changed</h3>
 <ul>
@@ -1173,8 +1182,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p><strong>The rim model was undertrained at 60 epochs and is not undertrained at 120</strong>, which is why the two models’ epoch counts differ in the configuration and why that asymmetry is a comment rather than a typo. Doubling it bought +0.0451 of average precision; the last twenty epochs of the hundred and twenty bought +0.0018, and the best epoch was 118 of 120.</p></li>
 </ul>
 </section>
-<section id="documentation" class="level3">
-<h3 class="anchored" data-anchor-id="documentation">Documentation</h3>
+<section id="documentation-1" class="level3">
+<h3 class="anchored" data-anchor-id="documentation-1">Documentation</h3>
 <ul>
 <li><p><strong>The configuration guide has a section on the third task</strong>, in both packages: <em>Instances instead of one mask</em>, between the model’s own fields and detection. It is the §3C rule that a change to how a run is written belongs in the guide on both sides with the same sections, and <code>task: instance_segmentation</code> shipped in <code>0.8.0a20</code> without it - the guide had zero occurrences of the word.</p>
 <p>What a reader needs that no reference page tells them: the data block gets <strong>shorter</strong> (there is no <code>colormap</code> and no <code>labels</code>, because the classes are always background and object and the per-object files are what name the objects), <code>separation</code> is one block per model with no default while <code>decode</code> is a list, no value appears in both because one is a noun and the other a verb, and a model’s own <code>loss</code> scores the mask while a <code>flows</code> block carries its own for the vector channels. The section also carries what the task is worth - +0.068 against a perfect mask’s +0.2398 - for the same reason the reference does.</p>
@@ -1217,8 +1226,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><code>tests/test_instance_engine.py</code>’s module docstring said the yardstick is in every row “whether it was asked for or not” - the <strong>fourth</strong> copy of the claim <code>0.8.0a21</code>’s entry corrected in three places. Found by working in the file rather than by a sweep, which is the argument for the sweep.</li>
 </ul>
 </section>
-<section id="documentation-1" class="level3">
-<h3 class="anchored" data-anchor-id="documentation-1">Documentation</h3>
+<section id="documentation-2" class="level3">
+<h3 class="anchored" data-anchor-id="documentation-2">Documentation</h3>
 <ul>
 <li><strong>The guide says which mask column to read across models</strong>, in the section the third task got in <code>0.8.0a21</code>’s cycle. The engine’s copy ships here because it describes what this release returns; R’s copy is written at the same time and ships with the pin move, because a vignette cannot describe a column its pinned engine does not return.</li>
 </ul>
