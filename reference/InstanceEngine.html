@@ -1064,6 +1064,51 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td>list[dict[str, Any]]</td>
 <td>Data Science Bowl ranked on.</td>
 </tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>**<code>foreground_dice</code> is the mask column to read across models and <code>dice</code> is</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>not.** The first is a binary overlap of anything the model called an object</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>against anything that is one, computed identically whatever the separation</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>signal is, unsmoothed and averaged over images - the same pooling as the</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td><code>average_precision</code> beside it. The second is the training metric, a mean over</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>the class channels that model’s head has, so it is read down one model’s rows</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>and never across two. Both are the same for every decoding of one model.</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td><code>pyplatypus#222</code> has the measurement that separates them: 0.09 apart in the</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>class column where the masks are 0.0062 apart, and in the other direction.</td>
+</tr>
 </tbody>
 </table>
 </section>
