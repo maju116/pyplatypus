@@ -62,6 +62,14 @@ CONFIGURATION = HERE / "data_science_bowl_instances.yaml"
 #: counts are not decoration - an average precision cannot tell a route that mislabels from
 #: one that shatters, and the count is what does.
 #:
+#: **Two mask columns, because they are two quantities and only one of them crosses models.**
+#:
+#: `fg dice` is the engine's `foreground_dice`: anything the model called an object against
+#: anything that is one, binarised, unsmoothed and averaged over images - the same arithmetic
+#: whatever the separation signal is, so it is the column to read *across* the table. It
+#: arrived in `0.8.0a22`; until then this script had no such column and the one below was
+#: being read as if it were this one.
+#:
 #: **`class dice` is read down a model's own rows and never across two models**, and it was
 #: called `fg dice` here until 2026-10-13, which is a stronger claim than the number can
 #: carry. It is the engine's `dice` metric: a mean over the class channels the model's head
@@ -71,11 +79,14 @@ CONFIGURATION = HERE / "data_science_bowl_instances.yaml"
 #: 0.9852 and 0.8721, and reading it beside a flow model's is reading two different
 #: quantities. Measured by identical code on both, the binary foreground Dice is 0.9159 for
 #: the rim model against 0.9097 for the flow model - 0.0062 apart, where this column shows
-#: them 0.09 apart and in the other direction.
+#: them 0.09 apart and in the other direction. It is kept rather than dropped because it is
+#: the diagnostic the other column cannot be: a rim model's three class numbers are where a
+#: thin band that never learned shows up at all.
 COLUMNS = [
     ("model", "model", "{}"),
     ("separation", "separation", "{}"),
     ("decode", "decode", "{}"),
+    ("fg dice", "foreground_dice", "{:.4f}"),
     ("class dice", "dice", "{:.4f}"),
     ("AP", "average_precision", "{:.4f}"),
     ("objects", "predicted_objects", "{}"),
@@ -330,9 +341,10 @@ def main() -> None:
         "decoding on this data,\nwhich is the ceiling every row here is under."
     )
     print(
-        "`class dice` is a mean over each model's OWN class channels - three for rim, two "
-        "for flows -\nso it is read down a model's rows and never across two models; the "
-        "two signals' masks are\ncloser than that column makes them look. See COLUMNS."
+        "`fg dice` is the binary foreground - the same arithmetic for both signals, so it is "
+        "the mask\ncolumn to read across the table. `class dice` is a mean over each model's "
+        "OWN class channels -\nthree for rim, two for flows - so it is read down a model's "
+        "rows and never across two.\nThe two columns disagree by design; see COLUMNS."
     )
 
     signal = {}

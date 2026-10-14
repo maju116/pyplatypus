@@ -12,10 +12,19 @@ overlap loss on the classes - and the pieces that make that work are each tested
 own as well as through a run: the weight, the channel split, the foreground the loader
 carries, and the activation that must leave a direction alone.
 
-The **score** happens after a post-process, so `evaluate` has a row per (model, decoding)
-and `connected_components` is in every one of them. That is not symmetry for its own sake:
-the yardstick row is what says whether a separation signal did anything, and on the data
-this was all measured on it is the row that wins.
+The **score** happens after a post-process, so `evaluate` has a row per (model, decoding),
+and where a model stayed silent about `decode` the pair it derives ends in
+`connected_components`. That is not symmetry for its own sake: the yardstick row is what
+says whether a separation signal did anything, and on the data this was all measured on it
+is the row that wins. **This paragraph said the yardstick is in every row whether it was
+asked for or not**, which `#225` corrected in three other places and not in this one - a
+model that writes its own `decode` list gets the list it wrote.
+
+Beside the instance score is **the mask's own**, and which column that is was itself a
+defect: `dice` reduces over the class channels a head has, so it is not one quantity across
+two signals. `foreground_dice` is, and the two tests on it say what it has to be - the same
+arithmetic for `rim` and `flows`, and one number per model rather than per decoding
+(`#222`).
 """
 
 import numpy as np
@@ -420,6 +429,101 @@ def test_a_written_decode_list_is_what_you_get(instance_config):
     engine = InstanceEngine(spec)
     engine.fit()
     assert [row["decode"] for row in engine.evaluate()] == ["follow_flows"]
+
+
+#: The two channel layouts, written out rather than read from `Separation.semantic_from`.
+#: That is the point of the test below: the engine derives this offset and the column must
+#: not depend on how many channels follow it, so the test states the contract independently
+#: instead of asking the code that implements it. `test_the_target_is_as_wide_as_the_head`
+#: above is what holds these two numbers to the heads.
+CLASS_BLOCK_STARTS = {"rim": 0, "flows": 2}
+
+
+def _binary_dice(predictions, truths, start):
+    """The definition, in the test's own arithmetic: foreground against foreground.
+
+    Unsmoothed and averaged over images, which are two of the three decisions
+    `foreground_dice` documents; the third is that both sides are binarised, which is the
+    `> 0` on each.
+    """
+    scores = []
+    for prediction, truth in zip(predictions, truths, strict=True):
+        called = np.argmax(prediction[..., start:], axis=-1) > 0
+        actual = truth > 0
+        scores.append(2 * np.logical_and(called, actual).sum() / (called.sum() + actual.sum()))
+    return float(np.mean(scores))
+
+
+def test_the_mask_column_means_the_same_thing_for_both_separations(instance_config):
+    """`foreground_dice` is comparable across signals where `dice` is not - `pyplatypus#222`.
+
+    The defect this guards shipped in `#215`'s published table: the column read there was
+    the training `dice`, a mean over the class channels a head has - three for `rim`
+    including a thin rim band that scores far lower than the rest, two for `flows`. It
+    showed the two masks 0.09 apart when they are 0.0062 apart, **and with the sign
+    reversed**.
+
+    So the assertion is not that the two numbers are close on this fixture, which would be a
+    claim about the fixture. It is that each model's column equals a binary foreground Dice
+    computed by **one piece of arithmetic applied to both**, with the channel offset written
+    into the test rather than read from the engine. An implementation that reduced over the
+    class channels fails here on the rim model while still passing on `flows`, which is
+    exactly how the defect looked.
+    """
+    first = instance_config["models"][0]
+    spec = from_dict(
+        {
+            **instance_config,
+            "models": [
+                {**first, "name": "rim", "separation": {"name": "rim"}, "epochs": 2},
+                {**first, "name": "flows", "separation": {"name": "flows"}, "epochs": 2},
+            ],
+        }
+    )
+    assert [model.head_channels(spec.data.n_class) for model in spec.models] == [3, 4]
+    engine = InstanceEngine(spec)
+    engine.fit()
+    table = engine.evaluate()
+
+    for name, start in CLASS_BLOCK_STARTS.items():
+        rows = [row for row in table if row["model"] == name]
+        assert rows, f"no rows for {name}"
+        dataset = engine.dataset(engine.runs[name].spec, "validation")
+        truths = [dataset.labels_of(index) for index in range(len(dataset.samples))]
+        expected = _binary_dice(engine.predict(name, split="validation"), truths, start)
+        for row in rows:
+            assert row["foreground_dice"] == pytest.approx(expected, abs=1e-9), (
+                f"{name}'s column is {row['foreground_dice']} where the binary foreground "
+                f"Dice of the same prediction is {expected}; the two signals' columns are "
+                "only comparable while both are this quantity"
+            )
+
+
+def test_the_mask_column_is_one_number_per_model_and_not_per_decoding(instance_config):
+    """The claim `evaluate`'s table makes about the column, held by the structure.
+
+    A decoding turns channels into objects and cannot move the mask, so the number has to be
+    identical on every row of one model - that is what makes it the thing to read first when
+    an instance score moves. `_Decoded` carries it beside the decodings rather than inside
+    each of them, and this is the test that notices if it is ever computed per decoding.
+    """
+    engine = InstanceEngine(
+        spec_of(
+            instance_config,
+            separation={"name": "rim"},
+            epochs=2,
+            # Asked for by name, because the comparison below is the finding: this model's
+            # `dice` is a mean over three class channels and the new column is not.
+            metrics=[{"name": "dice"}],
+        )
+    )
+    engine.fit()
+    table = engine.evaluate()
+    assert len(table) == 2, "the derived pair is what makes this test about two rows"
+    assert table[0]["foreground_dice"] is not None
+    assert table[0]["foreground_dice"] == table[1]["foreground_dice"]
+    # And it is not the training metric wearing a second name, which is the whole finding.
+    assert table[0]["foreground_dice"] != table[0]["dice"]
 
 
 def test_evaluate_refuses_before_anything_is_trained(instance_config):

@@ -97,14 +97,83 @@ printed, and a claim about a table it builds.
    quantity by hand at line 263. So this is a lesson lost rather than one learnt, which is
    §4's "documentation rots in the direction of the work having been done" wearing a column
    heading. What #215 asked for, a foreground Dice the table can be read across, needs the
-   engine to return one: `evaluate()` has no such column and two example scripts now have
-   their own copy.
+   engine to return one. **This entry said `evaluate()` has no such column; `0.8.0a22`
+   below gives it one** (#222), and the example prints that rather than a third hand-rolled
+   copy. The two training scripts keep theirs, which is a decision rather than an oversight:
+   they score an empty case as 1.0 where the engine's column reports it as unscorable, so
+   substituting silently would move a published number's definition.
 
  - `examples/data_science_bowl_instances.yaml` named its checkpoints `weights.safetensors`
    while `model_checkpoint` is `torch.save` - a pickle in a zip, whatever the path says.
    They are `weights.pt` now. `export_weights()` remains the safetensors path, and naming a
    pickle after the format this package chose *because* it is not a pickle is the kind of
    label that gets believed.
+
+## [0.8.0a22] - 2026-10-14
+
+One column, and it is the one an instance table is read across. `#222` came out of `#215`
+and was deliberately left out of the instance milestone: the methods were delivered and the
+measurement taken, and this is a defect in how a result is **reported**.
+
+### Added
+
+ - **`evaluate()` carries `foreground_dice` on every instance row** - the binary overlap of
+   anything the model called an object against anything that is one, computed identically
+   whatever the separation signal is. The table already had a mask column and it was not one
+   quantity: `dice` reduces over the class channels a head has, three for `rim` (background,
+   interior, rim band) against two for `flows`, so on the Data Science Bowl's 134 validation
+   cases it showed the two masks **0.09 apart where they are 0.0062 apart, and with the sign
+   reversed**. `class dice` is the honest name for that one and it stays, beside the new
+   column rather than instead of it, because a rim model's three class numbers are where a
+   thin band that never learned shows up at all.
+
+   Three decisions, each written into the function's docstring because each is worth more
+   than some of the effects this table is read for:
+
+    - **Both sides binarised, through `read_prediction`.** That is the one place the channel
+      layout is read - the vectors sit in front of the classes for `flows` and nowhere for
+      `rim` - so the column cannot acquire a second opinion about where the classes start.
+    - **Unsmoothed, and an unscorable case says so.** The `+1` the training metrics carry
+      scores an empty prediction on empty truth 1.0; `foreground_dice` returns `None` there,
+      which is this module's existing convention - `score_cases` leaves such a case's
+      `average_precision` at `None` and `summarise_instances` filters on exactly that.
+    - **Averaged over images**, which is how the `average_precision` beside it is pooled. The
+      training metrics pool over *batches* with each batch weighed equally, worth 0.0088 on
+      that split, so a row carrying both poolings would hide a difference larger than several
+      it exists to show.
+
+   **It costs no second forward pass.** The number is taken inside `_decoded`'s existing
+   loop, once per case rather than once per decoding, which is also what makes "the same for
+   every row of one model" structural: `_Decoded` carries the mask number beside the
+   decodings instead of inside each of them.
+
+ - `examples/compare_instance_separations.py` prints it as `fg dice`, from the engine's row.
+   The issue asked for this rather than a third copy of the arithmetic, and
+   `test_the_instance_table_does_not_call_its_dice_a_foreground_dice` still holds the *other*
+   column's title, which is the label that was wrong in the published table.
+
+### Fixed
+
+ - `tests/test_instance_engine.py`'s module docstring said the yardstick is in every row
+   "whether it was asked for or not" - the **fourth** copy of the claim `0.8.0a21`'s entry
+   corrected in three places. Found by working in the file rather than by a sweep, which is
+   the argument for the sweep.
+
+### Documentation
+
+ - **The guide says which mask column to read across models**, in the section the third task
+   got in `0.8.0a21`'s cycle. The engine's copy ships here because it describes what this
+   release returns; R's copy is written at the same time and ships with the pin move, because
+   a vignette cannot describe a column its pinned engine does not return.
+
+### The R half
+
+Almost nothing, and structurally rather than by decision: R's score table *is* the engine's
+rows, so the column appears on the R side the moment the pin moves - §3E's shape, the same
+one `0.8.0a12` had, where a release R needs nothing from is still a release whose whole value
+to an R user arrives through the pin. What R owes beyond the pin is one assertion, because a
+column that arrives untested is the next thing to drift: `test-instances.R` now names
+`foreground_dice` and holds it to one value per model.
 
 ## [0.8.0a21] - 2026-10-14
 

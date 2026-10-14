@@ -170,6 +170,61 @@ def score_cases(
     return rows
 
 
+def foreground_dice(predicted: np.ndarray, truth: np.ndarray) -> float | None:
+    """Binary overlap of anything the model called an object against anything that is one.
+
+    The mask's own number in an instance table, and the first thing to read in one: if the
+    foreground moved, the instance score moved for a reason no decoding can explain. That
+    role needs one quantity, and the training metric `dice` is not one - it reduces over the
+    class channels a head has, three for `rim` (background, interior, rim band) against two
+    for `flows`, so on the Data Science Bowl split the two models read **0.09 apart** where
+    their masks are **0.0062 apart and in the other direction** (`pyplatypus#222`).
+
+    Three decisions, each written down because each is worth more than some of the effects
+    this task measures:
+
+    - **Both sides are binarised and no channel is weighted.** `predicted` is a foreground
+      as `read_prediction` returns it, which is the one place the channel layout is read;
+      `truth` is a label map, so `truth > 0` is its foreground however the objects are
+      numbered.
+    - **Unsmoothed.** The `+1` the training metrics carry makes an empty prediction on empty
+      truth score 1.0. Here that case has nothing to score and says so by returning `None`,
+      which is this module's convention for it - `score_cases` leaves an unscorable case's
+      `average_precision` at `None` and `summarise_instances` filters on exactly that.
+    - **Per image.** The caller means over images, which is how `average_precision` is pooled
+      in the same row. The training metric pools over *batches* with each batch weighed
+      equally, so a short last batch counts as much as a full one: measured at 0.0088 on that
+      split, which is larger than several of the differences this table is read for. Two
+      poolings inside one row would hide one of them.
+
+    Args:
+        predicted: the predicted foreground, boolean or anything truthy per pixel.
+        truth: a label map, objects numbered from 1 and 0 the background.
+
+    Returns:
+        The Dice, or `None` if neither side has any foreground - which is a case with
+        nothing to score rather than a perfect one.
+
+    >>> truth = np.array([[0, 1], [1, 0]])
+    >>> foreground_dice(np.array([[False, True], [True, False]]), truth)
+    1.0
+    >>> foreground_dice(np.array([[True, True], [False, False]]), truth)
+    0.5
+    >>> foreground_dice(np.array([[True, False], [False, True]]), truth)
+    0.0
+    >>> foreground_dice(np.zeros((2, 2), bool), np.zeros((2, 2), int)) is None
+    True
+    >>> foreground_dice(np.ones((2, 2), bool), np.zeros((2, 2), int))
+    0.0
+    """
+    called = np.asarray(predicted).astype(bool)
+    actual = np.asarray(truth) > 0
+    total = int(called.sum()) + int(actual.sum())
+    if not total:
+        return None
+    return float(2 * int(np.logical_and(called, actual).sum()) / total)
+
+
 def summarise_instances(rows: Sequence[dict]) -> dict:
     """The leaderboard's number, and the one it is often confused with.
 

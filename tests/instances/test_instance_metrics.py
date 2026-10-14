@@ -20,6 +20,7 @@ from pyplatypus.instances import (
     CHALLENGE_THRESHOLDS,
     InstanceError,
     average_precision,
+    foreground_dice,
     instances_from_mask,
     iou_matrix,
     label_map,
@@ -281,3 +282,32 @@ def test_nothing_to_score_at_all_is_refused():
     empty = np.zeros((2, 2), dtype=np.int32)
     with pytest.raises(InstanceError, match="no case had anything to score"):
         summarise_instances(score_cases([("nothing", empty, empty)]))
+
+
+def test_the_foreground_dice_does_not_care_how_the_objects_are_numbered():
+    """It is a mask score, so relabelling the truth cannot move it.
+
+    Worth pinning because the input is a *label map* and the obvious wrong implementation -
+    comparing the arrays rather than their foregrounds - agrees with this one whenever the
+    objects happen to be numbered 1 upwards, which is how every fixture here numbers them.
+    """
+    predicted = np.array([[True, True], [False, False]])
+    assert foreground_dice(predicted, np.array([[1, 1], [0, 0]])) == 1.0
+    assert foreground_dice(predicted, np.array([[7, 9], [0, 0]])) == 1.0
+
+
+def test_the_foreground_dice_is_not_smoothed_and_says_so_by_returning_none():
+    """The `+1` the training metrics carry would score an empty prediction on empty truth
+    1.0, which is the number an unscorable case must not report. `None` is this module's
+    answer for it - the same one `score_cases` gives an `average_precision` - and the
+    unsmoothed arithmetic is what makes a near-miss read as a near-miss.
+    """
+    empty = np.zeros((2, 2), dtype=np.int32)
+    assert foreground_dice(np.zeros((2, 2), bool), empty) is None
+    # One predicted pixel against 101 true ones: the overlap is 2/102 = 0.0196, where the
+    # smoothed form reads 3/103 = 0.0291 - half again as much for the same near-total miss.
+    predicted = np.zeros(101, dtype=bool)
+    predicted[0] = True
+    truth = np.zeros(101, dtype=np.int32)
+    truth[0], truth[1:] = 1, 2
+    assert foreground_dice(predicted, truth) == pytest.approx(2 / 102)
