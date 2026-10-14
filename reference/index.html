@@ -724,12 +724,29 @@ ul.task-list li input[type="checkbox"] {
           <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
             <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false">
- <span class="menu-text">When something is wrong</span></a>
+ <span class="menu-text">Masks and volumes</span></a>
           <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
       <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/save_class_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_class_masks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="false">
+ <span class="menu-text">When something is wrong</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
@@ -754,13 +771,13 @@ ul.task-list li input[type="checkbox"] {
   </li>
         <li class="sidebar-item sidebar-item-section">
       <div class="sidebar-item-container"> 
-            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="true">
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" role="navigation" aria-expanded="true">
  <span class="menu-text">About</span></a>
-          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="true" aria-label="Toggle section">
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" role="navigation" aria-expanded="true" aria-label="Toggle section">
             <i class="bi bi-chevron-right ms-2"></i>
           </a> 
       </div>
-      <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth1 show">  
+      <ul id="quarto-sidebar-section-13" class="collapse list-unstyled sidebar-section depth1 show">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../CHANGELOG.html" class="sidebar-item-text sidebar-link">
@@ -807,6 +824,7 @@ ul.task-list li input[type="checkbox"] {
   <li><a href="#weights" id="toc-weights" class="nav-link" data-scroll-target="#weights">Weights</a></li>
   <li><a href="#records" id="toc-records" class="nav-link" data-scroll-target="#records">Records</a></li>
   <li><a href="#looking-at-the-results" id="toc-looking-at-the-results" class="nav-link" data-scroll-target="#looking-at-the-results">Looking at the results</a></li>
+  <li><a href="#masks-and-volumes" id="toc-masks-and-volumes" class="nav-link" data-scroll-target="#masks-and-volumes">Masks and volumes</a></li>
   <li><a href="#when-something-is-wrong" id="toc-when-something-is-wrong" class="nav-link" data-scroll-target="#when-something-is-wrong">When something is wrong</a></li>
   </ul></li>
   </ul>
@@ -1188,6 +1206,18 @@ ul.task-list li input[type="checkbox"] {
 <tr class="odd">
 <td><a href="../reference/drawing_style.html#pyplatypus.drawing_style">drawing_style</a></td>
 <td>Every decision above, in one mapping.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="masks-and-volumes" class="level2">
+<h2 class="anchored" data-anchor-id="masks-and-volumes">Masks and volumes</h2>
+<p>Overlapping classes cannot be one picture, so they are one picture each. The rest of this group is R’s: reading and uniting masks is where an R user meets them.</p>
+<table class="caption-top table">
+<tbody>
+<tr class="odd">
+<td><a href="../reference/save_class_masks.html#pyplatypus.save_class_masks">save_class_masks</a></td>
+<td>One binary picture per class, which is how an overlapping prediction reaches disk.</td>
 </tr>
 </tbody>
 </table>

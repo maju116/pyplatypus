@@ -544,7 +544,7 @@
     },
     "CsvLogger": {
       "additionalProperties": false,
-      "description": "The history, written as it arrives.\n\nThe same numbers `training_history()` returns, one row per epoch, on disk the moment\nthe epoch ends - so a run killed at epoch 40 of 60 still leaves behind what it learned.\nCheap enough that the only reason not to add it is having nowhere to write.",
+      "description": "The history, written as it arrives.\n\nThe same numbers `fit()` returns, one row per epoch, on disk the moment the epoch ends -\nso a run killed at epoch 40 of 60 still leaves behind what it learned. Until 0.8.0a23 this\nsentence named a function from the R package instead, which is a dead end for the reader\nthe configuration reference is written for.\nCheap enough that the only reason not to add it is having nowhere to write.",
       "properties": {
         "name": {
           "const": "csv_logger",
@@ -554,7 +554,7 @@
           "type": "string"
         },
         "path": {
-          "description": "Where to append one row per epoch. The same numbers `training_history()` returns, written as they arrive - so a run that is interrupted still leaves its history behind.",
+          "description": "Where to append one row per epoch. The same numbers `fit()` returns, written as they arrive - so a run that is interrupted still leaves its history behind.",
           "title": "Path",
           "type": "string"
         }
