@@ -404,6 +404,24 @@ def test_the_yardstick_is_in_the_table_without_being_asked_for(instance_config):
     ]
 
 
+def test_a_written_decode_list_is_what_you_get(instance_config):
+    """The other branch, and the one nothing covered. `evaluate`'s own docstring claimed the
+    yardstick was in every model's rows *whether it was asked for or not* - which is true of
+    the derived pair above and false here, and the gap went unnoticed because only the kind
+    half had a test.
+
+    Asserted as the exact list rather than as an absence, so it also fails if a third row
+    appears from somewhere else. `examples/compare_instance_separations.py` keeps the
+    yardstick in its own `--decode` handling, which is the right place for it: an example
+    whose whole claim is a comparison needs the row, and a user's table is theirs.
+    """
+    spec = spec_of(instance_config, separation={"name": "flows"}, decode=[{"name": "follow_flows"}])
+    assert [block.name for block in spec.models[0].decode] == ["follow_flows"]
+    engine = InstanceEngine(spec)
+    engine.fit()
+    assert [row["decode"] for row in engine.evaluate()] == ["follow_flows"]
+
+
 def test_evaluate_refuses_before_anything_is_trained(instance_config):
     with pytest.raises(EngineError, match="nothing has been trained"):
         InstanceEngine(spec_of(instance_config)).evaluate()

@@ -473,8 +473,21 @@ class InstanceEngine(EngineBase):
         """One row per model **and decoding**: the comparison this task is for.
 
         A decoding costs a hundredth of an epoch, so the table gains an axis for nearly
-        nothing - and `connected_components` is in every model's rows whether it was asked
-        for or not, because it ignores the separation signal and is therefore what the
+        nothing.
+
+        **This paragraph used to say `connected_components` is in every model's rows
+        whether it was asked for or not, and it is not.** It is in the pair `decode` derives
+        to when a model stayed silent, which is the signal's own decoding plus the
+        yardstick; a model that *writes* a `decode` list gets the list it wrote and nothing
+        added. That is the right behaviour - the engine does not put a row in somebody's
+        table that they did not ask for - and the claim was wrong rather than the code: the
+        only test on it covered the derived case, and
+        `examples/compare_instance_separations.py` keeps the yardstick in its own `--decode`
+        handling precisely because nothing below does it. `test_a_written_decode_list_is_what_you_get`
+        is the half that was missing.
+
+        The reason the yardstick belongs in a comparison is unchanged and is why the
+        derivation includes it: it ignores the separation signal, so it is the row the
         signal's row has to be read against.
 
         Args:
