@@ -5,8 +5,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
- - **`overlay_instances` and `overlay_instance_agreement` are now a pair rather than two
-   functions with the same name on two sides.** The R package drew neither until
+ - **`overlay_instances`, `overlay_instance_agreement` and `flow_to_colours` are now pairs
+   rather than three functions with the same name on two sides.** The R package drew neither until
    `maju116/rplatypus#154`; it draws both now, in its own code, because drawing there
    touches no Python on purpose. So `tests/test_reference_groups.py` pins where both are
    filed, which is this side's half of §3F's pair - the other half is in R's
