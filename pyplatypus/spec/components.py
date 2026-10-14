@@ -384,6 +384,14 @@ class BoundaryLoss(_Loss):
 # instance target has nothing in the ten overlap-and-cross-entropy losses to be trained
 # against - and `where` is their whole content. `pyplatypus#209`.
 #
+# **Nameable only where there is a continuous target**, which is a `separation: flows`
+# block's own `loss` and nowhere else. A model's own `loss` scores the classes at every
+# segmentation task, so `SegmentationModel.the_mask_needs_a_loss_over_classes` refuses
+# these there by name - and `available_losses()` leaves them out of the semantic task's
+# list for the same reason. Both read `continuous` below rather than these three names,
+# so a fourth regression loss is refused and unlisted with nothing else edited.
+# `pyplatypus#223`.
+#
 # `supports_multilabel` stays at the inherited True, and the honest reading is that the
 # question does not arise: nothing here turns an output into a probability, so there is no
 # softmax-against-sigmoid decision to get wrong.

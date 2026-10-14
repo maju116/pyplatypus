@@ -585,6 +585,25 @@ class InstanceModel(SegmentationModel):
     tell those apart.
     """
 
+    #: What `SegmentationModel.the_mask_needs_a_loss_over_classes` adds to its refusal
+    #: here, because at this task a continuous loss has somewhere legitimate to go. The
+    #: refusal itself is the parent's: `loss` scores the semantic channels at either
+    #: separation, and the flag on the loss is what answers admissibility, so a fourth
+    #: regression loss needs no edit in either file.
+    #:
+    #: **The validator this replaced is gone rather than moved, and so is the one that
+    #: used to stand beside it.** `a_mechanism_setting_needs_its_mechanism` refused
+    #: `rim_width` under `flows` and the five other crossings of a flat field with the
+    #: wrong separation, from a `_BELONGS_TO` table that a fifth setting would have had to
+    #: be added to. In the block form those combinations cannot be written at all, so
+    #: `extra="forbid"` answers them with the message every other unknown key gets, and
+    #: there is no table left to drift. That is the whole argument for the block, and it is
+    #: worth having written down where the refusals used to be: a refusal is code to keep
+    #: in step, and an unwritable thing is not.
+    continuous_loss_elsewhere: ClassVar[str] = (
+        "; for separation: flows the vector channels have their own `loss` inside the block"
+    )
+
     separation: SeparationSpec = Field(
         description=(
             "What the network predicts so that one mask can become many objects: a block "
@@ -737,36 +756,5 @@ class InstanceModel(SegmentationModel):
                 f"different signal:\n  - {listed}\n"
                 "connected_components reads none of them and works with every target, "
                 "which is why it is the yardstick every other row is compared against."
-            )
-        return self
-
-    @model_validator(mode="after")
-    def the_mask_needs_a_loss_over_classes(self):
-        """A continuous loss over a one-hot target, refused at either separation.
-
-        `loss` applies to the semantic channels - the mask - whatever the separation is, so
-        it is always an overlap or a cross-entropy loss. The other half of the question is
-        `Flows.a_vector_field_needs_a_continuous_loss`, which is where the vector channels'
-        objective now lives; both read the `continuous` flag on the loss itself rather than
-        a list of names kept here that a new loss would have to be added to.
-
-        **The validator that used to stand beside this one is gone rather than moved.**
-        `a_mechanism_setting_needs_its_mechanism` refused `rim_width` under `flows` and the
-        five other crossings of a flat field with the wrong separation, from a `_BELONGS_TO`
-        table that a fifth setting would have had to be added to. In the block form those
-        combinations cannot be written at all, so `extra="forbid"` answers them with the
-        message every other unknown key gets, and there is no table left to drift. That is
-        the whole argument for the block, and it is worth having written down where the
-        refusal used to be: a refusal is code to keep in step, and an unwritable thing is
-        not.
-        """
-        if self.loss.continuous:
-            raise ValueError(
-                f"loss '{self.loss.name}' scores a continuous target, and `loss` is the "
-                f"objective on the semantic channels - the mask - at either separation. Run "
-                f"as it stands it would score raw output against 0 and 1 with no activation "
-                f"between them. Use an overlap or cross-entropy loss here; for "
-                f"separation: flows the vector channels have their own `loss` inside the "
-                f"block."
             )
         return self

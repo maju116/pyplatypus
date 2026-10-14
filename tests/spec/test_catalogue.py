@@ -54,7 +54,7 @@ def union_names(model: str, field: str) -> set[str]:
 @pytest.mark.parametrize(
     ("listing", "model", "field"),
     [
-        (available_losses, "SegmentationModel", "loss"),
+        (lambda: available_losses("instance_segmentation"), "SegmentationModel", "loss"),
         (available_metrics, "SegmentationModel", "metrics"),
         (available_optimizers, "SegmentationModel", "optimizer"),
         (available_callbacks, "SegmentationModel", "callbacks"),
@@ -63,13 +63,55 @@ def union_names(model: str, field: str) -> set[str]:
     ids=["losses", "metrics", "optimizers", "callbacks", "decodings"],
 )
 def test_a_listing_names_exactly_what_the_schema_accepts(listing, model, field):
+    """**Losses are asked of the instance task here, which is the only task that can name
+    every member of the union.** The schema's `discriminator.mapping` is per field and the
+    three regression losses are in `loss`'s, because a `separation: flows` block's own
+    `loss` is that same union - but a *model's* own `loss` refuses them at either
+    segmentation task, which no JSON Schema can say. So the equality this test is for holds
+    at the task where the two agree, and the semantic task's shorter list has a test of its
+    own below that names the difference rather than deriving it.
+    """
     assert {row["name"] for row in listing()} == union_names(model, field)
+
+
+def test_the_semantic_task_does_not_list_a_loss_it_refuses():
+    """The three are written out rather than read off `continuous`, which is what the
+    implementation does: deriving the expected set the same way would be a tautology that
+    passes however the filter is wrong. A fourth regression loss fails this test, and
+    failing is right - somebody then has to say which list it belongs in.
+    """
+    semantic = {row["name"] for row in available_losses()}
+    every = union_names("SegmentationModel", "loss")
+    assert every - semantic == {"mse", "l1", "smooth_l1"}
+    assert semantic == {
+        "boundary",
+        "cce",
+        "cce_dice",
+        "combo",
+        "dice",
+        "focal",
+        "focal_tversky",
+        "iou",
+        "lovasz",
+        "tversky",
+    }
+
+
+def test_the_task_a_listing_is_asked_about_is_the_task_it_answers_for():
+    """Three listings take a task and two of them used to ignore it for both segmentation
+    tasks. `available_losses` no longer does, so the argument has to be the thing that
+    changes the answer - not the default being read twice."""
+    assert len(available_losses("semantic_segmentation")) == 10
+    assert len(available_losses(Task.SEMANTIC_SEGMENTATION)) == 10
+    assert len(available_losses("instance_segmentation")) == 13
+    assert len(available_losses(Task.INSTANCE_SEGMENTATION)) == 13
 
 
 def test_the_listings_are_not_trivially_short():
     """Or every comparison above could pass on an empty set meeting an empty set, which is
     §4's "two numbers that were both zero" in its usual costume."""
-    assert len(available_losses()) == 13
+    assert len(available_losses()) == 10
+    assert len(available_losses("instance_segmentation")) == 13
     assert len(available_metrics()) == 4
     assert len(available_optimizers()) == 8
     assert len(available_callbacks()) == 7

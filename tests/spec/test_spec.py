@@ -115,3 +115,70 @@ def test_giving_the_window_under_both_names_is_refused(config):
     config["data"]["dicom_window"] = "bone"
     with pytest.raises(ConfigError):
         from_dict(config, check_paths=False)
+
+
+# ------------------------------------------------- the loss has to be over classes
+# `pyplatypus#223`. The refusal these cover used to live on `InstanceModel`, which is a
+# subclass of the model they are about, so the semantic task accepted `loss: mse` and ran
+# with it. Nothing downstream refused it either - the loader builds the foreground mask for
+# any loss that asks - and the loss it reported was *small*: measured on eight 32x32
+# samples over 80 epochs, a validation loss of 0.0014 against cce's 0.0865 and a Dice of
+# 0.54 against 1.00. These are at the spec layer because that is where it is cheap.
+@pytest.mark.parametrize("name", ["mse", "l1", "smooth_l1"])
+def test_a_continuous_loss_is_refused_as_a_models_own_loss(config, name):
+    config["models"][0]["loss"] = {"name": name}
+    with pytest.raises(ConfigError) as caught:
+        from_dict(config, check_paths=False)
+    message = str(caught.value)
+    assert name in message
+    assert "class channels" in message
+
+
+@pytest.mark.parametrize("name", ["mse", "l1", "smooth_l1"])
+def test_a_continuous_loss_is_refused_with_regions_too(config, name):
+    """The other naming of the classes, and the one where the refusal is least obvious:
+    with `regions` there is no background channel, so the foreground `where` would mask to
+    is "any channel hot" rather than "not channel 0". Different arithmetic, same hole."""
+    config["data"].pop("colormap")
+    config["data"]["regions"] = [{"name": "a", "of": [1]}, {"name": "b", "of": [1, 2]}]
+    config["models"][0]["loss"] = {"name": name}
+    with pytest.raises(ConfigError, match="class channels"):
+        from_dict(config, check_paths=False)
+
+
+def test_where_everywhere_is_refused_without_being_told_it_said_foreground(config):
+    """A message may not describe a setting its reader did not write. `where: foreground`
+    is the default and the clause explaining it is the useful half of this refusal - but
+    quoted at somebody who wrote `everywhere` it sends them to change the wrong line.
+
+    This also records that `where: everywhere` is refused *deliberately* rather than as
+    collateral: on the fixture above it reached a Dice of 0.9838, so an unactivated squared
+    error is a crude surrogate and not nonsense. It is refused because `loss` is the
+    objective on the classes, and an activated regression would be a new loss with its own
+    name and its own measurement rather than this family, whose whole content is `where`.
+    """
+    config["models"][0]["loss"] = {"name": "mse", "where": "everywhere"}
+    with pytest.raises(ConfigError) as caught:
+        from_dict(config, check_paths=False)
+    message = str(caught.value)
+    assert "class channels" in message
+    assert "where: foreground" not in message
+
+    config["models"][0]["loss"] = {"name": "mse"}
+    with pytest.raises(ConfigError) as caught:
+        from_dict(config, check_paths=False)
+    assert "where: foreground" in str(caught.value)
+
+
+def test_the_refusal_is_on_the_model_that_has_the_one_hot_target(config):
+    """Asked of `SegmentationModel` directly rather than through a specification, because
+    *which class* carries this is the whole content of the fix: it was on the subclass, and
+    a subclass cannot refuse on behalf of its parent."""
+    from pydantic import ValidationError
+
+    from pyplatypus.spec.components import CceLoss, MseLoss
+    from pyplatypus.spec.models import SegmentationModel
+
+    assert SegmentationModel(name="m", input_shape=[64, 64], loss=CceLoss()).loss.name == "cce"
+    with pytest.raises(ValidationError, match="class channels"):
+        SegmentationModel(name="m", input_shape=[64, 64], loss=MseLoss())

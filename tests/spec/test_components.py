@@ -7,27 +7,54 @@ import pytest
 
 from pyplatypus import ConfigError, available_transforms, from_dict
 
+CLASS_LOSSES = [
+    "iou",
+    "dice",
+    "cce",
+    "cce_dice",
+    "focal",
+    "tversky",
+    "focal_tversky",
+    "combo",
+    "lovasz",
+]
+#: Named on a `separation: flows` block rather than on a model, which is the only place a
+#: continuous target exists - a model's own `loss` scores the classes at every segmentation
+#: task and refuses these by name (`pyplatypus#223`). This list used to be reached through a
+#: semantic configuration, which the engine accepted and ran.
+CONTINUOUS_LOSSES = ["mse", "l1", "smooth_l1"]
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "iou",
-        "dice",
-        "cce",
-        "cce_dice",
-        "focal",
-        "tversky",
-        "focal_tversky",
-        "combo",
-        "lovasz",
-        "mse",
-        "l1",
-        "smooth_l1",
-    ],
-)
-def test_every_loss_is_reachable(config, name):
+
+@pytest.mark.parametrize("name", CLASS_LOSSES)
+def test_every_class_loss_is_reachable(config, name):
     config["models"][0]["loss"] = {"name": name}
     assert from_dict(config).models[0].loss.name == name
+
+
+@pytest.mark.parametrize("name", CONTINUOUS_LOSSES)
+def test_every_continuous_loss_is_reachable_where_it_belongs(name):
+    """Reachable, and reachable from the one place it belongs. Both halves are the test:
+    the flow block accepts it, and the model that owns the block does not."""
+    model = {"name": "m", "input_shape": [64, 64], "separation": {"name": "flows"}}
+    spec = from_dict(
+        {
+            "task": "instance_segmentation",
+            "data": {"train_path": ".", "validation_path": "."},
+            "models": [{**model, "separation": {"name": "flows", "loss": {"name": name}}}],
+        },
+        check_paths=False,
+    )
+    assert spec.models[0].separation.loss.name == name
+
+    with pytest.raises(ConfigError, match="class channels"):
+        from_dict(
+            {
+                "task": "instance_segmentation",
+                "data": {"train_path": ".", "validation_path": "."},
+                "models": [{**model, "loss": {"name": name}}],
+            },
+            check_paths=False,
+        )
 
 
 @pytest.mark.parametrize(

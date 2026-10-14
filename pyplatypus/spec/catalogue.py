@@ -225,7 +225,20 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
 
 
 def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict[str, Any]]:
-    """The losses you can name under `loss`.
+    """The losses you can name under `loss`, which is not the same list at every task.
+
+    **Ten at `semantic_segmentation` and thirteen at `instance_segmentation`**, and the
+    three in the difference are the regression family - `mse`, `l1`, `smooth_l1`. They
+    score a continuous target, and the only continuous target this package has is a flow
+    field, so at the semantic task there is nothing to name them on: a model's own `loss`
+    scores the classes, and `SegmentationModel.the_mask_needs_a_loss_over_classes` refuses
+    them there by name (`pyplatypus#223`). At the instance task they are listed because a
+    `separation: flows` block has its own `loss` for the vector channels - but **not** for
+    the model's own `loss`, which is the mask at either separation and refuses them too.
+
+    So this answers *what may be named under some `loss` at this task*. Which loss goes
+    where is the tree, and `available_separations()` is where that lives rather than a
+    fourth column here.
 
     Returns:
         One row per loss: the name, the arguments it accepts, and what it is for.
@@ -238,6 +251,11 @@ def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     ['boundary', 'cce', 'cce_dice']
     >>> next(row for row in available_losses() if row["name"] == "tversky")["arguments"]
     ('alpha', 'smooth')
+    >>> len(available_losses()), len(available_losses("instance_segmentation"))
+    (10, 13)
+    >>> sorted(set(r["name"] for r in available_losses("instance_segmentation"))
+    ...        - set(r["name"] for r in available_losses()))
+    ['l1', 'mse', 'smooth_l1']
     """
     if _task(task) is Task.OBJECT_DETECTION:
         box_loss = spec_schema()["$defs"]["DetectionModel"]["properties"]["box_loss"]
@@ -249,7 +267,16 @@ def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
             "precision and `offsets` is 60 times more reproducible on matched overlap, which "
             "is why it is the default."
         )
-    return _rows(LossSpec)
+    rows = _rows(LossSpec)
+    if _task(task) is Task.INSTANCE_SEGMENTATION:
+        return rows
+    # Read off the loss's own flag, the same way the two refusals are, so a fourth
+    # regression loss leaves this list alone. Naming them here would be a list to keep in
+    # step with a validator - which is what `continuous` exists to avoid.
+    continuous = {
+        model.model_fields["name"].default for model in _members(LossSpec) if model.continuous
+    }
+    return [row for row in rows if row["name"] not in continuous]
 
 
 def available_metrics(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict[str, Any]]:

@@ -6,9 +6,10 @@ cannot become a triple without an API break.
 
 `ModelSpec` is what every task's model has: a name, a size, how long to train, what to
 train with, and whether to train at all. What it deliberately does *not* have is `loss`
-and `metrics`. Segmentation chooses both from a menu of nine and three; YOLOv3 has one
-composite objective that is part of the architecture, and mean average precision is not
-one option among several. Offering a choice that does not exist is worse than offering
+and `metrics`. Segmentation chooses both from a menu of ten and four - the ten being every
+loss that is defined over classes, which is what `the_mask_needs_a_loss_over_classes`
+below is for; YOLOv3 has one composite objective that is part of the architecture, and
+mean average precision is not one option among several. Offering a choice that does not exist is worse than offering
 none - see the architecture comparison in the README for the same argument about weights.
 """
 
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import math
 from enum import Enum
+from typing import ClassVar
 
 from pydantic import Field, model_validator
 
@@ -190,6 +192,12 @@ _WHOLE_MASK_METRICS = frozenset({"cldice"})
 
 
 class SegmentationModel(ModelSpec):
+    #: Appended to the refusal of a continuous `loss`, by the subclass that has somewhere
+    #: else to put one. Empty here, because a semantic model has one objective and no
+    #: second place for it. `InstanceModel` overrides it so that refusal keeps naming both
+    #: halves - the mask and the flow block - rather than only the half that was wrong.
+    continuous_loss_elsewhere: ClassVar[str] = ""
+
     architecture: Architecture = Field(
         Architecture.U_NET,
         description=(
@@ -484,3 +492,50 @@ class SegmentationModel(ModelSpec):
                 f"built-in encoder works at both ranks."
             )
         return self
+
+    @model_validator(mode="after")
+    def the_mask_needs_a_loss_over_classes(self):
+        """A continuous loss over a one-hot target, refused at every segmentation task.
+
+        **This validator used to live on `InstanceModel`, which is the subclass**, while
+        the thing it protects - `loss` scoring a target of classes - belongs to this one.
+        So the semantic task accepted `loss: mse` and ran: `engine.py` builds the loader
+        with `with_foreground=loss_needs_mask(model.loss)` and the trainer hands a third
+        tensor to any loss that asks for one, so nothing downstream refused it either.
+
+        **And the number it reported was the good one, which is why this is refused rather
+        than warned about.** `where` defaults to `foreground`, and for a semantic target
+        the foreground is "not the background channel" - so the objective was evaluated
+        only inside the labelled objects and the background was unconstrained. Measured on
+        eight 32x32 samples whose object is where the picture is bright, 80 epochs, a task
+        `cce` solves exactly: `mse` reported a validation loss of 0.0014 against the
+        control's 0.0865 and a Dice of 0.54 against 1.00. The run looks like the best of
+        the three and the mask is half missing. `pyplatypus#223`.
+
+        The admissibility is read off the `continuous` flag on the loss itself rather than
+        a list of names kept here, so a fourth regression loss is refused without this file
+        being edited. The other half of the question is
+        `Flows.a_vector_field_needs_a_continuous_loss`, which refuses an overlap loss on
+        the vector channels.
+        """
+        if not self.loss.continuous:
+            return self
+        # Only said when it is true of what was written. `where` defaults to `foreground`
+        # and almost nobody writes it, so this clause is usually the one that explains the
+        # measurement - but quoting a setting the caller did not choose is the kind of
+        # message that sends somebody to change the wrong line.
+        masked = getattr(self.loss, "where", None) == "foreground"
+        consequence = (
+            " and `where: foreground`, which is what it is unless you said otherwise, "
+            "would evaluate that only inside the objects and leave the background "
+            "unconstrained - a small loss for a mask that is half missing"
+            if masked
+            else ""
+        )
+        raise ValueError(
+            f"loss '{self.loss.name}' scores a continuous target, and `loss` is the "
+            f"objective on the class channels - the mask. Run as it stands it would score "
+            f"raw output against 0 and 1 with no activation between them"
+            f"{consequence}. Use an overlap or cross-entropy loss here"
+            f"{self.continuous_loss_elsewhere}."
+        )
