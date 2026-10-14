@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+ - **`_brand.yml` now names the test that holds its two copies together**, because as of
+   `maju116/rplatypus#160` there is one. It is on the R side alone - it fetches this file
+   from this repository's default branch and compares it line by line - for the reason the
+   field-prose ledger is one-directional: the engine owns the look, so R's copy is the copy.
+   Nothing here changes but the comment, and nothing is in the wheel either way.
+
  - **The R package is `rplatypus`.** It was `platypus` until 2026-10-14; the name collided
    with `Platypus`, archived from CRAN on 2026-02-02, which archiving does not release, so
    it was renamed rather than waiting on a reserved name. One name per language, beside this
