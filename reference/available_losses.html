@@ -849,7 +849,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="pyplatypus.available_losses" class="level1">
 <h1>available_losses</h1>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>available_losses(task<span class="op">=</span>Task.SEMANTIC_SEGMENTATION)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The losses you can name under <code>loss</code>.</p>
+<p>The losses you can name under <code>loss</code>, which is not the same list at every task.</p>
+<p><strong>Ten at <code>semantic_segmentation</code> and thirteen at <code>instance_segmentation</code></strong>, and the three in the difference are the regression family - <code>mse</code>, <code>l1</code>, <code>smooth_l1</code>. They score a continuous target, and the only continuous target this package has is a flow field, so at the semantic task there is nothing to name them on: a model’s own <code>loss</code> scores the classes, and <code>SegmentationModel.the_mask_needs_a_loss_over_classes</code> refuses them there by name (<code>pyplatypus#223</code>). At the instance task they are listed because a <code>separation: flows</code> block has its own <code>loss</code> for the vector channels - but <strong>not</strong> for the model’s own <code>loss</code>, which is the mask at either separation and refuses them too.</p>
+<p>So this answers <em>what may be named under some <code>loss</code> at this task</em>. Which loss goes where is the tree, and <code>available_separations()</code> is where that lives rather than a fourth column here.</p>
 <section id="returns" class="level2 doc-section doc-section-returns">
 <h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
 <table class="caption-top table">
@@ -900,7 +902,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <blockquote class="blockquote">
 <blockquote class="blockquote">
 <blockquote class="blockquote">
-<p>[row[“name”] for row in available_losses()][:3] [‘boundary’, ‘cce’, ‘cce_dice’] next(row for row in available_losses() if row[“name”] == “tversky”)[“arguments”] (‘alpha’, ‘smooth’)</p>
+<p>[row[“name”] for row in available_losses()][:3] [‘boundary’, ‘cce’, ‘cce_dice’] next(row for row in available_losses() if row[“name”] == “tversky”)[“arguments”] (‘alpha’, ‘smooth’) len(available_losses()), len(available_losses(“instance_segmentation”)) (10, 13) sorted(set(r[“name”] for r in available_losses(“instance_segmentation”)) … - set(r[“name”] for r in available_losses())) [‘l1’, ‘mse’, ‘smooth_l1’]</p>
 </blockquote>
 </blockquote>
 </blockquote>
