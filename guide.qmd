@@ -177,6 +177,9 @@ them at once, which is the point rather than a tolerated side effect.
 softmax across them - so the channels do not compete and do not sum to one. That is what
 makes the overlap expressible, and it is also why a prediction cannot be written back as a
 single picture: one voxel gets one colour, and a voxel here may belong to three classes.
+A colour map refuses such a prediction rather than taking the strongest channel, and
+`save_class_masks()` is what it points at - one binary picture per region, named after the
+region, which is the only form a picture can hold without losing the overlap.
 
 **Two regions are the minimum**, because one region is ordinary binary segmentation and
 `labels: [0, 1]` already says that - with a background channel, which `regions` has none of.

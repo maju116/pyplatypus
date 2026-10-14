@@ -159,12 +159,11 @@ def test_the_about_section_is_in_the_agreed_order_and_every_page_exists(_generat
 
 
 # The reference groups, in the order both sites show them. Each package carries the subset it
-# has: `Setting up` is the reticulate bridge and exists only in R, `Masks and volumes` has no
-# public counterpart here - measured again after the drawing functions landed, `__all__` holds
-# 32 names and the only two with "mask" in them are `overlay_mask` and `plot_masks`, which
-# draw rather than read or unite, and sit with R's in `Looking at the results` - and `Records`
-# and `When something is wrong` are this package's, because R has no record reader and no
-# documented condition classes. `Looking at the results` was R's alone until 0.8.0a1, when
+# has: `Setting up` is the reticulate bridge and exists only in R, `Masks and volumes` held
+# nothing here until `save_class_masks` in 0.8.0a23 - the drawing functions were never
+# candidates for it, since `overlay_mask` and `plot_masks` draw rather than read or unite and
+# sit with R's in `Looking at the results` - and `Records` and `When something is wrong` are
+# this package's, because R has no record reader and no documented condition classes. `Looking at the results` was R's alone until 0.8.0a1, when
 # the engine learnt to draw, and is in both now.
 #
 # **Asserting the two lists are equal would be asserting something false**, which the project
@@ -222,6 +221,10 @@ SHARED_PLACEMENT = {
     # Shared from 0.8.0a1, when R stopped restating the engine's drawing decisions and
     # started mirroring them. The function exists on both sides and returns the same list.
     "drawing_style": "Looking at the results",
+    # Shared from 0.8.0a23. R's writer takes an R array and this one takes a numpy array, so
+    # they are not the same call - but they are the same answer to the same question, and a
+    # reader of one site looking for the other's has to find it in the same group.
+    "save_class_masks": "Masks and volumes",
 }
 
 
@@ -235,5 +238,5 @@ def test_the_shared_names_are_filed_where_the_other_side_files_them():
     }
     assert not wrong, (
         "names that both packages have, filed differently (got, expected): "
-        f"{wrong}. platypus's suite pins the same four"
+        f"{wrong}. platypus's suite pins the same names"
     )

@@ -1069,17 +1069,18 @@ class Swa(_Callback):
 class CsvLogger(_Callback):
     """The history, written as it arrives.
 
-    The same numbers `training_history()` returns, one row per epoch, on disk the moment
-    the epoch ends - so a run killed at epoch 40 of 60 still leaves behind what it learned.
+    The same numbers `fit()` returns, one row per epoch, on disk the moment the epoch ends -
+    so a run killed at epoch 40 of 60 still leaves behind what it learned. Until 0.8.0a23 this
+    sentence named a function from the R package instead, which is a dead end for the reader
+    the configuration reference is written for.
     Cheap enough that the only reason not to add it is having nowhere to write.
     """
 
     name: Literal["csv_logger"] = Field("csv_logger", description=_CALLBACK_NAME)
     path: str = Field(
         description=(
-            "Where to append one row per epoch. The same numbers `training_history()` "
-            "returns, written as they arrive - so a run that is interrupted still leaves its "
-            "history behind."
+            "Where to append one row per epoch. The same numbers `fit()` returns, written "
+            "as they arrive - so a run that is interrupted still leaves its history behind."
         ),
     )
 
