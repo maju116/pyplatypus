@@ -220,34 +220,57 @@ def test_the_two_data_flags_are_never_both_set():
 
 
 @pytest.mark.parametrize("name", ["mse", "l1", "smooth_l1"])
-def test_every_regression_loss_is_reachable_from_a_configuration(config, name):
-    config["models"][0]["loss"] = {"name": name, "where": "everywhere"}
-    assert from_dict(config).models[0].loss.where == "everywhere"
+def test_every_regression_loss_is_reachable_from_a_configuration(name):
+    """From the configuration a user can write, which is a `separation: flows` block's own
+    `loss` and not a model's. This asked it of a *semantic* model until `0.8.0a21`, and that
+    spec was accepted and trained - `pyplatypus#223`."""
+    spec = from_dict(
+        {
+            "task": "instance_segmentation",
+            "data": {"train_path": ".", "validation_path": "."},
+            "models": [
+                {
+                    "name": "m",
+                    "input_shape": [64, 64],
+                    "separation": {
+                        "name": "flows",
+                        "loss": {"name": name, "where": "everywhere"},
+                    },
+                }
+            ],
+        },
+        check_paths=False,
+    )
+    assert spec.models[0].separation.loss.where == "everywhere"
 
 
-def test_the_loader_carries_the_foreground_when_the_loss_asks(config, nested_root):
-    """The other half of `test_the_loader_carries_a_distance_map_only_when_asked`: the same
-    one slot, asked for by a different loss, and it must be the foreground rather than
-    whatever else is the right shape."""
-    from pyplatypus import build_engine
+def test_no_loss_a_semantic_model_can_name_asks_for_the_foreground():
+    """`Engine.loader` still reads `loss_needs_mask(model.loss)`, and since `0.8.0a21`
+    nothing a semantic specification can name answers yes. The branch stays because the
+    loader's question is the *loss's* - it is built before the loss object exists, so it
+    reads the flag rather than the task - and this test is what keeps that honest: if a
+    loss a semantic model may name ever wants the mask, the branch has a user again and the
+    second assertion below is the one that fails.
 
-    config["data"]["train_path"] = str(nested_root)
-    config["data"]["validation_path"] = str(nested_root)
-    config["models"][0]["loss"] = {"name": "mse", "where": "everywhere"}
-    engine = build_engine(from_dict(config), device="cpu")
-    assert len(next(iter(engine.loader(engine.spec.models[0], "train")))) == 2
+    **This used to build the loader from a semantic spec with `loss: mse` and assert the
+    batch had three items.** It could, because that spec was accepted and trained
+    (`pyplatypus#223`). What it proved about the slot is proved on the path that still has a
+    user by `test_the_loader_carries_the_foreground_for_flows_and_not_for_rim`, which checks
+    the foreground's content rather than only the batch's length.
+    """
+    from pyplatypus import available_losses
+    from pyplatypus.spec.components import LossSpec
 
-    config["models"][0]["loss"] = {"name": "mse"}
-    engine = build_engine(from_dict(config), device="cpu")
-    batch = next(iter(engine.loader(engine.spec.models[0], "train")))
-    assert len(batch) == 3
-    _, mask, foreground = batch
-    assert foreground.shape == (*mask.shape[:1], 1, *mask.shape[2:])
-    # The fixture's masks cover rows 0..40 of 64, so this is neither empty nor everything -
-    # a foreground of all ones or all zeros would pass a shape check and nothing else.
-    assert 0 < float(foreground.mean()) < 1
-    expected = onehot_to_foreground(np.moveaxis(mask[0].numpy(), 0, -1))
-    assert np.array_equal(foreground[0].numpy(), np.moveaxis(expected, -1, 0))
+    members = {m.model_fields["name"].default: m for m in get_args(get_args(LossSpec)[0])}
+    nameable = {row["name"] for row in available_losses("semantic_segmentation")}
+    assert len(nameable) == 10
+    for name in nameable:
+        assert not loss_needs_mask(members[name]()), name
+    # And the three that do want it are exactly the three a semantic model cannot name, so
+    # the branch is unreachable by configuration rather than merely unused today.
+    for name in ("mse", "l1", "smooth_l1"):
+        assert name not in nameable
+        assert loss_needs_mask(members[name]())
 
 
 def test_a_loader_cannot_be_asked_for_both_extras():

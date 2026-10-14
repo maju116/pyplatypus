@@ -68,6 +68,70 @@ here is that the outcome includes a correction to a column this project printed.
    pickle after the format this package chose *because* it is not a pickle is the kind of
    label that gets believed.
 
+## [0.8.0a21] - 2026-10-14
+
+One refusal, moved to the class it belongs to. A **semantic** model's own `loss` accepted
+`mse`, `l1` and `smooth_l1`, trained with them, and reported a small number for a mask that
+was half missing (#223).
+
+### Fixed
+
+ - **`loss: mse` on a semantic model is refused, by name and before anything is built.** The
+   validator existed and sat on `InstanceModel`, which is a *subclass* of
+   `SegmentationModel`, while the thing it protects - `loss` scoring a target of classes -
+   belongs to the parent. So the semantic task had no guard, and nothing downstream supplied
+   one: `Engine` builds the loader with `with_foreground=loss_needs_mask(model.loss)` and the
+   trainer hands a third tensor to any loss that asks for one, so a run completed.
+
+   **The number it reported was the good one, which is why this is refused rather than
+   documented.** `where` defaults to `foreground`, and for a semantic target the foreground
+   is *not the background channel* - so the objective was evaluated only inside the labelled
+   objects and the background was unconstrained. Measured on eight 32x32 samples whose single
+   object is where the picture is bright, 80 epochs, `u_net`, a task `cce` solves exactly:
+
+        the model's own loss                 val_dice   val_loss
+        cce (control)                        1.0000     0.086507
+        mse, silent - so where: foreground   0.5367     0.001430
+        mse, where: everywhere               0.9838     0.055150
+
+   The middle row is the finding: a validation loss sixty times smaller than the control's,
+   and the only place the missing half of the mask shows is `val_dice`.
+
+   The last row is why the refusal is a decision rather than a correction of nonsense, and it
+   is recorded rather than buried: an unactivated squared error is a crude surrogate, not
+   gibberish. It is refused anyway, because `loss` is the objective on the class channels and
+   an activated regression would be a new loss with its own name and its own measurement -
+   not this family, whose entire content is `where` and whose documentation is about flow
+   fields. The decision is on #223 with the two alternatives it was taken against.
+
+   Admissibility is still read off the `continuous` flag on the loss itself, so a fourth
+   regression loss is refused with nothing edited. `InstanceModel` now contributes only the
+   extra clause that names where a continuous loss *does* belong - the flow block's own
+   `loss` - so that refusal still names both halves.
+
+   **Nothing in this repository used it**: no example, configuration, test or fixture builds
+   a semantic model with a regression loss, so the behaviour change costs nothing here. An R
+   caller reaches the same hole through `loss_mse()`, which R gains when its pin moves.
+
+### Changed
+
+ - **`available_losses()` answers per task**: ten at `semantic_segmentation`, thirteen at
+   `instance_segmentation`. The three in the difference are the regression family, and at the
+   semantic task they can be named nowhere - a listing that offers what the next validator
+   refuses is a list maintained against a validator, which is what `continuous` exists to
+   avoid. The instance task keeps all thirteen because a `separation: flows` block's own
+   `loss` is that same union; which loss goes where is the tree, and `available_separations()`
+   is where the tree lives.
+
+   The listing-against-schema test now asks the losses of the instance task, because that is
+   the only task whose answer can equal the schema's `discriminator.mapping`: the mapping is
+   per *field* and cannot express a validator. The semantic task's shorter list has its own
+   test which names the three excluded losses literally rather than deriving them the way the
+   code does - so a fourth regression loss fails it, and failing is right.
+
+   R reads this listing through the bridge, so `available_losses()` there changes with the
+   pin and the R suite's count moves with it. Said here rather than discovered: §3E.
+
 ## [0.8.0a20] - 2026-10-13
 
 `task: instance_segmentation`: the third task, and the last engine piece of the instance

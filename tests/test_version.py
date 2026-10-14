@@ -65,3 +65,44 @@ def test_the_citation_carries_the_version_being_released():
     assert citation["version"] == pyplatypus.__version__, (
         f"CITATION.cff says {citation['version']}, the package says {pyplatypus.__version__}"
     )
+
+
+def test_the_citation_carries_the_date_the_changelog_gives_that_version():
+    """`date-released` is the fifth place a release is written down and the only one nothing
+    held. It was last moved for `0.8.0a10` and the engine released eleven more versions
+    above it, which is the same drift `version` had before the test above - the file is
+    committed, no release step reads it, and a citation dated eleven releases early is wrong
+    in the one field a citation is for.
+
+    Held to the changelog rather than to a clock: the date a release claims is the one its
+    own entry claims, both are written by hand, and a test that compares them catches the
+    release that bumps one and forgets the other. It cannot catch both being wrong together,
+    which is the limit worth stating rather than papering over with `date.today()` - that
+    would fail every time the suite is run on a day that is not release day.
+    """
+    import datetime
+    import pathlib
+    import re
+
+    import yaml
+
+    root = pathlib.Path(__file__).resolve().parent.parent
+    citation = yaml.safe_load((root / "CITATION.cff").read_text())
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+
+    heading = re.search(
+        rf"^## \[{re.escape(pyplatypus.__version__)}\] - (\d{{4}}-\d{{2}}-\d{{2}})\s*$",
+        changelog,
+        re.MULTILINE,
+    )
+    assert heading, (
+        f"CHANGELOG.md has no dated `## [{pyplatypus.__version__}]` heading; a version being "
+        "released needs its own section, and `## [Unreleased]` is not one"
+    )
+    released = citation["date-released"]
+    if isinstance(released, str):
+        released = datetime.date.fromisoformat(released)
+    assert released == datetime.date.fromisoformat(heading.group(1)), (
+        f"CITATION.cff is dated {released} and CHANGELOG.md dates "
+        f"{pyplatypus.__version__} {heading.group(1)}"
+    )

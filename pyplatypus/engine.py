@@ -335,6 +335,15 @@ class Engine(EngineBase):
         # target is defined on. Same question, same place, same reason it is asked of the
         # spec; the two are never both true, and `TorchSegmentationDataset` refuses the
         # combination rather than silently serving one of them.
+        #
+        # **Since `0.8.0a21` no loss a semantic specification can name answers yes**, because
+        # a model's own `loss` scores the classes and the three continuous ones are refused
+        # there (`pyplatypus#223`). The branch stays rather than becoming `False`: the
+        # question belongs to the loss, this is the one place it is asked, and hard-coding
+        # the consequence would be a second place where "a semantic loss is never
+        # continuous" is written down. `InstanceEngine.loader` asks its own version - the
+        # signal, not the loss, because a flow block's objective is not the model's.
+        # `test_no_loss_a_semantic_model_can_name_asks_for_the_foreground` holds it.
         return make_loader(
             self.dataset(model, split, augmented=augmented, only_images=only_images),
             batch_size=model.batch_size,
