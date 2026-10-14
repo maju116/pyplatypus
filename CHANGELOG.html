@@ -837,6 +837,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#unreleased" id="toc-unreleased" class="nav-link" data-scroll-target="#unreleased">[Unreleased]</a>
   <ul class="collapse">
   <li><a href="#measured" id="toc-measured" class="nav-link" data-scroll-target="#measured">Measured</a></li>
+  <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">Documentation</a></li>
   <li><a href="#fixed" id="toc-fixed" class="nav-link" data-scroll-target="#fixed">Fixed</a></li>
   </ul></li>
   <li><a href="#a21---2026-10-14" id="toc-a21---2026-10-14" class="nav-link" data-scroll-target="#a21---2026-10-14">[0.8.0a21] - 2026-10-14</a>
@@ -1139,7 +1140,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>All notable changes to this project will be documented in this file.</p>
 <section id="unreleased" class="level2">
 <h2 class="anchored" data-anchor-id="unreleased">[Unreleased]</h2>
-<p>The second entry under this heading and the same reason as the first: it records an <strong>outcome</strong>, and <code>examples/</code> is not in the wheel so there is nothing to ship. What is new here is that the outcome includes a correction to a column this project printed.</p>
+<p>The second entry under this heading and the same reason as the first: it records an <strong>outcome</strong>, and neither <code>examples/</code> nor the guide page is in the wheel. What <em>is</em> in the wheel is one docstring, so nothing here changes what a run does. What is new is that the outcome includes two corrections to things this project had written down - a column it printed, and a claim about a table it builds.</p>
 <section id="measured" class="level3">
 <h3 class="anchored" data-anchor-id="measured">Measured</h3>
 <ul>
@@ -1155,9 +1156,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p><strong>The rim model was undertrained at 60 epochs and is not undertrained at 120</strong>, which is why the two models’ epoch counts differ in the configuration and why that asymmetry is a comment rather than a typo. Doubling it bought +0.0451 of average precision; the last twenty epochs of the hundred and twenty bought +0.0018, and the best epoch was 118 of 120.</p></li>
 </ul>
 </section>
+<section id="documentation" class="level3">
+<h3 class="anchored" data-anchor-id="documentation">Documentation</h3>
+<ul>
+<li><p><strong>The configuration guide has a section on the third task</strong>, in both packages: <em>Instances instead of one mask</em>, between the model’s own fields and detection. It is the §3C rule that a change to how a run is written belongs in the guide on both sides with the same sections, and <code>task: instance_segmentation</code> shipped in <code>0.8.0a20</code> without it - the guide had zero occurrences of the word.</p>
+<p>What a reader needs that no reference page tells them: the data block gets <strong>shorter</strong> (there is no <code>colormap</code> and no <code>labels</code>, because the classes are always background and object and the per-object files are what name the objects), <code>separation</code> is one block per model with no default while <code>decode</code> is a list, no value appears in both because one is a noun and the other a verb, and a model’s own <code>loss</code> scores the mask while a <code>flows</code> block carries its own for the vector channels. The section also carries what the task is worth - +0.068 against a perfect mask’s +0.2398 - for the same reason the reference does.</p>
+<p>Both guides’ YAML is validated by each suite, and the new block is: it was mutated to name <code>follow_flows</code> under <code>separation: rim</code> and the Python test failed on that line.</p></li>
+</ul>
+</section>
 <section id="fixed" class="level3">
 <h3 class="anchored" data-anchor-id="fixed">Fixed</h3>
 <ul>
+<li><p><strong><code>evaluate()</code>’s own docstring claimed the yardstick is in every model’s rows “whether it was asked for or not”, and it is not.</strong> <code>connected_components</code> is in the pair <code>decode</code> <em>derives</em> to when a model stayed silent; a model that writes a <code>decode</code> list gets the list it wrote and nothing added. The code is right - the engine does not add a row to somebody’s table that they did not ask for - and three pieces of prose were wrong, including <code>0.8.0a20</code>’s own entry, which is corrected in place below with the correction left visible.</p>
+<p><strong>It went unnoticed because only the kind half had a test.</strong> <code>test_the_yardstick_is_in_the_table_without_being_asked_for</code> covers the derived pair and says so in its docstring; nothing covered a written list, so the claim about the branch with no test is the one that drifted. <code>test_a_written_decode_list_is_what_you_get</code> is the missing half, and it fails when the code is mutated to make the old sentence true.</p>
+<p><code>examples/compare_instance_separations.py</code> already kept the yardstick in its own <code>--decode</code> handling, which in hindsight is the evidence: an example compensating for behaviour the engine was documented as having.</p></li>
 <li><p><strong>The table’s <code>fg dice</code> column was neither a foreground Dice nor one quantity</strong>, and is now called <code>class dice</code>. It is the engine’s <code>dice</code> metric, a mean over the class channels the model’s head actually has: three for <code>rim</code> - background, interior and the rim band - and two for <code>flows</code>, whose metrics are shown the class block alone. So the rim model’s number is averaged against a thin band scoring 0.6857 where its own background and interior score 0.9852 and 0.8721, and reading it across the two models compares two different things.</p>
 <p><strong>Measured by identical code on both, on the same 134 cases: the binary foreground Dice is 0.9159 for the rim model and 0.9097 for the flow model.</strong> Where the column read them 0.09 apart it is 0.0062, and the sign is the other way round - the rim model has the better mask. The control is the Unreleased entry above this one: foreground Dice held at <strong>0.917-0.920</strong> across four rim runs there, which is the family 0.9159 belongs to and 0.8565 does not.</p>
 <p><code>examples/train_instance_separation.py:261</code> had already written the rule down - <em>“against three is not the comparison; foreground against foreground is”</em> - and computes the quantity by hand at line 263. So this is a lesson lost rather than one learnt, which is §4’s “documentation rots in the direction of the work having been done” wearing a column heading. What #215 asked for, a foreground Dice the table can be read across, needs the engine to return one: <code>evaluate()</code> has no such column and two example scripts now have their own copy.</p></li>
@@ -1195,7 +1207,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a20---2026-10-13" class="level2">
 <h2 class="anchored" data-anchor-id="a20---2026-10-13">[0.8.0a20] - 2026-10-13</h2>
 <p><code>task: instance_segmentation</code>: the third task, and the last engine piece of the instance work (#160). Two axes on a model - <code>separation</code>, one per model, and <code>decode</code>, a list - a head whose width is derived rather than stated, and a score computed after a post-process rather than from <code>(logits, target)</code>.</p>
-<p><strong>What the tag is honestly worth is in its own documentation and it is not flattering.</strong> On the Data Science Bowl the separation signal is worth +0.068 of instance average precision at best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6. <code>connected_components</code> - which ignores the signal entirely - is in every model’s decodings whether it was asked for or not, because it is the row the signal’s row has to be read against, and a <em>perfect</em> semantic mask scores 0.7655 through it. The capability is real, the ceiling is measured, and both are in the configuration reference rather than in a footnote.</p>
+<p><strong>What the tag is honestly worth is in its own documentation and it is not flattering.</strong> On the Data Science Bowl the separation signal is worth +0.068 of instance average precision at best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6. <code>connected_components</code> - which ignores the signal entirely - is in the pair <code>decode</code> derives to when a model stayed silent, because it is the row the signal’s row has to be read against, and a <em>perfect</em> semantic mask scores 0.7655 through it. (This sentence read “in every model’s decodings whether it was asked for or not” until the Unreleased entry above corrected it: that was never true of a model which wrote its own <code>decode</code> list.) The capability is real, the ceiling is measured, and both are in the configuration reference rather than in a footnote.</p>
 <section id="added" class="level3">
 <h3 class="anchored" data-anchor-id="added">Added</h3>
 <ul>
