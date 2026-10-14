@@ -3,6 +3,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+
+ - **The guide has a section on overlapping classes**, which `0.8.0a14` shipped the field for
+   and deliberately did not document in narrative form: *Overlapping classes instead of one
+   per voxel*, between the augmentation section and the instance one, because `regions` is
+   still `semantic_segmentation` and what changes is what a channel means. The page's section
+   list is pinned by a test here and the same list in R's suite, so **this lands in both
+   repositories or neither**; `maju116/rplatypus#152` is the other half.
+
+   The numbers in it are measured rather than asserted: the same masks are **four** classes
+   written as `labels: [0, 1, 2, 4]` and **three** channels written as the three BraTS
+   regions, and a voxel whose value is `4` belongs to all three at once. The YAML block is
+   validated by `test_every_configuration_in_the_guide_is_accepted` like every other block on
+   the page - checked by breaking it, which fails that test at its line rather than passing
+   quietly.
+
+   One thing the section does **not** do: name a function for writing an overlapping
+   prediction back out. It says one voxel gets one colour and a voxel here may be in three
+   classes, which is the honest statement while `save_class_masks` - named in `Region.name`'s
+   own `description=` - exists in neither package. `maju116/rplatypus#152` carries that
+   decision.
+
 ### Changed
 
  - **`_brand.yml` now names the test that holds its two copies together**, because as of
