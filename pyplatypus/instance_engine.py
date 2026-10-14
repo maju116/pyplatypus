@@ -37,8 +37,8 @@ from pyplatypus.data.instances import InstanceDataset
 from pyplatypus.data.paths import Sample, discover
 from pyplatypus.data.splits import group_of
 from pyplatypus.engine import EngineBase, EngineError, labels_in_test_split
-from pyplatypus.instances.decode import decode_instances
-from pyplatypus.instances.metrics import score_cases, summarise_instances
+from pyplatypus.instances.decode import decode_instances, read_prediction
+from pyplatypus.instances.metrics import foreground_dice, score_cases, summarise_instances
 from pyplatypus.models import build_model
 from pyplatypus.objectives import build_loss
 from pyplatypus.objectives import functional as f
@@ -155,6 +155,22 @@ class InstanceTrainer(Trainer):
         if start == 0:
             return f.probabilities(out, multilabel=False)
         return torch.cat([out[:, :start], f.probabilities(out[:, start:], multilabel=False)], dim=1)
+
+
+@dataclass(frozen=True)
+class _Decoded:
+    """One model's forward pass over a split, read both ways it is read.
+
+    The two fields are at different grains on purpose. `cases` is per decoding, because a
+    decoding is what turns channels into objects and every one of them answers differently.
+    `foreground_dice` is per *model*: it is the mask the network produced, which no decoding
+    can move, so carrying it beside the decodings rather than inside each of them is what
+    makes the claim in `evaluate`'s table - that the column is the same for every row of one
+    model - a property of the structure instead of a promise in prose.
+    """
+
+    cases: dict[str, list[tuple[str, np.ndarray, np.ndarray]]]
+    foreground_dice: float | None
 
 
 @dataclass
@@ -443,12 +459,18 @@ class InstanceEngine(EngineBase):
             raise EngineError(f"no model called '{model_name}'; trained so far: {known}")
         return run
 
-    def _decoded(self, run: InstanceRun, split: str):
+    def _decoded(self, run: InstanceRun, split: str) -> _Decoded:
         """Every case of a split, decoded every way the model asks, against its truth.
 
         One forward pass for all of them, which is the whole argument for `decode` being a
         list: the predictions are decoded as they arrive rather than held, so peak memory
         is one image's channels and one label map per decoding.
+
+        The mask's own Dice is taken here too, for the reason it is taken *here* rather
+        than anywhere else: scoring the mask in a second pass would double the cost of a
+        table to add a column, and the foreground it needs is the one
+        `read_prediction` hands every decoding below. Once per case, not once per
+        decoding - `pyplatypus#222`.
 
         Tiles are stitched by `predict_stream` before anything is decoded. That ordering is
         not luck - an object crossing a tile seam becomes two objects if the post-process
@@ -461,13 +483,19 @@ class InstanceEngine(EngineBase):
         rows: dict[str, list[tuple[str, np.ndarray, np.ndarray]]] = {
             block.name: [] for block in blocks
         }
+        masks: list[float] = []
         for index, prediction in enumerate(run.trainer.predict_stream(loader)):
             truth = dataset.labels_of(index)
             key = dataset.samples[index].key
+            scored = foreground_dice(read_prediction(prediction, run.spec.signal).foreground, truth)
+            # A case with nothing on either side is dropped rather than counted as perfect,
+            # which is what makes this a mean over the cases that had something to say.
+            if scored is not None:
+                masks.append(scored)
             for block in blocks:
                 predicted = decode_instances(prediction, run.spec.signal, block)
                 rows[block.name].append((key, truth, predicted))
-        return rows
+        return _Decoded(cases=rows, foreground_dice=float(np.mean(masks)) if masks else None)
 
     def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
         """One row per model **and decoding**: the comparison this task is for.
@@ -499,6 +527,16 @@ class InstanceEngine(EngineBase):
             that explain it. `average_precision` is the mean over images, which is what the
             Data Science Bowl ranked on.
 
+            **`foreground_dice` is the mask column to read across models and `dice` is
+            not.** The first is a binary overlap of anything the model called an object
+            against anything that is one, computed identically whatever the separation
+            signal is, unsmoothed and averaged over images - the same pooling as the
+            `average_precision` beside it. The second is the training metric, a mean over
+            the class channels that model's head has, so it is read down one model's rows
+            and never across two. Both are the same for every decoding of one model.
+            `pyplatypus#222` has the measurement that separates them: 0.09 apart in the
+            class column where the masks are 0.0062 apart, and in the other direction.
+
         Raises:
             EngineError: If nothing has been trained, or the split carries no masks.
         """
@@ -508,12 +546,16 @@ class InstanceEngine(EngineBase):
 
         table = []
         for run in self.runs.values():
-            # The mask's own numbers, which are the same for every decoding of one model -
-            # and the first thing to read: if the foreground moved, the instance number
-            # moved for a reason that is not separation and no decoding can say so.
+            # The training metrics, which are the same for every decoding of one model and
+            # are **not** comparable across two: `dice` here reduces over the class channels
+            # a head has, three for `rim` and two for `flows`. `foreground_dice` below is
+            # the column that carries the role this comment used to claim for these - if the
+            # foreground moved, the instance number moved for a reason that is not
+            # separation and no decoding can say so. `pyplatypus#222`.
             scores = run.trainer.evaluate(self.loader(run.spec, split))
             best = run.history.best("val_loss")
-            for name, cases in self._decoded(run, split).items():
+            decoded = self._decoded(run, split)
+            for name, cases in decoded.cases.items():
                 summary = summarise_instances(score_cases(cases))
                 table.append(
                     {
@@ -525,6 +567,7 @@ class InstanceEngine(EngineBase):
                         "parameters": run.parameters,
                         "epochs_run": len(run.history),
                         "best_epoch": best["epoch"] if best else None,
+                        "foreground_dice": decoded.foreground_dice,
                         "average_precision": summary["mean_average_precision"],
                         "truth_objects": summary["truth_objects"],
                         "predicted_objects": summary["predicted_objects"],
@@ -572,7 +615,7 @@ class InstanceEngine(EngineBase):
                 f"another one would not say so."
             )
 
-        cases = self._decoded(run, split)[wanted]
+        cases = self._decoded(run, split).cases[wanted]
         if group_by:
             cases = _pooled_by_group(cases, group_by)
         rows = score_cases(cases)
