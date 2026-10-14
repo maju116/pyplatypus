@@ -12,7 +12,7 @@
 > Everything on PyPI so far is a pre-release, so `pip install pyplatypus` resolves to the
 > newest. `pip install pyplatypus==0.1.0rc2` gets the old TensorFlow package.
 
-Most people should reach this through **[platypus](https://github.com/maju116/platypus)**,
+Most people should reach this through **[rplatypus](https://github.com/maju116/rplatypus)**,
 the R package: it installs this one, calls it, and is where the worked examples and the
 plotting live. Use it directly if you are writing Python.
 
@@ -343,7 +343,7 @@ which one you want depends on the question:
 `examples/` holds the four programs the measurements on this page came from, which is the
 other way to read it: every table here is reproducible by running one of them.
 
-The R package's [vignettes](https://maju116.github.io/platypus/) are worked examples on real
+The R package's [vignettes](https://maju116.github.io/rplatypus/) are worked examples on real
 datasets - blood cells, nuclei, volumes - and the pipeline underneath is this one, so they
 are worth reading even if you never write R.
 

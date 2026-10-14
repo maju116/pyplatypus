@@ -3,6 +3,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+ - **The R package is `rplatypus`.** It was `platypus` until 2026-10-14; the name collided
+   with `Platypus`, archived from CRAN on 2026-02-02, which archiving does not release, so
+   it was renamed rather than waiting on a reserved name. One name per language, beside this
+   package on PyPI. **Nothing in the wheel changes**: this is the engine's own links, its
+   `_brand.yml`, and the `citation("rplatypus")` the generated Citation page prints -
+   §3E's shape, a change R needs nothing from, said here rather than only in a commit
+   message.
+
+   The GitHub repository was renamed with it and the former addresses redirect, so the
+   issue cross-references in the entries below are left exactly as they were written. They
+   name `maju116/platypus` because that is what it was called when they were written, and
+   they still resolve.
+
+   `maju116/platypus-weights` is a **different repository** - the published weights on the
+   Hub - and is untouched. Worth saying because a rename done by pattern would have taken
+   it, and `resolve_weights` would then look for weights nobody published.
+
 The second entry under this heading and the same reason as the first: it records an
 **outcome**, and neither `examples/` nor the guide page is in the wheel. What *is* in the
 wheel is one docstring, so nothing here changes what a run does. What is new is that the

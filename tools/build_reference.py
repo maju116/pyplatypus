@@ -73,7 +73,7 @@ CITATION_PAGE = ROOT / "CITATION.qmd"
 def build_citation_page() -> None:
     """The Citation page, rendered from `CITATION.cff` so the two cannot disagree.
 
-    The R package needs no equivalent file: `citation("platypus")` is generated from its
+    The R package needs no equivalent file: `citation("rplatypus")` is generated from its
     DESCRIPTION, which is R's own convention, and altdoc renders that into its site. CFF is
     this language's convention and GitHub reads it for "Cite this repository", so the facts
     live there once and this page is a view of them.
@@ -132,8 +132,8 @@ def build_citation_page() -> None:
                 ),
                 "",
                 "The R package is cited separately, because it is a separate piece of software:",
-                '`citation("platypus")` in R, or the',
-                "[Citation page](https://maju116.github.io/platypus/CITATION.html) on its site.",
+                '`citation("rplatypus")` in R, or the',
+                "[Citation page](https://maju116.github.io/rplatypus/CITATION.html) on its site.",
                 "",
             ]
         )

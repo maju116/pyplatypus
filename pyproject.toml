@@ -109,7 +109,7 @@ platypus-schema = "pyplatypus.spec.schema:main"
 Homepage = "https://github.com/maju116/pyplatypus"
 Repository = "https://github.com/maju116/pyplatypus"
 Issues = "https://github.com/maju116/pyplatypus/issues"
-"R package" = "https://github.com/maju116/platypus"
+"R package" = "https://github.com/maju116/rplatypus"
 
 [build-system]
 requires = ["setuptools>=77"]

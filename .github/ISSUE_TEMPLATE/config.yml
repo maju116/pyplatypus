@@ -3,7 +3,7 @@
 blank_issues_enabled: true
 contact_links:
   - name: The R package (platypus)
-    url: https://github.com/maju116/platypus/issues
+    url: https://github.com/maju116/rplatypus/issues
     about: >
       Most people reach this engine through platypus, an R package that pins one exact
       version of it. If you are writing R, file it there - the issue is more likely to be

@@ -139,7 +139,7 @@ def test_the_reader_is_told_where_the_other_half_lives():
     config = yaml.safe_load((TEMPLATES / "config.yml").read_text())
     links = config.get("contact_links") or []
 
-    assert any("maju116/platypus" in link.get("url", "") for link in links), (
+    assert any("maju116/rplatypus" in link.get("url", "") for link in links), (
         "no contact link points at the R package"
     )
 
