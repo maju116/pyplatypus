@@ -225,6 +225,16 @@ SHARED_PLACEMENT = {
     # they are not the same call - but they are the same answer to the same question, and a
     # reader of one site looking for the other's has to find it in the same group.
     "save_class_masks": "Masks and volumes",
+    # Shared from `maju116/rplatypus#154`. Both have been in this package's `Looking at the
+    # results` since 0.8.0a19 and the R package drew neither until then, so a reader of this
+    # site looking for R's found nothing - which the subsequence test cannot catch, because
+    # a name absent on one side is not a name filed differently.
+    "overlay_instances": "Looking at the results",
+    "overlay_instance_agreement": "Looking at the results",
+    # Shared from `maju116/rplatypus#103`. It was deferred there for a reason that had
+    # expired - the spec tag shipped in 0.8.0a20 - and the one that actually held was that
+    # no flow field could reach R at all, which `predict(type = "channels")` fixed.
+    "flow_to_colours": "Looking at the results",
 }
 
 

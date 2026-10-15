@@ -3,6 +3,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+ - **`overlay_instances`, `overlay_instance_agreement` and `flow_to_colours` are now pairs
+   rather than three functions with the same name on two sides.** The R package drew neither until
+   `maju116/rplatypus#154`; it draws both now, in its own code, because drawing there
+   touches no Python on purpose. So `tests/test_reference_groups.py` pins where both are
+   filed, which is this side's half of §3F's pair - the other half is in R's
+   `test-reference-groups.R`.
+
+   Nothing in the wheel changes and no release is needed. Worth an entry anyway, because the
+   subsequence test cannot catch what this one does: a name **absent** on one side is not a
+   name filed differently, so until R had them there was nothing to disagree with and the
+   pair could not have existed.
+
+   What holds the *rule* rather than the filing is on R's side alone and has to be: it draws
+   the same pictures with both packages and compares them pixel for pixel. The palette was
+   already mirrored, so the two could have agreed about which eight colours exist while
+   disagreeing about which object gets which. See `maju116/rplatypus#154`.
+
 ## [0.8.0a23] - 2026-10-14
 
 A writer the package had promised twice and never had, and the test that finds the next
