@@ -19,6 +19,7 @@ from pyplatypus.spec.components import (
     DiceLoss,
     FocalLoss,
     FocalTverskyLoss,
+    GeneralizedDiceLoss,
     IouLoss,
     L1Loss,
     LossSpec,
@@ -90,6 +91,25 @@ class Iou(SegmentationLoss):
 
     def forward(self, logits, target):
         return 1 - f.iou_coefficient(self.probabilities(logits), target, self.smooth).mean()
+
+
+class GeneralizedDice(SegmentationLoss):
+    """One ratio across the classes, each weighted by the inverse square of its volume.
+
+    The weighting is the method, so this cannot be written as a mean of per-class
+    coefficients the way `dice` is - `generalized_dice_coefficient` reduces to one number
+    per sample rather than one per sample and class, and the mean here is over the batch.
+    """
+
+    def __init__(self, smooth: float = 1.0):
+        super().__init__()
+        self.smooth = smooth
+
+    def forward(self, logits, target):
+        coefficient = f.generalized_dice_coefficient(
+            self.probabilities(logits), target, self.smooth
+        )
+        return 1 - coefficient.mean()
 
 
 class Cce(SegmentationLoss):
@@ -302,6 +322,7 @@ class SmoothL1(Regression):
 _BUILDERS = {
     IouLoss: lambda s: Iou(s.smooth),
     DiceLoss: lambda s: Dice(s.smooth),
+    GeneralizedDiceLoss: lambda s: GeneralizedDice(s.smooth),
     CceLoss: lambda s: Cce(s.label_smoothing),
     CceDiceLoss: lambda s: CceDice(s.cce_weight, s.smooth),
     FocalLoss: lambda s: Focal(s.gamma, s.alpha),

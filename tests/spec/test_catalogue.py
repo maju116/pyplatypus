@@ -91,6 +91,9 @@ def test_the_semantic_task_does_not_list_a_loss_it_refuses():
         "dice",
         "focal",
         "focal_tversky",
+        # A region loss on one-hot classes, so the semantic task can name it: the
+        # weighting is over classes and a semantic model has classes. `0.8.0a26`.
+        "generalized_dice",
         "iou",
         "lovasz",
         "tversky",
@@ -101,18 +104,18 @@ def test_the_task_a_listing_is_asked_about_is_the_task_it_answers_for():
     """Three listings take a task and two of them used to ignore it for both segmentation
     tasks. `available_losses` no longer does, so the argument has to be the thing that
     changes the answer - not the default being read twice."""
-    assert len(available_losses("semantic_segmentation")) == 10
-    assert len(available_losses(Task.SEMANTIC_SEGMENTATION)) == 10
-    assert len(available_losses("instance_segmentation")) == 13
-    assert len(available_losses(Task.INSTANCE_SEGMENTATION)) == 13
+    assert len(available_losses("semantic_segmentation")) == 11
+    assert len(available_losses(Task.SEMANTIC_SEGMENTATION)) == 11
+    assert len(available_losses("instance_segmentation")) == 14
+    assert len(available_losses(Task.INSTANCE_SEGMENTATION)) == 14
 
 
 def test_the_listings_are_not_trivially_short():
     """Or every comparison above could pass on an empty set meeting an empty set, which is
     §4's "two numbers that were both zero" in its usual costume."""
-    assert len(available_losses()) == 10
-    assert len(available_losses("instance_segmentation")) == 13
-    assert len(available_metrics()) == 4
+    assert len(available_losses()) == 11
+    assert len(available_losses("instance_segmentation")) == 14
+    assert len(available_metrics()) == 5
     assert len(available_optimizers()) == 8
     assert len(available_callbacks()) == 7
     assert len(available_models()) == 4

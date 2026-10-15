@@ -227,7 +227,7 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
 def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict[str, Any]]:
     """The losses you can name under `loss`, which is not the same list at every task.
 
-    **Ten at `semantic_segmentation` and thirteen at `instance_segmentation`**, and the
+    **Eleven at `semantic_segmentation` and fourteen at `instance_segmentation`**, and the
     three in the difference are the regression family - `mse`, `l1`, `smooth_l1`. They
     score a continuous target, and the only continuous target this package has is a flow
     field, so at the semantic task there is nothing to name them on: a model's own `loss`
@@ -252,7 +252,7 @@ def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     >>> next(row for row in available_losses() if row["name"] == "tversky")["arguments"]
     ('alpha', 'smooth')
     >>> len(available_losses()), len(available_losses("instance_segmentation"))
-    (10, 13)
+    (11, 14)
     >>> sorted(set(r["name"] for r in available_losses("instance_segmentation"))
     ...        - set(r["name"] for r in available_losses()))
     ['l1', 'mse', 'smooth_l1']
@@ -290,7 +290,7 @@ def available_metrics(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dic
             an output of `report` rather than a setting.
 
     >>> [row["name"] for row in available_metrics()]
-    ['cldice', 'dice', 'iou', 'tversky']
+    ['cldice', 'dice', 'iou', 'surface_dice', 'tversky']
     """
     if _task(task) is Task.OBJECT_DETECTION:
         raise PlatypusError(

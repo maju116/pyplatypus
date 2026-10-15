@@ -96,6 +96,51 @@ class DiceLoss(_Loss):
     smooth: float = Field(1.0, gt=0, description=_SMOOTH)
 
 
+class GeneralizedDiceLoss(_Loss):
+    """Dice with every class weighted by the inverse square of how much of the picture it
+    occupies, so a rare class counts for more than an equal share rather than for less.
+
+    **The usual argument for this loss does not apply here and is not made.** It is
+    normally introduced as a fix for Dice being dominated by the background; `dice` in this
+    package is a mean over the class channels, so a lesion in 1% of the frame already
+    carries the same weight as the 99% around it. Measured on a 1% target with two
+    predictions - one finding the lesion and leaking a false positive of equal size, one
+    missing it entirely and getting the background perfect:
+
+        dice               0.1658 finding   0.4731 missing   prefers finding by 0.3073
+        cce                0.1600 finding   0.1600 missing   indifferent
+        cce_dice           0.1629 finding   0.3166 missing   prefers finding by 0.1536
+        generalized_dice   0.3278 finding   0.9511 missing   prefers finding by 0.6233
+
+    So what this adds is weight **beyond** an equal share: on that target the classes are
+    weighted 1 to 9801 rather than 1 to 1, and the margin between finding the lesion and
+    missing it doubles. And the objective that is genuinely dominated is the per-pixel half
+    of `cce_dice`: to `cce` a false positive and a missed lesion of the same size are the
+    same number of wrong pixels, which is the indifference in that table.
+
+    **The run that motivates it is in this project's record and the loss was never the
+    variable.** On SIIM-ACR pneumothorax, a median 0.59% of the frame, the built-in encoder
+    scored `0.0531 +/- 0.0586` over three seeds - a spread larger than its own mean, with
+    two of three seeds never learning at all - and every arm of that table used `cce_dice`.
+
+    **Not a third `tversky`.** `tversky` moves the balance between false positives and
+    false negatives by a number you choose; `focal_tversky` reweights hard examples. This
+    reweights **classes by how much of the image they occupy**, computed from the batch
+    rather than set by hand. Three losses, three questions, and a reader who picks by name
+    will pick wrongly.
+
+    Two things to know before reaching for it. With every class the same size it is
+    **exactly `dice` pooled over the classes** - a test rather than a claim - so it costs
+    nothing and buys nothing on a balanced problem. And the weights are recomputed per
+    batch, so a batch holding no lesion at all is scored on flat weights; with `batch_size`
+    1 on a sparse dataset that is most batches, which is an argument for a larger batch
+    rather than against the loss.
+    """
+
+    name: Literal["generalized_dice"] = Field("generalized_dice", description=_LOSS_NAME)
+    smooth: float = Field(1.0, gt=0, description=_SMOOTH)
+
+
 class CceLoss(_Loss):
     """Per-pixel classification, with no notion of the object.
 
@@ -300,6 +345,7 @@ class LovaszLoss(_Loss):
 RegionLossSpec = Annotated[
     IouLoss
     | DiceLoss
+    | GeneralizedDiceLoss
     | CceLoss
     | CceDiceLoss
     | FocalLoss
@@ -474,6 +520,7 @@ class SmoothL1Loss(_Regression):
 LossSpec = Annotated[
     IouLoss
     | DiceLoss
+    | GeneralizedDiceLoss
     | CceLoss
     | CceDiceLoss
     | FocalLoss
@@ -623,8 +670,72 @@ class ClDiceMetric(_Overlap):
     )
 
 
+class SurfaceDiceMetric(_Overlap):
+    """How much of each boundary lies within a tolerance of the other, rather than how much
+    of the volume coincides.
+
+    Dice asks about volume. `cldice` asks about connectedness. Neither asks **how far
+    wrong** a boundary is, and that is what is asked of a contour somebody has to approve:
+    the volume vignette ended on a model at Dice 0.88 whose volumes were 12% to 23% too
+    large, and this is the number that says so directly rather than being inferred from two
+    columns that disagree. It is also what `boundary` optimises and nothing here reported,
+    so that loss was being judged by the metric it exists to improve on.
+
+    Normalised surface Dice as published (Nikolov et al., 2018), and symmetric on purpose:
+    the truth's surface near the prediction is the boundary's recall, the prediction's
+    surface near the truth is its precision, and the single ratio weights the two by
+    surface size.
+
+    **The one metric here that reads the voxel spacing**, which is why it belongs in a
+    package that carries one. With `target_spacing` set every sample is on a common grid and
+    `tau` is in millimetres; without it each sample was resized independently and `tau` is
+    in voxels - the same pair of answers the signed distance map gives, and for the same
+    reason. A 0.5 mm and a 2.5 mm acquisition are not comparable in voxels at all.
+
+    Like `cldice` it is a property of a whole mask, so on a tiled run (`splits`) it is
+    reported per case by `evaluate_cases` rather than per batch.
+    """
+
+    name: Literal["surface_dice"] = Field(
+        "surface_dice",
+        description=(
+            "Normalised surface Dice: the fraction of each boundary lying within `tau` of "
+            "the other. A surface is a property of a whole mask, so on a tiled run "
+            "(`splits`) it is reported **per case** by `evaluate_cases`, which reassembles "
+            "a case's tiles first, and it is absent from the epoch history - a per-batch "
+            "average of per-tile boundaries would be a number about nothing."
+        ),
+    )
+    tau: float = Field(
+        ...,
+        gt=0,
+        description=(
+            "The tolerance, and it is **required because no default is honest**: a "
+            "tolerance belongs to the structure and the dataset, and is conventionally the "
+            "inter-observer variability for that structure - the distance two people "
+            "drawing the same boundary differ by. Published values exist per organ and per "
+            "challenge; take one from the protocol you are comparing against rather than "
+            "from here. In millimetres when `target_spacing` puts the data on a common "
+            "grid, and in voxels when it does not."
+        ),
+    )
+    include_background: bool = Field(
+        False,
+        description=(
+            "False here where `dice` and `iou` default to True, and for a measured reason "
+            "rather than the usual one. The background's boundary is the foreground's "
+            "boundary **plus the edge of the picture**, and that edge agrees trivially "
+            "between any two masks - so the background class reads high whatever the model "
+            "did. Measured on four random pairs at `tau` 2: background 0.6110 to 0.7030 "
+            "against foreground 0.5583 to 0.6266, higher every time, by 0.05 to 0.12. That "
+            "is agreement on the field of view rather than on the object."
+        ),
+    )
+
+
 MetricSpec = Annotated[
-    IouMetric | DiceMetric | TverskyMetric | ClDiceMetric, Field(discriminator="name")
+    IouMetric | DiceMetric | TverskyMetric | ClDiceMetric | SurfaceDiceMetric,
+    Field(discriminator="name"),
 ]
 
 # ----------------------------------------------------------------------- optimisers

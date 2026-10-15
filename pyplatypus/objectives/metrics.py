@@ -16,6 +16,7 @@ from pyplatypus.spec.components import (
     DiceMetric,
     IouMetric,
     MetricSpec,
+    SurfaceDiceMetric,
     TverskyMetric,
 )
 
@@ -34,6 +35,14 @@ class SegmentationMetric(nn.Module):
     #: data's `regions`. It changes two things here: how a hard prediction is taken, and
     #: whether `include_background` has anything to exclude.
     multilabel = False
+
+    #: Millimetres per voxel, or None when the samples are not on a common grid. Set by
+    #: `build_metrics` from the data's `target_spacing`, the same way `multilabel` is set
+    #: from `regions`: both are properties of the data rather than of the metric. Only
+    #: `surface_dice` reads it - a tolerance in millimetres is not a tolerance in voxels -
+    #: and it is declared here rather than there because the builder sets it on every
+    #: metric, and an attribute that exists on one class only is a surprise to the reader.
+    spacing: tuple[float, ...] | None = None
 
     def __init__(self, smooth: float = 1.0, include_background: bool = True):
         super().__init__()
@@ -158,25 +167,74 @@ class ClDice(SegmentationMetric):
         return f.cldice_from_masks(prediction, target, self.iterations, self.smooth)
 
 
+class SurfaceDice(SegmentationMetric):
+    """How much of each boundary is within `tau` of the other.
+
+    The third question this package can ask of a mask, after volume (`dice`) and
+    connectedness (`cldice`): **how far wrong** is the edge. A model can hold 0.88 of Dice
+    with volumes a fifth too large, because the overshoot is all at the boundary and on a
+    small lesion the boundary is most of the object.
+
+    `spacing` is set by `build_metrics` from the data's `target_spacing`, so `tau` is in
+    millimetres when the samples are on a common grid and in voxels when they are not. It
+    is the only metric here that reads it, and the only one whose number is therefore not
+    comparable between two runs that resized differently.
+    """
+
+    name = "surface_dice"
+    accumulates = False
+
+    def __init__(self, tau: float, smooth: float = 1.0, include_background: bool = False):
+        super().__init__(smooth, include_background)
+        self.tau = tau
+
+    def combine(self, tp, fp, fn):
+        raise TypeError(
+            "surface Dice cannot be computed from overlap counts: a boundary is a property "
+            "of a whole mask, not of how many voxels hit and missed. `accumulates` is False "
+            "for exactly that reason, and a caller that reaches here has not checked it."
+        )
+
+    def coefficient(self, prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        return f.surface_dice_from_masks(prediction, target, self.tau, self.spacing, self.smooth)
+
+
 _BUILDERS = {
     IouMetric: lambda s: Iou(s.smooth, s.include_background),
     DiceMetric: lambda s: Dice(s.smooth, s.include_background),
     TverskyMetric: lambda s: Tversky(s.alpha, s.smooth, s.include_background),
     ClDiceMetric: lambda s: ClDice(s.iterations, s.smooth, s.include_background),
+    SurfaceDiceMetric: lambda s: SurfaceDice(s.tau, s.smooth, s.include_background),
 }
 
 
-def build_metric(spec: MetricSpec, *, multilabel: bool = False) -> SegmentationMetric:
+def build_metric(
+    spec: MetricSpec,
+    *,
+    multilabel: bool = False,
+    spacing: tuple[float, ...] | None = None,
+) -> SegmentationMetric:
+    """`multilabel` and `spacing` are both properties of the data rather than of the metric.
+
+    They arrive here rather than in a constructor for the same reason: the specification
+    says what to measure and the data says what the channels and the voxels are, and a
+    metric that had to find `regions` or `target_spacing` for itself would be a second
+    place that knows the shape of a spec.
+    """
     builder = _BUILDERS.get(type(spec))
     if builder is None:  # pragma: no cover
         raise KeyError(f"no implementation for metric {type(spec).__name__}")
     metric = builder(spec)
     metric.multilabel = multilabel
+    metric.spacing = spacing
     return metric
 
 
 def build_metrics(
-    specs: list[MetricSpec], *, multilabel: bool = False
+    specs: list[MetricSpec],
+    *,
+    multilabel: bool = False,
+    spacing: tuple[float, ...] | None = None,
 ) -> dict[str, SegmentationMetric]:
     """Keyed by name, because that is how they end up in the history table."""
-    return {spec.name: build_metric(spec, multilabel=multilabel) for spec in specs}
+    return {spec.name: build_metric(spec, multilabel=multilabel, spacing=spacing) for spec in specs}
