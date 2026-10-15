@@ -340,12 +340,12 @@ which one you want depends on the question:
 - **The reference** is generated from the docstrings, and the `>>>` examples in them are run
   by `pytest --doctest-modules` - so the site cannot show an example that does not work.
 
-`examples/` holds the four programs the measurements on this page came from, which is the
-other way to read it: every table here is reproducible by running one of them.
+`examples/` holds the programs the measurements on this page came from, which is the other
+way to read it: every table here is reproducible by running the script named beside it.
 
 The R package's [vignettes](https://maju116.github.io/rplatypus/) are worked examples on real
-datasets - blood cells, nuclei, volumes - and the pipeline underneath is this one, so they
-are worth reading even if you never write R.
+datasets, listed on that page, and the pipeline underneath is this one - so they are worth
+reading even if you never write R.
 
 ## What is not in it yet
 
