@@ -8,6 +8,8 @@ the wrong place, which is the defect that once made a model look unable to learn
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 from matplotlib.figure import Figure
@@ -580,3 +582,79 @@ def test_a_threshold_the_metric_refuses_is_refused_here_too():
     truth[1:4, 1:4] = 1
     with pytest.raises(PlatypusError, match="below 0.5"):
         pyplatypus.overlay_instance_agreement(picture(5, 9), truth, truth, threshold=0.4)
+
+
+def three_mutually_touching() -> np.ndarray:
+    """Three objects each touching the other two, so two colours provably cannot do it."""
+    labels = np.zeros((7, 7), dtype=int)
+    labels[1:4, 1:4] = 1
+    labels[1:4, 4:7] = 2
+    labels[4:7, 1:7] = 3
+    return labels
+
+
+def test_a_palette_too_short_to_colour_the_picture_says_so():
+    """The wrap is the one case this figure answers its own question wrongly in - `#231`.
+
+    `_colour_index` said `overlay_instances` reported it and nothing did: no `warnings.warn`
+    anywhere in the module, for as long as the function has existed. The declaration was
+    right about what should happen, which is why this is the warning and not a deletion.
+    """
+    labels = three_mutually_touching()
+
+    with pytest.warns(UserWarning, match="needs 3 colours") as caught:
+        pyplatypus.overlay_instances(picture(7, 7), labels, colours=style.CLASS_COLOURS[:2])
+
+    message = str(caught[0].message)
+    assert "the palette has 2" in message, message
+    assert "1 of 3" in message, f"one object of three has to wrap, not: {message}"
+
+
+def test_a_wrapped_object_is_drawn_in_a_neighbour_s_colour():
+    """Which is the whole reason the wrap is worth a word, and it is provable.
+
+    A slot is only past the end of the palette once every colour before it was taken by a
+    neighbour, so the wrap lands on one a neighbour holds - never on a free colour. Measured
+    here rather than argued, because the warning's text makes that claim to a reader.
+    """
+    labels = three_mutually_touching()
+    with pytest.warns(UserWarning):
+        drawn = pyplatypus.overlay_instances(
+            picture(7, 7), labels, alpha=1.0, colours=style.CLASS_COLOURS[:2]
+        )
+
+    centres = {
+        value: tuple(int(c) for c in drawn[tuple(centre)])
+        for value, centre in ((1, (2, 2)), (2, (2, 5)), (3, (5, 3)))
+    }
+    alike = [
+        (one, other) for one, other in touching_pairs(labels) if centres[one] == centres[other]
+    ]
+    assert alike, f"the wrap has to collide with a neighbour, and nothing did: {centres}"
+
+
+def test_the_number_of_colours_the_warning_asks_for_is_enough():
+    """A warning naming a number that does not fix it would be worse than silence."""
+    labels = three_mutually_touching()
+    with pytest.warns(UserWarning, match="needs 3 colours"):
+        pyplatypus.overlay_instances(picture(7, 7), labels, colours=style.CLASS_COLOURS[:2])
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        pyplatypus.overlay_instances(picture(7, 7), labels, colours=style.CLASS_COLOURS[:3])
+
+
+def test_a_picture_the_palette_can_hold_warns_about_nothing():
+    """The control: a grid built to be harder than real data, and the default palette.
+
+    Without this the test above would pass on a function that warns on every call, which is
+    the calibration half of §4's lesson about checks that admit what they were written to
+    prevent - and a figure that cries wolf teaches a reader to ignore the one case that
+    means something.
+    """
+    labels = grid_of_instances()
+    assert len(touching_pairs(labels)) >= 20, "the premise: this grid has to be hard"
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        pyplatypus.overlay_instances(picture(*labels.shape), labels)
