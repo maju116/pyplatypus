@@ -741,6 +741,14 @@ def overlay_instances(
     above `_adjacent_pairs` for the measurement that made the exact colouring the cheap
     option rather than the expensive one.
 
+    **A picture that needs more colours than the palette has gets a `UserWarning`**, naming
+    how many it needs and how many objects lost the guarantee. The slot wraps onto a colour
+    a neighbour already holds - provably, since a slot is only past the end of the palette
+    once every colour before it was taken by a neighbour - so two touching objects are drawn
+    as one and this figure answers its own question wrongly. That is the one failure it is
+    for, so it is said rather than hidden. Unreachable on anything measured here: the hardest
+    of 670 Data Science Bowl cases needs 3 of the 8 colours in the default palette.
+
     Args:
         image: one image, as `overlay_mask` takes it.
         labels: an instance label map, one integer per object and 0 for background.
@@ -756,15 +764,6 @@ def overlay_instances(
 
     Raises:
         PlatypusError: if the shapes do not correspond, or the palette is empty.
-
-    Warns:
-        UserWarning: if the picture needs more colours than the palette has. The slot then
-            wraps onto one a neighbour already holds - provably, since a slot is only past
-            the end once every colour before it was taken by a neighbour - so two touching
-            objects are drawn as one and the figure answers its own question wrongly. That
-            is said rather than hidden, which is the one failure this drawing is for.
-            Unreachable on anything measured here: the hardest of 670 Data Science Bowl
-            cases needs 3 of the 8 colours in the default palette.
 
     >>> import numpy as np
     >>> image = np.full((5, 9, 3), 0.5)

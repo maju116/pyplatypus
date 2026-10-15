@@ -40,6 +40,13 @@ was right about what should happen, which is why this is a warning and not a del
      folds inside the loop too, so the clean-looking version would also have been a
      divergence between the two. Found by a control recorded before the change rather than
      by reading the diff - and the first attempt at this fix was that version.
+   - **A `Warns:` section cannot be published from here**, which is why nothing in this
+     package had one and why the warning is documented as prose. `quartodoc` has no
+     renderer for it: `uv run quartodoc build` raises `NotImplementedError: Unsupported
+     type: DocstringSectionWarns`, so the `docs` job fails and the site cannot be built.
+     Measured both ways - the section fails and the prose builds - because the four gates
+     here do not include the reference build, and the absence of any `Warns:` in the
+     package read as "no convention" when it was "no renderer".
    - **`_colour_index` cannot report what it was said to report**, and now does not claim
      to: it returns which objects wrapped, and `overlay_instances` - the function a person
      called, and the only one that knows the palette it was given - is what warns. The
