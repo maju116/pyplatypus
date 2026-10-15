@@ -361,6 +361,12 @@ def relocate(config: dict, into: Path) -> dict:
     The check afterwards is the point of writing it as a function: the paths are rewritten
     and then the configuration is searched for the two directories that must not appear in
     it, so a third place the file learns to write is caught here rather than by its absence.
+
+    Searching the *serialised* configuration is deliberate and is portable, which is worth
+    stating because it does not look it: both strings come out of the YAML verbatim with
+    forward slashes, so they can only still be in there if nothing rewrote them - which is
+    the question. A check reading the rewritten paths back as text would be the unportable
+    direction, since `json.dumps` escapes a Windows separator.
     """
     into.mkdir(parents=True, exist_ok=True)
     models = []

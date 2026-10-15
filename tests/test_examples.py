@@ -1048,10 +1048,26 @@ def test_relocating_keeps_the_recorded_run_out_of_the_way_and_says_when_it_canno
             Path(__file__).resolve().parent.parent / "examples" / "data_science_bowl_instances.yaml"
         ).read_text()
     )
-    moved = script.relocate(config, tmp_path / "work")
+    work = tmp_path / "work"
+    moved = script.relocate(config, work)
     written = json.dumps(moved)
     assert "examples/output/rim" not in written and "examples/output/flows" not in written
-    assert str(tmp_path / "work") in written
+
+    # The second half reads the structure rather than the serialised text, and the first half
+    # is right to read the text. `json.dumps` escapes a Windows path's separators, so
+    # `str(work)` is not a substring of the blob however correct every path in it is - this
+    # test failed on both Windows jobs and nowhere else for exactly that reason. The negative
+    # half is portable because those two strings come out of the YAML verbatim: they can only
+    # still be in there if nothing rewrote them, which is the question it is asking.
+    assert Path(moved["output_dir"]) == work
+    checkpoints = [
+        callback["path"]
+        for model in moved["models"]
+        for callback in model.get("callbacks", [])
+        if callback.get("name") == "model_checkpoint"
+    ]
+    assert len(checkpoints) == len(config["models"]), "every model's checkpoint is relocated"
+    assert all(Path(path).parent == work for path in checkpoints)
 
     config["models"][0]["callbacks"].append(
         {"name": "csv_logger", "path": "examples/output/rim/history.csv"}
