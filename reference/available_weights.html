@@ -899,7 +899,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <blockquote class="blockquote">
 <blockquote class="blockquote">
 <blockquote class="blockquote">
-<p>listing = available_weights() sorted(listing) [‘bccd-yolo3’, ‘dsbowl-unet’, ‘fives-unet’] “BBBC038v1” in listing[“dsbowl-unet”] True listing[“dsbowl-unet”].startswith(“U-Net, 256x256”) True</p>
+<p>listing = available_weights() sorted(listing) [‘bccd-yolo3’, ‘dsbowl-instances’, ‘dsbowl-unet’, ‘fives-unet’] “BBBC038v1” in listing[“dsbowl-unet”] True listing[“dsbowl-unet”].startswith(“U-Net, 256x256”) True</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<p>Two of those four are the same images read two ways, which is the case the descriptions have to carry rather than the names: one is semantic and one tells the objects apart.</p>
+<blockquote class="blockquote">
+<blockquote class="blockquote">
+<blockquote class="blockquote">
+<p>“instance” in listing[“dsbowl-unet”].lower() True “One file, three scores” in listing[“dsbowl-instances”] True</p>
 </blockquote>
 </blockquote>
 </blockquote>
