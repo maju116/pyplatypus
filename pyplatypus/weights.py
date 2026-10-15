@@ -82,6 +82,21 @@ REGISTRY: dict[str, Published] = {
             "loading adopts them; the weights mean nothing without them."
         ),
     ),
+    "dsbowl-instances": Published(
+        repo="maju116/platypus-weights",
+        filename="dsbowl-instances.safetensors",
+        revision="fd7bdc8686ef7fcaac0f21dd6d326c23b7c87471",
+        description=(
+            "U-Net, 256x256, nuclei in light microscopy, trained to separate touching "
+            "objects: interior, rim and background. BBBC038v1 (the 2018 Data Science Bowl, "
+            "CC0), the same 134 held-out images as `dsbowl-unet`. **One file, three scores** "
+            "- instance average precision 0.5445 by nearest_seed, 0.5390 by watershed and "
+            "0.4822 by connected_components - so a number from these weights means nothing "
+            "without the decoding it came from. Foreground Dice 0.9118. The separation "
+            "signal is worth +0.0623 here while a perfect mask is worth +0.2398: the mask "
+            "is the limit on this data, not the signal."
+        ),
+    ),
     "fives-unet": Published(
         repo="maju116/platypus-weights",
         filename="fives-unet.safetensors",
@@ -115,10 +130,18 @@ def available_weights() -> dict[str, str]:
 
     >>> listing = available_weights()
     >>> sorted(listing)
-    ['bccd-yolo3', 'dsbowl-unet', 'fives-unet']
+    ['bccd-yolo3', 'dsbowl-instances', 'dsbowl-unet', 'fives-unet']
     >>> "BBBC038v1" in listing["dsbowl-unet"]
     True
     >>> listing["dsbowl-unet"].startswith("U-Net, 256x256")
+    True
+
+    Two of those four are the same images read two ways, which is the case the descriptions
+    have to carry rather than the names: one is semantic and one tells the objects apart.
+
+    >>> "instance" in listing["dsbowl-unet"].lower()
+    True
+    >>> "One file, three scores" in listing["dsbowl-instances"]
     True
     """
     return {name: entry.description for name, entry in REGISTRY.items()}

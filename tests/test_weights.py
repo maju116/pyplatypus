@@ -525,6 +525,45 @@ def test_the_fives_entry_carries_the_two_things_a_reader_would_get_wrong():
     )
 
 
+def test_the_instance_entry_cannot_quote_a_score_without_its_decoding():
+    """These are the first published weights whose score is not one number, and the registry
+    description is where somebody reads it before reading any card.
+
+    One trained file, three decodings of its channels, and 0.0623 between the best and the
+    worst - about seven times this configuration's run-to-run spread. So a description quoting
+    a headline average precision would be quoting whichever decoding was run, and the reader
+    would have no way to know which. Every score in it has to name its own decoding.
+
+    The second half holds the prose to its own arithmetic, which is the only thing a test here
+    can check: the measurements live in `weights/`, which is not in this repository, so nothing
+    offline can confirm 0.5445. What it *can* confirm is that the gap the description claims
+    for the separation signal is the gap between the rows it quotes, and that the perfect-mask
+    figure beside it is the larger of the two - which is the entry's actual claim, that the
+    mask is the limit on this data and not the signal. A typo in any of the four numbers
+    breaks that.
+    """
+    from pyplatypus.weights import REGISTRY
+
+    description = REGISTRY["dsbowl-instances"].description
+    assert "BBBC038" in description
+    assert "decoding" in description, "the reader has to be told the score has one"
+
+    scored = dict(re.findall(r"(\d\.\d{4}) by (\w+)", description))
+    assert set(scored.values()) == {"nearest_seed", "watershed", "connected_components"}, (
+        "every score in the description names its own decoding, and all three are quoted"
+    )
+
+    best, worst = max(map(float, scored)), min(map(float, scored))
+    assert f"+{best - worst:.4f}" in description, (
+        "the signal's worth is the gap between the rows quoted here, not a separate number"
+    )
+    perfect = float(re.search(r"perfect mask is worth \+(\d\.\d{4})", description).group(1))
+    assert perfect > best - worst, (
+        "the entry claims the mask is the limit rather than the signal, so the perfect-mask "
+        "figure has to be the larger one"
+    )
+
+
 def test_a_shape_mismatch_is_rendered_as_a_tuple(tmp_path):
     """The exact wording of this line is in a released vignette.
 

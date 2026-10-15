@@ -18,6 +18,7 @@ before: `--n-class` was once parsed and never used, and the reverse is the same 
 from __future__ import annotations
 
 import ast
+import json
 import sys
 from argparse import Namespace
 from pathlib import Path
@@ -870,3 +871,278 @@ def test_the_gradient_markers_part_at_the_seam_the_maps_jump_across():
         "the surface the watershed would climb is highest inside the foreground, where the "
         "seam is, and not in the background it was masked out of"
     )
+
+
+# ------------------------------------------- the instance weights publishing script
+#
+# `publish_dsbowl_instance_weights.py` carries five refusals the other two publishing
+# scripts do not need: the control that ties the split's names to the publishable
+# download, the relocation that keeps the recorded run out of the way, the band that
+# reads this run against that record, the one-mask check across decodings, and the
+# sidecar's reserved names. Each is tested for being able to refuse - a control that
+# cannot fail is what this project keeps finding - and the card is tested on numbers
+# that are not the real ones, so a card printing anything it was not handed fails here.
+
+
+def _publishing_script():
+    import publish_dsbowl_instance_weights as script
+
+    return script
+
+
+def _decoded_rows(**moved) -> list[dict]:
+    """Three decodings of one trained model, at the recorded numbers unless moved."""
+    script = _publishing_script()
+    return [
+        {
+            "model": "rim",
+            "separation": "rim",
+            "decode": name,
+            "foreground_dice": 0.9159,
+            "dice": 0.8550,
+            "average_precision": moved.get(name, recorded),
+            "predicted_objects": 5414,
+            "truth_objects": script.TRUTH_OBJECTS,
+        }
+        for name, recorded in script.RECORDED.items()
+    ]
+
+
+def test_the_band_accepts_a_reproduction_and_refuses_a_changed_run():
+    """Two-sided, because the direction that is never checked is the flattering one.
+
+    A run below the band is broken rather than worse - run B's pretrained encoder landed
+    0.1053 away - and one above it is a different recipe than the card would describe. The
+    numbers here are the two ends the bound was calibrated between: one spread of 0.009 is
+    inside it and run B's measured 0.4389 is not.
+    """
+    script = _publishing_script()
+    script.check_band(_decoded_rows(), script.SPREAD, 3.0)
+    script.check_band(_decoded_rows(nearest_seed=0.5442 + script.SPREAD), script.SPREAD, 3.0)
+
+    with pytest.raises(SystemExit, match="nearest_seed: 0.4389"):
+        script.check_band(_decoded_rows(nearest_seed=0.4389), script.SPREAD, 3.0)
+    with pytest.raises(SystemExit, match=r"\+0.0558"):
+        script.check_band(_decoded_rows(nearest_seed=0.6000), script.SPREAD, 3.0)
+
+
+def test_the_split_is_checked_by_its_object_count_and_not_by_its_size():
+    """The case count is the weak half: any 134 directories give it.
+
+    5999 ground-truth objects over these 134 cases is the fingerprint, and it is checked one
+    object away rather than at some margin - a different set of images that happened to hold
+    5998 nuclei is exactly the failure `dsbowl-unet`'s card already shipped once, where two
+    different 134s differed by 0.01 of Dice.
+    """
+    script = _publishing_script()
+    script.check_split(_decoded_rows())
+
+    one_short = [{**row, "truth_objects": script.TRUTH_OBJECTS - 1} for row in _decoded_rows()]
+    with pytest.raises(SystemExit, match="look comparable and are not"):
+        script.check_split(one_short)
+
+
+def test_three_decodings_of_one_model_report_one_mask():
+    """The card's central claim is three numbers from one file, and this is its control.
+
+    Two different foreground Dice values in these rows would mean two trained models, and
+    then the card's table is three scores of three things rather than three readings of one.
+    """
+    script = _publishing_script()
+    script.check_one_mask(_decoded_rows())
+
+    rows = _decoded_rows()
+    rows[1] = {**rows[1], "foreground_dice": 0.9097}
+    with pytest.raises(SystemExit, match="not three decodings of one trained model"):
+        script.check_one_mask(rows)
+
+
+def _nested_copy(root: Path, cases: list[str], image: bytes = b"image") -> None:
+    """Cases in the layout both copies use, as bytes rather than pictures.
+
+    The control hashes files and never decodes them, so bytes are the honest fixture: a PNG
+    here would test PIL's writer as well, and the thing under test is whether two copies of
+    one dataset are the same data.
+    """
+    for name in cases:
+        (root / name / "images").mkdir(parents=True)
+        (root / name / "masks").mkdir(parents=True)
+        (root / name / "images" / f"{name}.png").write_bytes(image)
+        for index, blob in enumerate((b"first object", b"second object")):
+            (root / name / "masks" / f"{index}.png").write_bytes(blob)
+
+
+def test_the_data_control_refuses_a_copy_that_is_not_the_same_data(tmp_path):
+    """The licence chain and the split's names meet here, so this is the join that must hold.
+
+    The split is named by the directories of a 2022 Kaggle download and the weights are
+    trained on BBBC038v1; if the two copies differ, the card's provenance describes one and
+    its numbers come from the other. Measured on the real pair in the run: 670 cases
+    byte-identical in both the images and the per-object masks.
+    """
+    import shutil
+
+    script = _publishing_script()
+    local, broad = tmp_path / "local", tmp_path / "broad"
+    _nested_copy(local / "stage1_train", ["alpha"])
+    _nested_copy(local / "stage1_validation", ["beta"])
+    _nested_copy(broad, ["alpha", "beta"])
+    names = {"train": ["alpha"], "validation": ["beta"]}
+
+    script.same_data(names, broad, local, ("images", "masks"))
+
+    (broad / "beta" / "images" / "beta.png").write_bytes(b"a different picture")
+    with pytest.raises(SystemExit, match="the image differs"):
+        script.same_data(names, broad, local, ("images", "masks"))
+
+    # The image is restored and a mask is changed instead: the masks are what the model
+    # learns from, so a control that only compared images would answer the adjacent
+    # question and answer it reassuringly.
+    (broad / "beta" / "images" / "beta.png").write_bytes(b"image")
+    (broad / "beta" / "masks" / "1.png").write_bytes(b"a third object")
+    with pytest.raises(SystemExit, match="learns from these files"):
+        script.same_data(names, broad, local, ("images", "masks"))
+
+    (broad / "beta" / "masks" / "1.png").write_bytes(b"second object")
+    script.same_data(names, broad, local, ("images", "masks"))
+
+    shutil.rmtree(broad / "beta")
+    with pytest.raises(SystemExit, match="cannot be taken by name"):
+        script.same_data(names, broad, local, ("images", "masks"))
+
+
+def test_the_split_refuses_a_case_in_both_halves(tmp_path):
+    """A leak does not show up in a score, which is why it is refused rather than reported."""
+    script = _publishing_script()
+    _nested_copy(tmp_path / "stage1_train", ["alpha", "shared"])
+    _nested_copy(tmp_path / "stage1_validation", ["shared"])
+
+    with pytest.raises(SystemExit, match="in both halves"):
+        script.split_names(tmp_path)
+
+
+def test_the_split_refuses_a_validation_half_of_the_wrong_size(tmp_path):
+    """Every number this card is read against was measured on 134 cases."""
+    script = _publishing_script()
+    _nested_copy(tmp_path / "stage1_train", ["alpha"])
+    _nested_copy(tmp_path / "stage1_validation", ["beta"])
+
+    with pytest.raises(SystemExit, match="was measured on 134"):
+        script.split_names(tmp_path)
+
+
+def test_relocating_keeps_the_recorded_run_out_of_the_way_and_says_when_it_cannot(tmp_path):
+    """`#215`'s record is the band's centre, and the file being published writes over it.
+
+    `examples/data_science_bowl_instances.yaml` checkpoints into `examples/output/rim/`,
+    where the recorded run and its own checkpoint live. Running it unchanged would overwrite
+    the control with the thing being controlled, and the only symptom would be that every
+    later run agreed with itself. The second half is the refusal: a second callback writing
+    there is not rewritten, and the check is what notices rather than its absence.
+    """
+    import yaml
+
+    script = _publishing_script()
+    config = yaml.safe_load(
+        (
+            Path(__file__).resolve().parent.parent / "examples" / "data_science_bowl_instances.yaml"
+        ).read_text()
+    )
+    work = tmp_path / "work"
+    moved = script.relocate(config, work)
+    written = json.dumps(moved)
+    assert "examples/output/rim" not in written and "examples/output/flows" not in written
+
+    # The second half reads the structure rather than the serialised text, and the first half
+    # is right to read the text. `json.dumps` escapes a Windows path's separators, so
+    # `str(work)` is not a substring of the blob however correct every path in it is - this
+    # test failed on both Windows jobs and nowhere else for exactly that reason. The negative
+    # half is portable because those two strings come out of the YAML verbatim: they can only
+    # still be in there if nothing rewrote them, which is the question it is asking.
+    assert Path(moved["output_dir"]) == work
+    checkpoints = [
+        callback["path"]
+        for model in moved["models"]
+        for callback in model.get("callbacks", [])
+        if callback.get("name") == "model_checkpoint"
+    ]
+    assert len(checkpoints) == len(config["models"]), "every model's checkpoint is relocated"
+    assert all(Path(path).parent == work for path in checkpoints)
+
+    config["models"][0]["callbacks"].append(
+        {"name": "csv_logger", "path": "examples/output/rim/history.csv"}
+    )
+    with pytest.raises(SystemExit, match="still writes into examples/output/rim"):
+        script.relocate(config, tmp_path / "work")
+
+
+def test_the_sidecar_cannot_shadow_what_the_weights_say_they_are_for():
+    """A sidecar key colliding with the fingerprint is a weights file that cannot load.
+
+    `export_weights` merges the extras over the specification's own fingerprint and
+    `_refuse_mismatch` reads those same names back, so an extra called `separation` - the
+    obvious name for the block's settings - would replace the string `rim` with a dict and
+    every later load would refuse the file for disagreeing with itself. The reserved names
+    come from the specification, so this also asserts that `separation` is one of them.
+    """
+    import yaml
+
+    script = _publishing_script()
+    config = yaml.safe_load(
+        (
+            Path(__file__).resolve().parent.parent / "examples" / "data_science_bowl_instances.yaml"
+        ).read_text()
+    )
+    spec = from_dict(config, check_paths=False)
+    assert "separation" in spec.models[0].weights_fingerprint()
+
+    script.refuse_a_shadowed_fingerprint(
+        {"data_licence": "CC0 1.0", "separation_settings": {"name": "rim"}}, spec
+    )
+    for reserved in ("separation", "filters", "blocks", "input_shape", "task", "n_class"):
+        with pytest.raises(SystemExit, match="refuse to load"):
+            script.refuse_a_shadowed_fingerprint({reserved: "anything"}, spec)
+
+
+def _measured(rows: list[dict]) -> dict:
+    """Everything the card reads, with numbers that are not this model's."""
+    return {
+        "pyplatypus": "9.9.9",
+        "seed": 3,
+        "epochs": 7,
+        "minutes": 11.0,
+        "data_source": "https://example.invalid/stage1_train.zip",
+        "citation": "Somebody et al., a paper, 1999.",
+        "split": {"train": 11, "validation": 22},
+        "separation_settings": {"name": "rim", "width": 2},
+        "decodings": [row["decode"] for row in rows],
+        "table": rows,
+    }
+
+
+def test_the_card_and_the_registry_entry_carry_the_numbers_they_were_handed():
+    """Both are generated from the run, so neither may contain a number nobody measured.
+
+    The scores here are deliberately not this model's: a card or a registry description
+    printing 0.5442 would be printing a number from this test's own absence, which is how a
+    model card comes to describe a run that never happened.
+    """
+    script = _publishing_script()
+    rows = _decoded_rows(nearest_seed=0.5111, watershed=0.5022, connected_components=0.4033)
+    measured = _measured(rows)
+
+    card = script.card(measured)
+    for name in ("nearest_seed", "watershed", "connected_components"):
+        assert name in card, "a number without its decoding is not a property of the weights"
+    for score in ("0.5111", "0.5022", "0.4033"):
+        assert score in card
+    assert "+0.1078" in card, "the signal is the best row over the yardstick, computed here"
+    assert "585 objects of 5999 are not found" in " ".join(card.split())
+    assert "pyplatypus 9.9.9" in card and "seed 3" in card
+    assert "0.5442" not in card, "nothing on the card may come from outside the run"
+
+    entry = script.registry_entry(measured)
+    for score in ("0.5111", "0.5022", "0.4033"):
+        assert score in entry
+    assert "dsbowl-instances.safetensors" in entry
+    assert "<the commit" in entry, "the revision is the author's to fill in after the upload"
