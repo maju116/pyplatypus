@@ -1,6 +1,96 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a25] - 2026-10-15
+
+### Added
+
+ - **`dsbowl-instances`, the fourth published weights, and the first whose score is not one
+   number.** A U-Net trained to tell touching nuclei apart on BBBC038v1 - interior, rim and
+   background, `separation: rim` at width 2 - pinned in the registry at `fd7bdc86`.
+   `weights: dsbowl-instances` fetches it, the sidecar refuses a model it does not belong to,
+   and nothing about the numbers can change under the name.
+
+   Measured on the same 134 held-out images `dsbowl-unet` reports, seed 0, 120 epochs, 102
+   minutes on one GTX 1070. Instance average precision, one score per image, and the mask all
+   three rows share:
+
+        nearest_seed           0.5445   sd 0.2554   5378 objects found of 5999
+        watershed              0.5390   sd 0.2532   5378 objects found of 5999
+        connected_components   0.4822   sd 0.2440   4914 objects found of 5999
+
+        foreground dice        0.9118
+
+   **One file, three scores, and the registry description is written so that neither can be
+   quoted without the other.** The network predicts channels; turning them into objects is a
+   separate step and `decode` is a list, so `evaluate()` returns a row per decoding on one
+   forward pass - a second decoding of these 134 images costs 1.41 s against the 102 minutes.
+   The spread between the best and the worst row is 0.0623, about seven times this
+   configuration's run-to-run spread of 0.009, so a headline number without its decoding would
+   be a number about whichever decoding happened to run. A test holds the description to its
+   own arithmetic: every score in it names its decoding, the signal's claimed worth is the gap
+   between the rows quoted, and the perfect-mask figure beside it is the larger of the two.
+
+   **What the entry says about the signal is the milestone's finding and not a sales line.**
+   `connected_components` ignores the separation signal entirely, so the signal is worth
+   +0.0623 here, while substituting a perfect semantic mask into the same route is worth
+   +0.2398 and a perfect mask through connected components caps *any* model at 0.7655. The
+   mask is the limit on this data by nearly four to one. Published anyway, because the
+   alternative is that the measurement exists only in a closed milestone and the weights it
+   was taken on cannot be loaded by anyone who wants to argue with it.
+
+ - **`examples/publish_dsbowl_instance_weights.py`**, which produced them. It reads its recipe
+   out of `examples/data_science_bowl_instances.yaml` and the three recorded scores out of
+   `#215`'s table rather than restating either, selects the one model through the same helper
+   `compare_instance_separations.py` uses, and uploads nothing.
+
+   **Its publication gate is a two-sided band**, calibrated at both ends: every decoding has
+   to land within +/-0.027 of the recorded value - three times the 0.009 spread - and a run
+   far *above* the band is refused as well, because that is a changed recipe rather than a
+   better model. The refusal is diagnosable: the measurements are written before the band is
+   read, so a refused run says which decoding missed by how much. Its positive control is a
+   real refusal - a three-epoch run of the same script named all three gaps and wrote nothing.
+
+   Four more controls, each one proven able to refuse:
+
+   - **The split is checked by the number a different 134 could not produce**, 5999
+     ground-truth objects, not by its size. 134 directories is the weak half of that
+     fingerprint and `dsbowl-unet`'s card is why: the 134 on this disk were once a
+     *different* 134 and the discrepancy was 0.01 of Dice.
+   - **The data is fetched from the Broad rather than read off this disk**, and the local
+     Kaggle copy was proven byte-identical to it first - 670 cases, images and per-object
+     masks, sha256 - so the licence chain runs to BBBC038v1's CC0 rather than through a
+     competition's terms.
+   - **One model decoded three ways reports one mask**, asserted rather than assumed, because
+     a table whose three rows disagree about `foreground_dice` is a table of three models.
+   - **The sidecar cannot shadow what the weights say they are for.** The extra carrying the
+     separation's settings is named `separation_settings`, and a check derives the reserved
+     names from the spec's own fingerprint and refuses a collision. Named `separation` it
+     would have overwritten the fingerprint's `"rim"` with a dict and made every later load
+     of the file refuse it - caught before the training run rather than by a load failure
+     afterwards.
+
+ - **The published name was loaded the way a user reaches it, before this entry was written.**
+   `weights: dsbowl-instances` with `fit: false`, resolved through the registry, downloaded
+   from the pinned commit into an `HF_HOME` that had never seen it, sidecar checked against a
+   model built from the specification, and scored on the same 134 images: all three decodings,
+   the object counts and the foreground Dice came back **identical to seven decimals**, the
+   largest disagreement 0.00e+00. The same file into a model with `filters: 32` or `blocks: 3`
+   is refused by field name, which is the control that the acceptance means something.
+
+ - **The Hub card gains its section and two older lines are corrected.** One card holds one
+   section per model; this one is generated from the run's own measurements and a check holds
+   every figure in it to the sidecar beside the weights, with the same check aimed at
+   `dsbowl-unet`'s section as its control. The corrections are the R example's
+   `library(platypus)`, which has been the wrong name since the package was renamed on
+   2026-10-14 and was the one line a reader would have copied and had fail, and a `tags:` entry
+   for what this file actually does.
+
+ - **What R needs from this is the pin and nothing else.** `available_weights()` reads the
+   registry from the engine, so a fourth published name appears on the R side as soon as the
+   pin moves - the cheapest kind of R half there is, and the whole value of this release to an
+   R user arrives through it.
+
 ## [0.8.0a24] - 2026-10-15
 
 A declaration beside a mechanism that does not describe it, in the one place this drawing
