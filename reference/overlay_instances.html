@@ -875,6 +875,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>An instance label map over its image, coloured so no two touching objects match.</p>
 <p>The rule is adjacency rather than identity, and it is stated here rather than left to luck: a colour repeats across the picture and never between neighbours. See the comment above <code>_adjacent_pairs</code> for the measurement that made the exact colouring the cheap option rather than the expensive one.</p>
+<p><strong>A picture that needs more colours than the palette has gets a <code>UserWarning</code></strong>, naming how many it needs and how many objects lost the guarantee. The slot wraps onto a colour a neighbour already holds - provably, since a slot is only past the end of the palette once every colour before it was taken by a neighbour - so two touching objects are drawn as one and this figure answers its own question wrongly. That is the one failure it is for, so it is said rather than hidden. Unreachable on anything measured here: the hardest of 670 Data Science Bowl cases needs 3 of the 8 colours in the default palette.</p>
 <section id="parameters" class="level2 doc-section doc-section-parameters">
 <h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
 <table class="caption-top table">
