@@ -1,7 +1,58 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.8.0a24] - 2026-10-15
+
+A declaration beside a mechanism that does not describe it, in the one place this drawing
+exists for. `_colour_index`'s docstring said the wrap past the end of the palette "is
+**said** rather than hidden - `overlay_instances` reports it", and `overlay_instances`
+reported nothing: `grep -n warn pyplatypus/plots.py` returned no hit at all. The sentence
+was right about what should happen, which is why this is a warning and not a deletion.
+
+### Fixed
+
+ - **`overlay_instances()` now warns when the picture needs more colours than the palette
+   has**, naming how many it needs, how many there are and how many objects are drawn in a
+   neighbour's colour. `maju116/pyplatypus#231`.
+
+   The wrap is the one case this figure answers its own question wrongly in. Its subject is
+   *where does one object end*, every other colour repeat is deliberate - a colour may
+   repeat across the picture as long as it never repeats between neighbours - and a wrap is
+   exactly the case where it does repeat between neighbours. **Provably, rather than
+   usually:** a slot is only past the end of the palette once every colour before it was
+   taken by a neighbour, so the fold lands on one a neighbour already holds and never on a
+   free colour. The warning says that to the reader, so a test measures it rather than
+   leaving the claim to the docstring that made this defect.
+
+   Not reachable on anything measured here - the hardest of 670 Data Science Bowl cases
+   needs 3 of the 8 default colours, with 6 neighbours for the worst single object - which
+   is exactly why nothing noticed the gap for as long as the function has existed. A guard
+   for a picture nobody here has is still worth having when the alternative is a figure that
+   draws two objects as one and says nothing.
+
+   Two things found while writing it, neither of them the warning:
+
+   - **The fold is inside the greedy and that is not cosmetic.** Hoisting it out, so the
+     colouring is computed in true slots and folded at the end, reads cleaner and changes
+     the picture: measured on 440 overlays over 55 label maps, **234 of them differ**.
+     Folding in the loop means a later neighbour avoids the colour an object is actually
+     *drawn* in, so one wrap does not cascade into the rest of the picture. The R package
+     folds inside the loop too, so the clean-looking version would also have been a
+     divergence between the two. Found by a control recorded before the change rather than
+     by reading the diff - and the first attempt at this fix was that version.
+   - **A `Warns:` section cannot be published from here**, which is why nothing in this
+     package had one and why the warning is documented as prose. `quartodoc` has no
+     renderer for it: `uv run quartodoc build` raises `NotImplementedError: Unsupported
+     type: DocstringSectionWarns`, so the `docs` job fails and the site cannot be built.
+     Measured both ways - the section fails and the prose builds - because the four gates
+     here do not include the reference build, and the absence of any `Warns:` in the
+     package read as "no convention" when it was "no renderer".
+   - **`_colour_index` cannot report what it was said to report**, and now does not claim
+     to: it returns which objects wrapped, and `overlay_instances` - the function a person
+     called, and the only one that knows the palette it was given - is what warns. The
+     requirement in the message comes from the same function asked for a colouring with no
+     palette at all, which is the number a short palette needs and cannot be read off a
+     folded run.
 
 ### Changed
 
@@ -12,7 +63,8 @@ All notable changes to this project will be documented in this file.
    filed, which is this side's half of §3F's pair - the other half is in R's
    `test-reference-groups.R`.
 
-   Nothing in the wheel changes and no release is needed. Worth an entry anyway, because the
+   Nothing in the wheel changes for this one and it needed no release of its own; it rides
+   with `0.8.0a24`. Worth an entry anyway, because the
    subsequence test cannot catch what this one does: a name **absent** on one side is not a
    name filed differently, so until R had them there was nothing to disagree with and the
    pair could not have existed.

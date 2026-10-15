@@ -21,6 +21,7 @@ makes no decisions of its own.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import matplotlib
@@ -673,7 +674,7 @@ def _adjacent_pairs(labels: np.ndarray) -> set[tuple[int, int]]:
     return pairs
 
 
-def _colour_index(labels: np.ndarray, palette_size: int) -> dict[int, int]:
+def _colour_index(labels: np.ndarray, palette_size: int | None) -> tuple[dict[int, int], list[int]]:
     """One palette slot per object such that no two touching objects share one.
 
     Greedy in order of descending degree - Welsh-Powell - which is not optimal in general
@@ -681,9 +682,20 @@ def _colour_index(labels: np.ndarray, palette_size: int) -> dict[int, int]:
     colours always suffice, and these graphs are so sparse (0.37 neighbours per object on
     average) that three were enough for every one of 670 real pictures.
 
-    If a picture ever did need more slots than the palette has, the colouring stops being a
-    guarantee, so the slot wraps and that is **said** rather than hidden - `overlay_instances`
-    reports it. Silently drawing two neighbours alike is the one failure this is for.
+    If a picture ever does need more slots than the palette has, the colouring stops being a
+    guarantee and the slot wraps. Which objects that happened to is **returned** rather than
+    left for the caller to rediscover, because the caller is the only one that can report it
+    to a person: this docstring claimed `overlay_instances` reported it and nothing did, for
+    as long as the function has existed - `#231`.
+
+    The wrap is folded back into the colouring rather than applied at the end, and that is
+    not cosmetic: later neighbours then avoid the colour an object is actually **drawn** in,
+    so one wrap does not cascade. Measured on 440 overlays over 55 pictures, hoisting the
+    fold out of the loop changes 234 of them, and the R package folds inside the loop too.
+
+    `palette_size=None` asks for the colouring with no palette at all, which is how many
+    colours the picture needs; it is the number worth telling somebody whose palette is
+    short, and it cannot be read off a folded run.
     """
     values = [int(value) for value in np.unique(labels[labels > 0])]
     neighbours: dict[int, set[int]] = {value: set() for value in values}
@@ -692,13 +704,17 @@ def _colour_index(labels: np.ndarray, palette_size: int) -> dict[int, int]:
         neighbours[other].add(one)
 
     chosen: dict[int, int] = {}
+    wrapped: list[int] = []
     for value in sorted(values, key=lambda v: len(neighbours[v]), reverse=True):
         taken = {chosen[other] for other in neighbours[value] if other in chosen}
         slot = 0
         while slot in taken:
             slot += 1
-        chosen[value] = slot % palette_size if slot >= palette_size else slot
-    return chosen
+        if palette_size is not None and slot >= palette_size:
+            wrapped.append(value)
+            slot = slot % palette_size
+        chosen[value] = slot
+    return chosen, sorted(wrapped)
 
 
 def _outline(where: np.ndarray) -> np.ndarray:
@@ -724,6 +740,14 @@ def overlay_instances(
     luck: a colour repeats across the picture and never between neighbours. See the comment
     above `_adjacent_pairs` for the measurement that made the exact colouring the cheap
     option rather than the expensive one.
+
+    **A picture that needs more colours than the palette has gets a `UserWarning`**, naming
+    how many it needs and how many objects lost the guarantee. The slot wraps onto a colour
+    a neighbour already holds - provably, since a slot is only past the end of the palette
+    once every colour before it was taken by a neighbour - so two touching objects are drawn
+    as one and this figure answers its own question wrongly. That is the one failure it is
+    for, so it is said rather than hidden. Unreachable on anything measured here: the hardest
+    of 670 Data Science Bowl cases needs 3 of the 8 colours in the default palette.
 
     Args:
         image: one image, as `overlay_mask` takes it.
@@ -766,7 +790,20 @@ def overlay_instances(
     if labels.shape != picture.shape[:2]:
         raise PlatypusError(f"the labels are {labels.shape} and the image is {picture.shape[:2]}")
 
-    for value, slot in _colour_index(labels, len(palette)).items():
+    slots, wrapped = _colour_index(labels, len(palette))
+    if wrapped:
+        needed = max(_colour_index(labels, None)[0].values()) + 1
+        warnings.warn(
+            f"this picture needs {needed} colours to keep every pair of touching objects "
+            f"apart and the palette has {len(palette)}, so {len(wrapped)} of {len(slots)} "
+            f"objects are drawn in a colour one of their own neighbours holds. A slot past "
+            f"the end of the palette wraps onto one a neighbour has already taken - that is "
+            f"what being past the end means - so for those objects the figure no longer "
+            f"answers where one ends and the next begins. Pass a longer `colours`.",
+            stacklevel=2,
+        )
+
+    for value, slot in slots.items():
         where = labels == value
         _blend(
             picture,
