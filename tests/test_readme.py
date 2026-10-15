@@ -119,3 +119,47 @@ def test_the_readme_pins_no_transform_count():
         f"the README states a transform count ({counted}), which is not portable - "
         "explain it instead, as the augmentation paragraph now does"
     )
+
+
+def test_the_readme_pins_no_count_of_example_programs():
+    """And does not enumerate the R package's vignettes, for the same reason.
+
+    Both were wrong at once, found on 2026-10-15 while fixing the R README's "Three
+    vignettes" that named four. This page said `examples/` holds "the four programs the
+    measurements on this page came from" - the instance paragraph's 0.7655, +0.068 and
+    +0.2398 come from three more - and that the R vignettes are "blood cells, nuclei,
+    volumes", which has omitted the retinal one since it landed.
+
+    Neither number nor list is holdable from here: the vignettes live in the other
+    repository, and which scripts a table came from is a judgement about this page's prose.
+    §3C's rule applies to both - a number in prose needs a test holding it to the
+    measurement, or no number at all - so what is asserted is the absence.
+    """
+    text = README.read_text()
+
+    counted = re.findall(r"\b(?:two|three|four|five|six|\d+)\s+programs?\b", text, re.IGNORECASE)
+    assert not counted, (
+        f"the README counts example programs ({counted}); name each one beside its table "
+        "instead, which is what makes a table reproducible"
+    )
+
+    listed = re.findall(r"vignettes\]\([^)]*\)[^.]{0,80}?-\s*[a-z ]+,", text)
+    assert not listed, (
+        f"the README enumerates the R vignettes ({listed}), which nothing here can hold: "
+        "they are in the other repository and a new one leaves this list stale"
+    )
+
+
+def test_every_example_file_the_readme_names_exists():
+    """A dangling script name is the cheap half of the same defect, and this is holdable.
+
+    The sentence above promises every table is reproducible by running the script named
+    beside it, so the names have to resolve. Controlled by renaming one in a scratch copy:
+    the assertion fires.
+    """
+    text = README.read_text()
+    named = sorted(set(re.findall(r"`(examples/[A-Za-z0-9_./-]+)`", text)))
+    assert len(named) > 3, f"the scan found {len(named)} example paths, so it found nothing"
+
+    missing = [name for name in named if not (ROOT / name).exists()]
+    assert not missing, f"the README names example files that do not exist: {missing}"
