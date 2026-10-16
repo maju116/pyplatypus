@@ -615,3 +615,174 @@ def test_weights_from_one_separation_are_refused_by_the_other(instance_config, t
     with pytest.raises(WeightsError) as caught:
         InstanceEngine(rim).fit()
     assert "separation" in str(caught.value)
+
+
+# --- what the file may fill in -------------------------------------------------------
+#
+# `#236`. The semantic engine has adopted a published file's geometry since `0.8.0a13`,
+# and this one explained the absence of the same mechanism by *there are no published
+# instance weights* - a sentence `dsbowl-instances` ended one release later. The four
+# tests below are the four decisions in it: what is adopted, what is not, that a stated
+# value still wins, and that the permission to stay silent is paid for by a refusal when
+# the file turns out to say nothing.
+
+
+def model_without(config, *dropped, **fields):
+    """The fixture's model with some keys **absent** rather than `None`.
+
+    Not `spec_of(..., separation=None)`: pydantic counts a key that was passed at all as
+    set, so an explicit null would be a stated value and adoption would correctly leave it
+    alone. What a reader writes is a configuration with no such line, and that is the thing
+    worth testing - and the thing R sends, since `compact()` drops an unset option.
+    """
+    model = {
+        key: value for key, value in {**config["models"][0], **fields}.items() if key not in dropped
+    }
+    return from_dict({**config, "models": [model]})
+
+
+@pytest.fixture
+def published(instance_config, tmp_path):
+    """A rim model at width 2, exported the way `export_weights` writes one.
+
+    Width 2 rather than the default, so that an adopted block can be told from a block
+    that was there anyway - the failure this mechanism invites is adopting the *name* and
+    defaulting the setting, which reads identical on a fixture that uses the default.
+    """
+    engine = InstanceEngine(spec_of(instance_config, separation={"name": "rim", "width": 2}))
+    engine.fit()
+    return engine.export_weights("nuclei", tmp_path / "rim.safetensors")
+
+
+def test_the_sidecar_records_the_settings_and_not_only_the_signal(published):
+    """The adoption's source, written by the engine rather than by whoever publishes.
+
+    `dsbowl-instances` carries `separation_settings` because its publishing script added
+    it by hand; nothing else that ever exported an instance model did, so an adoption
+    reading that key would have worked for exactly one file in the world.
+    """
+    import json
+
+    sidecar = json.loads(published.with_suffix(".json").read_text())
+    assert sidecar["separation"] == "rim", "the signal is part of what the weights are for"
+    assert sidecar["separation_settings"]["name"] == "rim"
+    assert sidecar["separation_settings"]["width"] == 2
+
+
+def test_a_file_fills_in_the_four_fields_a_reader_cannot_guess(instance_config, published, capsys):
+    """The issue's own example: a name, a shape, the weights, and the decoding you want.
+
+    `separation` is the one that matters here. The other three are a published model's
+    geometry and the semantic engine has adopted them for releases; a rim's width is a
+    training decision, so this is the first adopted value that is not a shape - which is
+    the argument for printing what was taken.
+    """
+    spec = model_without(
+        instance_config,
+        "separation",
+        "blocks",
+        "filters",
+        weights=str(published),
+        fit=False,
+    )
+    model = spec.models[0]
+    assert model.separation is None and "blocks" not in model.model_fields_set
+
+    engine = InstanceEngine(spec)
+    engine.fit(verbose=True)
+    adopted = engine.runs["nuclei"].spec
+
+    assert adopted.separation is not None
+    assert adopted.signal.value == "rim"
+    assert adopted.separation.width == 2, "the settings, not only the name"
+    assert (adopted.blocks, adopted.filters) == (2, 4)
+    printed = capsys.readouterr().out
+    assert "adopted from" in printed and "separation=" in printed
+
+
+def test_a_specification_cannot_be_read_before_the_weights_have_been(instance_config, published):
+    """What the window between the two costs, and what it says instead of `None`.
+
+    The spec layer permits the omission and cannot check it - resolving a registry name
+    there would mean a specification that needs a download to be validated - so a model
+    read but never passed through `fit` has no answer to what its head predicts. That is
+    an error with a sentence in it rather than an attribute error on a field nobody wrote.
+    """
+    spec = model_without(instance_config, "separation", weights=str(published))
+    with pytest.raises(ValueError, match="left `separation` to its weights"):
+        assert spec.models[0].signal
+    with pytest.raises(ValueError, match="adopts it from the sidecar"):
+        spec.models[0].head_channels(2)
+
+
+def test_the_separation_cannot_be_omitted_with_nothing_to_adopt_it_from(instance_config):
+    """The half of the permission the specification layer can enforce by itself."""
+    from pyplatypus.errors import ConfigError
+
+    # A reader meets this through `from_dict`, which collects pydantic's complaints into
+    # one message - so the refusal is asserted where it is actually read rather than on
+    # the validator that writes it.
+    with pytest.raises(ConfigError, match="required unless `weights`"):
+        model_without(instance_config, "separation")
+
+
+def test_weights_that_do_not_say_what_they_predict_are_refused_rather_than_guessed(
+    instance_config, published
+):
+    """The other half, paid where the file can actually be read.
+
+    A sidecar written before `0.8.0a28` carries no `separation_settings`, and neither does
+    one from somebody else's project. Guessing `rim` here would load a flows head and
+    predict confidently - the failure the fingerprint exists for - and defaulting to the
+    fixture's own answer would make this test pass on every file.
+    """
+    import json
+
+    sidecar = published.with_suffix(".json")
+    older = json.loads(sidecar.read_text())
+    del older["separation_settings"]
+    sidecar.write_text(json.dumps(older))
+
+    spec = model_without(instance_config, "separation", weights=str(published))
+    with pytest.raises(EngineError, match="does not record it"):
+        InstanceEngine(spec).fit()
+
+
+def test_a_stated_separation_is_kept_even_where_the_file_disagrees(instance_config, published):
+    """Adoption loosens what may be omitted and nothing about what is checked.
+
+    A rim at width 3 against weights trained at width 2 is the ordinary way to start one
+    run from another: the settings are deliberately outside the fingerprint, because they
+    change what the channels were trained *towards* rather than what they are. So this
+    loads, and the stated width survives - adopting over it would silently retrain
+    somebody else's decision.
+    """
+    spec = spec_of(
+        instance_config, separation={"name": "rim", "width": 3}, weights=str(published), fit=False
+    )
+    engine = InstanceEngine(spec)
+    engine.fit()
+    assert engine.runs["nuclei"].spec.separation.width == 3
+
+
+def test_the_decoding_is_never_adopted(instance_config, published):
+    """`decode` is the reader's question, not the file's property.
+
+    One trained file answers it three ways - 0.5445, 0.5390 and 0.4822 on the published
+    instance weights - and the sidecar lists every decoding it was measured with. Adopting
+    from that list would silently pick whichever name came first and call it the model's.
+    """
+    import json
+
+    sidecar = published.with_suffix(".json")
+    described = json.loads(sidecar.read_text())
+    described["decodings"] = ["watershed"]
+    described["decode"] = ["watershed"]
+    sidecar.write_text(json.dumps(described))
+
+    spec = model_without(instance_config, "separation", "decode", weights=str(published), fit=False)
+    engine = InstanceEngine(spec)
+    engine.fit()
+    adopted = engine.runs["nuclei"].spec
+    assert adopted.decode is None, "nothing was written, so nothing is in the field"
+    assert [block.name for block in adopted.decodings] == ["nearest_seed", "connected_components"]
