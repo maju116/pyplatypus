@@ -1139,6 +1139,13 @@ For masks stored as label maps rather than pictures: the voxel value of each cla
 a list of <code>Region</code> blocks — unset
 Overlapping classes, named as unions of a label map’s values - the third way of saying what a mask’s classes are, and the only one that lets a voxel belong to more than one. Each entry gives a <code>name</code> and the values it is made <code>of</code>. With <code>regions</code> the model’s channels are independent binary questions: a sigmoid per channel rather than one softmax across them, and <strong>no background entry</strong>, for the same reason detection’s <code>classes</code> has none. Exactly one of <code>colormap</code>, <code>labels</code> and <code>regions</code> is given. Two regions are the minimum - one region is ordinary binary segmentation, which <code>labels: [0, 1]</code> already says.
 </dd>
+<dt><code>classes_from</code></dt>
+<dd>
+a list of text values — unset
+For masks kept as one binary file per class - the fourth way of saying what a mask’s classes are, and the only one that can express classes which overlap <em>independently</em>: a vessel crossing an organ, or two annotators’ masks of the same structure. One pattern per class, in class order, each a regular expression matched against a sample’s mask file names, and every pattern must match exactly one file - the rules <code>channels_from</code> uses, through the same matcher.
+Stated rather than inferred for the reason <code>channels_from</code> gives, with worse consequences: sorting the names is reproducible and anatomically meaningless, and a model trained with ‘tumour’ in channel 1 and used where channel 1 is ‘oedema’ answers plausibly, in range, and nothing downstream can tell.
+Like <code>regions</code> this makes every channel an independent binary question - a sigmoid per channel rather than one softmax across them - and has <strong>no background entry</strong>. The difference between the two is the file on disk and nothing else: <code>regions</code> derives overlap from one label map’s values, which is what BraTS and the liver-and-tumour family need, and this reads overlap that was drawn separately in the first place. Exactly one of <code>colormap</code>, <code>labels</code>, <code>regions</code> and <code>classes_from</code> is given.
+</dd>
 <dt><code>channels_from</code></dt>
 <dd>
 a list of text values — unset
@@ -1621,8 +1628,9 @@ Keep the pretrained layers fixed for this many epochs, then train them. Lets the
 </dd>
 <dt><code>separation</code></dt>
 <dd>
-one of <code>flows</code>, <code>rim</code> — <strong>required</strong>
-What the network predicts so that one mask can become many objects: a block named <code>rim</code> or <code>flows</code>, carrying that mechanism’s own settings. <strong>Required, with no default</strong>, because it decides the width of the head and which losses are admissible - the two things a model cannot be built without - and because neither value is a safe guess at what somebody meant.
+one of <code>flows</code>, <code>rim</code> — unset
+What the network predicts so that one mask can become many objects: a block named <code>rim</code> or <code>flows</code>, carrying that mechanism’s own settings. <strong>Required unless <code>weights</code> names a file that records what it was trained to predict</strong>, because it decides the width of the head and which losses are admissible - the two things a model cannot be built without - and because neither value is a safe guess at what somebody meant.
+A published file is the one place it does not have to be guessed. <code>dsbowl-instances</code> records <code>rim</code> at width 2, so leaving this out beside <code>weights: dsbowl-instances</code> adopts a training decision rather than inventing one, and the engine prints what it took. It was required outright until <code>0.8.0a28</code>, which left four of this model’s fields as the file’s own fingerprint with no way to learn them but a model card - and <code>separation</code> is the one nobody can guess, since a rim’s width is not a shape. <code>pyplatypus#236</code>.
 A block rather than a bare name because the settings differ between the two and belong inside the one they describe: <code>width</code> under <code>name: flows</code> is an unknown key rather than something a validator has to refuse.
 It is also the field whose documentation carries a result: on the Data Science Bowl the two are worth +0.0640 and +0.0680 of instance average precision over the same mask through <code>connected_components</code>, a difference below the noise between two runs of one configuration, while a perfect mask is worth +0.2398. Read the blocks’ own descriptions for what that means before planning a comparison around this axis.
 </dd>

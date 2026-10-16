@@ -895,7 +895,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="even">
 <td><a href="#pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings">overlapping_classes_rule_out_two_settings</a></td>
-<td>What <code>regions</code> cannot be combined with, said here rather than at training time.</td>
+<td>What an independent-channel naming cannot be combined with, said here rather</td>
 </tr>
 </tbody>
 </table>
@@ -920,7 +920,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.SegmentationSpec.overlapping_classes_rule_out_two_settings">overlapping_classes_rule_out_two_settings</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>SegmentationSpec.overlapping_classes_rule_out_two_settings()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>What <code>regions</code> cannot be combined with, said here rather than at training time.</p>
+<p>What an independent-channel naming cannot be combined with, said here rather than at training time.</p>
+<p>Both of them: <code>regions</code> and <code>classes_from</code> differ only in the file on disk, so the refusals read <code>data.multilabel</code> and name whichever field was written. The prose below says <code>regions</code> because that is the naming it was found on.</p>
 <p>Two things, and they fail differently.</p>
 <p><strong><code>lovasz</code></strong> is not a tuning away from working. The Lovasz-Softmax surrogate sorts the errors of a softmax over mutually exclusive classes and walks the Lovasz extension of the Jaccard loss along that order; the independent form is the Lovasz-Hinge, a different construction. Run as it stands on sigmoid channels it would produce a number and a gradient, which is the worst available outcome.</p>
 <p><strong><code>include_background: false</code></strong> has nothing to exclude: <code>regions</code> has no background entry, so channel 0 is the first region somebody asked for and dropping it would drop a class. Refused only when it was <em>written</em> - <code>cldice</code> defaults it to False, and a default is not a request. <code>model_fields_set</code> is what tells those apart, the same way <code>channels_match_the_data</code> tells a stated <code>channels</code> from the one that was there anyway.</p>

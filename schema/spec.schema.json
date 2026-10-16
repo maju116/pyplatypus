@@ -1915,22 +1915,30 @@
           "type": "boolean"
         },
         "separation": {
-          "description": "What the network predicts so that one mask can become many objects: a block named `rim` or `flows`, carrying that mechanism's own settings. **Required, with no default**, because it decides the width of the head and which losses are admissible - the two things a model cannot be built without - and because neither value is a safe guess at what somebody meant.\n\nA block rather than a bare name because the settings differ between the two and belong inside the one they describe: `width` under `name: flows` is an unknown key rather than something a validator has to refuse.\n\nIt is also the field whose documentation carries a result: on the Data Science Bowl the two are worth +0.0640 and +0.0680 of instance average precision over the same mask through `connected_components`, a difference below the noise between two runs of one configuration, while a perfect mask is worth +0.2398. Read the blocks' own descriptions for what that means before planning a comparison around this axis.",
-          "discriminator": {
-            "mapping": {
-              "flows": "#/$defs/Flows",
-              "rim": "#/$defs/Rim"
-            },
-            "propertyName": "name"
-          },
-          "oneOf": [
+          "anyOf": [
             {
-              "$ref": "#/$defs/Rim"
+              "discriminator": {
+                "mapping": {
+                  "flows": "#/$defs/Flows",
+                  "rim": "#/$defs/Rim"
+                },
+                "propertyName": "name"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Rim"
+                },
+                {
+                  "$ref": "#/$defs/Flows"
+                }
+              ]
             },
             {
-              "$ref": "#/$defs/Flows"
+              "type": "null"
             }
           ],
+          "default": null,
+          "description": "What the network predicts so that one mask can become many objects: a block named `rim` or `flows`, carrying that mechanism's own settings. **Required unless `weights` names a file that records what it was trained to predict**, because it decides the width of the head and which losses are admissible - the two things a model cannot be built without - and because neither value is a safe guess at what somebody meant.\n\nA published file is the one place it does not have to be guessed. `dsbowl-instances` records `rim` at width 2, so leaving this out beside `weights: dsbowl-instances` adopts a training decision rather than inventing one, and the engine prints what it took. It was required outright until `0.8.0a28`, which left four of this model's fields as the file's own fingerprint with no way to learn them but a model card - and `separation` is the one nobody can guess, since a rim's width is not a shape. `pyplatypus#236`.\n\nA block rather than a bare name because the settings differ between the two and belong inside the one they describe: `width` under `name: flows` is an unknown key rather than something a validator has to refuse.\n\nIt is also the field whose documentation carries a result: on the Data Science Bowl the two are worth +0.0640 and +0.0680 of instance average precision over the same mask through `connected_components`, a difference below the noise between two runs of one configuration, while a perfect mask is worth +0.2398. Read the blocks' own descriptions for what that means before planning a comparison around this axis.",
           "title": "Separation"
         },
         "spatial_dropout": {
@@ -1977,8 +1985,7 @@
       },
       "required": [
         "name",
-        "input_shape",
-        "separation"
+        "input_shape"
       ],
       "title": "InstanceModel",
       "type": "object"
@@ -2432,6 +2439,23 @@
           "default": null,
           "description": "For datasets that keep one channel per file - BraTS ships T1, T1ce, T2 and FLAIR per patient; 38-Cloud keeps its bands apart - one pattern per channel, in channel order, each a regular expression matched against the file names. Every pattern must match exactly one of a sample's files. Stated rather than inferred because sorting gives flair, t1, t1ce, t2: reproducible, and anatomically meaningless. A model trained with FLAIR in channel one and used on data where channel one is T1 returns a plausible answer and no error.",
           "title": "Channels From"
+        },
+        "classes_from": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For masks kept as one binary file per class - the fourth way of saying what a mask's classes are, and the only one that can express classes which overlap *independently*: a vessel crossing an organ, or two annotators' masks of the same structure. One pattern per class, in class order, each a regular expression matched against a sample's mask file names, and every pattern must match exactly one file - the rules `channels_from` uses, through the same matcher.\n\nStated rather than inferred for the reason `channels_from` gives, with worse consequences: sorting the names is reproducible and anatomically meaningless, and a model trained with 'tumour' in channel 1 and used where channel 1 is 'oedema' answers plausibly, in range, and nothing downstream can tell.\n\nLike `regions` this makes every channel an independent binary question - a sigmoid per channel rather than one softmax across them - and has **no background entry**. The difference between the two is the file on disk and nothing else: `regions` derives overlap from one label map's values, which is what BraTS and the liver-and-tumour family need, and this reads overlap that was drawn separately in the first place. Exactly one of `colormap`, `labels`, `regions` and `classes_from` is given.",
+          "title": "Classes From"
         },
         "colormap": {
           "anyOf": [
