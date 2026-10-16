@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -410,7 +410,7 @@ class DetectionEngine(EngineBase):
                 print(f"\n=== {model_spec.name} ({model_spec.architecture.value}) ===")
 
             if model_spec.weights:
-                model_spec = self._adopt_from_weights(model_spec)
+                model_spec, _ = self._adopt_from_weights(model_spec)
 
             network = build_yolo3(
                 n_class=self.spec.data.n_class,
@@ -553,33 +553,12 @@ class DetectionEngine(EngineBase):
     #: `anchors_per_grid` decides the shape of every head, and a published detector knows
     #: its own. Not `input_shape` or `channels`, for the reason the segmentation engine
     #: gives: the rank is needed while the specification is validated, before a sidecar can
-    #: be reached without a download.
-    ADOPTABLE = ("architecture", "anchors_per_grid")
-
-    def _adopt_from_weights(self, model_spec: DetectionModel) -> DetectionModel:
-        """The counterpart of `_anchors_from` for the rest of what the file describes.
-
-        Anchors have travelled with detection weights since 0.3.0a12, for the reason that
-        without them the same weights decode every box scaled by a fixed factor. The head
-        geometry is the same kind of fact, and a caller should no more have to know a
-        published detector's `anchors_per_grid` than its anchors.
-        """
-        from pyplatypus.weights import describe, resolve_weights
-
-        try:
-            sidecar = describe(resolve_weights(model_spec.weights))
-        except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
-            return model_spec  # told with the message it has always given.
-        if not sidecar:
-            return model_spec
-        adopted = {
-            field: sidecar[field]
-            for field in self.ADOPTABLE
-            if field in sidecar and field not in model_spec.model_fields_set
-        }
-        if not adopted:
-            return model_spec
-        return type(model_spec).model_validate({**model_spec.model_dump(), **adopted})
+    #: be reached without a download. The mechanism is `EngineBase._adopt_from_weights`,
+    #: which this file carried its own identical copy of until `0.8.0a28`.
+    ADOPTABLE: ClassVar[dict[str, str]] = {
+        "architecture": "architecture",
+        "anchors_per_grid": "anchors_per_grid",
+    }
 
     def _anchors_from(self, sidecar: dict | None, spec: DetectionModel) -> tuple:
         """The anchors the weights were trained with, or a refusal.

@@ -194,9 +194,45 @@ class is hard". The mask check refuses it before training and names the region r
 its position, and `inspect_masks` answers the same question over as much of the data as you
 want, naming it the same way.
 
-`classes_from` - one binary file per class, the only way to express an overlap that is not a
-union of label values - is **deliberately not here**. It is deferred in `#91`, where the
-decision was nested regions first.
+### When the overlap was drawn separately: `classes_from`
+
+`regions` needs the overlap to be a union of one label map's values, which is how BraTS
+stores it - one integer per voxel, and the scored classes are conventions over those
+integers. Some overlaps are not like that. A vessel crossing an organ, or two annotators'
+masks of the same structure, were drawn independently and no single integer can hold both.
+Those arrive as **one binary file per class**, and `classes_from` names them: one regular
+expression per class, in class order, matched against a sample's mask files.
+
+```yaml
+task: semantic_segmentation
+data:
+  train_path: data/train
+  validation_path: data/validation
+  classes_from:
+    - _vessel\.png$
+    - _organ\.png$
+models:
+  - name: crossing
+    input_shape: [256, 256]
+    loss: {name: cce_dice}
+```
+
+Everything the section above says about a channel still holds: independent binary
+questions, no background entry, a prediction that cannot be written back as one picture,
+`save_class_masks()` where a colour map refuses. The difference between the two namings is
+the file on disk and nothing else.
+
+**Every pattern must match exactly one of a sample's mask files, and every mask file must
+match a pattern.** Both halves are refused, because each is invisible from the other side:
+a pattern matching nothing is a class the model is never shown, and a file matching no
+pattern is a class the data has and nobody asked for. The order is written rather than
+inferred for the reason `channels_from` gives, with worse consequences here - sorting the
+names is reproducible and anatomically meaningless, and a model trained with the vessel in
+channel 0 and used where channel 0 is the organ answers plausibly, in range, with nothing
+downstream able to tell.
+
+`#91` asked which of the two shapes this package needed; the answer, in 2026-10-12's
+decision, was nested regions first. This is the other half.
 
 ## Instances instead of one mask
 

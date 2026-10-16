@@ -12,7 +12,7 @@ import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -184,6 +184,66 @@ class EngineBase:
                 f"the '{split}' split has no {self.labels_are}, so there is nothing to "
                 f"score against. {suggestion}"
             )
+
+    #: Which of a model's fields a sidecar may fill in where the specification stayed
+    #: silent, as `field: the key the sidecar records it under`. Empty here and declared
+    #: by each engine below, because what a published file knows about itself is
+    #: task-specific: a detector's head is set by its anchor count and a U-shaped one by
+    #: blocks and filters.
+    #:
+    #: **A mapping rather than a list of names**, because the two differ exactly once:
+    #: the instance engine adopts `separation` from `separation_settings`, the sidecar
+    #: having to call it something else - `separation` there is the signal alone and part
+    #: of what the weights say they are *for*, so a block written under that name would
+    #: shadow the fingerprint and make the file refuse to load into the model it came
+    #: from. `pyplatypus#236`.
+    ADOPTABLE: ClassVar[dict[str, str]] = {}
+
+    def _adopt_from_weights(self, model_spec):
+        """Fill what the weights already describe, where the specification stayed silent.
+
+        A published file knows its own geometry - `dsbowl-unet` records u_net, 4 blocks, 16
+        filters - so requiring the caller to restate it means knowing the internals of
+        somebody else's model in order to use it, and being refused for guessing wrong.
+        Anchors have travelled with detection weights this way since 0.3.0a12, for the
+        sharper version of the same reason: without them the same weights decode every box
+        scaled by a fixed factor.
+
+        `model_fields_set` is what makes this safe: it tells a value the user chose from a
+        default that happened to be there. Anything stated is left alone and still has to
+        agree, so this loosens what may be omitted and nothing about what is checked.
+
+        Returns:
+            The specification, and what was taken from the file - so a caller can say so.
+            Both engines that had their own copy of this ignore the second half; the
+            instance engine prints it, because what it adopts includes a training decision
+            and the argument for adopting one at all is that the reader still sees it.
+
+        **One mechanism, three declarations, as of `0.8.0a28`.** This body existed twice,
+        character for character apart from a type hint, in `Engine` and `DetectionEngine`;
+        `InstanceEngine` was about to need a third with one asymmetric entry. That is the
+        shape `#236` is about, so the copies were merged rather than added to.
+        """
+        from pyplatypus.weights import describe, resolve_weights
+
+        try:
+            sidecar = describe(resolve_weights(model_spec.weights))
+        except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
+            return model_spec, {}  # told with the message it has always given.
+        if not sidecar:
+            return model_spec, {}
+
+        adopted = {
+            field: sidecar[key]
+            for field, key in self.ADOPTABLE.items()
+            if key in sidecar and field not in model_spec.model_fields_set
+        }
+        if not adopted:
+            return model_spec, {}
+        # Re-validated rather than copied, because the adopted values have to face the same
+        # checks a written one would: `blocks` decides what input sizes are divisible, and
+        # an adopted `separation` has to be a block this build of the engine can read.
+        return type(model_spec).model_validate({**model_spec.model_dump(), **adopted}), adopted
 
 
 @dataclass
@@ -391,6 +451,12 @@ class Engine(EngineBase):
                 **classes,
                 "regions": [{"name": r.name, "of": list(r.of)} for r in data.regions],
             }
+        if data.classes_from is not None:
+            # The patterns are the class identity here, the way detection records its class
+            # *names*: three independent classes in a different order are the same count and
+            # the same shape, and weights read back that way would label every channel
+            # wrongly while answering plausibly.
+            return {**classes, "classes_from": list(data.classes_from)}
         if data.labels is not None:
             return {**classes, "labels": list(data.labels)}
         return {**classes, "colormap": [list(colour) for colour in data.colormap]}
@@ -499,9 +565,10 @@ class Engine(EngineBase):
                 f"finish, the loss would fall, and the model would answer 'background' "
                 f"everywhere.\n"
                 + (
-                    "  A region matching nothing is a channel of zeros: it trains to "
+                    "  A channel nothing matched is a channel of zeros: it trains to "
                     "predict nothing and scores a Dice of 0 while every other number "
-                    "looks ordinary. Check its `of` values against the label map.\n"
+                    "looks ordinary. Check the `of` values against the label map, or the "
+                    "pattern against the mask files.\n"
                     if self.spec.data.multilabel
                     else "  Either the colormap or labels do not describe these masks, or "
                     "n_class counts a class the data does not contain.\n"
@@ -535,6 +602,8 @@ class Engine(EngineBase):
             if data.regions is not None and index < len(data.regions):
                 region = data.regions[index]
                 parts.append(f"region '{region.name}' (of {list(region.of)})")
+            elif data.classes_from is not None and index < len(data.classes_from):
+                parts.append(f"class {index} (files matching '{data.classes_from[index]}')")
             elif data.label_map and data.labels is not None and index < len(data.labels):
                 parts.append(f"class {index} (label {data.labels[index]})")
             elif data.colormap is not None and index < len(data.colormap):
@@ -551,40 +620,11 @@ class Engine(EngineBase):
     #: reads both before a network is built. Making them wait on a sidecar would mean a
     #: specification that cannot be checked without a download, which is the air-gapped
     #: hospital problem this project has carried since RECON.md.
-    ADOPTABLE = ("architecture", "blocks", "filters")
-
-    def _adopt_from_weights(self, model_spec):
-        """Fill the architecture the weights already describe, where the spec stayed silent.
-
-        A published file knows its own geometry - `dsbowl-unet` records u_net, 4 blocks, 16
-        filters - so requiring the caller to restate it means knowing the internals of
-        somebody else's model in order to use it, and being refused for guessing wrong.
-
-        `model_fields_set` is what makes this safe: it tells a value the user chose from a
-        default that happened to be there. Anything stated is left alone and still has to
-        agree, so this loosens what may be omitted and nothing about what is checked. The
-        detection side has adopted anchors this way since 0.3.0a12; this is the same move
-        applied to the rest of the fingerprint.
-        """
-        from pyplatypus.weights import describe, resolve_weights
-
-        try:
-            sidecar = describe(resolve_weights(model_spec.weights))
-        except Exception:  # noqa: BLE001 - a bad reference is load_into's story to tell,
-            return model_spec  # told with the message it has always given.
-        if not sidecar:
-            return model_spec
-
-        adopted = {
-            field: sidecar[field]
-            for field in self.ADOPTABLE
-            if field in sidecar and field not in model_spec.model_fields_set
-        }
-        if not adopted:
-            return model_spec
-        # Re-validated rather than copied, because the adopted values have to face the same
-        # checks a written one would: `blocks` decides what input sizes are divisible.
-        return type(model_spec).model_validate({**model_spec.model_dump(), **adopted})
+    ADOPTABLE: ClassVar[dict[str, str]] = {
+        "architecture": "architecture",
+        "blocks": "blocks",
+        "filters": "filters",
+    }
 
     # -------------------------------------------------------------------- fit
     def fit(self, *, verbose: bool = False) -> dict[str, History]:
@@ -605,7 +645,7 @@ class Engine(EngineBase):
         """
         for model_spec in self.spec.models:
             if model_spec.weights:
-                model_spec = self._adopt_from_weights(model_spec)
+                model_spec, _ = self._adopt_from_weights(model_spec)
             if model_spec.fit:
                 self._refuse_masks_that_describe_nothing(model_spec)
             if verbose:

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import torch
@@ -314,6 +314,21 @@ class InstanceEngine(EngineBase):
                 `check_objects` is what looks for.
         """
         for model_spec in self.spec.models:
+            # First, because everything below reads the model this returns: the head's
+            # width, the target the loader builds and the message printed next all come
+            # off the separation, and until this line a model that left it to its weights
+            # has none.
+            if model_spec.weights:
+                model_spec, adopted = self._adopt_from_weights(model_spec)
+                self._refuse_a_model_whose_weights_never_said_what_they_predict(model_spec)
+                if adopted and verbose:
+                    # Said out loud because one of these can be a training decision. The
+                    # argument for adopting `separation` at all is that the reader ends up
+                    # seeing what they got; the run record carries it too, as if written.
+                    taken = ", ".join(
+                        f"{field}={getattr(model_spec, field)!s}" for field in sorted(adopted)
+                    )
+                    print(f"  adopted from '{model_spec.weights}': {taken}")
             if model_spec.fit and self.check_objects:
                 self._refuse_a_split_that_lost_its_objects(model_spec)
             if verbose:
@@ -413,6 +428,50 @@ class InstanceEngine(EngineBase):
         )
 
     # ------------------------------------------------------------------ weights
+    #: Everything the semantic engine adopts, plus the one this task cannot be read
+    #: without. The mechanism is `EngineBase._adopt_from_weights`.
+    #:
+    #: **`separation` is here and `decode` is deliberately not.** The separation is the
+    #: file's own property - `dsbowl-instances` is a rim at width 2 and no reader can
+    #: guess that, because it is a training decision rather than a shape - and it is
+    #: adopted as a *block* built from `separation_settings` rather than copied as a
+    #: number. The decoding is the reader's question: one trained file answers it three
+    #: ways, the sidecar lists all three it was measured with, and adopting one would
+    #: silently pick the one whose name happened to come first.
+    #:
+    #: `separation_settings` rather than `separation` because the sidecar already uses
+    #: the shorter name for the signal alone, which is part of what the weights say they
+    #: are *for*: a block written under it would shadow the fingerprint and the file would
+    #: refuse to load into the model it came from. `pyplatypus#236`.
+    ADOPTABLE: ClassVar[dict[str, str]] = {
+        "architecture": "architecture",
+        "blocks": "blocks",
+        "filters": "filters",
+        "separation": "separation_settings",
+    }
+
+    def _refuse_a_model_whose_weights_never_said_what_they_predict(self, model_spec) -> None:
+        """`separation` left out, and the file did not fill it in.
+
+        The specification layer permits the omission beside `weights` and can go no
+        further, because resolving a registry name there would mean a specification that
+        cannot be validated without a download. So this is where the rest of that
+        permission is paid, and it names the file: a sidecar written before `0.8.0a28`
+        carries no `separation_settings`, nor does one from a project that is not this one,
+        and the difference between *the weights know* and *nobody knows* is the whole
+        content of the message.
+        """
+        if model_spec.separation is not None:
+            return
+        raise EngineError(
+            f"model '{model_spec.name}' left `separation` to '{model_spec.weights}', and "
+            "that file's description does not record it: there is no "
+            "`separation_settings` in its sidecar, so what its channels were trained to "
+            "predict is not written down anywhere. State the block - "
+            "`separation: {name: rim, width: 2}` or `{name: flows}` - and the fingerprint "
+            "will still refuse the file if the signal is the wrong one."
+        )
+
     def _class_fingerprint(self) -> dict:
         """What the data says the classes are, which here is almost nothing - and the task.
 
@@ -433,12 +492,18 @@ class InstanceEngine(EngineBase):
     def _load_weights(self, model, reference: str, spec: InstanceModel):
         """A registry name, a Hub reference, or a local path - see `pyplatypus.weights`.
 
-        **Nothing is adopted from the file**, which is the one place this engine offers less
-        than the semantic one. There are no published instance weights, so there is no
-        registry entry to read `blocks` and `filters` out of; a local file still loads, and
-        its sidecar still has to agree with the model it is being loaded into - including
-        the separation, because a `rim` head and a `flows` head mean entirely different
-        things by the same numbers.
+        The sidecar has to agree with the model it is being loaded into - including the
+        separation, because a `rim` head and a `flows` head mean entirely different things
+        by the same numbers. What a file may *fill in* rather than merely agree with is
+        `ADOPTABLE` above.
+
+        **The paragraph this replaces said nothing is adopted here, and gave the reason:
+        there were no published instance weights to adopt from.** That was true when it was
+        written and `dsbowl-instances` ended it one release later, without anybody
+        noticing - a declaration beside a mechanism that had stopped describing it, which
+        is `#236` and the same shape as `#230` and `#231`. Found by writing R's instance
+        vignette, where the shortest useful thing a reader could do with the published
+        weights meant copying four of this model's fields out of a model card.
         """
         from pyplatypus.weights import load_into
 
@@ -459,7 +524,26 @@ class InstanceEngine(EngineBase):
 
         run = self._run(model_name)
         return export_weights(
-            run.model, run.spec, path, extra={**self._class_fingerprint(), **(extra or {})}
+            run.model,
+            run.spec,
+            path,
+            extra={
+                **self._class_fingerprint(),
+                # What `ADOPTABLE` reads back, written by the engine rather than by
+                # whoever publishes. `dsbowl-instances` carries it because its publishing
+                # script added it by hand, and an adoption that depends on a script having
+                # remembered is the failure this release is about - so every instance file
+                # this engine writes now says what it predicts.
+                #
+                # Not under `separation`: that name is the signal alone and part of the
+                # fingerprint, so a block there would shadow it and the file would refuse
+                # to load into the model it came from. The settings stay out of the
+                # comparison on purpose - a 2-pixel rim is the right shape and the right
+                # meaning for a model asking for 3 - which is why this is written here
+                # and not in `weights_fingerprint`.
+                "separation_settings": run.spec.separation.model_dump(mode="json"),
+                **(extra or {}),
+            },
         )
 
     # --------------------------------------------------------------- evaluate

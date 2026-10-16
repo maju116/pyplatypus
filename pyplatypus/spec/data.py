@@ -356,6 +356,30 @@ class SegmentationData(DataSpec):
             "ordinary binary segmentation, which `labels: [0, 1]` already says."
         ),
     )
+    classes_from: list[str] | None = Field(
+        None,
+        min_length=2,
+        description=(
+            "For masks kept as one binary file per class - the fourth way of saying what a "
+            "mask's classes are, and the only one that can express classes which overlap "
+            "*independently*: a vessel crossing an organ, or two annotators' masks of the "
+            "same structure. One pattern per class, in class order, each a regular "
+            "expression matched against a sample's mask file names, and every pattern must "
+            "match exactly one file - the rules `channels_from` uses, through the same "
+            "matcher.\n\n"
+            "Stated rather than inferred for the reason `channels_from` gives, with worse "
+            "consequences: sorting the names is reproducible and anatomically meaningless, "
+            "and a model trained with 'tumour' in channel 1 and used where channel 1 is "
+            "'oedema' answers plausibly, in range, and nothing downstream can tell.\n\n"
+            "Like `regions` this makes every channel an independent binary question - a "
+            "sigmoid per channel rather than one softmax across them - and has **no "
+            "background entry**. The difference between the two is the file on disk and "
+            "nothing else: `regions` derives overlap from one label map's values, which is "
+            "what BraTS and the liver-and-tumour family need, and this reads overlap that "
+            "was drawn separately in the first place. Exactly one of `colormap`, `labels`, "
+            "`regions` and `classes_from` is given."
+        ),
+    )
     channels_from: list[str] | None = Field(
         None,
         min_length=2,
@@ -396,13 +420,22 @@ class SegmentationData(DataSpec):
             )
         return value
 
-    @field_validator("channels_from")
+    @field_validator("channels_from", "classes_from")
     @classmethod
-    def patterns_are_distinct(cls, value):
+    def patterns_are_distinct(cls, value, info):
+        """One validator for both, because the rule and the reason are the same one.
+
+        `info.field_name` is what keeps the message about the field somebody wrote rather
+        than about channels in a message printed for classes.
+        """
+        noun = "channel" if info.field_name == "channels_from" else "class"
         if value is not None and len(set(value)) != len(value):
             raise ValueError(
-                "channel patterns must be distinct - two channels matching the same file "
-                "would make one measurement into two"
+                f"{noun} patterns must be distinct - two {noun}es matching the same file "
+                f"would make one {noun} into two"
+                if noun == "class"
+                else "channel patterns must be distinct - two channels matching the same "
+                "file would make one measurement into two"
             )
         return value
 
@@ -457,6 +490,13 @@ class SegmentationData(DataSpec):
         `regions` is the third and it reads the same file `labels` does, which is why it
         replaces it rather than joining it: a region is a membership test over the values in
         a label map, so the complete list of those values never has to be written down.
+
+        `classes_from` is the fourth and it is the only one that is about the *files*: one
+        binary mask per class, which is the only shape that can hold two things drawn
+        independently over the same voxel. It excludes the other three for the same reason
+        they exclude each other - it answers how many classes there are and what each one
+        is - and in particular it is not a modifier on `labels`: a per-class file has no
+        label values to list.
         """
         given = [
             name
@@ -464,14 +504,16 @@ class SegmentationData(DataSpec):
                 ("colormap", self.colormap),
                 ("labels", self.labels),
                 ("regions", self.regions),
+                ("classes_from", self.classes_from),
             )
             if value is not None
         ]
         if len(given) != 1:
             raise ValueError(
                 "give exactly one of `colormap` (masks stored as pictures), `labels` (masks "
-                "stored as label maps, which is how volumes do it) and `regions` "
-                "(overlapping classes as unions of a label map's values)"
+                "stored as label maps, which is how volumes do it), `regions` "
+                "(overlapping classes as unions of a label map's values) and `classes_from` "
+                "(one binary mask file per class, for classes that overlap independently)"
                 + (f"; got {given}" if given else "; got none of them")
             )
         return self
@@ -483,9 +525,11 @@ class SegmentationData(DataSpec):
         With `regions` this is the number of regions and there is no background among them,
         so the same count means something different: `labels: [0, 1, 2, 4]` is four channels
         one of which is background, and three regions over the same file is three channels
-        none of which is.
+        none of which is. `classes_from` counts its patterns and has no background either,
+        for the same reason - which is why `_class_fingerprint` records *which* naming a run
+        used rather than only how many classes it had.
         """
-        for naming in (self.colormap, self.labels, self.regions):
+        for naming in (self.colormap, self.labels, self.regions, self.classes_from):
             if naming is not None:
                 return len(naming)
         raise AssertionError("one_way_of_naming_classes should have refused this spec")
@@ -502,5 +546,20 @@ class SegmentationData(DataSpec):
         The single switch the rest of the package reads. It decides a sigmoid per channel
         instead of a softmax across them, a per-channel threshold instead of an `argmax`,
         and whether `save_masks` can write a colour map at all.
+
+        **Two namings answer yes** and everything downstream reads this rather than either
+        of them: `regions` derives overlapping channels from one label map's values, and
+        `classes_from` reads one binary file per class. From the target onwards the two are
+        identical - which is what made the second one cheap, and is the whole reason
+        `regions` was built first.
         """
-        return self.regions is not None
+        return self.regions is not None or self.classes_from is not None
+
+    @property
+    def multilabel_naming(self) -> str:
+        """Which field made the channels independent, for a message that has to name it.
+
+        A refusal that says `regions` to somebody who wrote `classes_from` sends them
+        looking for a field they have not got.
+        """
+        return "regions" if self.regions is not None else "classes_from"

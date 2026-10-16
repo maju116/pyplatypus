@@ -604,13 +604,23 @@ class InstanceModel(SegmentationModel):
         "; for separation: flows the vector channels have their own `loss` inside the block"
     )
 
-    separation: SeparationSpec = Field(
+    separation: SeparationSpec | None = Field(
+        None,
         description=(
             "What the network predicts so that one mask can become many objects: a block "
-            "named `rim` or `flows`, carrying that mechanism's own settings. **Required, "
-            "with no default**, because it decides the width of the head and which losses "
-            "are admissible - the two things a model cannot be built without - and because "
-            "neither value is a safe guess at what somebody meant.\n\n"
+            "named `rim` or `flows`, carrying that mechanism's own settings. **Required "
+            "unless `weights` names a file that records what it was trained to predict**, "
+            "because it decides the width of the head and which losses are admissible - "
+            "the two things a model cannot be built without - and because neither value "
+            "is a safe guess at what somebody meant.\n\n"
+            "A published file is the one place it does not have to be guessed. "
+            "`dsbowl-instances` records `rim` at width 2, so leaving this out beside "
+            "`weights: dsbowl-instances` adopts a training decision rather than inventing "
+            "one, and the engine prints what it took. It was required outright until "
+            "`0.8.0a28`, which left four of this model's fields as the file's own "
+            "fingerprint with no way to learn them but a model card - and `separation` is "
+            "the one nobody can guess, since a rim's width is not a shape. "
+            "`pyplatypus#236`.\n\n"
             "A block rather than a bare name because the settings differ between the two "
             "and belong inside the one they describe: `width` under `name: flows` is an "
             "unknown key rather than something a validator has to refuse.\n\n"
@@ -645,6 +655,50 @@ class InstanceModel(SegmentationModel):
         ),
     )
 
+    @model_validator(mode="after")
+    def separation_is_stated_or_there_are_weights_to_adopt_it_from(self):
+        """Leaving `separation` out says *the file knows*, so there has to be a file.
+
+        This is as far as the specification layer can take it: the other half of the
+        permission is the engine's, because checking that the sidecar actually carries a
+        `separation_settings` means resolving a registry name, and a specification that
+        cannot be validated without a download is the air-gapped hospital problem. So this
+        refuses the case that needs no lookup, and `InstanceEngine` refuses the one that
+        does - naming the file rather than the field, because a sidecar written before
+        `0.8.0a28` has nothing to adopt and neither has somebody else's.
+
+        The two validators below read the signal and are skipped while it is absent. That
+        costs nothing: the engine re-validates the whole model once the block is adopted,
+        which is what makes an adopted value face the same checks a written one does.
+        """
+        if self.separation is None and not self.weights:
+            raise ValueError(
+                "`separation` is required unless `weights` names a file whose sidecar "
+                "records what it was trained to predict: it sets the width of the head "
+                "and which losses are admissible, and neither is a safe guess. Write a "
+                "block - `separation: {name: rim, width: 2}` or `{name: flows}`."
+            )
+        return self
+
+    @property
+    def mechanism(self) -> SeparationSpec:
+        """The separation block, or the one error worth printing instead of `None`.
+
+        `separation` is absent between reading a specification that left it to its weights
+        and the engine adopting it from the sidecar, and in that window the four
+        delegations below have nothing to ask. Reaching this means a model was built from
+        a specification that never passed through `InstanceEngine.fit`, so the message
+        says that rather than letting an attribute error name a field nobody wrote.
+        """
+        if self.separation is None:
+            raise ValueError(
+                f"model '{self.name}' left `separation` to its weights "
+                f"('{self.weights}') and nothing has read them yet: the engine adopts it "
+                "from the sidecar at `fit`, and until then what this model's head "
+                "predicts is unknown. State the block to ask the question now."
+            )
+        return self.separation
+
     @property
     def signal(self) -> Separation:
         """Which separation signal, without the block's settings around it.
@@ -654,7 +708,7 @@ class InstanceModel(SegmentationModel):
         its settings asks here. One named hop rather than `separation.signal` spelled out
         at every call site, and the same shape as the three delegations below it.
         """
-        return self.separation.signal
+        return self.mechanism.signal
 
     @property
     def decodings(self) -> tuple[DecodeSpec, ...]:
@@ -680,11 +734,11 @@ class InstanceModel(SegmentationModel):
         property of that signal - `rim` has none and `Flows.objective` is where the
         silent-means-`mse` rule is written.
         """
-        return self.separation.objective
+        return self.mechanism.objective
 
     def head_channels(self, n_class: int) -> int:
         """How wide this model's output is, given what the data names. See `Separation`."""
-        return self.separation.head_channels(n_class)
+        return self.mechanism.head_channels(n_class)
 
     @property
     def target_settings(self) -> dict:
@@ -694,7 +748,7 @@ class InstanceModel(SegmentationModel):
         has to know which settings belong to which signal, and with the block form nothing
         *can* ask the question wrongly.
         """
-        return self.separation.target_settings
+        return self.mechanism.target_settings
 
     def weights_fingerprint(self) -> dict:
         """What must match for a file of weights to belong to this model.
@@ -742,7 +796,7 @@ class InstanceModel(SegmentationModel):
         be the one that is wrong - somebody may have meant a different decoding or a
         different target, and a message naming only the decoding guesses which.
         """
-        if self.decode is None:
+        if self.decode is None or self.separation is None:
             return self
         wrong = [
             f"{block.name} needs separation: " + " or ".join(sorted(s.value for s in block.needs))

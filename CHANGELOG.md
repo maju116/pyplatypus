@@ -1,6 +1,152 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a28] - 2026-10-16
+
+Two features and one lesson they share: a mechanism that existed twice, and a mechanism
+that existed once and was reached through a list somebody had to remember.
+
+`pyplatypus#236` - what a published file of instance weights may fill in for a reader, and
+the sentence that explained why it could not. `pyplatypus#91` - one binary mask file per
+class, which is the half of multilabel segmentation that 2026-10-12's decision deferred.
+
+### Added
+
+ - **An instance model adopts `architecture`, `blocks`, `filters` and `separation` from the
+   weights it names**, where the specification stayed silent - the mechanism the semantic
+   engine has had since `0.8.0a13` and the detection engine since `0.3.0a12`, now with the
+   one entry this task cannot be read without.
+
+   `separation` is that entry and it is the first adopted value that is not a shape:
+   `dsbowl-instances` is a rim at **width 2**, which is a training decision rather than a
+   geometry, and no reader can guess it. It is adopted as a block built from the sidecar's
+   `separation_settings` and then re-validated with the rest of the model, so an adopted
+   value faces every check a written one does. The engine **prints what it took** - the
+   argument for adopting a training decision at all is that the reader still sees it, and
+   the run record carries it as if written.
+
+   What this cost a reader before, measured by writing R's instance vignette: the shortest
+   useful thing anybody could do with the published weights named four of this model's
+   fields, and the only place three of them are written down is a model card.
+
+        u_net("objects", input_shape = c(256, 256), blocks = 4, filters = 16,
+              separation = separation_rim(width = 2),
+              weights = "dsbowl-instances", fit = FALSE)
+
+   is now
+
+        u_net("objects", input_shape = c(256, 256),
+              weights = "dsbowl-instances", fit = FALSE)
+
+ - **`separation_settings` is written by the engine** into every instance weights file it
+   exports. `dsbowl-instances` carries it because its publishing script added it by hand,
+   so an adoption reading that key would have worked for exactly one file in the world.
+   It stays out of the fingerprint's comparison on purpose: a 2-pixel rim is both the right
+   shape and the right meaning for a model asking for 3, which is the ordinary way to start
+   one run from another.
+
+ - **`classes_from`: one binary mask file per class**, the fourth way of saying what a
+   mask's classes are and the only one that can express classes which overlap
+   *independently* - a vessel crossing an organ, or two annotators' masks of the same
+   structure. One pattern per class, in class order, matched against a sample's mask files
+   through the same matcher `channels_from` uses: exactly one file per pattern, no file
+   matched twice, no file left out. `pyplatypus#91`, which has been open since 2022 and is
+   this half of it; the author's decision of 2026-10-12 was *nested regions first*, and
+   deferred this rather than dropping it.
+
+   **The whole feature is a reader.** Everything from the target onwards arrived with
+   `regions` in `0.8.0a14` and reads `data.multilabel`, which this naming now also answers:
+   a sigmoid per channel, the binary forms of `cce` and `focal`, metrics thresholding each
+   channel, a prediction that is a stack, `save_masks` refusing an overlapping prediction
+   and `save_class_masks` writing one file per class. What was missing is the step before
+   it. `unite_masks` takes the element-wise maximum of a sample's mask files - the Data
+   Science Bowl ships one per nucleus - and **that maximum is exactly where per-class
+   identity is destroyed**: two overlapping annotations become one blob and nothing
+   downstream can tell there were two. The test that carries this release is the control for
+   it: the same two files, united, are one blob with two values; coded, they are two classes
+   and their overlap.
+
+   **One integer per voxel, still.** The coded form sets a bit per class, so tiling and
+   augmentation are untouched - both operate on a single-channel array - and the expansion
+   to channels happens in the last step before the loss, where `np.eye(n_class)[classes]`
+   and the regions' table already live. This is the third expansion and the only one that is
+   arithmetic rather than a table: a table of *combinations* would need two to the power of
+   the classes, where the regions' table needs one row per label value. Lossless to 62
+   classes in an int64 and refused above that rather than wrapping into a class nobody asked
+   for.
+
+   The threshold for *in this class* is **above zero rather than a midpoint**, which is the
+   decision in it worth not re-taking: these files arrive as both 0/255 pictures and 0/1
+   label maps, and `>= 128` reads every voxel of the second kind as background - a whole
+   dataset silently empty, scoring a Dice of 0 with nothing to say why.
+
+ - **`_class_fingerprint` records the patterns**, the way detection records its class
+   *names*: two independent classes read from two files and two exclusive ones read from a
+   colormap are the same count and the same head, so weights from one read back as the other
+   would label every channel wrongly and answer plausibly. `n_class` alone cannot tell the
+   four namings apart, which is why the naming itself goes into every run record and every
+   weights sidecar.
+
+### Fixed
+
+ - **`InstanceEngine._load_weights` explained the absence of all this by a fact that had
+   stopped being true.** Its docstring said *there are no published instance weights, so
+   there is no registry entry to read `blocks` and `filters` out of* - true when it was
+   written, and ended by `dsbowl-instances` one release later without anybody noticing. A
+   declaration beside a mechanism that no longer describes it, which is the same shape as
+   `#230` and `#231`, and found the same way: by writing the documentation a reader would
+   follow.
+
+### Changed
+
+ - **`separation` is no longer required outright**: it may be omitted when `weights` names
+   a file that records it, and that permission is paid for in two places rather than
+   assumed in one. The specification refuses the omission when there are no weights at all,
+   which it can check without resolving anything; the engine refuses a file whose sidecar
+   does not record the separation, which needs the registry and therefore cannot live in a
+   layer that must be validatable without a download. In the window between the two, asking
+   a model what its head predicts answers with a sentence naming the file rather than with
+   an attribute error on a field nobody wrote.
+
+ - **`decode` is deliberately not adoptable.** It is the reader's question rather than the
+   file's property: one trained file answers it three ways - 0.5445, 0.5390 and 0.4822 on
+   the published instance weights - and the sidecar lists every decoding it was measured
+   with, so adopting from that list would silently pick whichever name came first.
+
+ - **One adoption mechanism instead of two copies of it.** `_adopt_from_weights` existed
+   twice, character for character apart from a type hint, in `Engine` and `DetectionEngine`;
+   this release needed a third with one asymmetric entry. It lives on `EngineBase` now and
+   each engine declares only `ADOPTABLE`, which became a mapping of *field to the key the
+   sidecar records it under* - the two names differ exactly once, and that is the whole
+   reason for the shape.
+
+ - **One matcher, two nouns.** `match_channels` takes `what=` and says "class" where a class
+   is what it matched. Every guard is the same for both fields and the only difference is
+   whether a mismatch mislabels a measurement or a class; a second copy with the other noun
+   is the shape §3F of the workbench's notes is a list of.
+
+ - **Both multilabel namings are named by the refusals that mention one.** `lovasz` and a
+   written `include_background: false` are refused for `classes_from` exactly as for
+   `regions`, and the message now names whichever field was written - a refusal that says
+   `regions` to somebody who wrote `classes_from` sends them looking for a field they have
+   not got. Same for the warning about unmatched voxels, which stays suppressed: neither
+   naming has a background channel, so on a small target the fraction sits near 1 and is the
+   correct answer.
+
+ - **One place reads a sample's masks**, instead of the copy `_load` and `inspect_masks` each
+   had. The third naming would have made it three, and the read is not where either of them
+   has anything of its own to say - which is also what gives `inspect_masks` its answer for
+   free here: a pattern matching a file that is empty in every sample read is a channel of
+   zeros, and `missing_classes` reports it by class with the pattern quoted.
+
+### Still open
+
+ - **The R half.** `segmentation_data()` enumerates its parameters, so `classes_from` is an
+   `unused argument` there today, and R's exclusivity check has to become four-way - which
+   is a code change rather than a pin bump, measured on `regions` and recorded on
+   `rplatypus#152`. Engine first, published, then R: `pyplatypus#91` stays open for it, and
+   this release does not pretend otherwise.
+
 ## [0.8.0a27] - 2026-10-16
 
 One line, and it is a defect in `0.8.0a26` found by answering a question about it rather

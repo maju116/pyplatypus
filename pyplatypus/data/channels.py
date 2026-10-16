@@ -30,12 +30,23 @@ class ChannelError(PlatypusError):
 
 
 def match_channels(
-    paths: tuple[Path, ...] | list, patterns: list[str], *, key: str | None = None
+    paths: tuple[Path, ...] | list,
+    patterns: list[str],
+    *,
+    key: str | None = None,
+    what: str = "channel",
 ) -> tuple[Path, ...]:
-    """The sample's files in channel order, one per pattern.
+    """The sample's files in `what` order, one per pattern.
 
     Patterns are regular expressions searched against each file's name. `key` names the sample
     in any complaint, because "pattern matched nothing" is not actionable without it.
+
+    `what` is the noun every message uses, because this matcher answers two questions with
+    identical rules: `channels_from` names one file per input channel, and `classes_from`
+    names one file per class of the target. Every guard below is the same in both - exactly
+    one file per pattern, no file matched twice, no file left out - and the only difference
+    is whether a mismatch mislabels a measurement or a class. A second copy with the other
+    noun is the shape this project keeps paying for, so there is one function and a word.
     """
     where = f" in sample '{key}'" if key else ""
     files = [Path(p) for p in paths]
@@ -46,20 +57,20 @@ def match_channels(
             matcher = re.compile(pattern)
         except re.error as error:
             raise ChannelError(
-                f"channel {position} pattern '{pattern}' is not a valid regular expression: {error}"
+                f"{what} {position} pattern '{pattern}' is not a valid regular expression: {error}"
             ) from None
 
         hits = [path for path in files if matcher.search(path.name)]
         if not hits:
             listed = ", ".join(sorted(path.name for path in files)) or "none"
             raise ChannelError(
-                f"channel {position} pattern '{pattern}' matches no file{where}. Files "
+                f"{what} {position} pattern '{pattern}' matches no file{where}. Files "
                 f"present: {listed}."
             )
         if len(hits) > 1:
             listed = ", ".join(sorted(path.name for path in hits))
             raise ChannelError(
-                f"channel {position} pattern '{pattern}' matches {len(hits)} files{where}: "
+                f"{what} {position} pattern '{pattern}' matches {len(hits)} files{where}: "
                 f"{listed}. A pattern has to pick exactly one, or the channel order depends "
                 "on which file was listed first - '_t1' matches '_t1.nii.gz' and "
                 "'_t1ce.nii.gz' alike. Make it more specific, for example '_t1\\\\.nii'."
@@ -70,15 +81,15 @@ def match_channels(
     if repeated:
         listed = ", ".join(sorted(path.name for path in repeated))
         raise ChannelError(
-            f"two channels matched the same file{where}: {listed}. Every channel is a "
-            "different measurement, so one file cannot be two of them."
+            f"two {what}s matched the same file{where}: {listed}. Every {what} is a "
+            "different thing, so one file cannot be two of them."
         )
 
     unused = [path for path in files if path not in chosen]
     if unused:
         listed = ", ".join(sorted(path.name for path in unused))
         raise ChannelError(
-            f"{len(unused)} file(s){where} match no channel pattern: {listed}. Left out "
+            f"{len(unused)} file(s){where} match no {what} pattern: {listed}. Left out "
             "silently they would be data the model never sees; name them or remove them."
         )
     return tuple(chosen)
