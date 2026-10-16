@@ -618,7 +618,11 @@ class Engine(EngineBase):
                 self._load_weights(network, model_spec.weights, model_spec)
 
             trainer = Trainer(
-                network, model_spec, device=self.device, multilabel=self.spec.data.multilabel
+                network,
+                model_spec,
+                device=self.device,
+                multilabel=self.spec.data.multilabel,
+                spacing=self.spec.data.target_spacing,
             )
             run = ModelRun(
                 name=model_spec.name, spec=model_spec, model=trainer.model, trainer=trainer

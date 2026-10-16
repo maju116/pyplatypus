@@ -211,7 +211,9 @@ def test_the_two_data_flags_are_never_both_set():
     honest while no loss asks for two, so this asks every loss in the union rather than the
     three that were in mind when it was written."""
     members = get_args(get_args(LossSpec)[0])
-    assert len(members) == 13, "a loss was added; this test is the reason to look"
+    assert len(members) == 14, "a loss was added; this test is the reason to look"
+    # Looked, for `generalized_dice` in `0.8.0a26`: a region loss on one-hot classes,
+    # so neither flag, and the loader still has one slot to fill.
     for member in members:
         spec = member()
         assert not (loss_needs_distance(spec) and loss_needs_mask(spec)), member.__name__
@@ -263,7 +265,7 @@ def test_no_loss_a_semantic_model_can_name_asks_for_the_foreground():
 
     members = {m.model_fields["name"].default: m for m in get_args(get_args(LossSpec)[0])}
     nameable = {row["name"] for row in available_losses("semantic_segmentation")}
-    assert len(nameable) == 10
+    assert len(nameable) == 11
     for name in nameable:
         assert not loss_needs_mask(members[name]()), name
     # And the three that do want it are exactly the three a semantic model cannot name, so

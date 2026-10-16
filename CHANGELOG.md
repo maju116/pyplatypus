@@ -1,6 +1,134 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a26] - 2026-10-15
+
+Two of the four issues in the "Losses and metrics" milestone, and **the other two are
+answered rather than built** - both of them were filed with the measurement that says not
+to. `maju116/rplatypus#113` and `#114`.
+
+### Added
+
+ - **`surface_dice`, a metric: how much of each boundary lies within a tolerance of the
+   other.** `rplatypus#113`. The third question this package can ask of a mask, after
+   volume (`dice`) and connectedness (`cldice`): **how far wrong** is the edge. The volume
+   vignette ended on a model at Dice 0.88 whose volumes were 12% to 23% too large, and this
+   is the number that says so directly rather than being inferred from two columns that
+   disagree - and it is what `boundary` optimises while nothing here reported it, so that
+   loss was being judged by the metric it exists to improve on.
+
+   Normalised surface Dice as published (Nikolov et al., 2018), symmetric: the truth's
+   surface near the prediction is the boundary's recall, the prediction's near the truth is
+   its precision, and one ratio weights them by surface size.
+
+   **`tau` is required and has no default**, because a tolerance belongs to the structure
+   and the dataset - conventionally the inter-observer variability for that structure. It is
+   in millimetres when `target_spacing` puts the samples on a common grid and in voxels when
+   it does not, which is the same pair of answers the signed distance map gives and for the
+   same reason. **The only metric here that reads the spacing**, which is why it belongs in
+   a package that carries one: a 0.5 mm and a 2.5 mm acquisition are not comparable in
+   voxels at all. The spacing reaches it the way `multilabel` reaches the others - the
+   builder joins the spec's tolerance to the data's voxel - and `InstanceData` has no
+   `target_spacing` field, so an instance run measures in voxels and says so.
+
+   **Written as a dilation rather than a distance transform, and measured.** A voxel is
+   within `tau` of a surface exactly when a ball of radius `tau` centred on it contains a
+   surface voxel, so the question is a morphological dilation by that ball - which costs the
+   ball's volume per voxel where a transform costs the whole image whatever `tau` is:
+
+        256x256, batch 8, two channels     2.7 ms on the GPU      41 ms on the processor
+        128^3,            two channels    23.8 ms on the GPU     372 ms on the processor
+        the same by scipy's transform                            948 ms on the processor
+
+   `#113` worried that a distance transform at 128^3 costs 710 ms, which is the whole epoch
+   budget; this is thirty times less and can therefore run every batch. Verified against
+   `scipy.ndimage.distance_transform_edt` - **a different algorithm**, so agreement is
+   evidence rather than a shared bug - exactly at four tolerances over isotropic and
+   anisotropic spacings at both ranks, and the whole metric against a scipy-only
+   implementation to 1e-6 over thirty pairs.
+
+   **`include_background` defaults to False here**, and for a measured reason rather than
+   the usual one: the background's boundary is the foreground's boundary *plus the edge of
+   the picture*, and that edge agrees between any two masks whatever the model did.
+   Measured on four random pairs at `tau` 2, background 0.6110-0.7030 against foreground
+   0.5583-0.6266 - higher every time. That is agreement on the field of view. For the same
+   reason a mask running off the edge has no surface there, which also makes two solid
+   masks score 1.0 rather than 0/0.
+
+ - **`generalized_dice`, a loss: classes weighted by the inverse square of their volume.**
+   `rplatypus#114`, in both `loss` and `boundary`'s `region`.
+
+   **The usual argument for it does not hold in this package and the help page says so.**
+   Generalized Dice is introduced as a fix for Dice being dominated by the background;
+   `dice` here is a mean over the class channels, so a lesion in 1% of a frame already
+   carries the same weight as the 99% around it. Measured on a 1% target with two
+   predictions - one finding the lesion and leaking a false positive of equal size, one
+   missing it entirely and getting the background perfect:
+
+        dice               0.1658 finding   0.4731 missing   prefers finding by 0.3073
+        cce                0.1600 finding   0.1600 missing   indifferent
+        cce_dice           0.1629 finding   0.3166 missing   prefers finding by 0.1536
+        generalized_dice   0.3278 finding   0.9511 missing   prefers finding by 0.6233
+
+   So what it adds is weight **beyond** an equal share - 1 to 9801 on that target rather
+   than 1 to 1, and twice the margin between finding the lesion and missing it. And the
+   objective that is genuinely dominated is the per-pixel half of `cce_dice`: to `cce` a
+   false positive and a missed lesion of the same size are the same number of wrong pixels,
+   which is the indifference in that table. **The claim in the issue was inherited from the
+   literature and is wrong about this implementation**; it is corrected rather than copied,
+   and the table is held by a test.
+
+   Two decisions, both in the docstring and both tested. An **absent class** has no volume
+   and so an infinite weight; it is given the largest finite weight in its sample, as the
+   published implementations do, so inventing a class that is not in the picture costs as
+   much as missing the rarest class that is - weight zero would make it free. A sample with
+   **nothing present at all** has no finite weight to borrow, so its weights are flat and it
+   is scored exactly as `dice` scores it; without that fallback every empty-truth sample
+   reads a perfect 1.0 and a model predicting a lesion on a clean frame is never told.
+
+   And **the weights are rescaled to a mean of one**, which the published quantity is
+   invariant to and which is what makes `smooth` mean here what it means everywhere else:
+   unscaled, the weights are of order 1/volume^2, so a `smooth` of 1.0 is not a small
+   regulariser but the whole numerator. The control caught it - with three equal classes the
+   coefficient read 0.855 where pooled Dice reads 0.355. With the rescaling, **flat weights
+   are exactly Dice pooled over the classes**, which is a test rather than a hope.
+
+ - **Where each may be named, asked of the configuration rather than of the union.** A loss
+   in the union that every spec refuses is a name in a listing and nothing else, so this is
+   tested through `from_dict`: `generalized_dice` is accepted as a semantic model's loss, as
+   an instance model's loss for the mask, and as `boundary`'s region term - the combination
+   worth having, since the case that motivates this loss and the case that motivates that
+   one are the same picture. A flow block refuses it **by name**, because a flow field is a
+   vector per pixel and this scores classes, and a detector refuses it for the reason it
+   refuses every loss. `surface_dice` is a metric at both segmentation tasks and
+   `object_detection` lists no metrics at all.
+
+### Changed
+
+ - **`available_losses()` is 11 and 14 where it was 10 and 13, and `available_metrics()` is
+   5.** Nothing was edited to make that happen - both read the pydantic unions, which is
+   what that design is for - but six pinned counts failed and each one is a place somebody
+   had to look: the union's member count beside the two loader flags (looked: a region loss
+   on one-hot classes, so neither flag), the semantic set written out by hand, two task
+   listings, the component count in the description test, and two doctests. The R package's
+   own listing test pins 13 and will fail when the pin moves, which is the ratchet working.
+
+### Not built, and why - the other half of the milestone
+
+ - **`cbDice` (`rplatypus#115`) stays a question.** The issue blocks it on a measurement and
+   says so in as many words: *"if clDice is high while Dice is low - connected but the wrong
+   calibre - that is this issue's evidence, and without it this stays open."* The measurement
+   exists now and points the other way: on FIVES, 200 held-out images, Dice 0.8789 against
+   clDice 0.8330 - the skeletons agree **less** than the volumes, which is breaks in thin
+   vessels rather than the wrong calibre. Building it would be building for a problem nobody
+   here has demonstrated.
+ - **`DIoU`, `CIoU` and `EIoU` (`rplatypus#116`) stay unbuilt**, which is what that issue was
+   filed to record. `giou` already lost to `offsets` on this data - per-seed spread 0.000116
+   against 0.006863, sixty times tighter on the exact quantity GIoU targets - and
+   `anchor_mean_iou` was 0.877 in all six runs, so the regime the whole family exists for is
+   never entered. Three more names meaning roughly the same thing is the argument that kept
+   the weights registry to one entry when four architectures scored within 0.0030.
+
 ## [0.8.0a25] - 2026-10-15
 
 ### Added

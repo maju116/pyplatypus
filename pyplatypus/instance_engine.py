@@ -124,8 +124,10 @@ class InstanceTrainer(Trainer):
     stitching of tiles - is the same work and is inherited rather than written again.
     """
 
-    def __init__(self, model, spec: InstanceModel, *, device=None, callbacks=None):
-        super().__init__(model, spec, device=device, callbacks=callbacks, multilabel=False)
+    def __init__(self, model, spec: InstanceModel, *, device=None, callbacks=None, spacing=None):
+        super().__init__(
+            model, spec, device=device, callbacks=callbacks, multilabel=False, spacing=spacing
+        )
         self.separation = spec.signal
         start = spec.separation.semantic_from
         if spec.signal is Separation.FLOWS:
@@ -328,7 +330,17 @@ class InstanceEngine(EngineBase):
             if model_spec.weights:
                 self._load_weights(network, model_spec.weights, model_spec)
 
-            trainer = InstanceTrainer(network, model_spec, device=self.device)
+            # `InstanceData` carries no `target_spacing` today - resampling onto a common
+            # grid is a volume question and this task is 2D microscopy - so this is None and
+            # `surface_dice` measures its tolerance in voxels here. Asked of the data rather
+            # than written as None, so that if the field ever lands on this spec the metric
+            # gets it without anybody remembering this line.
+            trainer = InstanceTrainer(
+                network,
+                model_spec,
+                device=self.device,
+                spacing=getattr(self.spec.data, "target_spacing", None),
+            )
             run = InstanceRun(
                 name=model_spec.name, spec=model_spec, model=trainer.model, trainer=trainer
             )

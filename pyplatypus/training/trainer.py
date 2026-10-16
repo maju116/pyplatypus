@@ -135,6 +135,7 @@ class Trainer:
         device: str | None = None,
         callbacks: list[Callback] | None = None,
         multilabel: bool = False,
+        spacing: tuple[float, ...] | None = None,
     ):
         self.spec = spec
         self.device = pick_device(device)
@@ -144,7 +145,10 @@ class Trainer:
         #: `SegmentationModel` and the `regions` that decide this live on the data spec.
         self.multilabel = multilabel
         self.loss_fn = build_loss(spec.loss, multilabel=multilabel)
-        self.metrics = build_metrics(spec.metrics, multilabel=multilabel)
+        #: Millimetres per voxel, or None. Travels the same way `multilabel` does and for
+        #: the same reason: it lives on the data spec and a trainer is built from a model.
+        self.spacing = spacing
+        self.metrics = build_metrics(spec.metrics, multilabel=multilabel, spacing=spacing)
         # The layers that arrived pretrained, if any. Held separately because both
         # `encoder_learning_rate` and `freeze_encoder` act on exactly that part and on
         # nothing else - the full-resolution stage in front of them is ours and random.
