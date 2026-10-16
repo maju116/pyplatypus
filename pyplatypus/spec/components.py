@@ -539,7 +539,15 @@ LossSpec = Annotated[
 
 
 class _Metric(SpecModel):
-    pass
+    #: Whether this measures a property of a whole mask - a skeleton, a boundary - rather
+    #: than an overlap count, and therefore cannot be rebuilt from the pieces of a tiled
+    #: image. The same shape of claim as `continuous` on a loss and for the same reason:
+    #: a tiled run's epochs cannot honestly report it, so a callback asking to watch it is
+    #: refused when the configuration is read, and that refusal lives in the specification
+    #: layer where there is no built metric to ask. The built metric answers the same
+    #: question as `accumulates`, and a test pairs the two - this flag was a list of names
+    #: in `spec.models` for one release, and `surface_dice` was added to one side of it.
+    whole_mask: ClassVar[bool] = False
 
 
 class _Overlap(_Metric):
@@ -631,6 +639,8 @@ class ClDiceMetric(_Overlap):
     is absent from the per-epoch history for the same reason.
     """
 
+    whole_mask: ClassVar[bool] = True
+
     name: Literal["cldice"] = Field(
         "cldice",
         description=(
@@ -695,6 +705,8 @@ class SurfaceDiceMetric(_Overlap):
     Like `cldice` it is a property of a whole mask, so on a tiled run (`splits`) it is
     reported per case by `evaluate_cases` rather than per batch.
     """
+
+    whole_mask: ClassVar[bool] = True
 
     name: Literal["surface_dice"] = Field(
         "surface_dice",

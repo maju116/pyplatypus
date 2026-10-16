@@ -1,12 +1,14 @@
 """Metrics report on the mask the user is handed, not on the probabilities."""
 
+import pydantic
 import pytest
 import torch
 
 from pyplatypus.objectives import build_metrics
 from pyplatypus.objectives import functional as f
 from pyplatypus.objectives.metrics import build_metric
-from pyplatypus.spec.components import DiceMetric, IouMetric, TverskyMetric
+from pyplatypus.spec.components import DiceMetric, IouMetric, MetricSpec, TverskyMetric
+from tests.conftest import metric_configs
 
 ALL = [IouMetric(), DiceMetric(), TverskyMetric()]
 IDS = ["iou", "dice", "tversky"]
@@ -109,3 +111,37 @@ def test_metrics_do_not_build_a_graph():
     target = f.as_onehot(torch.randint(0, 2, (1, 8, 8)), 2)
     logits = torch.randn(1, 2, 8, 8, requires_grad=True)
     assert build_metric(DiceMetric())(logits, target).requires_grad is False
+
+
+# ------------------------------------------------- the flag the specification refuses by
+# `whole_mask` on a metric component and `accumulates` on the built metric are two answers
+# to one question, asked in two layers: the specification refuses a callback that watches a
+# number a tiled epoch cannot produce, and the trainer decides what that epoch reports. They
+# were a frozenset of names against a flag until `0.8.0a27`, and `surface_dice` was added to
+# the flag alone - so a tiled run accepted `monitor: val_surface_dice` and then raised
+# `KeyError` out of `state.logs` at the end of the first epoch. These two tests are what
+# fails if the two answers ever disagree again.
+def specs_from_configs():
+    """Every metric the configuration format offers, as the object a spec would hold."""
+    adapter = pydantic.TypeAdapter(MetricSpec)
+    return [adapter.validate_python(block) for block in metric_configs()]
+
+
+def test_the_flag_the_spec_reads_agrees_with_the_metric_it_builds():
+    for spec in specs_from_configs():
+        built = build_metric(spec)
+        assert type(spec).whole_mask is not built.accumulates, (
+            f"{spec.name}: the specification says whole_mask={type(spec).whole_mask} while "
+            f"the built metric says accumulates={built.accumulates}"
+        )
+
+
+def test_both_answers_occur_so_the_pairing_is_evidence():
+    """The control for the test above, which would also pass on a package where every
+    metric accumulated - and on one where none did. `whole_mask` is only load-bearing
+    because the two kinds both exist, so this names one of each rather than counting."""
+    flags = {spec.name: type(spec).whole_mask for spec in specs_from_configs()}
+    assert set(flags.values()) == {True, False}, flags
+    assert flags["cldice"] is True
+    assert flags["surface_dice"] is True
+    assert flags["dice"] is False

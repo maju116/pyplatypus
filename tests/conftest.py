@@ -1,9 +1,11 @@
 from pathlib import Path
+from typing import get_args
 
 import numpy as np
 import pytest
 from PIL import Image
 
+from pyplatypus.spec.components import MetricSpec
 from pyplatypus.spec.data import SegmentationData
 
 DSBOWL = Path("examples/data/data_science_bowl")
@@ -12,6 +14,33 @@ DSBOWL = Path("examples/data/data_science_bowl")
 def write_png(path, array):
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(array.astype(np.uint8)).save(path)
+
+
+def metric_configs(*, whole_mask: bool | None = None) -> list[dict]:
+    """A minimal configuration block for every metric the specification offers, or for the
+    subset whose `whole_mask` is as asked.
+
+    Read off the union rather than written out here, because the defect this was added for
+    is a hand-maintained list of metric names that a new metric did not get added to - and
+    a test with its own list would be the same defect one layer up. A required field is
+    filled with 1.0 and asserted to be a field that can be: a required field of any other
+    kind has to be written down deliberately rather than silently left out of every test
+    that reaches for this.
+    """
+    members = get_args(get_args(MetricSpec)[0])
+    chosen = [m for m in members if whole_mask is None or m.whole_mask is whole_mask]
+    assert chosen, f"no metric answers whole_mask={whole_mask}; the selection is the instrument"
+
+    blocks = []
+    for member in chosen:
+        fields = member.model_fields
+        assert not fields["name"].is_required(), member.__name__
+        required = {n: f for n, f in fields.items() if f.is_required()}
+        assert all(f.annotation is float for f in required.values()), (
+            f"{member.__name__} requires {sorted(required)}, which 1.0 is not an answer for"
+        )
+        blocks.append({"name": fields["name"].default} | dict.fromkeys(required, 1.0))
+    return blocks
 
 
 @pytest.fixture
