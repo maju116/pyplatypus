@@ -323,6 +323,7 @@
               "dice": "#/$defs/DiceLoss",
               "focal": "#/$defs/FocalLoss",
               "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "generalized_dice": "#/$defs/GeneralizedDiceLoss",
               "iou": "#/$defs/IouLoss",
               "lovasz": "#/$defs/LovaszLoss",
               "tversky": "#/$defs/TverskyLoss"
@@ -335,6 +336,9 @@
             },
             {
               "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/GeneralizedDiceLoss"
             },
             {
               "$ref": "#/$defs/CceLoss"
@@ -1166,6 +1170,7 @@
                   "dice": "#/$defs/DiceLoss",
                   "focal": "#/$defs/FocalLoss",
                   "focal_tversky": "#/$defs/FocalTverskyLoss",
+                  "generalized_dice": "#/$defs/GeneralizedDiceLoss",
                   "iou": "#/$defs/IouLoss",
                   "l1": "#/$defs/L1Loss",
                   "lovasz": "#/$defs/LovaszLoss",
@@ -1181,6 +1186,9 @@
                 },
                 {
                   "$ref": "#/$defs/DiceLoss"
+                },
+                {
+                  "$ref": "#/$defs/GeneralizedDiceLoss"
                 },
                 {
                   "$ref": "#/$defs/CceLoss"
@@ -1361,6 +1369,28 @@
         }
       },
       "title": "FollowFlows",
+      "type": "object"
+    },
+    "GeneralizedDiceLoss": {
+      "additionalProperties": false,
+      "description": "Dice with every class weighted by the inverse square of how much of the picture it\noccupies, so a rare class counts for more than an equal share rather than for less.\n\n**The usual argument for this loss does not apply here and is not made.** It is\nnormally introduced as a fix for Dice being dominated by the background; `dice` in this\npackage is a mean over the class channels, so a lesion in 1% of the frame already\ncarries the same weight as the 99% around it. Measured on a 1% target with two\npredictions - one finding the lesion and leaking a false positive of equal size, one\nmissing it entirely and getting the background perfect:\n\n    dice               0.1658 finding   0.4731 missing   prefers finding by 0.3073\n    cce                0.1600 finding   0.1600 missing   indifferent\n    cce_dice           0.1629 finding   0.3166 missing   prefers finding by 0.1536\n    generalized_dice   0.3278 finding   0.9511 missing   prefers finding by 0.6233\n\nSo what this adds is weight **beyond** an equal share: on that target the classes are\nweighted 1 to 9801 rather than 1 to 1, and the margin between finding the lesion and\nmissing it doubles. And the objective that is genuinely dominated is the per-pixel half\nof `cce_dice`: to `cce` a false positive and a missed lesion of the same size are the\nsame number of wrong pixels, which is the indifference in that table.\n\n**The run that motivates it is in this project's record and the loss was never the\nvariable.** On SIIM-ACR pneumothorax, a median 0.59% of the frame, the built-in encoder\nscored `0.0531 +/- 0.0586` over three seeds - a spread larger than its own mean, with\ntwo of three seeds never learning at all - and every arm of that table used `cce_dice`.\n\n**Not a third `tversky`.** `tversky` moves the balance between false positives and\nfalse negatives by a number you choose; `focal_tversky` reweights hard examples. This\nreweights **classes by how much of the image they occupy**, computed from the batch\nrather than set by hand. Three losses, three questions, and a reader who picks by name\nwill pick wrongly.\n\nTwo things to know before reaching for it. With every class the same size it is\n**exactly `dice` pooled over the classes** - a test rather than a claim - so it costs\nnothing and buys nothing on a balanced problem. And the weights are recomputed per\nbatch, so a batch holding no lesion at all is scored on flat weights; with `batch_size`\n1 on a sparse dataset that is most batches, which is an argument for a larger batch\nrather than against the loss.",
+      "properties": {
+        "name": {
+          "const": "generalized_dice",
+          "default": "generalized_dice",
+          "description": "Which loss, and it decides which other keys this block accepts: `tversky` takes `alpha`, `focal` takes `gamma`, and giving a key the chosen loss does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.",
+          "exclusiveMinimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        }
+      },
+      "title": "GeneralizedDiceLoss",
       "type": "object"
     },
     "Initialiser": {
@@ -1733,6 +1763,7 @@
               "dice": "#/$defs/DiceLoss",
               "focal": "#/$defs/FocalLoss",
               "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "generalized_dice": "#/$defs/GeneralizedDiceLoss",
               "iou": "#/$defs/IouLoss",
               "l1": "#/$defs/L1Loss",
               "lovasz": "#/$defs/LovaszLoss",
@@ -1748,6 +1779,9 @@
             },
             {
               "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/GeneralizedDiceLoss"
             },
             {
               "$ref": "#/$defs/CceLoss"
@@ -1793,6 +1827,7 @@
                 "cldice": "#/$defs/ClDiceMetric",
                 "dice": "#/$defs/DiceMetric",
                 "iou": "#/$defs/IouMetric",
+                "surface_dice": "#/$defs/SurfaceDiceMetric",
                 "tversky": "#/$defs/TverskyMetric"
               },
               "propertyName": "name"
@@ -1809,6 +1844,9 @@
               },
               {
                 "$ref": "#/$defs/ClDiceMetric"
+              },
+              {
+                "$ref": "#/$defs/SurfaceDiceMetric"
               }
             ]
           },
@@ -2802,6 +2840,7 @@
               "dice": "#/$defs/DiceLoss",
               "focal": "#/$defs/FocalLoss",
               "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "generalized_dice": "#/$defs/GeneralizedDiceLoss",
               "iou": "#/$defs/IouLoss",
               "l1": "#/$defs/L1Loss",
               "lovasz": "#/$defs/LovaszLoss",
@@ -2817,6 +2856,9 @@
             },
             {
               "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/GeneralizedDiceLoss"
             },
             {
               "$ref": "#/$defs/CceLoss"
@@ -2862,6 +2904,7 @@
                 "cldice": "#/$defs/ClDiceMetric",
                 "dice": "#/$defs/DiceMetric",
                 "iou": "#/$defs/IouMetric",
+                "surface_dice": "#/$defs/SurfaceDiceMetric",
                 "tversky": "#/$defs/TverskyMetric"
               },
               "propertyName": "name"
@@ -2878,6 +2921,9 @@
               },
               {
                 "$ref": "#/$defs/ClDiceMetric"
+              },
+              {
+                "$ref": "#/$defs/SurfaceDiceMetric"
               }
             ]
           },
@@ -3160,6 +3206,43 @@
         "group_by"
       ],
       "title": "SplitSpec",
+      "type": "object"
+    },
+    "SurfaceDiceMetric": {
+      "additionalProperties": false,
+      "description": "How much of each boundary lies within a tolerance of the other, rather than how much\nof the volume coincides.\n\nDice asks about volume. `cldice` asks about connectedness. Neither asks **how far\nwrong** a boundary is, and that is what is asked of a contour somebody has to approve:\nthe volume vignette ended on a model at Dice 0.88 whose volumes were 12% to 23% too\nlarge, and this is the number that says so directly rather than being inferred from two\ncolumns that disagree. It is also what `boundary` optimises and nothing here reported,\nso that loss was being judged by the metric it exists to improve on.\n\nNormalised surface Dice as published (Nikolov et al., 2018), and symmetric on purpose:\nthe truth's surface near the prediction is the boundary's recall, the prediction's\nsurface near the truth is its precision, and the single ratio weights the two by\nsurface size.\n\n**The one metric here that reads the voxel spacing**, which is why it belongs in a\npackage that carries one. With `target_spacing` set every sample is on a common grid and\n`tau` is in millimetres; without it each sample was resized independently and `tau` is\nin voxels - the same pair of answers the signed distance map gives, and for the same\nreason. A 0.5 mm and a 2.5 mm acquisition are not comparable in voxels at all.\n\nLike `cldice` it is a property of a whole mask, so on a tiled run (`splits`) it is\nreported per case by `evaluate_cases` rather than per batch.",
+      "properties": {
+        "include_background": {
+          "default": false,
+          "description": "False here where `dice` and `iou` default to True, and for a measured reason rather than the usual one. The background's boundary is the foreground's boundary **plus the edge of the picture**, and that edge agrees trivially between any two masks - so the background class reads high whatever the model did. Measured on four random pairs at `tau` 2: background 0.6110 to 0.7030 against foreground 0.5583 to 0.6266, higher every time, by 0.05 to 0.12. That is agreement on the field of view rather than on the object.",
+          "title": "Include Background",
+          "type": "boolean"
+        },
+        "name": {
+          "const": "surface_dice",
+          "default": "surface_dice",
+          "description": "Normalised surface Dice: the fraction of each boundary lying within `tau` of the other. A surface is a property of a whole mask, so on a tiled run (`splits`) it is reported **per case** by `evaluate_cases`, which reassembles a case's tiles first, and it is absent from the epoch history - a per-batch average of per-tile boundaries would be a number about nothing.",
+          "title": "Name",
+          "type": "string"
+        },
+        "smooth": {
+          "default": 1.0,
+          "description": "Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth>0. Use 0 for an honest number, at the cost of NaN on absent classes.",
+          "minimum": 0,
+          "title": "Smooth",
+          "type": "number"
+        },
+        "tau": {
+          "description": "The tolerance, and it is **required because no default is honest**: a tolerance belongs to the structure and the dataset, and is conventionally the inter-observer variability for that structure - the distance two people drawing the same boundary differ by. Published values exist per organ and per challenge; take one from the protocol you are comparing against rather than from here. In millimetres when `target_spacing` puts the data on a common grid, and in voxels when it does not.",
+          "exclusiveMinimum": 0,
+          "title": "Tau",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tau"
+      ],
+      "title": "SurfaceDiceMetric",
       "type": "object"
     },
     "Swa": {

@@ -1302,12 +1302,12 @@ How the weights start. The <code>he_*</code> family is scaled for ReLU-like acti
 </dd>
 <dt><code>loss</code></dt>
 <dd>
-one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — optional
+one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>generalized_dice</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — optional
 The objective trained against. The <code>loss</code> column of a score table is comparable only between models trained on the same one - a Focal-Tversky of 0.05 is not better than a cross-entropy of 0.14, it is not the same question - which is why the table carries the loss’s name beside it.
 </dd>
 <dt><code>metrics</code></dt>
 <dd>
-a list, each one of <code>cldice</code>, <code>dice</code>, <code>iou</code>, <code>tversky</code> — optional
+a list, each one of <code>cldice</code>, <code>dice</code>, <code>iou</code>, <code>surface_dice</code>, <code>tversky</code> — optional
 What to report beside the loss, computed on the mask rather than on the objective, so these stay comparable across models. A callback watching <code>val_&lt;metric&gt;</code> is refused when nothing here will produce it.
 </dd>
 <dt><code>splits</code></dt>
@@ -1586,12 +1586,12 @@ How the weights start. The <code>he_*</code> family is scaled for ReLU-like acti
 </dd>
 <dt><code>loss</code></dt>
 <dd>
-one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — optional
+one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>generalized_dice</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — optional
 The objective trained against. The <code>loss</code> column of a score table is comparable only between models trained on the same one - a Focal-Tversky of 0.05 is not better than a cross-entropy of 0.14, it is not the same question - which is why the table carries the loss’s name beside it.
 </dd>
 <dt><code>metrics</code></dt>
 <dd>
-a list, each one of <code>cldice</code>, <code>dice</code>, <code>iou</code>, <code>tversky</code> — optional
+a list, each one of <code>cldice</code>, <code>dice</code>, <code>iou</code>, <code>surface_dice</code>, <code>tversky</code> — optional
 What to report beside the loss, computed on the mask rather than on the objective, so these stay comparable across models. A callback watching <code>val_&lt;metric&gt;</code> is refused when nothing here will produce it.
 </dd>
 <dt><code>splits</code></dt>
@@ -1930,7 +1930,7 @@ Which loss, and it decides which other keys this block accepts: <code>tversky</c
 </dd>
 <dt><code>region</code></dt>
 <dd>
-one of <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>iou</code>, <code>lovasz</code>, <code>tversky</code> — optional
+one of <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>generalized_dice</code>, <code>iou</code>, <code>lovasz</code>, <code>tversky</code> — optional
 The overlap term this is added to. Dice unless you say otherwise.
 </dd>
 <dt><code>alpha</code></dt>
@@ -2060,6 +2060,22 @@ Weight on false negatives, as in <code>tversky</code>, with false positives taki
 <dd>
 a number — <code>1.0</code>
 Exponent on the Tversky index, which is where this differs from <code>tversky</code>: above 1 it concentrates the gradient on the cases scoring badly. Note 1 is the default and means plain Tversky, not ‘off’.
+</dd>
+<dt><code>smooth</code></dt>
+<dd>
+a number — <code>1.0</code>
+Added to both numerator and denominator so a class absent from an image gives a finite number instead of 0/0. Leave it alone unless you know why you are moving it: raising it makes an empty class look better than it is.
+</dd>
+</dl>
+</section>
+<section id="loss-generalized_dice" class="level4">
+<h4 class="anchored" data-anchor-id="loss-generalized_dice"><code>generalized_dice</code></h4>
+<p>Dice with every class weighted by the inverse square of how much of the picture it occupies, so a rare class counts for more than an equal share rather than for less.</p>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <code>generalized_dice</code>
+Which loss, and it decides which other keys this block accepts: <code>tversky</code> takes <code>alpha</code>, <code>focal</code> takes <code>gamma</code>, and giving a key the chosen loss does not have is refused by name rather than ignored.
 </dd>
 <dt><code>smooth</code></dt>
 <dd>
@@ -2251,6 +2267,32 @@ Average over every class, background included. In medical images the background 
 <dd>
 text — <code>iou</code>
 Which metric. These are computed on the mask rather than on the objective, so they stay comparable between models trained on different losses.
+</dd>
+</dl>
+</section>
+<section id="metrics-surface_dice" class="level4">
+<h4 class="anchored" data-anchor-id="metrics-surface_dice"><code>surface_dice</code></h4>
+<p>How much of each boundary lies within a tolerance of the other, rather than how much of the volume coincides.</p>
+<dl>
+<dt><code>smooth</code></dt>
+<dd>
+a number — <code>1.0</code>
+Zero is allowed here, unlike in the losses. Smoothing inflates a reported score: a class absent from an image scores a perfect 1.0 with smooth&gt;0. Use 0 for an honest number, at the cost of NaN on absent classes.
+</dd>
+<dt><code>include_background</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+False here where <code>dice</code> and <code>iou</code> default to True, and for a measured reason rather than the usual one. The background’s boundary is the foreground’s boundary <strong>plus the edge of the picture</strong>, and that edge agrees trivially between any two masks - so the background class reads high whatever the model did. Measured on four random pairs at <code>tau</code> 2: background 0.6110 to 0.7030 against foreground 0.5583 to 0.6266, higher every time, by 0.05 to 0.12. That is agreement on the field of view rather than on the object.
+</dd>
+<dt><code>name</code></dt>
+<dd>
+text — <code>surface_dice</code>
+Normalised surface Dice: the fraction of each boundary lying within <code>tau</code> of the other. A surface is a property of a whole mask, so on a tiled run (<code>splits</code>) it is reported <strong>per case</strong> by <code>evaluate_cases</code>, which reassembles a case’s tiles first, and it is absent from the epoch history - a per-batch average of per-tile boundaries would be a number about nothing.
+</dd>
+<dt><code>tau</code></dt>
+<dd>
+a number — <strong>required</strong>
+The tolerance, and it is <strong>required because no default is honest</strong>: a tolerance belongs to the structure and the dataset, and is conventionally the inter-observer variability for that structure - the distance two people drawing the same boundary differ by. Published values exist per organ and per challenge; take one from the protocol you are comparing against rather than from here. In millimetres when <code>target_spacing</code> puts the data on a common grid, and in voxels when it does not.
 </dd>
 </dl>
 </section>
@@ -2744,7 +2786,7 @@ How the vector field is built: towards each object’s centroid in a straight li
 </dd>
 <dt><code>loss</code></dt>
 <dd>
-one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — unset
+one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>generalized_dice</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — unset
 The objective on the two vector channels, which is a different question from the model’s own <code>loss</code> - that one scores the mask. A continuous target has nothing in the overlap-and-cross-entropy losses to be trained against, so this is one of <code>mse</code>, <code>l1</code> or <code>smooth_l1</code>, and anything else is refused by name: <code>loss: dice</code> against a vector field would return a number and a gradient, which is the worst available outcome.
 Left unset it is <code>mse</code> with <code>where: foreground</code>, which is what the measured run used. <code>where</code> is the field to read before changing it, because the foreground is 13.97% of a Data Science Bowl image and <code>everywhere</code> spends 86% of the objective on a background zero.
 </dd>
