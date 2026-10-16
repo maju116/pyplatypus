@@ -43,6 +43,78 @@ def unite_masks(masks: list[np.ndarray]) -> np.ndarray:
     return np.maximum.reduce(masks)
 
 
+def masks_to_codes(masks: list[np.ndarray], *, threshold: float = 0.0) -> tuple[np.ndarray, float]:
+    """One binary file per class, as one integer per voxel whose bits say which classes.
+
+    `classes_from`'s reader, and the one naming whose files **cannot be united**:
+    `unite_masks` takes an element-wise maximum, which is precisely where per-class
+    identity is destroyed - a vessel crossing an organ, or two annotators' masks, become
+    one blob and nothing downstream can tell there were two. A bit per class keeps them
+    apart while staying *one integer per voxel*, which is what lets tiling and augmentation
+    stay untouched: both operate on a single-channel array, and `codes_to_onehot` expands in
+    the last step before the loss, the way `region_vocabulary`'s table does.
+
+    **A voxel is in a class when its file is above `threshold`, and the default is zero
+    rather than a midpoint.** A midpoint is the obvious rule and it is wrong here: these
+    files are binary and arrive as both 0/255 pictures and 0/1 label maps, and `>= 128`
+    reads every voxel of the second kind as background - a whole dataset silently empty.
+    Masks are read nearest, so nothing between the two values was invented by this package;
+    what a lossy encoder left around an edge is included, which is under 1% of a correct
+    mask and visible in `unmatched` rather than hidden.
+
+    Lossless to 62 classes in int64, and refused above that rather than wrapping into a
+    class that was never asked for.
+
+    Returns the codes and the fraction of voxels in no class at all - the same quantity the
+    other three readers return, meaning the same thing. With independent classes there is no
+    background channel, so on a small target it sits near 1, which is why the engine's
+    warning about that number is suppressed for every multilabel naming rather than for
+    `regions` alone.
+    """
+    if not masks:
+        raise MaskError("no masks to code")
+    if len(masks) > 62:
+        raise MaskError(
+            f"{len(masks)} classes is more than one int64 can carry a bit for; the coded "
+            "form holds 62. Past that the target has to be built channels-first, which is "
+            "a different pipeline rather than a bigger number."
+        )
+    first = np.asarray(masks[0])
+    codes = np.zeros(first.shape[:-1] if first.shape[-1] == 1 else first.shape, dtype=np.int64)
+    hit = np.zeros(codes.shape, dtype=bool)
+    for position, mask in enumerate(masks):
+        array = np.asarray(mask)
+        plane = array[..., 0] if array.shape[-1] == 1 else array
+        if plane.shape != codes.shape:
+            raise MaskError(
+                f"class {position} has shape {plane.shape} but class 0 has {codes.shape}; "
+                "one file per class means one labelling of one image, so they must be the "
+                "same size"
+            )
+        above = plane > threshold
+        codes[above] |= 1 << position
+        hit |= above
+    return codes, float(1.0 - hit.mean())
+
+
+def codes_to_onehot(codes: np.ndarray, n_class: int) -> np.ndarray:
+    """Bit-coded class membership to a channels-last one-hot array.
+
+    The third of three expansions, and the only one that is arithmetic rather than a table.
+    `np.eye(n_class)[classes]` is the exclusive case; `region_vocabulary`'s table is the
+    nested one, one row per label value; this would need a row per *combination* - two to
+    the power of the classes - so the bits are read directly instead.
+    """
+    highest = int(np.asarray(codes).max(initial=0))
+    if highest >> n_class:
+        raise MaskError(
+            f"a voxel is coded as belonging to class {highest.bit_length() - 1} but only "
+            f"{n_class} classes are defined"
+        )
+    bits = np.arange(n_class, dtype=np.int64)
+    return ((np.asarray(codes)[..., None] >> bits) & 1).astype(np.float32)
+
+
 def colours_to_classes(
     mask: np.ndarray, colormap: list[tuple[int, int, int]], *, tolerance: int = 0
 ) -> tuple[np.ndarray, float]:

@@ -252,7 +252,12 @@ class SegmentationSpec(PlatypusSpec):
 
     @model_validator(mode="after")
     def overlapping_classes_rule_out_two_settings(self):
-        """What `regions` cannot be combined with, said here rather than at training time.
+        """What an independent-channel naming cannot be combined with, said here rather
+        than at training time.
+
+        Both of them: `regions` and `classes_from` differ only in the file on disk, so the
+        refusals read `data.multilabel` and name whichever field was written. The prose
+        below says `regions` because that is the naming it was found on.
 
         Two things, and they fail differently.
 
@@ -279,8 +284,9 @@ class SegmentationSpec(PlatypusSpec):
         if offenders:
             listed = "\n  - ".join(offenders)
             raise ValueError(
-                "`regions` makes each channel an independent question, and these losses are "
-                f"defined over mutually exclusive classes:\n  - {listed}\n"
+                f"`{self.data.multilabel_naming}` makes each channel an independent "
+                "question, and these losses are defined over mutually exclusive "
+                f"classes:\n  - {listed}\n"
                 "Lovasz-Softmax would still return a number on sigmoid channels, which is "
                 "why this is refused rather than warned about. Use dice, iou, cce, "
                 "cce_dice, focal, tversky, focal_tversky, combo or boundary."
@@ -293,11 +299,12 @@ class SegmentationSpec(PlatypusSpec):
         ]
         if excluding:
             listed = "\n  - ".join(excluding)
+            naming = self.data.multilabel_naming
             raise ValueError(
-                "`include_background: false` asks to leave out a class `regions` does not "
-                f"have:\n  - {listed}\nWith regions there is no background entry, so "
-                "channel 0 is the first region named and dropping it would drop a class. "
-                "Leave the setting out; with regions it is ignored rather than honoured."
+                f"`include_background: false` asks to leave out a class `{naming}` does "
+                f"not have:\n  - {listed}\nWith {naming} there is no background entry, so "
+                "channel 0 is the first class named and dropping it would drop a real one. "
+                f"Leave the setting out; with {naming} it is ignored rather than honoured."
             )
         return self
 

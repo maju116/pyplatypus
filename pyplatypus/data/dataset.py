@@ -19,9 +19,11 @@ from pyplatypus.data.channels import match_channels
 from pyplatypus.data.images import read_image, tile, to_float
 from pyplatypus.data.masks import (
     classes_to_onehot,
+    codes_to_onehot,
     colours_to_classes,
     labels_to_classes,
     labels_to_regions,
+    masks_to_codes,
     onehot_to_foreground,
     region_vocabulary,
     unite_masks,
@@ -131,10 +133,12 @@ class SegmentationDataset:
         # Nested regions read a label map into a vocabulary of its values and expand to one
         # binary channel per region at the very end. Built once: the pair has to agree, and
         # a table indexed with a vocabulary it was not built from still produces a plausible
-        # target. None when the classes are exclusive, which is what `multilabel` asks.
+        # target. None for every other naming - including `classes_from`, which is also
+        # multilabel and has no label values to build a vocabulary from, so this asks the
+        # field rather than the switch.
         self._region_values, self._region_table = (
             region_vocabulary([region.of for region in data.regions])
-            if data.multilabel
+            if data.regions is not None
             else (None, None)
         )
         self._cache: OrderedDict[int, tuple[np.ndarray, np.ndarray | None]] = OrderedDict()
@@ -164,35 +168,7 @@ class SegmentationDataset:
 
         classes: np.ndarray | None = None
         if not self.only_images:
-            # Nearest, always: interpolating a mask invents values that belong to no class
-            # and would quietly become background.
-            mask_channels = 1 if self.data.label_map else 3
-            if self.model.rank == 3:
-                # The same reader as the image, always. Sending masks down a different path
-                # was a real bug: with target_spacing the image was resampled and cropped
-                # while the mask was merely resized, so every label sat beside the anatomy it
-                # was labelling. Both go through one function now, and there is a test that
-                # the mask covers the tissue.
-                # Never `as_channels`: a mask is one labelling of one anatomy, and
-                # four modalities do not come with four masks.
-                masks = [
-                    self._read(
-                        sample.masks,
-                        channels=mask_channels,
-                        size=size,
-                        nearest=True,
-                        key=sample.key,
-                    )
-                ]
-            else:
-                # 2D keeps one file per object - the Data Science Bowl ships a mask per
-                # nucleus - and unites them.
-                masks = [
-                    read_image(p, channels=mask_channels, size=size, nearest=True)
-                    for p in sample.masks
-                ]
-            united = unite_masks(masks)
-            classes, _ = self._to_classes(united)
+            classes, _ = self._read_masks(sample, size)
 
         self._cache[index] = (image, classes)
         if len(self._cache) > self.cache_size:
@@ -336,6 +312,59 @@ class SegmentationDataset:
         resampled = resample_to_spacing(volume, spacing, self.data.target_spacing, nearest=nearest)
         return crop_or_pad(resampled, size)
 
+    def _read_masks(self, sample, size: tuple[int, ...]) -> tuple[np.ndarray, float]:
+        """One sample's masks as one integer per voxel, and what matched nothing.
+
+        Nearest, always: interpolating a mask invents values that belong to no class and
+        would quietly become background.
+
+        **`classes_from` is the one naming whose files must not be united.** The other
+        three take the element-wise maximum of a sample's mask files - the Data Science Bowl
+        ships one per nucleus - and that maximum is exactly where per-class identity is
+        destroyed, which is the whole reason this field needed a reader rather than a
+        validator. So the files are matched to their patterns, read in that order and coded
+        a bit per class instead.
+
+        One method rather than the two copies `_load` and `inspect_masks` had, because the
+        third naming would have made it three: the read is not where either of them has
+        anything of its own to say.
+        """
+        if self.data.classes_from is not None:
+            ordered = match_channels(
+                sample.masks, self.data.classes_from, key=sample.key, what="class"
+            )
+            # `_read_one` rather than `read_image`, so a volume per class is resampled to
+            # `target_spacing` the way the image beside it is - the bug the rank-3 branch
+            # below was written for, which this path would otherwise repeat.
+            planes = [self._read_one(path, channels=1, size=size, nearest=True) for path in ordered]
+            return masks_to_codes(planes)
+
+        mask_channels = 1 if self.data.label_map else 3
+        if self.model.rank == 3:
+            # The same reader as the image, always. Sending masks down a different path was
+            # a real bug: with target_spacing the image was resampled and cropped while the
+            # mask was merely resized, so every label sat beside the anatomy it was
+            # labelling. Both go through one function now, and there is a test that the mask
+            # covers the tissue.
+            # Never `as_channels`: a mask is one labelling of one anatomy, and four
+            # modalities do not come with four masks.
+            masks = [
+                self._read(
+                    sample.masks,
+                    channels=mask_channels,
+                    size=size,
+                    nearest=True,
+                    key=sample.key,
+                )
+            ]
+        else:
+            # 2D keeps one file per object - the Data Science Bowl ships a mask per nucleus
+            # - and unites them.
+            masks = [
+                read_image(p, channels=mask_channels, size=size, nearest=True) for p in sample.masks
+            ]
+        return self._to_classes(unite_masks(masks))
+
     def _to_classes(self, mask: np.ndarray) -> tuple[np.ndarray, float]:
         """Whichever way this dataset names its classes.
 
@@ -371,7 +400,11 @@ class SegmentationDataset:
         image = to_float(image)
         if classes is None:
             return image, None
-        if self.data.multilabel:
+        if self.data.classes_from is not None:
+            # Bits rather than a table: a table of combinations would need two to the power
+            # of the classes, where the regions' table needs one row per label value.
+            return image, codes_to_onehot(classes, self.data.n_class)
+        if self.data.regions is not None:
             # The exclusive case is `np.eye(n_class)[classes]`; this is the same indexing
             # with a table whose rows are region membership instead of the identity, so a
             # voxel can land in several channels at once - or, from row 0, in none.
@@ -439,7 +472,6 @@ class SegmentationDataset:
             raise DataError("there are no masks to check")
         unmatched = []
         seen: set[int] = set()
-        mask_channels = 1 if self.data.label_map else 3
         total = len(self.samples)
         wanted = set(range(self.data.n_class))
         read = 0
@@ -452,23 +484,17 @@ class SegmentationDataset:
             if read >= _MINIMUM_SAMPLES and not (wanted - seen):
                 break
             sample = self.samples[index]
-            if self.model.rank == 3:
-                masks = [
-                    self._read(
-                        sample.masks,
-                        channels=mask_channels,
-                        size=self.model.load_shape,
-                        nearest=True,
-                    )
-                ]
-            else:
-                masks = [
-                    read_image(p, channels=mask_channels, size=self.model.load_shape, nearest=True)
-                    for p in sample.masks
-                ]
-            classes, fraction = self._to_classes(unite_masks(masks))
+            classes, fraction = self._read_masks(sample, self.model.load_shape)
             unmatched.append(fraction)
-            if self.data.multilabel:
+            if self.data.classes_from is not None:
+                # The codes are bit sets, so one OR over the distinct values says which
+                # classes appear anywhere - and a pattern matching a file that is empty in
+                # every sample read is exactly what `missing_classes` is for: a channel of
+                # zeros trains to predict nothing and scores a Dice of 0 while every other
+                # number looks ordinary.
+                together = int(np.bitwise_or.reduce(np.unique(classes)))
+                seen.update(index for index in range(self.data.n_class) if together >> index & 1)
+            elif self.data.regions is not None:
                 # `classes` indexes the vocabulary, not the regions, so the table says which
                 # regions those values put a voxel in. Without this step `missing_classes`
                 # would compare vocabulary positions against region positions and report a

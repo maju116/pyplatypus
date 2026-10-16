@@ -451,6 +451,12 @@ class Engine(EngineBase):
                 **classes,
                 "regions": [{"name": r.name, "of": list(r.of)} for r in data.regions],
             }
+        if data.classes_from is not None:
+            # The patterns are the class identity here, the way detection records its class
+            # *names*: three independent classes in a different order are the same count and
+            # the same shape, and weights read back that way would label every channel
+            # wrongly while answering plausibly.
+            return {**classes, "classes_from": list(data.classes_from)}
         if data.labels is not None:
             return {**classes, "labels": list(data.labels)}
         return {**classes, "colormap": [list(colour) for colour in data.colormap]}
@@ -559,9 +565,10 @@ class Engine(EngineBase):
                 f"finish, the loss would fall, and the model would answer 'background' "
                 f"everywhere.\n"
                 + (
-                    "  A region matching nothing is a channel of zeros: it trains to "
+                    "  A channel nothing matched is a channel of zeros: it trains to "
                     "predict nothing and scores a Dice of 0 while every other number "
-                    "looks ordinary. Check its `of` values against the label map.\n"
+                    "looks ordinary. Check the `of` values against the label map, or the "
+                    "pattern against the mask files.\n"
                     if self.spec.data.multilabel
                     else "  Either the colormap or labels do not describe these masks, or "
                     "n_class counts a class the data does not contain.\n"
@@ -595,6 +602,8 @@ class Engine(EngineBase):
             if data.regions is not None and index < len(data.regions):
                 region = data.regions[index]
                 parts.append(f"region '{region.name}' (of {list(region.of)})")
+            elif data.classes_from is not None and index < len(data.classes_from):
+                parts.append(f"class {index} (files matching '{data.classes_from[index]}')")
             elif data.label_map and data.labels is not None and index < len(data.labels):
                 parts.append(f"class {index} (label {data.labels[index]})")
             elif data.colormap is not None and index < len(data.colormap):
