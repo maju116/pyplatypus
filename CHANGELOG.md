@@ -1,6 +1,43 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a27] - 2026-10-16
+
+One line, and it is a defect in `0.8.0a26` found by answering a question about it rather
+than by a test. A **flag on the metric** replaces a list of names, and the two layers that
+had the answer separately now read one.
+
+### Fixed
+
+ - **A tiled run accepted a callback watching `val_surface_dice`, which its epochs cannot
+   produce.** The trainer decides what an epoch reports by asking the built metric
+   (`metric.accumulates`); the specification decided what a callback may watch from
+   `_WHOLE_MASK_METRICS = frozenset({"cldice"})`, a list of names in `spec/models.py`. So
+   `surface_dice` arrived in `0.8.0a26` on one side of the question and not the other, and
+   `monitor: val_surface_dice` beside `splits` was accepted, trained for an epoch and then
+   raised `KeyError` out of `state.logs` - which `EarlyStopping` indexes directly - with
+   the epoch already paid for.
+
+   The fix is not the missing name. `whole_mask` is now a class flag on the metric
+   component, the shape `continuous` and `supports_multilabel` already have on a loss, and
+   `monitorable` asks the component instead of a list. It stays in the specification layer
+   and imports nothing, so `tests/spec/test_spec_layer_is_light.py` is unmoved: the reason
+   the list existed was to keep torch out of the spec, and a flag on the spec's own class
+   does that without being a second place for the answer to live.
+
+   **A test pairs the two answers**, which is the part that outlives this release: for every
+   metric the configuration offers, the component's `whole_mask` must be the negation of the
+   built metric's `accumulates`, with a control asserting both values actually occur - a
+   pairing is no evidence in a package where every metric answers the same way. The three
+   tests that cover the tiled case were each written for `cldice` and are now parametrised
+   over the metrics that *say* they are whole-mask, so the next one is covered by arriving
+   rather than by somebody remembering three files. §4's passing test whose fixture never
+   contained the case, twice in two releases.
+
+   Nothing else changes: `surface_dice` and `cldice` were always measured per case by
+   `evaluate_cases` on a tiled run and always absent from its epoch history, which is what
+   both docstrings said while the specification disagreed.
+
 ## [0.8.0a26] - 2026-10-15
 
 Two of the four issues in the "Losses and metrics" milestone, and **the other two are

@@ -185,12 +185,6 @@ class ModelSpec(SpecModel):
         return self
 
 
-#: Metrics that cannot be rebuilt from the pieces of a tiled image, because they read the
-#: shape of a whole mask rather than its overlap counts. Kept here as names rather than as
-#: an import from the objectives, which would make the specification layer depend on torch.
-_WHOLE_MASK_METRICS = frozenset({"cldice"})
-
-
 class SegmentationModel(ModelSpec):
     #: Appended to the refusal of a continuous `loss`, by the subclass that has somewhere
     #: else to put one. Empty here, because a semantic model has one objective and no
@@ -439,14 +433,20 @@ class SegmentationModel(ModelSpec):
         """The loss, plus every metric an epoch reports - not every metric asked for.
 
         A whole-mask metric is measured on the reassembled image by `evaluate_cases`, never
-        per batch, so a tiled run's epochs do not produce `val_cldice` and a callback cannot
-        watch it. Saying so here is what makes `callbacks_watch_something_that_exists`
-        refuse that pairing, with a message listing what *is* available - rather than a
-        second validator saying the same thing in its own words.
+        per batch, so a tiled run's epochs do not produce `val_cldice` or `val_surface_dice`
+        and a callback cannot watch either. Saying so here is what makes
+        `callbacks_watch_something_that_exists` refuse that pairing, with a message listing
+        what *is* available - rather than a second validator saying the same thing in its
+        own words.
+
+        **Which metrics those are is asked of the component**, through `whole_mask`. It was
+        a frozenset of names here until `0.8.0a27`, and `surface_dice` shipped without being
+        added to it: the trainer asked the built metric's `accumulates` and this asked a
+        list, so a tiled run accepted a callback watching a number its epochs would never
+        put in `state.logs`. A flag the two halves share cannot go out of step that way, and
+        a test pairs it with `accumulates` so that it cannot be set wrongly either.
         """
-        reported = [
-            m for m in self.metrics if self.splits is None or m.name not in _WHOLE_MASK_METRICS
-        ]
+        reported = [m for m in self.metrics if self.splits is None or not m.whole_mask]
         return (
             super().monitorable
             | {f"val_{m.name}" for m in reported}

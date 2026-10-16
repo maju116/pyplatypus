@@ -15,7 +15,7 @@ from pyplatypus import Engine, from_dict, summarise_cases
 from pyplatypus.engine import EngineError
 from pyplatypus.errors import ConfigError
 from pyplatypus.objectives.metrics import Dice
-from tests.conftest import write_png
+from tests.conftest import metric_configs, write_png
 
 
 @pytest.fixture
@@ -127,49 +127,68 @@ def test_tiles_are_summed_into_the_whole_image_not_averaged(patients):
         assert reported[sample.key] == pytest.approx(whole, abs=1e-5)
 
 
-def test_a_tiled_run_may_ask_for_a_whole_mask_metric(patients):
+# Every one of the three tests below was written for `cldice` and read as being about
+# whole-mask metrics; `surface_dice` shipped in `0.8.0a26` and none of them saw it, which
+# is how the specification layer came to accept a callback the trainer would not feed.
+# They are parametrised over the metrics that say they are whole-mask rather than over a
+# list written here, so the next one of these is covered by arriving. §4.
+WHOLE_MASK = metric_configs(whole_mask=True)
+WHOLE_MASK_IDS = [block["name"] for block in WHOLE_MASK]
+
+
+@pytest.mark.parametrize("metric", WHOLE_MASK, ids=WHOLE_MASK_IDS)
+def test_a_tiled_run_may_ask_for_a_whole_mask_metric(patients, metric):
     """It used to be refused outright. The refusal was right about the arithmetic and
     wrong about the remedy: the tiles are reassembled before the metric is measured, so
     the combination is now the supported way to ask."""
-    engine = Engine(spec_for(patients, splits=[2, 2], metrics=[{"name": "cldice"}]))
+    engine = Engine(spec_for(patients, splits=[2, 2], metrics=[metric]))
     assert engine.spec.models[0].splits == (2, 2)
 
 
-def test_a_tiled_epoch_leaves_out_the_metric_it_cannot_measure(patients):
+@pytest.mark.parametrize("metric", WHOLE_MASK, ids=WHOLE_MASK_IDS)
+def test_a_tiled_epoch_leaves_out_the_metric_it_cannot_measure(patients, metric):
     """An epoch reads its metrics per batch, and per batch means per tile. Rather than
-    report a per-tile skeleton score, a tiled run omits it from the history - and says so
-    by not offering it to callbacks either."""
+    report a per-tile skeleton or a per-tile boundary, a tiled run omits it from the
+    history - and says so by not offering it to callbacks either."""
+    name = metric["name"]
     tiled = Engine(
-        spec_for(patients, splits=[2, 2], metrics=[{"name": "dice"}, {"name": "cldice"}]),
+        spec_for(patients, splits=[2, 2], metrics=[{"name": "dice"}, metric]),
         device="cpu",
     )
     record = tiled.fit()["tiny"].records[-1]
     assert "val_dice" in record
-    assert "val_cldice" not in record
-    assert "train_cldice" not in record
+    assert f"val_{name}" not in record
+    assert f"train_{name}" not in record
 
     # Untiled, an example is a whole mask, so the epoch can and does report it.
-    whole = Engine(spec_for(patients, metrics=[{"name": "dice"}, {"name": "cldice"}]), device="cpu")
-    assert "val_cldice" in whole.fit()["tiny"].records[-1]
+    whole = Engine(spec_for(patients, metrics=[{"name": "dice"}, metric]), device="cpu")
+    assert f"val_{name}" in whole.fit()["tiny"].records[-1]
 
 
-def test_a_callback_cannot_watch_what_a_tiled_epoch_does_not_produce(patients):
+@pytest.mark.parametrize("metric", WHOLE_MASK, ids=WHOLE_MASK_IDS)
+def test_a_callback_cannot_watch_what_a_tiled_epoch_does_not_produce(patients, metric):
     """The pairing is refused when the specification is read, not mid-run, and the message
     lists what is available - which is the existing monitor check doing the work rather
-    than a second validator repeating it."""
-    with pytest.raises(ConfigError, match="val_cldice"):
+    than a second validator repeating it.
+
+    What it costs when the two layers disagree is the reason this is parametrised:
+    `EarlyStopping` indexes `state.logs[self.monitor]`, so an accepted configuration that
+    the epoch does not feed raises `KeyError` after the first epoch has been paid for.
+    """
+    watched = f"val_{metric['name']}"
+    with pytest.raises(ConfigError, match=watched):
         spec_for(
             patients,
             splits=[2, 2],
-            metrics=[{"name": "dice"}, {"name": "cldice"}],
-            callbacks=[{"name": "early_stopping", "monitor": "val_cldice", "patience": 2}],
+            metrics=[{"name": "dice"}, metric],
+            callbacks=[{"name": "early_stopping", "monitor": watched, "patience": 2}],
         )
 
     # Untiled it is a perfectly good thing to watch.
     spec_for(
         patients,
-        metrics=[{"name": "cldice"}],
-        callbacks=[{"name": "early_stopping", "monitor": "val_cldice", "patience": 2}],
+        metrics=[metric],
+        callbacks=[{"name": "early_stopping", "monitor": watched, "patience": 2}],
     )
 
 
