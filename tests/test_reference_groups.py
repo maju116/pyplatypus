@@ -186,6 +186,12 @@ GROUP_ORDER = [
     "Looking at the results",
     "Masks and volumes",
     "When something is wrong",
+    # Added 2026-10-22 for rplatypus's `platypus_fact()`, which is an easter egg about the
+    # animal both packages are named after. This package fills no subset of it today; the
+    # title is here because the shared order is an agreement about *where* a group goes, so
+    # that if the engine ever grows one it lands in the same place rather than somewhere a
+    # reader of both sites has to hunt for.
+    "The animal",
 ]
 
 
