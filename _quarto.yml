@@ -23,6 +23,7 @@ project:
   render:
   - index.qmd
   - guide.qmd
+  - data-science-bowl.qmd
   - instances.qmd
   - config.qmd
   - reference/
@@ -51,6 +52,8 @@ website:
       contents:
       - text: Writing a configuration
         file: guide.qmd
+      - text: Finding nuclei in microscopy images
+        file: data-science-bowl.qmd
       - text: Telling touching nuclei apart
         file: instances.qmd
       - text: Every configuration field

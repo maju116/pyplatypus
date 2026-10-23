@@ -184,6 +184,7 @@ def main() -> None:
             "render": [
                 "index.qmd",
                 "guide.qmd",
+                "data-science-bowl.qmd",
                 "instances.qmd",
                 "config.qmd",
                 "reference/",
@@ -227,6 +228,13 @@ def main() -> None:
                         "section": "Articles",
                         "contents": [
                             {"text": "Writing a configuration", "file": "guide.qmd"},
+                            # Mirrors R's `vignette("data-science-bowl")`. Before the
+                            # instances one deliberately: it is the semantic reading of the
+                            # same dataset, and the instances article opens by naming it.
+                            {
+                                "text": "Finding nuclei in microscopy images",
+                                "file": "data-science-bowl.qmd",
+                            },
                             # Mirrors R's `vignette("instances")`; `tests/test_articles.py`
                             # holds the two to the same walk. `rplatypus#117` makes the
                             # vignette the source and this the copy.
