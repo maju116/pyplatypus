@@ -36,6 +36,7 @@ import urllib.request
 
 import pytest
 
+from pyplatypus import ConfigError, from_dict
 from tests.conftest import NOT_OURS, every_name_this_package_has
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -148,3 +149,115 @@ def test_a_name_an_article_offers_a_reader_resolves(name):
         "as something to call. If it is the R package's, say what the engine answers with "
         "instead - these pages are read by people who have no R."
     )
+
+
+# --------------------------------------------------------------------------------------
+# The article's code blocks, which nothing checked until one of them was wrong.
+#
+# `instances.qmd` shipped with `build_engine(...)` followed straight by
+# `predict_instances(...)`, and the engine refuses that: with `fit: false` the weights are
+# loaded by `fit()`, so `predict` before it answers *no model has been trained or loaded
+# yet*. A reader copying the block would have been taught a mistake, which is exactly what
+# `test_the_guide_shows_configurations_at_all`'s sibling was written for on the YAML side -
+# and the gap was named in that pull request's own body an hour before it was fallen into.
+#
+# These two do not execute anything. Executing an article means downloading weights and
+# touching torch, which is not what a suite should do; what is cheap is asking whether the
+# narrative obeys the engine's own lifecycle, and whether a configuration it shows would be
+# accepted.
+
+CALL = re.compile(r"\bengine\.(\w+)\(")
+
+
+def python_blocks(path: pathlib.Path) -> list[tuple[int, str]]:
+    text = path.read_text()
+    found = []
+    for match in re.finditer(r"^```python\n(.*?)^```", text, re.MULTILINE | re.DOTALL):
+        found.append((text[: match.start()].count("\n") + 1, match.group(1)))
+    return found
+
+
+BLOCKS = [(path, line, block) for path, _ in ARTICLES for line, block in python_blocks(path)]
+
+# `fit` is what loads or trains; everything that reads a model needs it to have happened.
+NEEDS_A_MODEL = {"predict", "predict_instances", "evaluate", "evaluate_cases"}
+
+
+@pytest.mark.parametrize(("path", "vignette"), ARTICLES, ids=[p.name for p, _ in ARTICLES])
+def test_an_article_shows_python_at_all(path, vignette):
+    """The guard, because an extractor that matches nothing passes both tests below.
+
+    **Per article, not over the total, and that correction is the point.** The first
+    version asserted `len(BLOCKS) >= 2` across every page, and `guide.qmd` alone has
+    exactly two - so emptying the other article's blocks left the threshold satisfied by a
+    different file and the guard said nothing. Measured: turning every ```python fence in
+    `instances.qmd` into ```text gave fifteen passes and no failure. §4's "a check
+    calibrated loosely enough admits the failure it was written to prevent", inside the
+    guard written against that failure.
+
+    An article narrates a run, so one block is the floor for all of them; a page with none
+    is a page that stopped doing what `pyplatypus#172` settled these are for.
+    """
+    blocks = python_blocks(path)
+    assert blocks, (
+        f"{path.name} shows no ```python blocks - the fence pattern is wrong, or the page "
+        "stopped narrating a run"
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "line", "block"),
+    BLOCKS,
+    ids=[f"{path.stem}-line-{line}" for path, line, _ in BLOCKS],
+)
+def test_a_block_that_reads_a_model_has_fitted_first(path, line, block):
+    """Within one block: if it builds an engine and reads a model, `fit` is between them.
+
+    A block that only predicts is narrating a continuation of an earlier one and is left
+    alone - the alternative is demanding `fit()` in every snippet, which would make the
+    pages read like a transcript.
+    """
+    calls = CALL.findall(block)
+    if "build_engine" not in block:
+        return
+    reads = [call for call in calls if call in NEEDS_A_MODEL]
+    if not reads:
+        return
+    assert "fit" in calls, (
+        f"{path.name} line {line} builds an engine and then calls "
+        f"{reads[0]}() with no fit() between them. With `fit: false` it is fit() that "
+        "loads the weights, so the engine answers 'no model has been trained or loaded "
+        "yet' - a reader copying this block is taught a mistake"
+    )
+
+
+CONFIGS = [
+    (path, line, found.group(1))
+    for path, line, block in BLOCKS
+    for found in [re.search(r"from_dict\(\s*(\{.*\})\s*\)", block, re.DOTALL)]
+    if found
+]
+
+
+@pytest.mark.parametrize(
+    ("path", "line", "literal"),
+    CONFIGS,
+    ids=[f"{path.stem}-line-{line}" for path, line, _ in CONFIGS],
+)
+def test_a_configuration_an_article_shows_is_accepted(path, line, literal):
+    """The guide's YAML check, pointed at the dicts the articles hand to `from_dict`.
+
+    `check_paths=False`: the paths in an article are illustrative, the fields are not.
+    `ast.literal_eval` rather than `eval`, because a page is text and text is not trusted
+    just because it is in this repository.
+    """
+    import ast
+
+    try:
+        config = ast.literal_eval(literal)
+    except (ValueError, SyntaxError) as broken:
+        pytest.fail(f"{path.name} line {line} shows a dict that is not a literal: {broken}")
+    try:
+        from_dict(config, check_paths=False)
+    except ConfigError as refusal:
+        pytest.fail(f"the configuration at {path.name} line {line} is refused:\n{refusal}")
