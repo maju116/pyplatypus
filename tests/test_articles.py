@@ -35,6 +35,7 @@ import urllib.error
 import urllib.request
 
 import pytest
+import yaml
 
 from pyplatypus import ConfigError, from_dict
 from tests.conftest import NOT_OURS, every_name_this_package_has
@@ -259,5 +260,90 @@ def test_a_configuration_an_article_shows_is_accepted(path, line, literal):
         pytest.fail(f"{path.name} line {line} shows a dict that is not a literal: {broken}")
     try:
         from_dict(config, check_paths=False)
+    except ConfigError as refusal:
+        pytest.fail(f"the configuration at {path.name} line {line} is refused:\n{refusal}")
+
+
+# --------------------------------------------------------------------------------------
+# The other fence. `guide.qmd` has had its YAML validated since it was written; an article
+# that shows a configuration file had nothing, and a configuration is exactly what an engine
+# article reaches a destination *through* - `pyplatypus#237`'s whole distinction from R's
+# constructors. So the same check, pointed at the same kind of block wherever it appears.
+#
+# This is `#245`'s lesson applied one fence over: a block a reader copies is a claim, and the
+# page had no way of being wrong out loud.
+
+
+def yaml_configurations(path: pathlib.Path) -> list[tuple[int, str]]:
+    """Every fenced yaml block in one article that is a configuration, with its line.
+
+    A `yaml` fence with no `task:` is something else - a fragment, an editor's schema
+    comment - and validating it would fail for a reason the page is not claiming anything
+    about. The same rule `test_guide.py` uses, so the two agree about what a configuration
+    block is.
+    """
+    text = path.read_text()
+    found = []
+    for match in re.finditer(r"^```yaml\n(.*?)^```", text, re.MULTILINE | re.DOTALL):
+        if re.search(r"^task:", match.group(1), re.MULTILINE):
+            found.append((text[: match.start()].count("\n") + 1, match.group(1)))
+    return found
+
+
+YAML_BLOCKS = [
+    (path, line, block) for path, _ in ARTICLES for line, block in yaml_configurations(path)
+]
+
+
+WITH_YAML = [(path, vignette) for path, vignette in ARTICLES if "```yaml" in path.read_text()]
+
+
+@pytest.mark.parametrize(("path", "vignette"), WITH_YAML, ids=[path.name for path, _ in WITH_YAML])
+def test_the_yaml_extractor_sees_every_fence_in_an_article(path, vignette):
+    """The guard, and the first version of it asserted something false.
+
+    It demanded a configuration from every article carrying a `yaml` fence, and
+    `data-science-bowl.qmd` carries four **fragments** - a `models:` list, a `callbacks:`
+    block - which have no `task:` and are not configurations. The page was right and the
+    guard was wrong, which is the cheap direction to find out in.
+
+    What is actually fragile here is the fence pattern, so that is what is checked, against
+    a count nothing clever can get wrong. The `task:` filter is checked by the floor below
+    instead: it is simple, and its failure mode is finding nothing anywhere.
+    """
+    text = path.read_text()
+    fences = len(re.findall(r"^```yaml\n(.*?)^```", text, re.MULTILINE | re.DOTALL))
+    assert fences == text.count("```yaml\n"), (
+        f"{path.name} has {text.count('```yaml')} yaml fences and the pattern matched "
+        f"{fences} - an unterminated fence, or the pattern is wrong"
+    )
+
+
+def test_an_article_somewhere_shows_a_whole_configuration():
+    """The other half: that `task:` still selects something.
+
+    A floor rather than a per-article demand, because showing a whole configuration is one
+    route of several - `instances.qmd` hands `from_yaml()` a file in the repository and
+    shows no YAML at all, which is a legitimate way for an article to reach the same place.
+    """
+    assert YAML_BLOCKS, (
+        "no article shows a complete configuration - either `task:` stopped matching, or "
+        "every page that had one lost it"
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "line", "block"),
+    YAML_BLOCKS,
+    ids=[f"{path.stem}-line-{line}" for path, line, _ in YAML_BLOCKS],
+)
+def test_a_yaml_configuration_an_article_shows_is_accepted(path, line, block):
+    """`check_paths=False`: the paths in an article are illustrative, the fields are not."""
+    try:
+        parsed = yaml.safe_load(block)
+    except yaml.YAMLError as broken:
+        pytest.fail(f"{path.name} line {line} shows yaml that does not parse: {broken}")
+    try:
+        from_dict(parsed, check_paths=False)
     except ConfigError as refusal:
         pytest.fail(f"the configuration at {path.name} line {line} is refused:\n{refusal}")

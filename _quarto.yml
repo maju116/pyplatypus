@@ -25,6 +25,7 @@ project:
   - guide.qmd
   - data-science-bowl.qmd
   - instances.qmd
+  - retinal-vessels.qmd
   - blood-cells.qmd
   - config.qmd
   - reference/
@@ -57,6 +58,8 @@ website:
         file: data-science-bowl.qmd
       - text: Telling touching nuclei apart
         file: instances.qmd
+      - text: Retinal vessels, tiled
+        file: retinal-vessels.qmd
       - text: Counting cells in blood smears
         file: blood-cells.qmd
       - text: Every configuration field
