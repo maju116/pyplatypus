@@ -164,6 +164,8 @@ website:
       - section: Masks and volumes
         contents:
         - reference/save_class_masks.qmd
+        - reference/save_volumes.qmd
+        - reference/save_class_volumes.qmd
       - section: When something is wrong
         contents:
         - reference/PlatypusError.qmd
@@ -317,6 +319,8 @@ quartodoc:
       '
     contents:
     - save_class_masks
+    - save_volumes
+    - save_class_volumes
   - title: When something is wrong
     desc: 'Three kinds, because they are three different problems: a configuration that cannot
       be read, an engine that cannot run it, and weights that do not belong to the model.

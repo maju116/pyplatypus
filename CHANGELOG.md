@@ -1,6 +1,57 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a29] - 2026-10-23
+
+One writer, and it is the one this package's own refusal has been telling people to use
+since `0.8.0a23`. `pyplatypus#249`.
+
+### Added
+
+ - **`save_volumes` and `save_class_volumes`**: a predicted volume written as NIfTI onto the
+   geometry of the scan it came from. Integer labels, `int16`, with `reference` required
+   rather than optional because there is no sensible affine to invent.
+
+   **The affine is the point.** A mask array on its own cannot be laid over its scan: every
+   viewer, every registration tool and every volume in millilitres reads position and
+   spacing out of it, and a file carrying the wrong one is either silently misplaced or
+   rejected. The reference is read through `_load_canonical`, the same function
+   `read_volume` uses, because the reader reorients every volume to the closest canonical
+   axes - so a prediction is in canonical space, and writing it with the file's **stored**
+   affine would produce a mask reflected or transposed with respect to its scan, opening in
+   any viewer without complaint. The test that earns its keep writes a scan stored the other
+   way round and demands the mask read back equal; mutated to use the stored affine, it
+   fails along with the affine test beside it.
+
+   `save_volumes` **refuses an overlapping prediction** rather than taking the `argmax`,
+   which is `onehot_to_colours`'s refusal one dimension along: a label map holds one integer
+   per voxel, so a voxel in both the core and the whole tumour would be written as whichever
+   channel read higher. Those are `regions`, and `save_class_volumes` is where they go - one
+   binary volume per class, which is the writer BraTS actually needs, since `regions` was
+   motivated by a dataset that stores its overlapping regions as volumes.
+
+   It also refuses **case names that repeat**, which is not a theoretical tidiness: volume
+   datasets keep one directory per case with the same `ct.nii.gz` inside each, so names
+   taken from the sources collide, every mask is written to one path, and the count of
+   written paths is still right. Losing five masks of six while reporting success is the
+   worst outcome available here.
+
+### Fixed
+
+ - **`save_class_masks`'s refusal now names functions that exist.** It has said *"write each
+   channel as NIfTI with the geometry of its source instead"* since `0.8.0a23`, and the only
+   way to follow that instruction was to leave this package. The same shape as `#230` and
+   `#231`, one step worse: those were promises about this package's own surface, and this
+   was an instruction a reader could not carry out at all.
+
+### Where this code came from
+
+Not written from nothing. `rplatypus/inst/python/platypus_shim.py` has carried a correct
+`write_volumes` since the volume work landed - Python, shipped inside the R package, doing
+a thing this package's own reader is half of. A `pip install pyplatypus` user never had it.
+The shim's copy is the one to delete when R's pin moves to this release; two
+implementations of an affine decision is the shape that keeps costing this project.
+
 ## [0.8.0a28] - 2026-10-16
 
 Two features and one lesson they share: a mechanism that existed twice, and a mechanism

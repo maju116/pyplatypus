@@ -24,6 +24,7 @@ a reader. What the reader must not do is silently lose the information needed to
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -247,3 +248,233 @@ def crop_or_pad(array: np.ndarray, size: tuple[int, ...], *, pad_value: float = 
             widths[axis] = (before, after)
             result = np.pad(result, widths, mode="constant", constant_values=pad_value)
     return result
+
+
+def _volume_cases(count: int, cases: Sequence[str] | None) -> list[str]:
+    """Per-file names, defaulted and checked for collisions.
+
+    The collision is the reason this is its own function rather than three lines twice.
+    Volume datasets keep one directory per case with the same filename inside each -
+    `case_01/images/ct.nii.gz` - so names taken from the sources collide, every mask is
+    written to one path, and the count of written paths is still right. Losing five masks
+    of six while reporting success is the worst outcome available here.
+    """
+    if cases is None:
+        return [f"mask_{index + 1:04d}" for index in range(count)]
+    names = [str(name) for name in cases]
+    if len(names) != count:
+        raise VolumeError(f"there are {count} predictions and {len(names)} case names were given")
+    if len(set(names)) != len(names):
+        clash = sorted({name for name in names if names.count(name) > 1})
+        raise VolumeError(
+            f"these case names repeat: {', '.join(clash[:3])}"
+            f"{', ...' if len(clash) > 3 else ''}. Each would be written to the same path, "
+            "so every mask but the last would be lost with nothing reporting it. Datasets "
+            "that keep one directory per case usually hold the same filename in each, so "
+            "the stems are not distinct - pass the keys instead."
+        )
+    return names
+
+
+def _as_volume_list(prediction: np.ndarray | Sequence[np.ndarray]) -> list[np.ndarray]:
+    """One channels-last volume per case, from the several shapes a caller holds.
+
+    `predict(space="source")` hands back a list because sources differ in size, and that is
+    the input this writer is for. A single `(d, h, w, c)` volume is accepted as a list of
+    one; a stacked `(n, d, h, w, c)` array is accepted because `predict(space="model")`
+    returns that when every scan happens to share a grid.
+    """
+    if isinstance(prediction, (list, tuple)):
+        volumes = [np.asarray(one) for one in prediction]
+    else:
+        array = np.asarray(prediction)
+        volumes = list(array) if array.ndim == 5 else [array]
+    for volume in volumes:
+        if volume.ndim != 4:
+            raise VolumeError(
+                f"expected channels-last volumes, got shape "
+                f"{' x '.join(str(size) for size in volume.shape)}. One `(d, h, w, c)` array "
+                "per case, which is what `predict(space='source')` returns."
+            )
+    return volumes
+
+
+def _reference_affine(path: str | Path, shape: tuple[int, ...]):
+    """The canonical image a mask is written against, with its geometry checked.
+
+    Through `_load_canonical`, which is the whole correctness of this pair of functions
+    rather than a convenience. `read_volume` reorients every volume it reads to the closest
+    canonical (RAS) axes, so a prediction is in canonical space; writing it with the
+    **stored** affine of a file whose axes are ordered differently produces a mask that
+    opens without complaint and is reflected or transposed with respect to its scan. The
+    reference has to be read the way the image was read, and sharing the function is what
+    guarantees it stays that way.
+    """
+    image = _load_canonical(path)
+    if tuple(image.shape[:3]) != tuple(shape):
+        raise VolumeError(
+            f"the mask is {' x '.join(str(size) for size in shape)} and '{path}' is "
+            f"{' x '.join(str(size) for size in image.shape[:3])}. A mask written with the "
+            "wrong geometry lands in the wrong place in the scan, which is worse than "
+            "failing - predict with `space='source'` to get the grid the file is on."
+        )
+    return image
+
+
+def _write_labels(labels: np.ndarray, path: Path, image) -> Path:
+    """One integer-labelled NIfTI, carrying the reference's canonical affine."""
+    import nibabel as nib
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    written = nib.Nifti1Image(labels.astype(np.int16), image.affine, dtype=np.int16)
+    nib.save(written, str(path))
+    return path
+
+
+def save_volumes(
+    prediction: np.ndarray | Sequence[np.ndarray],
+    directory: str | Path,
+    *,
+    reference: Sequence[str | Path],
+    cases: Sequence[str] | None = None,
+    suffix: str = "",
+) -> list[Path]:
+    """A predicted volume as NIfTI, written onto the geometry of the scan it came from.
+
+    This is what `save_class_masks`'s own refusal tells a reader to do, and until now there
+    was nowhere in this package to do it: a PNG carries neither voxel spacing nor
+    orientation, so a volume written as pictures cannot be laid back over its scan. A mask
+    array on its own has the same problem. **The affine is the point** - every viewer, every
+    registration tool and every volume in millilitres reads position and spacing out of it,
+    and a file carrying the wrong one is either silently misplaced or rejected.
+
+    Written as integer labels, `int16`, because that is what a volume format holds and what
+    the next tool expects to read back. `reference` is required rather than optional for the
+    same reason: there is no sensible affine to invent.
+
+    Refuses an overlapping prediction instead of taking the `argmax`, exactly as
+    `onehot_to_colours` does and for the same reason one level along: a label map holds one
+    integer per voxel, so a voxel in both the tumour core and the whole tumour would be
+    written as whichever channel read higher. Those are `regions`, and
+    `save_class_volumes` is where they go. Detected from the array rather than from a flag,
+    so a caller holding only a prediction can answer it, and a softmax never trips it.
+
+    Args:
+        prediction: Channels-last probabilities. A list of `(d, h, w, c)` arrays, which is
+            what `predict(space="source")` returns, or one such array, or a stacked
+            `(n, d, h, w, c)`.
+        directory: Where to write. Created, with parents, if it does not exist.
+        reference: The scan each mask was predicted from, in the same order. Its canonical
+            affine is what the mask is written with.
+        cases: One name per volume, without extension - usually `split`'s keys. Defaults to
+            `mask_0001` and so on. Names that repeat are refused rather than overwritten.
+        suffix: Added before the extension, so two models can write into one directory.
+
+    Returns:
+        The paths written, in the order the predictions were given.
+    """
+    volumes = _as_volume_list(prediction)
+    sources = [str(path) for path in reference]
+    if len(sources) != len(volumes):
+        raise VolumeError(
+            f"there are {len(volumes)} masks and {len(sources)} reference scans. Each mask "
+            "is written with the geometry of the scan it came from, so they have to line up."
+        )
+    names = _volume_cases(len(volumes), cases)
+
+    written: list[Path] = []
+    for volume, source, case in zip(volumes, sources, names, strict=True):
+        hot = volume >= 0.5
+        overlapping = int(hot.sum(axis=-1).max(initial=0))
+        if overlapping > 1:
+            raise VolumeError(
+                f"a voxel is in {overlapping} classes at once, and a label map holds one "
+                "integer per voxel - taking the strongest would write a plausible volume of "
+                "something else. These are overlapping classes (`regions`), so write them "
+                "one file per class with `save_class_volumes`."
+            )
+        image = _reference_affine(source, volume.shape[:3])
+        written.append(
+            _write_labels(volume.argmax(axis=-1), Path(directory) / f"{case}{suffix}.nii.gz", image)
+        )
+    return written
+
+
+def save_class_volumes(
+    prediction: np.ndarray | Sequence[np.ndarray],
+    directory: str | Path,
+    *,
+    reference: Sequence[str | Path],
+    classes: Sequence[str],
+    cases: Sequence[str] | None = None,
+    threshold: float = 0.5,
+    suffix: str = "",
+) -> list[Path]:
+    """One binary volume per class, which is how an overlapping prediction reaches disk in 3D.
+
+    `save_class_masks` is this function for pictures, and `regions` was motivated by BraTS,
+    which stores its overlapping regions as volumes - so this is the writer the motivating
+    dataset actually needs. Each file is `<case><suffix>_<class>.nii.gz`, 0 or 1 as `int16`,
+    carrying the reference's canonical affine like everything else here.
+
+    `classes` rather than `names`, and `cases` for the per-file half, which is the same
+    split `save_class_masks` settled: in the R package `names` already means the files a
+    writer writes, so a sibling where the same word meant the classes would accept a call
+    copied from one to the other whenever the counts happened to match.
+
+    A channel where nothing reaches `threshold` is written as an empty volume rather than
+    skipped, for `save_class_masks`'s reason: a missing file reads as "this run did not
+    produce that class" and an empty one as "it did and the answer was nothing", and only
+    one of those is true.
+
+    Args:
+        prediction: Channels-last probabilities, as for `save_volumes`.
+        directory: Where to write. Created, with parents, if it does not exist.
+        reference: The scan each mask was predicted from, in the same order.
+        classes: One name per channel, in channel order. Passed through `class_filename`,
+            so `whole tumour` is `whole_tumour` on disk.
+        cases: One name per volume. Defaults to `mask_0001` and so on.
+        threshold: A channel is hot where it reaches this. 0.5 is what every metric in the
+            package thresholds a multilabel channel at.
+        suffix: Added before the class, so two models can write into one directory.
+
+    Returns:
+        The paths written, volume by volume and within a volume channel by channel.
+    """
+    from pyplatypus.data.masks import class_filename
+
+    volumes = _as_volume_list(prediction)
+    sources = [str(path) for path in reference]
+    if len(sources) != len(volumes):
+        raise VolumeError(
+            f"there are {len(volumes)} masks and {len(sources)} reference scans. Each mask "
+            "is written with the geometry of the scan it came from, so they have to line up."
+        )
+    names = _volume_cases(len(volumes), cases)
+
+    files = [class_filename(str(name)) for name in classes]
+    if len(set(files)) != len(files):
+        clash = sorted({name for name in files if files.count(name) > 1})
+        raise VolumeError(
+            f"two class names become the same filename: {', '.join(clash)}. They differ as "
+            "prose and not as paths, so one class would overwrite the other."
+        )
+
+    written: list[Path] = []
+    for volume, source, case in zip(volumes, sources, names, strict=True):
+        if volume.shape[-1] != len(files):
+            raise VolumeError(
+                f"the prediction has {volume.shape[-1]} channels and {len(files)} class "
+                "names were given. One name per channel, in the order the regions were "
+                "written."
+            )
+        image = _reference_affine(source, volume.shape[:3])
+        for channel, name in enumerate(files):
+            written.append(
+                _write_labels(
+                    (volume[..., channel] >= threshold).astype(np.int16),
+                    Path(directory) / f"{case}{suffix}_{name}.nii.gz",
+                    image,
+                )
+            )
+    return written

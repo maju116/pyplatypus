@@ -418,8 +418,8 @@ def save_class_masks(
         raise MaskError(
             f"this is a stack of volumes ({' x '.join(str(size) for size in array.shape)}), "
             "and a PNG carries neither voxel spacing nor orientation - a volume written as "
-            "pictures cannot be laid back over the scan it came from. Write each channel as "
-            "NIfTI with the geometry of its source instead."
+            "pictures cannot be laid back over the scan it came from. `save_volumes` and "
+            "`save_class_volumes` write NIfTI with the geometry of the source instead."
         )
     if array.ndim == 3:
         array = array[None]

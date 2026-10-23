@@ -13,6 +13,7 @@ returns the right one for the first two, so holding a spec is enough.
 from pyplatypus.data.images import read_image
 from pyplatypus.data.masks import save_class_masks
 from pyplatypus.data.splits import split_dataset, split_samples
+from pyplatypus.data.volumes import save_class_volumes, save_volumes
 from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
@@ -58,7 +59,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a28"
+__version__ = "0.8.0a29"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -101,7 +102,9 @@ __all__ = [
     "read_record",
     "resolve_weights",
     "save_class_masks",
+    "save_class_volumes",
     "save_spec",
+    "save_volumes",
     "spec_schema",
     "split_dataset",
     "split_samples",
