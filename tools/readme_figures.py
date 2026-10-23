@@ -124,6 +124,57 @@ def masks(roots: list[Path]) -> None:
     print("  dice drawn: " + ", ".join(f"{cases[index]['dice']:.3f}" for index in which))
 
 
+def article_dsbowl(validation: Path) -> None:
+    """The opening figure of `data-science-bowl.qmd`: a mask from borrowed weights, no score.
+
+    Deliberately NOT what `masks` above draws, and the difference is the article's point.
+    That one reconstructs the split the weights were measured on and prints Dice; this one
+    uses the convenient directory - `stage1_validation`, which overlaps the images these
+    weights were trained on - and prints nothing. `pyplatypus#173` says why: any number
+    here is leakage wearing the costume of a result, and the honest numbers live in the
+    model card.
+
+    So this reaches for the weights, predicts, draws, and stops. Three images, no truth
+    column, no labels. The whole figure exists to show that first contact needs neither a
+    GPU nor an afternoon.
+    """
+    spec = pp.from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(validation),
+                "validation_path": str(validation),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                "mode": "nested_dirs",
+            },
+            "models": [
+                {
+                    "name": "nuclei",
+                    "input_shape": [256, 256],
+                    "weights": "dsbowl-unet",
+                    "fit": False,
+                }
+            ],
+        }
+    )
+    engine = pp.build_engine(spec)
+    # `fit` is what loads when `fit: false`; `predict` before it is refused.
+    engine.fit()
+    predictions = engine.predict("nuclei", "validation")
+    print(f"predicted {predictions.shape[0]} cases from {validation}")
+
+    which = [0, 1, 2]
+    dataset = engine.dataset(engine.runs["nuclei"].spec, "validation")
+    figure = pp.plot_masks(
+        np.stack([dataset[index][0] for index in which]),
+        prediction=predictions[which],
+    )
+    path = ASSETS / "article-dsbowl-published.png"
+    figure.savefig(path, dpi=110, bbox_inches="tight")
+    print(f"wrote {path}")
+    print("  no scores on purpose: this directory overlaps the training images")
+
+
 def boxes(bccd: Path) -> None:
     """One test frame, with what `bccd-yolo3` found on it and what was annotated."""
     root = bccd / "BCCD"
@@ -210,7 +261,9 @@ def boxes(bccd: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("which", nargs="*", default=None, choices=["masks", "boxes", None])
+    parser.add_argument(
+        "which", nargs="*", default=None, choices=["masks", "boxes", "article-dsbowl", None]
+    )
     parser.add_argument(
         "--dsbowl",
         nargs="+",
@@ -229,6 +282,9 @@ def main() -> None:
         masks([Path(root) for root in arguments.dsbowl])
     if "boxes" in wanted:
         boxes(Path(arguments.bccd))
+    if "article-dsbowl" in wanted:
+        # The convenient directory on purpose - see that function's docstring.
+        article_dsbowl(Path("examples/data/data_science_bowl/stage1_validation"))
 
 
 if __name__ == "__main__":
