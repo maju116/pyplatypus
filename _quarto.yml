@@ -25,6 +25,7 @@ project:
   - guide.qmd
   - data-science-bowl.qmd
   - instances.qmd
+  - blood-cells.qmd
   - config.qmd
   - reference/
   - CHANGELOG.md
@@ -56,6 +57,8 @@ website:
         file: data-science-bowl.qmd
       - text: Telling touching nuclei apart
         file: instances.qmd
+      - text: Counting cells in blood smears
+        file: blood-cells.qmd
       - text: Every configuration field
         file: config.qmd
     - section: Reference

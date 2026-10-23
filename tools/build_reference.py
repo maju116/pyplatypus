@@ -186,6 +186,7 @@ def main() -> None:
                 "guide.qmd",
                 "data-science-bowl.qmd",
                 "instances.qmd",
+                "blood-cells.qmd",
                 "config.qmd",
                 "reference/",
                 *about_files(),
@@ -239,6 +240,13 @@ def main() -> None:
                             # holds the two to the same walk. `rplatypus#117` makes the
                             # vignette the source and this the copy.
                             {"text": "Telling touching nuclei apart", "file": "instances.qmd"},
+                            # Mirrors R's `vignette("blood-cells")`. Last of the three
+                            # subjects because detection is the one task the other two are
+                            # not, so a reader meets segmentation first.
+                            {
+                                "text": "Counting cells in blood smears",
+                                "file": "blood-cells.qmd",
+                            },
                             {"text": "Every configuration field", "file": "config.qmd"},
                         ],
                     },
