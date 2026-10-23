@@ -1170,10 +1170,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td></td>
 <td>list[dict[str, Any]]</td>
-<td>objective, which is why <code>loss_function</code> sits beside it.</td>
+<td>objective, which is why <code>loss_function</code> sits beside it - and the metrics are</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>comparable only between models scored on the same grid, which is why</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td><code>load_shape</code> sits beside them.</td>
 </tr>
 </tbody>
 </table>
+<p><code>load_shape</code> is the second of those and the one nothing used to say. Each model is scored through its own loader, so a model at <code>input_shape: [512, 512]</code> is measured against a truth reduced to 512 while a model that tiles 2048 is measured against the truth as stored. Both numbers are a real Dice of a real prediction against a real mask; they are not answers to the same question. Measured on retinal vessels (<code>maju116/rplatypus#187</code>), that difference reported a resized model at <strong>+0.0187 where the honest figure was +0.0033</strong>, with the bias reversed on clDice because upsampling smooths a prediction - better against a skeleton, worse against a boundary. So when the rows do not share a grid this says so, once, rather than leaving a table that looks like a comparison. Nothing here rescores: putting two models on one grid is a thing to ask for rather than to do silently, and it is not offered yet.</p>
 </section>
 <section id="raises-1" class="level4 doc-section doc-section-raises">
 <h4 class="doc-section doc-section-raises anchored" data-anchor-id="raises-1">Raises</h4>
