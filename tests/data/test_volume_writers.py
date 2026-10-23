@@ -144,10 +144,82 @@ def test_a_reference_per_mask_is_required(tmp_path):
 
 
 def test_something_that_is_not_a_volume_is_refused(tmp_path):
+    """Rank 2, because rank 3 is a label map now and rank 4 is channels."""
     scan = write_scan(tmp_path / "ct.nii.gz", lesion().astype(np.float32))
 
     with pytest.raises(VolumeError, match="channels-last volumes"):
-        save_volumes([np.zeros((8, 8, 2), dtype=np.float32)], tmp_path / "out", reference=[scan])
+        save_volumes([np.zeros((8, 8), dtype=np.float32)], tmp_path / "out", reference=[scan])
+
+
+def test_a_label_map_is_written_without_being_expanded_first(tmp_path):
+    """`#251`: R's `predict()` returns class indices where this one returns probabilities.
+
+    The same labels through both doors have to produce the same file, or the two packages
+    write different answers from one prediction.
+    """
+    scan = write_scan(tmp_path / "ct.nii.gz", lesion().astype(np.float32))
+    labels = read_volume(scan, nearest=True)[..., 0].astype(np.int16)
+
+    from_labels = save_volumes([labels], tmp_path / "a", reference=[scan], cases=["case"])
+    from_channels = save_volumes(
+        [one_hot(labels)], tmp_path / "b", reference=[scan], cases=["case"]
+    )
+
+    assert np.array_equal(
+        np.asarray(nib.load(str(from_labels[0])).dataobj),
+        np.asarray(nib.load(str(from_channels[0])).dataobj),
+    )
+
+
+def test_a_label_map_skips_the_overlap_refusal_because_it_cannot_overlap(tmp_path):
+    """The refusal protects the collapse, and a label map is not collapsed.
+
+    Two classes, written as indices, where the channel form of the same thing would be
+    refused: an integer per voxel cannot say a voxel is in both, so there is nothing to
+    detect and nothing lost.
+    """
+    scan = write_scan(tmp_path / "ct.nii.gz", lesion().astype(np.float32))
+    labels = read_volume(scan, nearest=True)[..., 0].astype(np.int16)
+
+    written = save_volumes([labels], tmp_path / "out", reference=[scan])
+
+    assert set(np.unique(np.asarray(nib.load(str(written[0])).dataobj))) == {0, 1}
+
+
+def test_a_bare_rank_four_array_is_refused_rather_than_guessed(tmp_path):
+    """A stack of label maps and one volume's channels are both rank 4.
+
+    `save_class_masks` names the same ambiguity for pictures and the R package resolves it
+    the same way, so a caller meets one rule rather than a third.
+    """
+    scan = write_scan(tmp_path / "ct.nii.gz", lesion().astype(np.float32))
+
+    with pytest.raises(VolumeError, match="could be either"):
+        save_volumes(np.zeros((6, 8, 4, 2), dtype=np.float32), tmp_path / "out", reference=[scan])
+
+    # And the way out that the message names: a list says which it is.
+    assert save_volumes(
+        [np.zeros((6, 8, 4, 2), dtype=np.float32)], tmp_path / "out", reference=[scan]
+    )
+
+
+def test_volumes_of_different_ranks_are_refused(tmp_path):
+    scans = [
+        write_scan(tmp_path / "a.nii.gz", lesion().astype(np.float32)),
+        write_scan(tmp_path / "b.nii.gz", lesion().astype(np.float32)),
+    ]
+    mixed = [lesion(), one_hot(lesion())]
+
+    with pytest.raises(VolumeError, match="different ranks"):
+        save_volumes(mixed, tmp_path / "out", reference=scans)
+
+
+def test_save_class_volumes_still_wants_channels(tmp_path):
+    """One binary file per class is a question about channels, and a label map has none."""
+    scan = write_scan(tmp_path / "ct.nii.gz", lesion().astype(np.float32))
+
+    with pytest.raises(VolumeError, match="channels-last volumes"):
+        save_class_volumes([lesion()], tmp_path / "out", reference=[scan], classes=["core", "rim"])
 
 
 def test_one_file_per_class_with_the_name_the_filesystem_can_hold(tmp_path):

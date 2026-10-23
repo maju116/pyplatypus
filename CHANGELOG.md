@@ -1,6 +1,52 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a30] - 2026-10-23
+
+Two things a table and a writer could not say, and the second one is `0.8.0a29`'s own half
+finished. `pyplatypus#251`, `maju116/rplatypus#187`.
+
+### Added
+
+ - **`evaluate()` says which grid each row was scored on, and warns when the rows do not
+   share one.** Each model is scored through its own loader, so a model at
+   `input_shape: [512, 512]` is measured against a truth reduced to 512 while a model that
+   tiles 2048 is measured against the truth as stored. Both numbers are a real Dice of a
+   real prediction against a real mask, and they are not answers to the same question.
+
+   Measured on retinal vessels: that difference reported a resized model at **+0.0187 where
+   the honest figure was +0.0033** - the reported figure 5.7 times the real one - and the
+   bias has the *opposite sign* on clDice, because upsampling a prediction smooths it and a
+   smoothed vessel agrees better with a skeleton and worse with a boundary. So a comparison
+   reporting one of the two metrics is wrong in a direction set by which one it picked.
+
+   The `load_shape` column is permanent and the warning fires only when the grids differ,
+   which is the split that keeps a warning worth reading. It sits beside the metrics for the
+   same reason `loss_function` sits beside `loss` - it is what decides whether two rows may
+   be compared, and a table without it cannot be read correctly a month later. A **string**
+   rather than the tuple, because this table crosses into R as a data frame and a list
+   column is not plain data; the test that says so caught it on the first run.
+
+   Nothing here rescores. Putting two models on one grid is a thing to ask for rather than
+   to do silently, and it is not offered yet - `rplatypus#187` carries that decision.
+
+ - **`save_volumes` accepts a label map**, not only channels-last probabilities. The R
+   package's `predict()` returns class indices where this one returns probabilities, so
+   forwarding meant expanding a label map back into one-hot - a gigabyte of float32 for a
+   512-cubed volume - in order to collapse it again. `#251`, and it is what lets
+   `rplatypus::save_volumes()` forward and the copy in that package's shim be deleted.
+
+   A label map **skips the overlap refusal, and that is not a hole**: the refusal protects
+   the *collapse*, because an argmax over channels silently picks one of the classes a voxel
+   is in. An integer per voxel cannot express an overlap in the first place.
+
+   A bare rank-4 array is **refused rather than guessed at**: a stack of label maps
+   `(n, d, h, w)` and one volume's channels `(d, h, w, c)` have the same rank and nothing in
+   the array says which. `save_class_masks` names the same ambiguity for pictures and the R
+   package resolves it the same way, so a caller meets one rule rather than a third.
+   `save_class_volumes` still takes channels only, because a binary file per class is a
+   question about channels and a label map has none.
+
 ## [0.8.0a29] - 2026-10-23
 
 One writer, and it is the one this package's own refusal has been telling people to use
