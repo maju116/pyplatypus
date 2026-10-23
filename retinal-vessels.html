@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A 2048-pixel photograph cut into tiles, scored on connectedness, and the two choices in the configuration that were measured afterwards.">
+
+<title>Retinal vessels: tiling, and a metric Dice cannot replace – pyplatypus</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./assets/hexsticker.png" rel="icon" type="image/png">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-4dac77a7f7b1f395e04bf707d851f86b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-4dac77a7f7b1f395e04bf707d851f86b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-4dac77a7f7b1f395e04bf707d851f86b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">pyplatypus</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/maju116/pyplatypus"> <i class="bi bi-github" role="img" aria-label="pyplatypus on GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Articles</a></li><li class="breadcrumb-item"><a href="./retinal-vessels.html">Retinal vessels, tiled</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Home</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Articles</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Writing a configuration</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./data-science-bowl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Finding nuclei in microscopy images</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Telling touching nuclei apart</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./retinal-vessels.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Retinal vessels, tiled</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./blood-cells.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Counting cells in blood smears</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./config.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Every configuration field</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Reference</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="false">
+ <span class="menu-text">A specification</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/from_dict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_dict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/from_yaml.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_yaml</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_spec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_spec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SegmentationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Task.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Task</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Separation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Separation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/spec_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">spec_schema</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/write_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_schema</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="false">
+ <span class="menu-text">What a model is made of</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_tasks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_tasks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_models</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_losses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_losses</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_optimizers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_optimizers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_callbacks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_callbacks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_decodings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_decodings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_separations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_separations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_transforms.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_transforms</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="false">
+ <span class="menu-text">The data on disk</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/read_image.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_image</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/split_dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/split_samples.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_samples</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.loader</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false">
+ <span class="menu-text">Training</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/build_engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">build_engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit_anchors</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false">
+ <span class="menu-text">Predicting and scoring</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.predict_stream.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict_stream</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">summarise_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.predict_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.predict_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_classes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_images</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.crops</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionReport</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.report</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.anchor_coverage</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.box_shapes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.split_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.model_names</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" role="navigation" aria-expanded="false">
+ <span class="menu-text">Weights</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-8" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">resolve_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.export_weights</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="false">
+ <span class="menu-text">Records</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-9" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/write_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_record</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/read_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_record</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false">
+ <span class="menu-text">Looking at the results</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_masks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_boxes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_anchors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_mask</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instance_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instance_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/flow_to_colours.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">flow_to_colours</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/drawing_style.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">drawing_style</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false">
+ <span class="menu-text">Masks and volumes</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_class_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_class_masks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="false">
+ <span class="menu-text">When something is wrong</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ConfigError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ConfigError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/WeightsError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">WeightsError</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" role="navigation" aria-expanded="true">
+ <span class="menu-text">About</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-13" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CHANGELOG.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Changelog</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Code of conduct</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="https://github.com/maju116/pyplatypus/blob/main/LICENSE" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Licence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CITATION.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Citation</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#why-a-vessel-cannot-be-resized" id="toc-why-a-vessel-cannot-be-resized" class="nav-link active" data-scroll-target="#why-a-vessel-cannot-be-resized">Why a vessel cannot be resized</a></li>
+  <li><a href="#the-data" id="toc-the-data" class="nav-link" data-scroll-target="#the-data">The data</a></li>
+  <li><a href="#the-configuration" id="toc-the-configuration" class="nav-link" data-scroll-target="#the-configuration">The configuration</a></li>
+  <li><a href="#training" id="toc-training" class="nav-link" data-scroll-target="#training">Training</a></li>
+  <li><a href="#one-number-hides-the-finding" id="toc-one-number-hides-the-finding" class="nav-link" data-scroll-target="#one-number-hides-the-finding">One number hides the finding</a></li>
+  <li><a href="#cldice-beside-dice" id="toc-cldice-beside-dice" class="nav-link" data-scroll-target="#cldice-beside-dice">clDice beside Dice</a></li>
+  <li><a href="#the-worst-case-drawn" id="toc-the-worst-case-drawn" class="nav-link" data-scroll-target="#the-worst-case-drawn">The worst case, drawn</a></li>
+  <li><a href="#two-of-those-choices-measured-afterwards" id="toc-two-of-those-choices-measured-afterwards" class="nav-link" data-scroll-target="#two-of-those-choices-measured-afterwards">Two of those choices, measured afterwards</a>
+  <ul class="collapse">
+  <li><a href="#the-loss-is-a-decision-and-this-configuration-already-had-the-right-one" id="toc-the-loss-is-a-decision-and-this-configuration-already-had-the-right-one" class="nav-link" data-scroll-target="#the-loss-is-a-decision-and-this-configuration-already-had-the-right-one">The loss is a decision, and this configuration already had the right one</a></li>
+  <li><a href="#a-surface-loss-is-the-one-that-breaks-the-lines-and-it-gets-worse-with-the-dose" id="toc-a-surface-loss-is-the-one-that-breaks-the-lines-and-it-gets-worse-with-the-dose" class="nav-link" data-scroll-target="#a-surface-loss-is-the-one-that-breaks-the-lines-and-it-gets-worse-with-the-dose">A surface loss is the one that breaks the lines, and it gets worse with the dose</a></li>
+  <li><a href="#tiling-against-resizing-where-this-pages-first-section-is-too-strong" id="toc-tiling-against-resizing-where-this-pages-first-section-is-too-strong" class="nav-link" data-scroll-target="#tiling-against-resizing-where-this-pages-first-section-is-too-strong">Tiling against resizing, where this page’s first section is too strong</a></li>
+  <li><a href="#the-rig-which-is-worth-more-than-the-ranking" id="toc-the-rig-which-is-worth-more-than-the-ranking" class="nav-link" data-scroll-target="#the-rig-which-is-worth-more-than-the-ranking">The rig, which is worth more than the ranking</a></li>
+  <li><a href="#what-none-of-this-says" id="toc-what-none-of-this-says" class="nav-link" data-scroll-target="#what-none-of-this-says">What none of this says</a></li>
+  </ul></li>
+  <li><a href="#notes" id="toc-notes" class="nav-link" data-scroll-target="#notes">Notes</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Articles</a></li><li class="breadcrumb-item"><a href="./retinal-vessels.html">Retinal vessels, tiled</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Retinal vessels: tiling, and a metric Dice cannot replace</h1>
+</div>
+
+<div>
+  <div class="description">
+    A 2048-pixel photograph cut into tiles, scored on connectedness, and the two choices in the configuration that were measured afterwards.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><a href="https://doi.org/10.6084/m9.figshare.19688169.v1">FIVES</a> is 800 colour fundus photographs at 2048 x 2048 - 200 each of normal, AMD, diabetic retinopathy and glaucoma - with a vessel tree drawn over every one. It is CC BY 4.0, it ships its own balanced train/test split, and it is the only dataset in this documentation that cannot be handed to a network whole.</p>
+<p>Three things here appear in no other article, and each is the reason this dataset was chosen.</p>
+<p><strong>It tiles.</strong> <code>splits</code> reads each image at full resolution and cuts it into a grid of inputs.</p>
+<p><strong>It is scored on a metric Dice cannot stand in for.</strong> clDice asks whether a structure is <em>connected</em> rather than whether its pixels coincide, and a skeleton is a property of a whole mask, so it is measured on the reassembled image rather than on the tiles.</p>
+<p><strong>It reports per disease rather than as one mean</strong>, which is how the interesting thing about this dataset was found - and the interesting thing turns out not to be about the disease.</p>
+<p><strong>Where the numbers come from.</strong> Everything below is one run of <code>examples/segment_retinal_vessels.py</code> at its own defaults - 40 epochs, 6.7 hours on a GTX 1070 - whose record is <code>measurements/fives/fives.json</code> in the project’s workbench, with the quality join printed by <code>measurements/fives/quality.py</code> and the figure drawn by that same script’s <code>--figures</code>. Unlike the other articles’ figures, this one cannot be redrawn from published weights alone: it is this run’s prediction, and the script draws it at the end of the run rather than from a file. The published <code>fives-unet</code> weights are a <strong>second</strong> run of exactly this configuration and score 0.8789 where this one scores 0.8828; where a number below belongs to those weights rather than to this run, it says so. The last section is different again and says so in its own first paragraph.</p>
+<p>This page mirrors <code>vignette("retinal-vessels")</code> in the R package, which is the source for the prose: the walk is the same, the route is not. R reaches these destinations through constructors; here they are reached through a configuration file.</p>
+<section id="why-a-vessel-cannot-be-resized" class="level2">
+<h2 class="anchored" data-anchor-id="why-a-vessel-cannot-be-resized">Why a vessel cannot be resized</h2>
+<p>FIVES images are 2048 x 2048, and the obvious move is to resize them to something a U-Net is comfortable with. It is the wrong move here, and the reason is a measurement rather than a preference.</p>
+<p>A FIVES vessel is <strong>about nine pixels wide</strong> - measured as mask area over skeleton length, over six random masks. Resized to 256 the same vessels are about 1.2 pixels. That matters because of what happens at one pixel: shift a one-pixel structure by a single pixel and it overlaps the truth <em>nowhere at all</em>, so Dice, IoU and clDice alike read zero and none of them can tell a near miss from a total failure. Tiling keeps the data out of that regime, which is what <code>splits</code> is for.</p>
+<p>(The nine-pixel figure corrects the one-to-five this dataset is usually described with. One to five is what remains after a resize - a property of the preprocessing, not of the retina.)</p>
+<p>The last section of this page measures what that claim is actually worth, and it is narrower than this paragraph makes it sound.</p>
+</section>
+<section id="the-data" class="level2">
+<h2 class="anchored" data-anchor-id="the-data">The data</h2>
+<p>One 1.7 GB download, CC BY 4.0. The authors’ own split is already balanced across the four groups - 150 train and 50 test of each - so it is used rather than replaced.</p>
+<p>The archive is laid out as <code>Original/</code> and <code>Ground truth/</code> with matching file names, which is not a layout the package discovers on its own, so the pairs are written into a CSV and the specification reads that:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>FOLDER <span class="op">=</span> <span class="st">"FIVES A Fundus Image Dataset for AI-based Vessel Segmentation"</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> write_split(root: Path, split: <span class="bu">str</span>, out: Path) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># `glob("*.png")` rather than everything in the directory: the archive ships a</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co"># `Thumbs.db` beside the 600 training images, and a Windows thumbnail cache is not a</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># fundus photograph. Filtering by extension is also what keeps the pairing below honest.</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    images <span class="op">=</span> <span class="bu">sorted</span>((root <span class="op">/</span> FOLDER <span class="op">/</span> split <span class="op">/</span> <span class="st">"Original"</span>).glob(<span class="st">"*.png"</span>))</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    rows <span class="op">=</span> [<span class="st">"key,images,masks"</span>]</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> image <span class="kw">in</span> images:</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> root <span class="op">/</span> FOLDER <span class="op">/</span> split <span class="op">/</span> <span class="st">"Ground truth"</span> <span class="op">/</span> image.name</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> mask.exists():</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>            <span class="cf">raise</span> <span class="pp">SystemExit</span>(<span class="ss">f"</span><span class="sc">{</span>image<span class="sc">.</span>name<span class="sc">}</span><span class="ss"> has no mask beside it"</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="co"># The key is the file's own name. Without it a `config_file` sample is called</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="co"># `row 55`, which names nothing on disk and cannot be grouped by - and grouping is</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="co"># most of what this page has to say.</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        rows.append(<span class="ss">f"</span><span class="sc">{</span>image<span class="sc">.</span>stem<span class="sc">}</span><span class="ss">,</span><span class="sc">{</span>image<span class="sc">.</span>resolve()<span class="sc">}</span><span class="ss">,</span><span class="sc">{</span>mask<span class="sc">.</span>resolve()<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    out.write_text(<span class="st">"</span><span class="ch">\n</span><span class="st">"</span>.join(rows) <span class="op">+</span> <span class="st">"</span><span class="ch">\n</span><span class="st">"</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">len</span>(images)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The disease is in the file name - <code>_N</code>, <code>_A</code>, <code>_D</code>, <code>_G</code> for normal, AMD, diabetic retinopathy and glaucoma - which is what the grouping below reads.</p>
+</section>
+<section id="the-configuration" class="level2">
+<h2 class="anchored" data-anchor-id="the-configuration">The configuration</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> measurements/fives/splits/train.csv</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> measurements/fives/splits/test.csv</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">mode</span><span class="kw">:</span><span class="at"> config_file</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> vessels</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">architecture</span><span class="kw">:</span><span class="at"> u_net</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">512</span><span class="kw">,</span><span class="at"> </span><span class="dv">512</span><span class="kw">]</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">    # 2048 read whole and cut 4 x 4. This is the field the page exists for.</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">splits</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">4</span><span class="kw">,</span><span class="at"> </span><span class="dv">4</span><span class="kw">]</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">blocks</span><span class="kw">:</span><span class="at"> </span><span class="dv">4</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">filters</span><span class="kw">:</span><span class="at"> </span><span class="dv">16</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">batch_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">4</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">epochs</span><span class="kw">:</span><span class="at"> </span><span class="dv">40</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">loss</span><span class="kw">:</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cce_dice</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">metrics</span><span class="kw">:</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> dice</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">include_background</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> iou</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">include_background</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="co">      # Measured on the reassembled image by `evaluate_cases()`, not per tile.</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cldice</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">iterations</span><span class="kw">:</span><span class="at"> </span><span class="dv">12</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">include_background</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">optimizer</span><span class="kw">:</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">name</span><span class="kw">:</span><span class="at"> adam</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.001</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">callbacks</span><span class="kw">:</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> early_stopping</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">monitor</span><span class="kw">:</span><span class="at"> val_dice</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">patience</span><span class="kw">:</span><span class="at"> </span><span class="dv">8</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">restore_best</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">augmentation</span><span class="kw">:</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> HorizontalFlip</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">params</span><span class="kw">:</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> VerticalFlip</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">params</span><span class="kw">:</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="at">          </span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Two things about that worth saying out loud.</p>
+<p><code>cldice</code> sits among the metrics even though the run is tiled, and the engine reassembles each case before measuring it. <strong>It will not appear in the epoch log</strong>, and that is deliberate rather than an omission: an epoch averages its metrics over batches, which is exact for Dice - a ratio of sums - and meaningless for a skeleton, because a tile severs every vessel crossing its edge. So there is no <code>val_cldice</code> to watch, <code>early_stopping</code> watches <code>val_dice</code>, and a callback that asked for the other is refused when the specification is read.</p>
+<p><code>iterations: 12</code> is the skeleton’s peel count, and it is chosen against the nine pixels measured above: a structure nine pixels across needs about half that many erosions to reach its centreline, and twelve leaves room for the widest vessels in the set rather than the average one.</p>
+</section>
+<section id="training" class="level2">
+<h2 class="anchored" data-anchor-id="training">Training</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyplatypus <span class="im">as</span> pp</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> pp.from_yaml(<span class="st">"fives.yaml"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> pp.build_engine(spec, num_workers<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>history <span class="op">=</span> engine.fit(verbose<span class="op">=</span><span class="va">True</span>)[<span class="st">"vessels"</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>num_workers=4</code> is worth a line of its own here rather than in a footnote. Training shuffles in windows so that one decoded image serves all sixteen of its tiles; four workers decoding 2048-pixel PNGs ahead of the GPU is the difference between an epoch that waits on the disk and one that does not. This run took <strong>403 minutes over 40 epochs</strong>, with its best validation Dice at epoch 34 - it did not stop early, which is worth remembering when the last section compares budgets.</p>
+</section>
+<section id="one-number-hides-the-finding" class="level2">
+<h2 class="anchored" data-anchor-id="one-number-hides-the-finding">One number hides the finding</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> row <span class="kw">in</span> engine.evaluate():</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(row)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>That is the whole test set as one row, and it is the least informative view of it. The distribution is the finding, and <code>evaluate_cases()</code> gives it - one row per case, with clDice measured on the reassembled image inside the same walk over the split:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>cases <span class="op">=</span> engine.evaluate_cases(<span class="st">"vessels"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Over the 200 test images: <strong>mean Dice 0.8828, mean IoU 0.8014, mean clDice 0.8869</strong>, best case 0.9596 and worst 0.1098. Now by the disease in the file name:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>disease</th>
+<th>n</th>
+<th>dice</th>
+<th>sd</th>
+<th>worst</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>AMD</td>
+<td>50</td>
+<td>0.9105</td>
+<td>0.0474</td>
+<td>0.7001</td>
+</tr>
+<tr class="even">
+<td>diabetic retinopathy</td>
+<td>50</td>
+<td>0.8792</td>
+<td>0.0697</td>
+<td>0.5807</td>
+</tr>
+<tr class="odd">
+<td>glaucoma</td>
+<td>50</td>
+<td>0.8393</td>
+<td>0.1770</td>
+<td>0.1098</td>
+</tr>
+<tr class="even">
+<td>normal</td>
+<td>50</td>
+<td>0.9020</td>
+<td>0.0452</td>
+<td>0.7187</td>
+</tr>
+</tbody>
+</table>
+<p>Glaucoma is the worst group, by several points, with four times the spread of the best one and a worst case near zero. The reading that offers itself is that the model is worse at glaucoma.</p>
+<p><strong>Before concluding that, check whether it is the group whose photographs are worse.</strong> FIVES ships a <code>Quality Assessment.xlsx</code> grading every image for illumination and contrast, blur and low contrast. Nothing in this pipeline reads it. Joined to the per-case scores it inverts the finding:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>n</th>
+<th>dice</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>graded clean</td>
+<td>133</td>
+<td>0.9161</td>
+</tr>
+<tr class="even">
+<td>graded poor on any flag</td>
+<td>67</td>
+<td>0.8166</td>
+</tr>
+</tbody>
+</table>
+<p>and, on the clean images alone, <strong>glaucoma is the best of the four groups and the tightest</strong>, at 0.9325 with a standard deviation of 0.0232 against normal’s 0.9138. What makes it the worst group overall is that 28 of its 50 test photographs carry a flag, against 8 of AMD’s - and 14 of the 15 low-contrast images in the whole test split are glaucoma.</p>
+<p>That is the general lesson rather than a fact about retinas: a per-group table is worth having precisely because it invites the question <em>why is this group different</em>, and the first answer is rarely the right one.</p>
+</section>
+<section id="cldice-beside-dice" class="level2">
+<h2 class="anchored" data-anchor-id="cldice-beside-dice">clDice beside Dice</h2>
+<p>Over the same 200 cases:</p>
+<table class="caption-top table">
+<tbody>
+<tr class="odd">
+<td>correlation of dice and cldice</td>
+<td>0.9779</td>
+</tr>
+<tr class="even">
+<td>mean of clDice minus Dice</td>
+<td>+0.0041</td>
+</tr>
+<tr class="odd">
+<td>sd of that difference</td>
+<td>0.0219</td>
+</tr>
+</tbody>
+</table>
+<p>Read the first two together, because they say different things. The <strong>correlation</strong> is high: the two metrics rank the cases much the same way, so clDice is not finding a different set of bad images. The <strong>mean difference</strong> is small and positive, which says the vessels this model draws are about as connected as their pixel overlap suggests.</p>
+<p>That is a property of the model rather than of the metric, and the R vignette’s own run is the evidence. At fifteen epochs instead of forty, clDice sits about five points <em>below</em> Dice there: the model is getting the right pixels and breaking the lines. <strong>The better-trained model closes the gap</strong>, so a large negative gap is not clDice being pessimistic - it is clDice measuring what fifteen epochs had not finished learning, and Dice not noticing.</p>
+<p>The last section finds the same column doing the same work across eleven objectives, which is the strongest version of this point available.</p>
+</section>
+<section id="the-worst-case-drawn" class="level2">
+<h2 class="anchored" data-anchor-id="the-worst-case-drawn">The worst case, drawn</h2>
+<p>A table says a case scored near zero. A picture says why.</p>
+<p><img src="https://raw.githubusercontent.com/maju116/pyplatypus/main/assets/article-fives-worst.png" class="img-fluid"></p>
+<p>The top row is the first case in the split, <code>100_D</code> at Dice 0.935. The bottom row is the worst case in the whole test set, <code>123_G</code> at 0.110, and <strong>the photograph is nearly black</strong> - which is the quality finding above, arrived at from the other end. Look at the truth column rather than the prediction: the annotator traced four vessels out of a tree, because four is what is visible. The model found almost none of them.</p>
+<p>Drawing it needs two images out of two hundred, and the whole split at 2048 x 2048 is about 6.7 GB, so the stream is read for the two it is asked for and the rest are dropped as they arrive:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>wanted <span class="op">=</span> {<span class="st">"100_D"</span>, <span class="st">"123_G"</span>}</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>drawn <span class="op">=</span> {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    case: whole</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> case, whole <span class="kw">in</span> engine.predict_stream(<span class="st">"vessels"</span>, split<span class="op">=</span><span class="st">"validation"</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> case <span class="kw">in</span> wanted</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>predict_stream()</code> keeps one answer at a time; <code>predict()</code> would hand back all 200 at full resolution in order to draw two of them. It is cheap in memory and not in time - the stream is sequential, so two cases out of two hundred still run the model over two hundred.</p>
+</section>
+<section id="two-of-those-choices-measured-afterwards" class="level2">
+<h2 class="anchored" data-anchor-id="two-of-those-choices-measured-afterwards">Two of those choices, measured afterwards</h2>
+<p><code>loss: cce_dice</code> and <code>splits: [4, 4]</code> are the two decisions in the configuration above that read as taste. Both have since been measured on this dataset - after this page’s walk was written, and with every arm kept rather than described - and one of the answers contradicts the section this page opens with.</p>
+<p>The tables below are <strong>transcriptions</strong>. The runs live in the project’s workbench under <code>measurements/fives/</code>, and each table is printed by a script that reads the stored records back: <code>losses-read.py</code>, <code>boundary-read.py</code> and <code>tiling-read.py</code>. Nothing on this page runs them.</p>
+<p><strong>The setting is not this page’s</strong>, which is the first thing to know before comparing anything to the numbers above. Every arm trained on <strong>148 of the 600 training retinas</strong> - every second one within each disease group, so the four stay balanced - for up to 40 epochs with early stopping on <code>val_dice</code> at patience 8, and every arm was scored case by case on the same 200 test images. So no absolute Dice below is comparable to the 0.8828 above; what the tables are for is the differences, each paired case against case.</p>
+<p>A difference is read against a measured <strong>floor</strong> rather than against zero. The baseline ran twice with different seeds, and the floor is the larger of that pair’s mean difference and that mean’s own standard error: <strong>0.0009</strong> over all 200 cases and <strong>0.0022</strong> over the 67 that FIVES’s quality assessment flags. The <code>x</code> columns are multiples of that floor, and a row at 2x says nothing.</p>
+<section id="the-loss-is-a-decision-and-this-configuration-already-had-the-right-one" class="level3">
+<h3 class="anchored" data-anchor-id="the-loss-is-a-decision-and-this-configuration-already-had-the-right-one">The loss is a decision, and this configuration already had the right one</h3>
+<p>All eleven of the engine’s semantic losses, at that setting:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>loss</th>
+<th>dice</th>
+<th>clDice - dice</th>
+<th>vs <code>cce_dice</code></th>
+<th>x</th>
+<th>flagged</th>
+<th>x</th>
+<th>seeds</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>focal</code></td>
+<td>0.8673</td>
+<td>+0.0078</td>
+<td>+0.0001</td>
+<td>0.1</td>
+<td>+0.0020</td>
+<td>0.9</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><code>cce</code></td>
+<td>0.8672</td>
+<td>+0.0084</td>
+<td>+0.0000</td>
+<td>0.0</td>
+<td>-0.0028</td>
+<td>1.3</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>cce_dice</code>, the baseline</td>
+<td>0.8672</td>
+<td>+0.0052</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>-</td>
+<td>2</td>
+</tr>
+<tr class="even">
+<td><code>combo</code></td>
+<td>0.8612</td>
+<td>+0.0048</td>
+<td>-0.0060</td>
+<td>6.9</td>
+<td>-0.0021</td>
+<td>1.0</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>lovasz</code></td>
+<td>0.8562</td>
+<td>+0.0041</td>
+<td>-0.0110</td>
+<td>12.6</td>
+<td>-0.0192</td>
+<td>8.7</td>
+<td>2</td>
+</tr>
+<tr class="even">
+<td><code>generalized_dice</code></td>
+<td>0.8504</td>
+<td>+0.0082</td>
+<td>-0.0167</td>
+<td>19.2</td>
+<td>-0.0229</td>
+<td>10.4</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>boundary</code>, surface 0.1</td>
+<td>0.8491</td>
+<td>+0.0045</td>
+<td>-0.0181</td>
+<td>20.8</td>
+<td>-0.0329</td>
+<td>15.0</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><code>iou</code></td>
+<td>0.8309</td>
+<td>+0.0098</td>
+<td>-0.0362</td>
+<td>41.5</td>
+<td>-0.0482</td>
+<td>21.9</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>boundary</code>, surface 0.3</td>
+<td>0.8245</td>
+<td>-0.0051</td>
+<td>-0.0427</td>
+<td>48.9</td>
+<td>-0.0581</td>
+<td>26.5</td>
+<td>2</td>
+</tr>
+<tr class="even">
+<td><code>tversky</code>, alpha 0.7</td>
+<td>0.8201</td>
+<td>+0.0134</td>
+<td>-0.0471</td>
+<td>53.9</td>
+<td>-0.0638</td>
+<td>29.1</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td><code>dice</code></td>
+<td>0.8127</td>
+<td>+0.0154</td>
+<td>-0.0545</td>
+<td>62.3</td>
+<td>-0.0648</td>
+<td>29.5</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><code>focal_tversky</code>, 0.7 and 1.33</td>
+<td>0.7913</td>
+<td>+0.0188</td>
+<td>-0.0759</td>
+<td>86.9</td>
+<td>-0.0940</td>
+<td>42.8</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The menu spans 0.0760 of Dice</strong>, 87 times the floor and 25 times the 0.0030 that separated the four architectures measured on nuclei. So the loss is a decision where the architecture was a menu - which is worth knowing before spending an afternoon choosing between <code>u_net</code> and <code>linknet</code>.</p>
+<p><strong>And nothing in the menu beats the default.</strong> <code>focal</code> at +0.0001 and <code>cce</code> at +0.0000 tie <code>cce_dice</code>, both below every floor measured anywhere here, and nine rows are worse. The family designed for thin structures under class imbalance - Tversky, Focal-Tversky, Lovasz - holds four of the five worst rows. <code>cce_dice</code> has been this example’s objective since it was written and nobody had measured whether that was right.</p>
+<p>Two cautions the table carries about itself:</p>
+<p><strong>Nine of eleven rows have one seed.</strong> The four at the top move by less than the seed floors measured on any non-baseline loss here - 0.0120 for <code>boundary</code> at surface 0.3, 0.0465 for <code>lovasz</code> - so one seed cannot distinguish them from the baseline. Everything from <code>boundary</code> at surface 0.1 downwards is 10x to 87x the floor, and a second seed will not move it. <code>lovasz</code> is the warning worth reading twice: one of its seeds scores 0.8706, the highest single number in this table, and the other scores 0.8418.</p>
+<p><strong>The stopping rule is a confound, and it was priced rather than argued.</strong> Four arms stopped early enough that part of their deficit is convergence - <code>focal_tversky</code> at 20 epochs, <code>lovasz</code>’s second seed at 21, <code>dice</code> at 25, <code>iou</code> at 26 - while all three <code>boundary</code> arms ran into the 40-epoch cap. Re-read at 20 epochs, the budget every arm was granted, <strong>the ordering does not change.</strong></p>
+<p>The <code>clDice - dice</code> column also goes somewhere, and it was nobody’s question: it grows as the loss gets worse, from +0.0052 at the baseline through +0.0098 for <code>iou</code> and +0.0154 for <code>dice</code> to +0.0188 for <code>focal_tversky</code>. A worse objective loses more Dice than clDice, so what degrades first is the vessel’s bulk and its connectedness survives longer. There is exactly one exception, and it is the next table’s subject.</p>
+</section>
+<section id="a-surface-loss-is-the-one-that-breaks-the-lines-and-it-gets-worse-with-the-dose" class="level3">
+<h3 class="anchored" data-anchor-id="a-surface-loss-is-the-one-that-breaks-the-lines-and-it-gets-worse-with-the-dose">A surface loss is the one that breaks the lines, and it gets worse with the dose</h3>
+<p><code>boundary</code> is the obvious thing to reach for on a nine-pixel structure: the boundary <em>is</em> the object, so an objective weighing the surface should be the one that helps. It does the opposite here, and it does so by a dose. <code>alpha</code> weights the <strong>region</strong> term, so the surface term’s share is <code>1 - alpha</code>:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>surface share</th>
+<th>seeds</th>
+<th>flagged dice vs baseline</th>
+<th>x</th>
+<th>clDice - dice</th>
+<th>its own pair, flagged</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>none, the baseline</td>
+<td>2</td>
+<td>-</td>
+<td>-</td>
+<td>+0.0052</td>
+<td>0.0012</td>
+</tr>
+<tr class="even">
+<td>0.1, <code>alpha: 0.9</code></td>
+<td>1</td>
+<td>-0.0329</td>
+<td>15.0</td>
+<td>+0.0045</td>
+<td>unmeasured</td>
+</tr>
+<tr class="odd">
+<td>0.3, <code>alpha: 0.7</code></td>
+<td>2</td>
+<td>-0.0581</td>
+<td>26.5</td>
+<td>-0.0051</td>
+<td>0.0120</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Three times the surface term costs 1.77 times the Dice and 4.18 times the gap</strong>, and the gap changes sign: at surface 0.3 clDice falls below Dice, which no baseline run does. So the argument for this loss was backwards - connectedness is what it costs first, and on the flagged photographs it costs 15 to 27 times the noise.</p>
+<p>Two things keep that honest. <strong>The dose has its own noise and it is ten times the baseline’s</strong>, which is the last column: the two arms at surface 0.3 sit 0.0120 apart on the flagged cases where the baseline’s two sit 0.0012 apart. (That column is each pair’s own mean difference; the <code>x</code> column’s denominator is still the baseline’s 0.0022 from above, so the two are not the same quantity and the table would mislead if they were read as one.) That is this loss’s documented behaviour - it grows noisier the more of the objective the surface term owns - reproduced on real data, and it is also the denominator the dose claim has to clear. Judged against it the two doses are 2.1x apart, not the twentyfold the baseline’s floor would suggest. And <strong>both arms at the higher dose stopped on the epoch cap with their best at the last epoch</strong>, so part of their deficit is being undertrained rather than being worse.</p>
+</section>
+<section id="tiling-against-resizing-where-this-pages-first-section-is-too-strong" class="level3">
+<h3 class="anchored" data-anchor-id="tiling-against-resizing-where-this-pages-first-section-is-too-strong">Tiling against resizing, where this page’s first section is too strong</h3>
+<p>Same data, same model, same loss. One arm tiles 2048 into 4 x 4 as the configuration above does; two resize the whole retina to 512 and leave <code>splits</code> unset. All three are scored on the <strong>source grid</strong>, 2048 x 2048, which for the resized arms means a second scoring pass.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>arm</th>
+<th>dice</th>
+<th>vs tiled</th>
+<th>x</th>
+<th>clean, 133</th>
+<th>flagged, 67</th>
+<th>clDice - dice</th>
+<th>training</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>tiled, 4 x 4 at 2048</td>
+<td>0.8672</td>
+<td>-</td>
+<td>-</td>
+<td>0.9079</td>
+<td>0.7865</td>
+<td>+0.0052</td>
+<td>418 min</td>
+</tr>
+<tr class="even">
+<td>resized to 512, same cap</td>
+<td>0.8667</td>
+<td>-0.0005</td>
+<td>0.6</td>
+<td>0.8935</td>
+<td>0.8134</td>
+<td>+0.0138</td>
+<td>26 min</td>
+</tr>
+<tr class="odd">
+<td>resized to 512, matched steps</td>
+<td>0.8705</td>
+<td>+0.0033</td>
+<td>3.8</td>
+<td>0.8984</td>
+<td>0.8152</td>
+<td>+0.0141</td>
+<td>165 min</td>
+</tr>
+</tbody>
+</table>
+<p>There are two resized arms because sixteen tiles make “the same number of epochs” the wrong comparison: 148 retinas at <code>batch_size: 4</code> are 37 gradient steps an epoch resized and 592 tiled. The first resized arm is the comparison somebody would actually run - the same 40-epoch cap and the same patience. The second was granted the tiled arm’s 23,680 steps and <strong>did not spend them</strong>, stopping on patience at 41% of the budget, so that row is converged against converged. The truncation the first arm suffered is worth +0.0038, which is worth knowing before budgeting for the matched arm: a measurement that cannot afford it loses 0.004 and the ability to say so.</p>
+<p><strong>The overall column says the two methods are equivalent, and it is hiding the largest effect in the measurement.</strong> Resizing is better by 0.027 to 0.029 on the 67 flagged photographs and worse by 0.010 to 0.014 on the 133 clean ones, both many times their own floors - 0.0019 to 0.0025 flagged, 0.0007 to 0.0013 clean. The two are good at different pictures, and a swing of about 0.03 in each direction averages out to 0.0033.</p>
+<p>So what survives from “Why a vessel cannot be resized” is the narrow claim: on a clean photograph resizing costs Dice, and <code>splits</code> is what lets an image too large to resize be trained at all. What does not survive is the stronger reading - that resizing a 2048 retina destroys the thin vessels - because on the hard pictures the vessels it was supposed to have destroyed are found <em>more</em> reliably from a whole blurred eye than from a sixteenth of one. A mechanism suggests itself and is recorded as a hypothesis rather than a finding: a 512 tile sees one sixteenth of a retina and has no global context to tell a vessel from an artefact, where a resized image always shows the whole eye. Separating that would need overlapping tiles or a resized arm at 1024, and neither was run.</p>
+<p>What tiling costs is also not what the table makes it look like. Per gradient step the three arms are identical to within the noise of six readings, 0.502 to 0.554 s, so tiling is sixteen times the work rather than sixteen times the overhead, and the whole factor shows up in the epoch rather than anywhere surprising.</p>
+</section>
+<section id="the-rig-which-is-worth-more-than-the-ranking" class="level3">
+<h3 class="anchored" data-anchor-id="the-rig-which-is-worth-more-than-the-ranking">The rig, which is worth more than the ranking</h3>
+<p>This is the part to carry away from all three tables, and it is about measuring rather than about retinas.</p>
+<p><code>evaluate_cases()</code> builds its dataset from the model’s own specification, so it scores each model at that model’s own <code>load_shape</code>. Put a tiled model beside a resized one and the first is scored on 2048 while the second is scored on 512, against a truth reduced the same way. Nobody passes a flag for this and nothing warns:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>arm</th>
+<th>honest, both on 2048</th>
+<th>as the default comparison reports it</th>
+<th>the rig</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>resized to 512, same cap</td>
+<td>-0.0005</td>
+<td>+0.0056</td>
+<td>+0.0062</td>
+</tr>
+<tr class="even">
+<td>resized to 512, matched steps</td>
+<td>+0.0033</td>
+<td>+0.0187</td>
+<td>+0.0154</td>
+</tr>
+</tbody>
+</table>
+<p>The reported figure is <strong>5.7 times</strong> the honest one and the rig alone is <strong>4.7 times</strong> the effect. A table built that way would have concluded that resizing beats native-resolution tiling by a wide margin, and every number in it would have been a real Dice of a real prediction against a real mask - just not the mask the other arm was judged against.</p>
+<p><strong>And the bias has the opposite sign on clDice:</strong> +0.0096 to +0.0156 on Dice against -0.0156 to -0.0230 on clDice. Upsampling a 512 prediction to 2048 smooths it, and a smoothed vessel agrees better with a skeleton and worse with a boundary. So the rigged comparison flatters resizing on Dice and penalises it on clDice, and a comparison reporting only one of the two is wrong in a direction set by which one it picked.</p>
+<p><strong>There is no option for this in either package today.</strong> The arms above were rescored onto one grid by a function written for that measurement, which lives in the workbench and not in the package, so the honest comparison is currently available only to somebody who has already noticed the problem. <code>maju116/rplatypus#187</code> is the issue for it. Until it is answered the rule is the one this section is: <strong>compare two models only where their predictions and the truth are on the same grid</strong>, and say which grid that is.</p>
+</section>
+<section id="what-none-of-this-says" class="level3">
+<h3 class="anchored" data-anchor-id="what-none-of-this-says">What none of this says</h3>
+<p>One dataset, one architecture, one loss, at one reduction of one resolution, with 148 retinas rather than 600. The subsets already disagree by about 0.03 in either direction <em>inside</em> this dataset, which is the strongest available warning against reading any overall column as a rule. And the published <code>fives-unet</code> weights’ own score is not comparable to any row above either - different data, a full training set, and a pinned commit.</p>
+</section>
+</section>
+<section id="notes" class="level2">
+<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<p><strong>The data’s licence travels.</strong> FIVES is CC BY 4.0, which is why the published <code>fives-unet</code> weights are CC BY 4.0 rather than MIT and why their sidecar carries the citation: Jin et al., <em>FIVES: A Fundus Image Dataset for Artificial Intelligence based Vessel Segmentation</em>, Scientific Data 9, 475 (2022).</p>
+<p><strong>The cost.</strong> 40 epochs over 600 retinas at 2048, cut sixteen ways, is 403 minutes on a GTX 1070; scoring the 200 test images, including reassembling each one for clDice, is about two minutes. Tiling is what makes the first number bearable rather than worse: a tiled run reuses each decoded image for all sixteen of its tiles, which is worth roughly a factor of two against decoding one per tile.</p>
+<p><strong>A card that uses the GPU it has.</strong> A Pascal-generation card needs the last PyTorch built against CUDA 12; the R package has <code>platypus_use_torch("pascal")</code> for that because it builds its own environment, and here it is an ordinary install of a matching wheel.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
