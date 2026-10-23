@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.19">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="One dataset read two ways, and why the decoding is part of the number.">
+
+<title>Telling touching nuclei apart – pyplatypus</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./assets/hexsticker.png" rel="icon" type="image/png">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-86a2d7ae3330a5c8f2af512998a51a4c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-4dac77a7f7b1f395e04bf707d851f86b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-4dac77a7f7b1f395e04bf707d851f86b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-4dac77a7f7b1f395e04bf707d851f86b.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">pyplatypus</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/maju116/pyplatypus"> <i class="bi bi-github" role="img" aria-label="pyplatypus on GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Articles</a></li><li class="breadcrumb-item"><a href="./instances.html">Telling touching nuclei apart</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Home</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Articles</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Writing a configuration</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./instances.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Telling touching nuclei apart</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./config.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Every configuration field</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true">
+ <span class="menu-text">Reference</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="false">
+ <span class="menu-text">A specification</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/from_dict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_dict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/from_yaml.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_yaml</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_spec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_spec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SegmentationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Task.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Task</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Separation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Separation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/spec_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">spec_schema</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/write_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_schema</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="false">
+ <span class="menu-text">What a model is made of</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_tasks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_tasks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_models</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_losses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_losses</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_optimizers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_optimizers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_callbacks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_callbacks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_decodings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_decodings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_separations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_separations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_transforms.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_transforms</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="false">
+ <span class="menu-text">The data on disk</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-5" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/read_image.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_image</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/split_dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/split_samples.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_samples</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.loader</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false">
+ <span class="menu-text">Training</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-6" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/build_engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">build_engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit_anchors</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false">
+ <span class="menu-text">Predicting and scoring</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-7" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.predict_stream.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict_stream</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">summarise_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.predict_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.predict_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_classes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_images</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.crops</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionReport</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.report</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.anchor_coverage</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.box_shapes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.split_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.model_names</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" role="navigation" aria-expanded="false">
+ <span class="menu-text">Weights</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-8" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">resolve_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.export_weights</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="false">
+ <span class="menu-text">Records</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-9" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/write_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_record</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/read_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_record</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false">
+ <span class="menu-text">Looking at the results</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-10" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_masks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_boxes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_anchors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_mask</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instance_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instance_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/flow_to_colours.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">flow_to_colours</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/drawing_style.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">drawing_style</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false">
+ <span class="menu-text">Masks and volumes</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_class_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_class_masks</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="false">
+ <span class="menu-text">When something is wrong</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" role="navigation" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-12" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ConfigError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ConfigError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/WeightsError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">WeightsError</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" role="navigation" aria-expanded="true">
+ <span class="menu-text">About</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-13" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CHANGELOG.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Changelog</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Code of conduct</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="https://github.com/maju116/pyplatypus/blob/main/LICENSE" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Licence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CITATION.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Citation</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#before-any-of-that-objects-in-four-lines" id="toc-before-any-of-that-objects-in-four-lines" class="nav-link active" data-scroll-target="#before-any-of-that-objects-in-four-lines">Before any of that: objects in four lines</a></li>
+  <li><a href="#the-semantic-sibling-side-by-side" id="toc-the-semantic-sibling-side-by-side" class="nav-link" data-scroll-target="#the-semantic-sibling-side-by-side">The semantic sibling, side by side</a></li>
+  <li><a href="#the-data" id="toc-the-data" class="nav-link" data-scroll-target="#the-data">The data</a></li>
+  <li><a href="#the-specification-with-the-borrowed-model-beside-a-new-one" id="toc-the-specification-with-the-borrowed-model-beside-a-new-one" class="nav-link" data-scroll-target="#the-specification-with-the-borrowed-model-beside-a-new-one">The specification, with the borrowed model beside a new one</a></li>
+  <li><a href="#train" id="toc-train" class="nav-link" data-scroll-target="#train">Train</a></li>
+  <li><a href="#compare" id="toc-compare" class="nav-link" data-scroll-target="#compare">Compare</a></li>
+  <li><a href="#what-this-does-not-settle-measured-rather-than-guessed" id="toc-what-this-does-not-settle-measured-rather-than-guessed" class="nav-link" data-scroll-target="#what-this-does-not-settle-measured-rather-than-guessed">What this does not settle, measured rather than guessed</a></li>
+  <li><a href="#which-objects-not-how-many-pixels" id="toc-which-objects-not-how-many-pixels" class="nav-link" data-scroll-target="#which-objects-not-how-many-pixels">Which objects, not how many pixels</a></li>
+  <li><a href="#a-decoding-changed-without-retraining" id="toc-a-decoding-changed-without-retraining" class="nav-link" data-scroll-target="#a-decoding-changed-without-retraining">A decoding changed without retraining</a></li>
+  <li><a href="#what-it-was-for-a-count-and-a-size-distribution" id="toc-what-it-was-for-a-count-and-a-size-distribution" class="nav-link" data-scroll-target="#what-it-was-for-a-count-and-a-size-distribution">What it was for: a count and a size distribution</a></li>
+  <li><a href="#the-same-thing-from-a-file" id="toc-the-same-thing-from-a-file" class="nav-link" data-scroll-target="#the-same-thing-from-a-file">The same thing from a file</a></li>
+  <li><a href="#a-note-on-older-graphics-cards" id="toc-a-note-on-older-graphics-cards" class="nav-link" data-scroll-target="#a-note-on-older-graphics-cards">A note on older graphics cards</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Articles</a></li><li class="breadcrumb-item"><a href="./instances.html">Telling touching nuclei apart</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Telling touching nuclei apart</h1>
+</div>
+
+<div>
+  <div class="description">
+    One dataset read two ways, and why the decoding is part of the number.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p><code>data_science_bowl.yaml</code> finds the nuclei in these pictures and stops there. The mask it produces says <em>nucleus</em> or <em>not nucleus</em> for every pixel, so two nuclei touching each other come back as one region, and <strong>a count taken from it would be wrong</strong>.</p>
+<p>This is the same dataset, read a different way. Nothing new was collected: the 2018 Data Science Bowl ships one mask per nucleus, and <code>data_science_bowl.yaml</code> unites them. Here they keep their identity, which turns the question from <em>where are the nuclei</em> into <em>how many are there, and which pixels belong to which one</em>.</p>
+<p><strong>Where the numbers come from.</strong> Nothing on this page was measured for it. Every figure is cited where it is used: the published weights’ scores are the registry’s own, the ceilings are <code>pyplatypus#159</code> and <code>#212</code>, and the trained rows are <code>examples/publish_dsbowl_instance_weights.py</code>’s. That is deliberate - an article that re-trains a published recipe with fewer epochs adds a number nobody will compare.</p>
+<section id="before-any-of-that-objects-in-four-lines" class="level2">
+<h2 class="anchored" data-anchor-id="before-any-of-that-objects-in-four-lines">Before any of that: objects in four lines</h2>
+<p>Weights for this are published, so the difference is visible before anything is trained. The borrowed model predicts three channels - background, the interior of a nucleus and a rim around it - and <code>decode</code> says how those channels become objects:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyplatypus <span class="im">as</span> pp</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>borrowed <span class="op">=</span> pp.from_dict(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"instance_segmentation"</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"data"</span>: {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">"train_path"</span>: <span class="st">"examples/data/data_science_bowl/stage1_validation"</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation_path"</span>: <span class="st">"examples/data/data_science_bowl/stage1_validation"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"mode"</span>: <span class="st">"nested_dirs"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"models"</span>: [</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>                <span class="st">"name"</span>: <span class="st">"published"</span>,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>                <span class="st">"architecture"</span>: <span class="st">"u_net"</span>,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>                <span class="st">"input_shape"</span>: [<span class="dv">256</span>, <span class="dv">256</span>],</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                <span class="st">"blocks"</span>: <span class="dv">4</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                <span class="st">"filters"</span>: <span class="dv">16</span>,</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>                <span class="st">"separation"</span>: {<span class="st">"name"</span>: <span class="st">"rim"</span>, <span class="st">"width"</span>: <span class="dv">2</span>},</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>                <span class="st">"decode"</span>: [{<span class="st">"name"</span>: <span class="st">"nearest_seed"</span>}, {<span class="st">"name"</span>: <span class="st">"connected_components"</span>}],</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>                <span class="st">"weights"</span>: <span class="st">"dsbowl-instances"</span>,</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>                <span class="st">"fit"</span>: <span class="va">False</span>,</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        ],</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> pp.build_engine(borrowed)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>objects <span class="op">=</span> engine.predict_instances(split<span class="op">=</span><span class="st">"validation"</span>, decode<span class="op">=</span><span class="st">"nearest_seed"</span>)</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="bu">len</span>(objects)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>With <code>fit: false</code> nothing trains and the weights are checked against the model they are being loaded into <em>before</em> torch is touched, so a wrong shape is a refusal naming the field rather than a tensor-size error from inside a loss.</p>
+<p><code>predict_instances</code> returns <strong>one integer label map per image, in the split’s own order</strong> - objects numbered from 1, with 0 for background. A list rather than a stacked array, because what a caller does with these is read one case at a time.</p>
+<p><code>predict</code> is the other call and it is not the same thing: it returns the model’s own channels, class probabilities and raw vector components, which is what <code>predict_instances</code> decodes. A softmax across a flow component and a class would return a number and mean nothing, so that one is left raw.</p>
+<p>Now the same loaded file, decoded the other way. <code>connected_components</code> ignores the rim channel entirely - it labels connected foreground, which is what a semantic mask gives you:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>merged <span class="op">=</span> engine.predict_instances(split<span class="op">=</span><span class="st">"validation"</span>, decode<span class="op">=</span><span class="st">"connected_components"</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>counts <span class="op">=</span> [(a.<span class="bu">max</span>(), b.<span class="bu">max</span>()) <span class="cf">for</span> a, b <span class="kw">in</span> <span class="bu">zip</span>(objects, merged)]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>worst <span class="op">=</span> <span class="bu">max</span>(<span class="bu">range</span>(<span class="bu">len</span>(counts)), key<span class="op">=</span><span class="kw">lambda</span> i: counts[i][<span class="dv">0</span>] <span class="op">-</span> counts[i][<span class="dv">1</span>])</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>counts[worst]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>On the picture where the two disagree most, that is <strong>245 objects against 180</strong>: one file of weights, one forward pass, two answers to <em>how many nuclei are in this picture</em>, and sixty-five touching nuclei run together by the second. Drawn with <code>overlay_instances</code>, neither colour map is decoration - adjacent objects are guaranteed different colours, so a colour shared across a boundary is two nuclei the decoding ran together.</p>
+<p><strong>No score is reported here, on purpose.</strong> These weights were trained on <code>stage1_train</code> and this directory is <code>stage1_validation</code>, which is the split they were measured on - the numbers that mean something travel with them, and <code>available_weights()</code> carries them:</p>
+<pre><code>U-Net, 256x256, nuclei in light microscopy, trained to separate touching objects:
+interior, rim and background. BBBC038v1 (the 2018 Data Science Bowl, CC0), the same 134
+held-out images as `dsbowl-unet`. **One file, three scores** - instance average
+precision 0.5445 by nearest_seed, 0.5390 by watershed and 0.4822 by
+connected_components - so a number from these weights means nothing without the
+decoding it came from. Foreground Dice 0.9118. The separation signal is worth +0.0623
+here while a perfect mask is worth +0.2398: the mask is the limit on this data, not the
+signal.</code></pre>
+<p>That description is the thing to read before quoting anything. <strong>One file, three scores</strong>: the decoding is part of the number, and 0.0623 separates the best from the worst.</p>
+</section>
+<section id="the-semantic-sibling-side-by-side" class="level2">
+<h2 class="anchored" data-anchor-id="the-semantic-sibling-side-by-side">The semantic sibling, side by side</h2>
+<p><code>dsbowl-unet</code> is the published model <code>data_science_bowl.yaml</code> trains: same data, same held-out images, one foreground class. It is the comparison this whole document is about, so it is worth running rather than describing - the same <code>from_dict</code> with <code>task: semantic_segmentation</code>, a <code>colormap</code> of black and white, and <code>weights: dsbowl-unet</code>. Its <code>predict</code> returns a stacked array of masks, not a list of label maps, and that difference is the whole point.</p>
+<p>A mask is not worse. It answers a different question, and if the answer you need is <em>what fraction of this slide is nuclei</em> it is the one to use. The label map is what you need to count them, or to measure one of them.</p>
+</section>
+<section id="the-data" class="level2">
+<h2 class="anchored" data-anchor-id="the-data">The data</h2>
+<p>The directory layout is <code>data_science_bowl.yaml</code>’s, because it is the same directory:</p>
+<pre><code>stage1_train/
+  00ae65c1c.../
+    images/00ae65c1c....png
+    masks/8a0ac8e3c....png      # one file per nucleus, 70 of them in this case
+    masks/9a1e2f4b7....png
+    ...</code></pre>
+<p>536 cases in <code>stage1_train</code>, and <code>mode: nested_dirs</code> is what reads that shape. The one difference from the semantic file is the task: <code>instance_segmentation</code> reads those per-object files as identities, where <code>semantic_segmentation</code> takes their element-wise maximum and destroys them.</p>
+</section>
+<section id="the-specification-with-the-borrowed-model-beside-a-new-one" class="level2">
+<h2 class="anchored" data-anchor-id="the-specification-with-the-borrowed-model-beside-a-new-one">The specification, with the borrowed model beside a new one</h2>
+<p>Two models in one file, and <code>evaluate()</code> returns a row per model <strong>and decoding</strong>, so one table holds the comparison the rest of this document rests on. The shipped version of this is <code>examples/data_science_bowl_instances.yaml</code>, which trains <code>rim</code> beside <code>flows</code> rather than a borrowed file beside a new one - two separation signals, which is the question that file was written to answer.</p>
+<p><code>separation</code> is one block per model and <code>decode</code> is a list, and the asymmetry is not cosmetic: the separation sets what the network predicts, so changing it means another training run, while a second decoding is another pass over the same predictions. Measured on these 134 images, a second decoding costs <strong>1.41 seconds</strong> against sixteen minutes for a second training run - so the right analogy is <code>metrics:</code> and not <code>callbacks:</code>.</p>
+<p><code>connected_components</code> is in both models’ <code>decode</code> lists on purpose. It ignores the separation signal, so it is the row the other rows have to be read against: not a weaker model, the same model asked a question that throws half its output away.</p>
+</section>
+<section id="train" class="level2">
+<h2 class="anchored" data-anchor-id="train">Train</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> pp.from_yaml(<span class="st">"examples/data_science_bowl_instances.yaml"</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> pp.build_engine(spec, num_workers<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>history <span class="op">=</span> engine.fit(verbose<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>num_workers=4</code> is worth copying: the GPU spends most of a run waiting for PNGs to be decoded, and nothing about the model changes.</p>
+<p>The epoch counts in that file are asymmetric and deliberately so - 120 for <code>rim</code> against 60 for <code>flows</code>. Measured at 60 each on 2026-10-13, <code>rim</code> was still climbing while <code>flows</code> had flattened, and a table ranking two models needs both converged or a column reports the budget rather than the signal.</p>
+</section>
+<section id="compare" class="level2">
+<h2 class="anchored" data-anchor-id="compare">Compare</h2>
+<p><code>engine.evaluate("validation")</code> returns one row per <em>(model, decoding)</em>. Three things in it, in the order they matter.</p>
+<p><strong>Within either model, the mask is identical across its rows.</strong> There is one forward pass; the rows differ only in how its channels were turned into objects. So the spread between a model’s own rows is the decoding’s contribution and nothing else.</p>
+<p><strong><code>connected_components</code> is the row the others are read against</strong>, for the reason above.</p>
+<p><strong>The two separation signals are a tie.</strong> <code>rim</code> is worth +0.0676 of instance average precision over its own <code>connected_components</code> row and <code>flows</code> +0.0661 - a difference of 0.0015 against a run-to-run spread of <strong>0.0112</strong> measured on that same file. On foreground Dice they are 0.9159 and 0.9097, which is 0.0062 apart.</p>
+<p>That last number is worth a warning, because the table had it wrong once. <code>dice</code> is a mean over whichever class channels a head has - three for <code>rim</code>, two for <code>flows</code> - so the column named <code>dice</code> compares two different quantities and showed the two masks 0.09 apart <strong>with the sign reversed</strong>. <code>foreground_dice</code> is the one to read across models; <code>class dice</code> is the honest name for the other.</p>
+</section>
+<section id="what-this-does-not-settle-measured-rather-than-guessed" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-does-not-settle-measured-rather-than-guessed">What this does not settle, measured rather than guessed</h2>
+<p>The instance milestone closed on numbers that say the interesting part is somewhere else:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>route</th>
+<th>instance AP on these 134 images</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>the published semantic weights through connected components</td>
+<td>0.4888</td>
+</tr>
+<tr class="even">
+<td><strong>a perfect semantic mask</strong> through connected components</td>
+<td><strong>0.7655</strong></td>
+</tr>
+<tr class="odd">
+<td>the published separation weights, <code>nearest_seed</code></td>
+<td>0.5445</td>
+</tr>
+<tr class="even">
+<td>a perfect mask through the same separation route</td>
+<td>0.9846</td>
+</tr>
+</tbody>
+</table>
+<p>So connected components caps <em>any</em> model here at 0.7655 - a flawless mask still scores that - and the separation signal is worth about +0.06 on top of the mask it is computed from, where fixing the mask is worth +0.24. Three trained signals were compared and they agree.</p>
+<p>Read that as a closed direction rather than as a run to tune: on this data the headroom is in the mask, and a document that ended on a score would be claiming the opposite of what was measured.</p>
+</section>
+<section id="which-objects-not-how-many-pixels" class="level2">
+<h2 class="anchored" data-anchor-id="which-objects-not-how-many-pixels">Which objects, not how many pixels</h2>
+<p>A score cannot tell you whether you found the wrong nuclei or drew the right ones badly. <code>overlay_instance_agreement</code> matches predicted objects to true ones the way the metric does and colours the three outcomes, so the failure is visible by kind: a true object a prediction matched, one that nothing matched, and a prediction matching nothing.</p>
+<p>The truth has to be assembled from the per-object files, and <code>read_image(nearest=True)</code> matters - interpolating a label map invents numbers belonging to no object:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> truth_map(case: Path, size<span class="op">=</span>(<span class="dv">256</span>, <span class="dv">256</span>)) <span class="op">-&gt;</span> np.ndarray:</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    labels <span class="op">=</span> np.zeros(size, dtype<span class="op">=</span>np.int32)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> index, <span class="bu">file</span> <span class="kw">in</span> <span class="bu">enumerate</span>(<span class="bu">sorted</span>((case <span class="op">/</span> <span class="st">"masks"</span>).glob(<span class="st">"*.png"</span>)), start<span class="op">=</span><span class="dv">1</span>):</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> pp.read_image(<span class="bu">file</span>, channels<span class="op">=</span><span class="dv">1</span>, size<span class="op">=</span>size, nearest<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        labels[mask[..., <span class="dv">0</span>] <span class="op">&gt;</span> <span class="fl">0.5</span>] <span class="op">=</span> index</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> labels</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The threshold the matching uses is an IoU of 0.5 and it cannot be lowered below that: under 0.5 one prediction can satisfy two true objects at once, the match stops being one to one, and the average precision refuses the same thing for the same reason.</p>
+</section>
+<section id="a-decoding-changed-without-retraining" class="level2">
+<h2 class="anchored" data-anchor-id="a-decoding-changed-without-retraining">A decoding changed without retraining</h2>
+<p>This is what <code>decode</code> being a list is for. No model is loaded again and nothing is trained:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> how <span class="kw">in</span> (<span class="st">"nearest_seed"</span>, <span class="st">"watershed"</span>, <span class="st">"connected_components"</span>):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    maps <span class="op">=</span> engine.predict_instances(<span class="st">"rim"</span>, split<span class="op">=</span><span class="st">"validation"</span>, decode<span class="op">=</span>how)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(how, <span class="bu">sum</span>(<span class="bu">int</span>(m.<span class="bu">max</span>()) <span class="cf">for</span> m <span class="kw">in</span> maps))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Against 5,999 objects in the truth over 134 images. The counts, not the scores, are where the decoding shows itself most plainly: the gap between the first row and the last is nuclei that were found and then run together with a neighbour.</p>
+</section>
+<section id="what-it-was-for-a-count-and-a-size-distribution" class="level2">
+<h2 class="anchored" data-anchor-id="what-it-was-for-a-count-and-a-size-distribution">What it was for: a count and a size distribution</h2>
+<p>One label map in, one row per object out - and this is the one place where the R package has a function and this one deliberately does not:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>labels <span class="op">=</span> engine.predict_instances(<span class="st">"rim"</span>, split<span class="op">=</span><span class="st">"validation"</span>, decode<span class="op">=</span><span class="st">"nearest_seed"</span>)[<span class="dv">0</span>]</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>objects, voxels <span class="op">=</span> np.unique(labels[labels <span class="op">&gt;</span> <span class="dv">0</span>], return_counts<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>numpy.unique</code> with <code>return_counts</code> <em>is</em> the operation, so a wrapper here would be a name to learn in place of one a reader already has. The R package carries an <code>instance_sizes</code> for this, because R’s idiom for the same two lines is clumsier; it is pure R and calls nothing in this package, which is why there is nothing here to point at instead.</p>
+<p>Written without parentheses on purpose, and the test is the reason: <code>tests/test_articles.py</code> reads a backticked name followed by parentheses as something offered to a reader to call, and resolves it against this package. A name belonging to the other package is not that, so it is named rather than offered - which is the same distinction <code>test_schema_prose_names.py</code> was written for after the schema’s prose sent a Python reader to R’s <code>training_history</code>.</p>
+<p><strong>In pixels, because this dataset has no physical scale.</strong> A CT scan carries its spacing in its header and <code>target_spacing</code> is where that enters a run; these are microscopy images with no calibration recorded, so a number in micrometres here would be invented. A count is still a count.</p>
+</section>
+<section id="the-same-thing-from-a-file" class="level2">
+<h2 class="anchored" data-anchor-id="the-same-thing-from-a-file">The same thing from a file</h2>
+<p>Everything above is one file in this repository:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> pp.from_yaml(<span class="st">"examples/data_science_bowl_instances.yaml"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>That file is also the longest commented configuration here, because two of its decisions needed their reasons written down: the asymmetric epoch counts, and a correction kept in place rather than deleted after <code>dice</code> was read across two models with different numbers of class channels. The configuration guide’s <em>Instances instead of one mask</em> section has the same fields with a reader’s explanation beside each.</p>
+</section>
+<section id="a-note-on-older-graphics-cards" class="level2">
+<h2 class="anchored" data-anchor-id="a-note-on-older-graphics-cards">A note on older graphics cards</h2>
+<p>PyTorch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and Volta generations - a GTX 10-series card cannot run them, and no driver update changes that.</p>
+<p>This package does not install torch and will not choose a build for you, which is the difference from the R package: there, <code>platypus_use_torch("pascal")</code> exists because <code>reticulate</code> provisions the environment and something has to decide. Here you install your own, so the equivalent is asking your index for the CUDA 12 wheels before anything else. If <code>torch.cuda.is_available()</code> is <code>False</code> on a machine that has a GPU, that is the first thing to check - otherwise everything above runs on the processor instead, perhaps ten times slower, and says nothing about it.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
