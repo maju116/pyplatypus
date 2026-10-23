@@ -21,46 +21,17 @@ be mentioned. Only that a name offered to a reader resolves.
 
 from __future__ import annotations
 
-import importlib
-import inspect
-import pkgutil
 import re
 
 import pytest
 
-import pyplatypus
 from pyplatypus import spec_schema
 
-# Builtins and other packages' names are not this package's to own, and a reader meeting
-# `len()` is not being sent anywhere. Listed rather than pattern-matched: a pattern for
-# "looks like a builtin" is the loose calibration §4 warns about, and this list is short
+# Both of these live in `tests/conftest.py` now, because `test_articles.py` asks the same
+# question of the articles' prose. `NOT_OURS` is listed rather than pattern-matched: a pattern
+# for "looks like a builtin" is the loose calibration §4 warns about, and the list is short
 # because the prose is written for a reader who already knows Python.
-NOT_OURS = {"len", "open", "print", "range", "sorted", "zip"}
-
-
-def every_name_this_package_has() -> set[str]:
-    """Module-level functions and classes, and public methods, across the whole package.
-
-    Deliberately wider than `__all__`: `inspect_masks` is a method on `SegmentationDataset`
-    and is named in `Region`'s prose on purpose, so a check against the public exports alone
-    would fail on a name that resolves perfectly well for the reader who follows it.
-    """
-    names: set[str] = set(pyplatypus.__all__)
-    for found in pkgutil.walk_packages(pyplatypus.__path__, prefix="pyplatypus."):
-        try:
-            module = importlib.import_module(found.name)
-        except ImportError:  # pragma: no cover - an optional extra absent on this machine
-            continue
-        for name, value in vars(module).items():
-            if name.startswith("_"):
-                continue
-            if inspect.isfunction(value) or inspect.isclass(value):
-                names.add(name)
-            if inspect.isclass(value):
-                names.update(
-                    member for member, _ in inspect.getmembers(value) if not member.startswith("_")
-                )
-    return names
+from tests.conftest import NOT_OURS, every_name_this_package_has
 
 
 def descriptions_in(node) -> list[str]:

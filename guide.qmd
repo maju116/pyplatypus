@@ -1,6 +1,7 @@
 ---
 title: "Writing a configuration"
 description: "From one model to several, by hand, in YAML."
+mirrors: configuration
 ---
 
 One YAML file describes a whole run. This page is the walk through it; [every field it

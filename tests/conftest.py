@@ -275,3 +275,41 @@ def make_detection_split():
     detector once per file needs.
     """
     return detection_split
+
+
+# Shared by `test_schema_prose_names.py` and `test_articles.py`, which ask one question of two
+# different texts: does a name this package offers a reader resolve? It lived in the first of
+# those until 2026-10-23, when the articles needed it too - and a second copy of a name
+# resolver is the shape §3F of the workbench's CLAUDE.md is a list of.
+NOT_OURS = {"len", "open", "print", "range", "sorted", "zip"}
+
+
+def every_name_this_package_has() -> set[str]:
+    """Module-level functions and classes, and public methods, across the whole package.
+
+    Deliberately wider than `__all__`: `inspect_masks` is a method on `SegmentationDataset`
+    and is named in `Region`'s prose on purpose, so a check against the public exports alone
+    would fail on a name that resolves perfectly well for the reader who follows it.
+    """
+    import importlib
+    import inspect
+    import pkgutil
+
+    import pyplatypus
+
+    names: set[str] = set(pyplatypus.__all__)
+    for found in pkgutil.walk_packages(pyplatypus.__path__, prefix="pyplatypus."):
+        try:
+            module = importlib.import_module(found.name)
+        except ImportError:  # pragma: no cover - an optional extra absent on this machine
+            continue
+        for name, value in vars(module).items():
+            if name.startswith("_"):
+                continue
+            if inspect.isfunction(value) or inspect.isclass(value):
+                names.add(name)
+            if inspect.isclass(value):
+                names.update(
+                    member for member, _ in inspect.getmembers(value) if not member.startswith("_")
+                )
+    return names
