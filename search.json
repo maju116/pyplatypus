@@ -2242,6 +2242,375 @@
     ]
   },
   {
+    "objectID": "blood-cells.html",
+    "href": "blood-cells.html",
+    "title": "Counting cells in blood smears",
+    "section": "",
+    "text": "BCCD is 364 photographs of blood smears with 4,888 boxes in three classes - red cells, white cells, platelets - and its own train/validation/test split. It is small, it is MIT-licensed, and its classes are wildly unbalanced, which turns out to be the most instructive thing about it.\nWhere the numbers come from. The anchor figures and the box counts below were produced on this machine from the published weights, with nothing trained; the five-seed table is examples/detect_blood_cells.py’s, measured with the engine on its own at four loader workers. Which number came from where matters here more than usual, and the section on scoring says why.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#before-any-of-that-boxes-in-a-few-lines",
+    "href": "blood-cells.html#before-any-of-that-boxes-in-a-few-lines",
+    "title": "Counting cells in blood smears",
+    "section": "Before any of that: boxes in a few lines",
+    "text": "Before any of that: boxes in a few lines\nA detector trained on this data is published, so the shortest way to see whether this works is to borrow it. No training, no GPU, no waiting.\nA detection dataset arrives in Pascal VOC’s layout - one flat directory of images beside one flat directory of XML - which is neither of the two layouts the package reads. Turning it into one is the only data wrangling here:\nimport pyplatypus as pp\n\n# `annotations`, not `masks`: a detection specification looks for that column, because what\n# labels an image here is an annotation file and not a picture. Absolute paths, because a\n# path in a CSV is resolved against the CSV's own directory.\nPath(\"bccd-test.csv\").write_text(\n    \"images,annotations\\n\"\n    + \"\\n\".join(\n        f\"{(root / 'JPEGImages' / f'{name}.jpg').resolve()},\"\n        f\"{(root / 'Annotations' / f'{name}.xml').resolve()}\"\n        for name in names\n    )\n)\nBCCD’s own split - 205 train, 87 validation, 72 test - and not one invented here, which is the only reason the numbers below can be compared with anybody else’s on this dataset.\npublished = pp.from_dict(\n    {\n        \"task\": \"object_detection\",\n        \"data\": {\n            \"train_path\": \"bccd-test.csv\",\n            \"validation_path\": \"bccd-test.csv\",\n            \"classes\": [\"RBC\", \"WBC\", \"Platelets\"],\n            \"mode\": \"config_file\",\n        },\n        \"models\": [\n            {\n                \"name\": \"cells\",\n                \"architecture\": \"yolo3\",\n                \"input_shape\": [416, 416],\n                \"weights\": \"bccd-yolo3\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\nengine = pp.build_engine(published)\nengine.fit()\nfound = engine.predict(\"cells\", \"validation\")\nfit() loads rather than trains when fit: false is set; predict before it answers no model has been trained or loaded yet.\nPredictions come back as one table per image in the photograph’s own pixels - xmin, ymin, xmax, ymax, score, label, name - so the boxes land on the picture without anything being undone first.\n\nAnd here, unlike the nuclei article, a score means something\nThose weights were trained on BCCD’s 205 training images. Its 72 test images the model has never seen, so measuring on them is honest - which is the opposite of the nuclei article, where the convenient directory overlapped the training data and no number was reported at all.\nThe model card’s own figures are mAP@0.5 of 0.857, mAP@[.50:.95] of 0.500 and a mean matched IoU of 0.806, and available_weights() carries them. The description is the part to read before trusting them: published is the median of five seeds rather than the best, and platelets are the unreliable class - which the scoring section shows rather than asserts.\n\n\nOne refusal worth meeting now\nA detector’s weights decode boxes relative to the anchors they were trained with. Read with any others, the same numbers produce boxes scaled by a fixed factor: plausible boxes, plausible scores, wrong places, and nothing in any output to say so. So a specification that names both is two claims about one model with one of them untrue:\nConfigError: The configuration has 1 problem:\n  - models[0]: model 'cells' names both `weights` and `anchors`. A detector's weights decode\n    boxes relative to the anchors they were trained with, so loading uses the ones recorded\n    beside the file - which would leave the anchors in this specification describing nothing.\n    Remove `anchors` to use theirs, or remove `weights` to fit new ones to your own boxes.\nRefused by the file, before any path was read - and that is a different stage from the nuclei article’s refusal, which waits for the weights because only then is there a shape to compare. Two claims in one file need nothing but the file; a claim about a file on disk needs the file.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#anchors-which-a-detector-has-and-a-u-net-does-not",
+    "href": "blood-cells.html#anchors-which-a-detector-has-and-a-u-net-does-not",
+    "title": "Counting cells in blood smears",
+    "section": "Anchors, which a detector has and a U-Net does not",
+    "text": "Anchors, which a detector has and a U-Net does not\nYOLOv3 does not predict a box from nothing. It predicts a correction to one of nine anchors - fixed shapes, three per grid - and which anchors you use decides how much correcting is left to learn. Unset, they are fitted to your own boxes with k-means; the published weights carry theirs in the sidecar beside the file.\nMeasured here on the published anchors against BCCD’s training boxes: mean IoU 0.8769. COCO’s own nine, borrowed, manage 0.65 on the same boxes - which is the difference between a correction and a rewrite, and it costs nothing to avoid.\nA mean hides which class it is made of. A coverage of 0.65 is either every class covered adequately or two covered well and the third not at all, and those want different fixes. The picture tells them apart:\nfigure = pp.plot_anchors(engine, log=True, model=\"cells\", split=\"train\")\n\nEach point is one annotated box - its width against its height, both as fractions of the 416x416 input - and the diamonds are the anchors. Log axes, because the anchors alone run from about 24 to 147 pixels a side, and on linear ones the smallest class collapses into the corner.\nThree clouds, because the three cell types are three sizes, and a diamond near each. The diamonds are not spread evenly: most sit in the crowded middle where the red cells are, which is k-means doing exactly what it was asked - put the anchors where the boxes are, not where the classes are.\nAnd one point sits far below everything else, at about two thirds of a pixel a side. That is not a drawing error and not an outlier in the statistical sense - it is a bad row. Counted here, straight out of the XML:\n\n\n\nsplit\nboxes\nof zero extent\n\n\n\n\ntrain\n2,805\n1\n\n\nvalidation\n1,138\n1\n\n\ntest\n945\n0\n\n\n\nA zero-width box read under Pascal VOC’s inclusive convention comes out one pixel across. k-means drops it, because an overlap with a box that has no area is undefined - which is why the anchors were fitted to 2,804 boxes while the plot draws 2,805. The plot keeps it deliberately: a dataset’s bad rows are worth seeing once, and this is the only place in the whole run where that one is visible at all.\nIt is also the clearest way to see why COCO’s nine manage only 0.65 here. Those span 10 to 373 pixels a side, because COCO holds objects of every size; these three cell types span about six-fold. Most of that range is spent on boxes this dataset does not contain.\nWorth drawing for the split they were not fitted on. Anchors covering the training boxes well and the validation boxes badly would say the two halves hold different objects, and no training curve shows that:\nfigure = pp.plot_anchors(engine, log=True, model=\"cells\", split=\"validation\")\n\ntools/readme_figures.py article-bccd draws both, from the published weights and without training. The issue that asked for them priced them at a 37-minute run, which is the cost of fitting anchors rather than of drawing the ones a published file already carries.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#what-the-loss-is-doing",
+    "href": "blood-cells.html#what-the-loss-is-doing",
+    "title": "Counting cells in blood smears",
+    "section": "What the loss is doing",
+    "text": "What the loss is doing\nThe run reports four parts rather than one, and the total is the least useful of them.\nThe total does not reach zero and that is not a stall. Cross-entropy against a soft target bottoms out at the target’s own entropy, so the coordinate term has a floor above zero that depends on the data. Which is exactly why the parts are separate: a total of 5.95 means nothing alone, while coordinates 5.94 beside objectness 6.7e-04 says the model has learned what is where and is still refining the boxes.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#scoring-and-the-number-that-is-missing-on-purpose",
+    "href": "blood-cells.html#scoring-and-the-number-that-is-missing-on-purpose",
+    "title": "Counting cells in blood smears",
+    "section": "Scoring, and the number that is missing on purpose",
+    "text": "Scoring, and the number that is missing on purpose\nengine.evaluate(\"test\") returns mAP@0.5, mAP@[.50:.95] and mean_matched_iou, with the truth and prediction counts beside them. There is no overall precision and no overall recall, and the absence is deliberate: averaging them over classes needs a weighting, and every choice of weighting is a different claim. Over BCCD’s 4,155 red cells, 372 white and 361 platelets, a single precision is a statement about red cells wearing the costume of a statement about the model.\nengine.evaluate_classes(\"test\") is the form in which they mean something. White cells are nearly perfect - one per image and large. Platelets come back at a precision near 0.56, meaning about 44% of the platelets reported are not there, and their boxes fit worst of the three at an overlap near 0.73.\n\nmAP@0.5, mAP@[.50:.95], and which to believe\nTwo averages answering different questions. The first asks whether an object was found; the second averages over ten overlap thresholds and so also asks how well the box fits. The gap between them is localisation, and mean_matched_iou says that in one number instead of through a difference.\nOn this dataset the overlap is far steadier than the average precision. Five runs of one recipe differing only in the seed:\n\n\n\n\nmean\nsd\n\n\n\n\nmAP@0.5\n0.8660\n0.0159\n\n\nmAP@[.50:.95]\n0.5159\n0.0199\n\n\nmean IoU of matched boxes\n0.8041\n0.0026\n\n\n\nSix times steadier. Which rank the model gives a borderline platelet moves average precision and leaves the overlap alone - so on a dataset this size, a point of mAP is not a result, and mean_matched_iou is the number to read first. That is not a general law about detection; it is what these 364 images do, and it was found by running five seeds rather than one.\nAnd a seed does not pin the number. It pins which random numbers are drawn, not the order they are consumed in, and the loader’s worker count changes that order. So the same seed means the same recipe on one machine with one worker count. The R vignette this page mirrors records the cost of learning that: a paragraph there quoted a single run’s mAP, and the next knit of the same document disagreed with it by more than a point.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#looking-at-it",
+    "href": "blood-cells.html#looking-at-it",
+    "title": "Counting cells in blood smears",
+    "section": "Looking at it",
+    "text": "Looking at it\nThe comparison is the point. Truth in one colour, predictions in another, on the same image, with plot_boxes(images, predictions, truth=truth, min_score=0.5).\nOne detail in reading the truth matters more than it looks. Pascal VOC is 1-based and inclusive of both ends, so a box written xmin=1 xmax=10 is 0 to 10 as a continuous interval. Reading it as 0-based shifts every box by a pixel and shrinks it by one - invisible by eye, and real IoU on a platelet 41 pixels across.\nA detector that found the right number of objects in the wrong places and one that found the wrong number in the right places score similarly and look nothing alike, which is why this picture is worth more than either average.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#what-this-does-not-do",
+    "href": "blood-cells.html#what-this-does-not-do",
+    "title": "Counting cells in blood smears",
+    "section": "What this does not do",
+    "text": "What this does not do\nIt is not a cell count. A precision near 0.56 on platelets means a count taken from these boxes is too high by about 79%. Counting needs either a better model for the small class or a threshold chosen for counting rather than for a figure, and either way it needs measuring against truth on your own data.\nIt is one small collection. 205 training images at one magnification, stained one way. BCCD is a demonstration dataset.\nIt is not a diagnostic tool, and a result from it is not a laboratory result.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "blood-cells.html#notes-on-the-machine",
+    "href": "blood-cells.html#notes-on-the-machine",
+    "title": "Counting cells in blood smears",
+    "section": "Notes on the machine",
+    "text": "Notes on the machine\nYOLOv3 is 61.5 million parameters, thirty times a U-Net at the settings in the nuclei article, so this is the one place in the package where the hardware matters: 150 epochs is about 37 minutes on a GTX 1070.\nA card of that generation needs the CUDA 12 build of PyTorch. This package does not install torch and will not choose a build for you - you install your own, so the equivalent of the R package’s platypus_use_torch(\"pascal\") is asking your index for the CUDA 12 wheels. If torch.cuda.is_available() is False on a machine that has a GPU, check that first: a run that quietly went to the processor looks exactly like a run that is simply slow.",
+    "crumbs": [
+      "Articles",
+      "Counting cells in blood smears"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html",
+    "href": "data-science-bowl.html",
+    "title": "Finding nuclei in microscopy images",
+    "section": "",
+    "text": "The 2018 Data Science Bowl asked for the nuclei in microscopy images: several hundred pictures, taken down different microscopes under different stains, each with its nuclei outlined. It is a good first problem because it is genuinely varied and genuinely small.\nThis walks through it end to end.\nWhere the numbers come from. The figure and the foreground shares below were produced on this machine by the code shown; the trained rows are examples/data_science_bowl.yaml‘s, and the published weights’ scores are the registry’s own. Nothing was trained to write this page.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#before-any-of-that-a-mask-in-four-lines",
+    "href": "data-science-bowl.html#before-any-of-that-a-mask-in-four-lines",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Before any of that: a mask in four lines",
+    "text": "Before any of that: a mask in four lines\nA model trained on this data is published, so the shortest way to see whether the package does anything useful is to borrow it. No training, no waiting:\nimport pyplatypus as pp\n\npublished = pp.from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"validation_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"mode\": \"nested_dirs\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [\n            {\n                \"name\": \"nuclei\",\n                \"input_shape\": [256, 256],\n                \"weights\": \"dsbowl-unet\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\nengine = pp.build_engine(published)\nengine.fit()\nmasks = engine.predict(\"nuclei\", \"validation\")\nmasks.shape\nfit() is still the call and fit: false only changes what it does - with the flag set it loads rather than trains. build_engine reads the data and builds the model; a predict straight after it answers no model has been trained or loaded yet.\nNotice what the specification does not say: no architecture, no blocks, no filters. A published file records its own geometry and the engine adopts it, so naming them would risk a specification that disagrees with the file - and the file would win.\nfigure = pp.plot_masks(images, prediction=masks[:3])\n\nThe weights came down from the Hub on first use and are cached afterwards, so running this again costs nothing. tools/readme_figures.py article-dsbowl is the script that drew it.\nNo score is reported here, on purpose. This directory and the one the weights were trained on come from the same collection and overlap, so anything measured here would flatter the model. The numbers that mean something were measured on a held-out split when the weights were published, and travel with them - available_weights() carries the description, and it says these are semantic, so touching nuclei come back as one region and a count taken from them would be wrong. Telling touching nuclei apart is the article about that.\nOne thing worth meeting here rather than later. Weights belong to an exact model, not to a task, and the rest of this page trains at 160x160 while these were trained at 256:\nmismatched = pp.from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"validation_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"mode\": \"nested_dirs\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [\n            {\n                \"name\": \"nuclei\",\n                \"architecture\": \"u_net\",\n                \"input_shape\": [160, 160],\n                \"blocks\": 4,\n                \"filters\": 16,\n                \"weights\": \"dsbowl-unet\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\npp.build_engine(mismatched).fit()\nWeightsError: 'dsbowl-unet' was trained for a different model:\n  - input_shape: weights say (256, 256), the model says (160, 160)\nLoading anyway would either fail inside torch or, where the shapes happen to agree, produce\na model that predicts confidently and means nothing.\nThe file itself is fine and that is the point of the two stages. from_dict accepts this: every field is spelled correctly and 160 is a legal input_shape. The refusal comes when the weights are loaded, because only then is there something to compare them against - which is why the message names the field rather than a tensor size.\nRefused with the field that differs, and before torch was reached. That check exists because the failure it prevents is silent: weights trained on a different colormap with the same number of classes load perfectly and predict nonsense.\nEverything below trains a model from scratch instead, which is what you will actually do on your own data - the published weights are a demonstration and a baseline, not an answer to your problem.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#the-data",
+    "href": "data-science-bowl.html#the-data",
+    "title": "Finding nuclei in microscopy images",
+    "section": "The data",
+    "text": "The data\nOne directory per image, each holding an images and a masks subdirectory. The masks subdirectory holds one file per nucleus:\nstage1_train/\n  00ae65c1c.../\n    images/00ae65c1c....png\n    masks/8a0ac8e3c....png      # one file per nucleus, 27 of them in this case\n    masks/9a1e2f4b7....png\n    ...\n536 cases in stage1_train and 134 in stage1_validation, and mode: nested_dirs is what reads that shape. For a semantic task the per-nucleus files are united - their element-wise maximum - which is the step that turns which nucleus into nucleus or not. That is the right thing here and the wrong thing for counting, which is the other article’s subject.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#look-at-it-before-training-on-it",
+    "href": "data-science-bowl.html#look-at-it-before-training-on-it",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Look at it before training on it",
+    "text": "Look at it before training on it\nThe most useful thing to know before choosing anything else is how much of each picture is actually the thing you are looking for.\nimport numpy as np\nfrom pathlib import Path\n\ndef foreground(case: Path, size=(160, 160)) -&gt; float:\n    united = np.zeros(size, dtype=bool)\n    for file in (case / \"masks\").glob(\"*.png\"):\n        united |= pp.read_image(file, channels=1, size=size, nearest=True)[..., 0] &gt; 0.5\n    return float(united.mean())\nOver forty cases drawn from stage1_validation, measured on this machine:\n\n\n\n\nmin\nQ1\nmedian\nmean\nQ3\nmax\n\n\n\n\nforeground share\n0.013\n0.033\n0.109\n0.133\n0.214\n0.455\n\n\n\nNuclei are a minority of the pixels in every image, and how small a minority varies by a factor of 35 between images. Both facts are worth acting on now rather than discovering later. The R vignette this page mirrors reports 0.011 to 0.334 over its own forty - a different sample of the same data, and the same conclusion.\nBecause the foreground is a minority, a model that predicts background everywhere and finds nothing at all still scores well on accuracy, and well on a Dice averaged over both classes. So the metrics in the configuration below are asked for with include_background: false: the number reported is then the one about the nuclei, and a model that finds none of them scores zero, as it should.\nBecause the share varies so much, the loss has to hold up at both ends. Plain cross-entropy will happily settle into predicting background on the sparse images; blending it with Dice, or using Focal-Tversky with alpha above a half, keeps the rare class worth getting right.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#the-specification",
+    "href": "data-science-bowl.html#the-specification",
+    "title": "Finding nuclei in microscopy images",
+    "section": "The specification",
+    "text": "The specification\nTwo models, so there is something to compare. They share the data and differ in architecture and objective - u_net with cce_dice, and linknet with focal_tversky at alpha: 0.7:\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [160, 160]\n    blocks: 4\n    filters: 16\n    loss:\n      name: cce_dice\n    metrics:\n      - name: dice\n        include_background: false\n      - name: iou\n        include_background: false\n    epochs: 6\n\n  - name: linknet\n    architecture: linknet\n    input_shape: [160, 160]\n    blocks: 4\n    filters: 16\n    loss:\n      name: focal_tversky\n      alpha: 0.7            # weight missed nuclei more than false alarms\n    epochs: 6\nThe alpha: 0.7 weights false negatives above false positives: it would rather flag something that is not a nucleus than miss one. Whether that is the right trade depends entirely on what the count is for.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#train",
+    "href": "data-science-bowl.html#train",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Train",
+    "text": "Train\nspec = pp.from_yaml(\"examples/data_science_bowl.yaml\")\nengine = pp.build_engine(spec, num_workers=4)\nhistory = engine.fit(verbose=True)\nnum_workers=4 is worth copying: the GPU spends most of a run waiting for PNGs to be decoded, and nothing about the model changes.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#compare",
+    "href": "data-science-bowl.html#compare",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Compare",
+    "text": "Compare\nengine.evaluate(\"validation\") returns one row per model, and the columns to read are the metrics rather than the loss.\nRead the loss column with care, and note that loss_function sits beside it. These two models were trained on different objectives, so their losses are not on a common scale - a Focal-Tversky of 0.31 is not better or worse than a CCE-Dice of 0.22, it is not the same question. The metrics are comparable, because they measure the mask rather than the objective.\nThat is the column this table exists to make unquotable, and it is the same shape of mistake as dice in the instance table, where a mean over a different number of class channels made two models look 0.09 apart when their masks were 0.006 apart.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#look-at-what-it-did",
+    "href": "data-science-bowl.html#look-at-what-it-did",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Look at what it did",
+    "text": "Look at what it did\npredictions = engine.predict(\"unet\", \"validation\")\nfigure = pp.plot_masks(images, prediction=predictions[shown], truth=truth)\nThe last column is the one that repays attention. Green is what was found, red what was missed, yellow what was invented - and a single overlap score cannot tell you which of the three you have.\nOn this data almost all of the red is a thin rim around nuclei that were otherwise found. The model is locating nuclei well and drawing them slightly too small. If the question is how many nuclei are there, that hardly matters. If it is how large are they, it is exactly what matters - and the fix is a longer run or a loss that weights boundaries, not a different architecture.\nNeither the Dice nor any other single number distinguishes those two situations from a model that found three quarters of the nuclei and missed the rest. That is the reason to draw the picture.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#the-same-thing-from-a-file",
+    "href": "data-science-bowl.html#the-same-thing-from-a-file",
+    "title": "Finding nuclei in microscopy images",
+    "section": "The same thing from a file",
+    "text": "The same thing from a file\nEverything above is one file in this repository:\nspec = pp.from_yaml(\"examples/data_science_bowl.yaml\")\nThe configuration guide walks the fields; Every configuration field is the reference beside it, generated from the models that read the file.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#a-note-on-older-graphics-cards",
+    "href": "data-science-bowl.html#a-note-on-older-graphics-cards",
+    "title": "Finding nuclei in microscopy images",
+    "section": "A note on older graphics cards",
+    "text": "A note on older graphics cards\nPyTorch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and Volta generations - a GTX 10-series card cannot run them, and no driver update changes that.\nThis package does not install torch and will not choose a build for you. You install your own, so the equivalent of the R package’s platypus_use_torch(\"pascal\") is asking your index for the CUDA 12 wheels. If torch.cuda.is_available() is False on a machine that has a GPU, that is the first thing to check - otherwise everything above runs on the processor instead, perhaps ten times slower, and says nothing about it.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "pyplatypus",
+    "section": "",
+    "text": "The engine behind rplatypus: semantic segmentation and object detection in PyTorch, described by one specification and run from it.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#a-run-in-five-lines",
+    "href": "index.html#a-run-in-five-lines",
+    "title": "pyplatypus",
+    "section": "A run, in five lines",
+    "text": "A run, in five lines\nimport pyplatypus\n\nspec = pyplatypus.from_yaml(\"run.yaml\")\nengine = pyplatypus.build_engine(spec)\nengine.fit()\nengine.evaluate(\"validation\")\nfrom_yaml and from_dict build the same object, so a specification written by hand and one read from a file are the same thing. build_engine returns the engine the specification’s task asks for.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#the-same-run-as-a-configuration-file",
+    "href": "index.html#the-same-run-as-a-configuration-file",
+    "title": "pyplatypus",
+    "section": "The same run as a configuration file",
+    "text": "The same run as a configuration file\ntask: semantic_segmentation\ndata:\n  train_path: train/\n  validation_path: valid/\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [256, 256]\n    loss: {name: dice}\n    metrics: [{name: iou}]\nEverything not written down has a default, and the defaults live here rather than in the caller - so a short configuration is a complete one.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#where-to-start-reading",
+    "href": "index.html#where-to-start-reading",
+    "title": "pyplatypus",
+    "section": "Where to start reading",
+    "text": "Where to start reading\n\n\n\nIf you want to\nRead\n\n\n\n\nwrite a configuration file\nWriting a configuration, then every field\n\n\nhave your editor check that file as you type\nthe JSON Schema\n\n\ntrain and score something\nEngine.fit, Engine.evaluate, Engine.evaluate_cases\n\n\ndetect objects rather than segment\nDetectionEngine and its report\n\n\nnot train at all, and use published weights\navailable_weights\n\n\nsplit data without a patient on both sides\nsplit_samples, split_dataset",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#what-the-reference-is-generated-from",
+    "href": "index.html#what-the-reference-is-generated-from",
+    "title": "pyplatypus",
+    "section": "What the reference is generated from",
+    "text": "What the reference is generated from\nThe pages under Reference come from the docstrings through quartodoc, so they cannot describe a function this package does not have. The &gt;&gt;&gt; examples in them are run by pytest --doctest-modules, which means the site cannot publish an example that does not work - five claims written into Args: and Returns: were false when they were first written, and the doctests caught every one.\nThe configuration fields are documented on the models themselves, so the YAML reference and the validation messages say the same thing because they are the same text.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "guide.html",
+    "href": "guide.html",
+    "title": "Writing a configuration",
+    "section": "",
+    "text": "One YAML file describes a whole run. This page is the walk through it; every field it accepts is the reference beside it, generated from the same models that read the file.\nThe same file works in both packages. Python reads it with from_yaml(), R with platypus_spec(yaml = ...), and both hand it to the same validator. Nothing on this page is Python-specific except the two lines that run it.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#one-file-one-run",
+    "href": "guide.html#one-file-one-run",
+    "title": "Writing a configuration",
+    "section": "One file, one run",
+    "text": "One file, one run\nThe shortest thing that trains:\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: first_try\n    input_shape: [256, 256]\nfrom pyplatypus import build_engine, from_yaml\n\nengine = build_engine(from_yaml(\"run.yaml\"))\nengine.fit()\nprint(engine.evaluate())\nFour things are required and the rest have defaults: task, data.train_path, and a name and input_shape for each model. Everything else - the architecture, the loss, the optimiser, how many epochs - has a default that lives in the engine, so a short configuration is a complete one rather than an incomplete one.\ncolormap says which colour in a mask means which class, darkest first. Masks stored as label maps rather than pictures use labels: [0, 1] instead, and giving both is an error: exactly one says how a mask is encoded.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#several-models-at-once",
+    "href": "guide.html#several-models-at-once",
+    "title": "Writing a configuration",
+    "section": "Several models at once",
+    "text": "Several models at once\nmodels: is a list, and that is the reason this file format exists rather than only the code path. Each entry trains on the same data and lands in the same table, so the comparison is one run rather than a loop somebody has to write.\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: shallow\n    input_shape: [256, 256]\n    blocks: 3\n    filters: 16\n  - name: deep\n    input_shape: [256, 256]\n    blocks: 5\n    filters: 32\n    architecture: u_net_plus_plus\nname has to be unique, because it is how a model is identified in every score table, in every record and in engine.predict(model_name=...). Two models called the same thing is refused rather than resolved.\nTwo entries differing only in blocks is a legitimate configuration and a common one: this is for comparing variants, not only architectures.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#dividing-one-folder",
+    "href": "guide.html#dividing-one-folder",
+    "title": "Writing a configuration",
+    "section": "Dividing one folder",
+    "text": "Dividing one folder\nWith no validation_path, say how to divide train_path:\ntask: semantic_segmentation\ndata:\n  train_path: data/all\n  split:\n    fractions: [0.7, 0.15, 0.15]\n    group_by: \"^(patient\\\\d+)_\"\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: by_patient\n    input_shape: [256, 256]\nTwo fractions give train and validation, three add a test set. Nothing is written to disk - the samples are divided after they are discovered, so there are no new folders and no CSV.\ngroup_by is required and may be null. It is a regular expression whose first group is the thing that must not appear on both sides - a patient, a scan, a slide. The mistake it prevents leaves no trace: slices of one patient in both sets make validation measure memory rather than generalisation, and every number in the output still looks reasonable. An omitted key would be that choice made silently; null is the same choice made on purpose, for data where every sample is independent.\nExactly one of split and validation_path. If a run genuinely has no validation set - a final fit on everything - say validation: false, which is the third answer rather than an absence, because “I have no validation set” and “I forgot” look identical otherwise.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#augmentation-callbacks-and-the-rest-of-a-model",
+    "href": "guide.html#augmentation-callbacks-and-the-rest-of-a-model",
+    "title": "Writing a configuration",
+    "section": "Augmentation, callbacks, and the rest of a model",
+    "text": "Augmentation, callbacks, and the rest of a model\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: augmented\n    input_shape: [256, 256]\n    epochs: 40\n    loss: {name: dice}\n    metrics: [{name: iou}, {name: dice}]\n    optimizer: {name: adam, learning_rate: 0.001}\n    callbacks:\n      - {name: early_stopping, monitor: val_loss, patience: 10}\n      - {name: model_checkpoint, monitor: val_iou, path: runs/best.safetensors}\n    augmentation:\n      - {name: HorizontalFlip, params: {p: 0.5}}\n      - {name: RandomBrightnessContrast, params: {p: 0.3}}\nloss, optimizer, each metric and each callback are blocks chosen by name:, and the name decides which other keys that block accepts. A key the chosen one does not have is refused by name rather than ignored.\nThere is no mode on a callback that watches a number. The direction is taken from the name: anything ending in loss is better lower, anything else better higher. So monitor: val_iou maximises and monitor: val_loss minimises, and there is nothing to set inconsistently.\nAugmentation applies to the training data only - never to validation, where the point is to measure the same thing every epoch. The names are albumentations’ own, and available_transforms() lists what the installed version offers; at rank=3 the list is shorter, because support for volumes is uneven. Each step is probed at the model’s own input size while the pipeline is built, so a transform that cannot do the job says so before the first epoch rather than during it.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#overlapping-classes-instead-of-one-per-voxel",
+    "href": "guide.html#overlapping-classes-instead-of-one-per-voxel",
+    "title": "Writing a configuration",
+    "section": "Overlapping classes instead of one per voxel",
+    "text": "Overlapping classes instead of one per voxel\ncolormap and labels both say the same thing about a voxel: it is in exactly one class. regions is the third way of naming classes and the only one that drops that assumption - classes named as unions of a label map’s values, which is how BraTS and the lesion-inside-an-organ family actually store their ground truth.\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  regions:\n    - {name: whole tumour, of: [1, 2, 4]}\n    - {name: tumour core, of: [1, 4]}\n    - {name: enhancing, of: [4]}\nmodels:\n  - name: brats\n    input_shape: [240, 240]\n    loss: {name: focal}\nThe task is still semantic_segmentation. What changes is what a channel means.\nThere is no background entry, so the class count is not the one you would write as labels. Those same masks as labels: [0, 1, 2, 4] are four classes; as the three regions above they are three channels. And a voxel whose value is 4 is in all three of them at once, which is the point rather than a tolerated side effect.\nEach channel is an independent binary question - a sigmoid per channel rather than one softmax across them - so the channels do not compete and do not sum to one. That is what makes the overlap expressible, and it is also why a prediction cannot be written back as a single picture: one voxel gets one colour, and a voxel here may belong to three classes. A colour map refuses such a prediction rather than taking the strongest channel, and save_class_masks() is what it points at - one binary picture per region, named after the region, which is the only form a picture can hold without losing the overlap.\nTwo regions are the minimum, because one region is ordinary binary segmentation and labels: [0, 1] already says that - with a background channel, which regions has none of. Disjoint regions are allowed and are not a mistake: they group several values into one class and drop the background channel, which is a useful thing to ask for and is refused nowhere.\nThe failure this invites is quiet, so it is refused loudly. A region whose of matches nothing in the data - of: [3] against a label map holding 1, 2 and 4 - is a channel of zeros. It trains to predict nothing and scores a Dice of 0 for that region while every other number in the run looks ordinary, which is the kind of result that gets read as “that class is hard”. The mask check refuses it before training and names the region rather than its position, and inspect_masks answers the same question over as much of the data as you want, naming it the same way.\n\nWhen the overlap was drawn separately: classes_from\nregions needs the overlap to be a union of one label map’s values, which is how BraTS stores it - one integer per voxel, and the scored classes are conventions over those integers. Some overlaps are not like that. A vessel crossing an organ, or two annotators’ masks of the same structure, were drawn independently and no single integer can hold both. Those arrive as one binary file per class, and classes_from names them: one regular expression per class, in class order, matched against a sample’s mask files.\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  classes_from:\n    - _vessel\\.png$\n    - _organ\\.png$\nmodels:\n  - name: crossing\n    input_shape: [256, 256]\n    loss: {name: cce_dice}\nEverything the section above says about a channel still holds: independent binary questions, no background entry, a prediction that cannot be written back as one picture, save_class_masks() where a colour map refuses. The difference between the two namings is the file on disk and nothing else.\nEvery pattern must match exactly one of a sample’s mask files, and every mask file must match a pattern. Both halves are refused, because each is invisible from the other side: a pattern matching nothing is a class the model is never shown, and a file matching no pattern is a class the data has and nobody asked for. The order is written rather than inferred for the reason channels_from gives, with worse consequences here - sorting the names is reproducible and anatomically meaningless, and a model trained with the vessel in channel 0 and used where channel 0 is the organ answers plausibly, in range, with nothing downstream able to tell.\n#91 asked which of the two shapes this package needed; the answer, in 2026-10-12’s decision, was nested regions first. This is the other half.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#instances-instead-of-one-mask",
+    "href": "guide.html#instances-instead-of-one-mask",
+    "title": "Writing a configuration",
+    "section": "Instances instead of one mask",
+    "text": "Instances instead of one mask\ntask: instance_segmentation keeps the objects apart rather than uniting them. The data block gets shorter rather than longer: no colormap and no labels, because there are always exactly two classes - background and object - and what names the objects is the directory of per-object mask files itself.\ntask: instance_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  mode: nested_dirs\nmodels:\n  - name: rim\n    input_shape: [256, 256]\n    separation: {name: rim, width: 2}\n    loss: {name: cce_dice}\n    decode: [{name: nearest_seed}, {name: connected_components}]\n  - name: flows\n    input_shape: [256, 256]\n    separation:\n      name: flows\n      loss: {name: mse, where: foreground}\nTwo axes, and they are deliberately different shapes. separation is one block per model and has no default: it is what the network is trained to predict, so it sets the width of the head - three channels for rim, four for flows at two classes - and that width is derived rather than written anywhere. decode is a list, because several decodings share one forward pass: a second decoding of 134 images costs 1.41 s against an hour and a half for a second training run, so it belongs beside metrics: rather than beside callbacks:. evaluate() then returns a row per (model, decoding).\nWhich mask column to read is a decision the table makes for you and it used to make it wrongly. Every row carries foreground_dice - the binary overlap of anything the model called an object against anything that is one, the same arithmetic whatever the separation is - and that is the one to read across models. The dice beside it is the training metric, a mean over the class channels the head has, so three for rim against two for flows: read down one model’s rows, never across two. On the Data Science Bowl’s validation cases the class column showed two masks 0.09 apart that are 0.0062 apart, and in the other direction.\nNo value appears in both lists, which is what settles which field a new idea belongs in: separation is a noun and decode is a verb. rim can be decoded by nearest_seed or watershed, flows by follow_flows, and connected_components reads no signal at all and works with every target. Leave decode out and it derives to the signal’s own decoding plus connected_components; write a list and you get the list you wrote.\nA model’s own loss and metrics score the mask at either separation, so they are an overlap or a cross-entropy loss here as everywhere else. A flows block carries its own loss for the two vector channels, which is where mse, l1 and smooth_l1 belong: where: foreground averages the error over the voxels the target is defined on, and on these images that is 13.97% of them.\nWhat this task is worth is measured, and it is not flattering. On the Data Science Bowl the separation signal is worth +0.068 of instance average precision at best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6 - and a perfect semantic mask decoded by connected_components still scores only 0.7655. That is what the yardstick row is for: a run that improved the mask and did nothing for the separation improves every row at once, and without the row that ignores the signal there is nothing to notice it against.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#detection-instead-of-segmentation",
+    "href": "guide.html#detection-instead-of-segmentation",
+    "title": "Writing a configuration",
+    "section": "Detection instead of segmentation",
+    "text": "Detection instead of segmentation\ntask: object_detection changes which fields the file accepts. Boxes rather than masks, so classes and an annotation format rather than a colormap:\ntask: object_detection\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  annotation_format: pascal_voc\n  classes: [rbc, wbc, platelets]\nmodels:\n  - name: cells\n    input_shape: [416, 416]\nLeave anchors out and they are fitted to your own boxes by k-means on an IoU distance, anchors_per_grid of them per grid. That is worth about 0.23 of mean overlap against COCO’s nine on blood cells - measured, 0.65 against 0.88 - so the default is the useful one and naming anchors by hand is for reproducing a published model.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#not-training-at-all",
+    "href": "guide.html#not-training-at-all",
+    "title": "Writing a configuration",
+    "section": "Not training at all",
+    "text": "Not training at all\ntask: semantic_segmentation\ndata:\n  train_path: data/images\n  validation_path: data/images\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: published\n    input_shape: [256, 256]\n    weights: dsbowl-unet\n    fit: false\nweights takes a registry name, a local path, or hf://owner/repo/file@commit - and the hf:// form requires the commit, because weights that change under a stable name are the worst kind of irreproducibility. A registry name carries one already.\nWith fit: false nothing trains and engine.predict() works immediately. The weights are checked against the model they are being loaded into before torch is touched: a shape, a channel count or a class count that does not match is a refusal naming the field, not a tensor-size error from inside a loss.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#what-is-checked-and-when",
+    "href": "guide.html#what-is-checked-and-when",
+    "title": "Writing a configuration",
+    "section": "What is checked, and when",
+    "text": "What is checked, and when\nValidation happens in this order, and the first two cost no epochs:\n\nThe file, against the schema. Unknown fields, missing required ones, a name: that no block has, a callback watching a number nothing will produce. Before any path is read.\nThe data on disk, when the engine is built: that the folders exist, that images and masks correspond, and that every class in colormap or labels actually appears in the masks - because a declared class appearing in none has a target channel of zeros, so the model is never shown what it is being asked to find.\nEverything else, during the run.\n\nA refusal names the field and says what to do. models[0].callbacks[1].model_checkpoint.path: Field required is the whole message - the path through the file, then the problem.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "guide.html#the-same-run-from-code",
+    "href": "guide.html#the-same-run-from-code",
+    "title": "Writing a configuration",
+    "section": "The same run from code",
+    "text": "The same run from code\nThe file is not a second implementation. from_yaml() and from_dict() produce the same object, and so does building the models by hand:\nfrom pyplatypus import build_engine, from_dict\n\nspec = from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"data/train\",\n            \"validation_path\": \"data/validation\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [{\"name\": \"first_try\", \"input_shape\": [256, 256]}],\n    }\n)\nengine = build_engine(spec)\nWhich to use is a question about how many models and how often, not about what is possible. A file is better when there are several models, when the run is going to be repeated, or when somebody else has to see what was done; the dict is better inside a loop over something the file cannot express, like a list of datasets.",
+    "crumbs": [
+      "Articles",
+      "Writing a configuration"
+    ]
+  },
+  {
     "objectID": "instances.html",
     "href": "instances.html",
     "title": "Telling touching nuclei apart",
@@ -2382,287 +2751,6 @@
     "crumbs": [
       "Articles",
       "Telling touching nuclei apart"
-    ]
-  },
-  {
-    "objectID": "guide.html",
-    "href": "guide.html",
-    "title": "Writing a configuration",
-    "section": "",
-    "text": "One YAML file describes a whole run. This page is the walk through it; every field it accepts is the reference beside it, generated from the same models that read the file.\nThe same file works in both packages. Python reads it with from_yaml(), R with platypus_spec(yaml = ...), and both hand it to the same validator. Nothing on this page is Python-specific except the two lines that run it.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#one-file-one-run",
-    "href": "guide.html#one-file-one-run",
-    "title": "Writing a configuration",
-    "section": "One file, one run",
-    "text": "One file, one run\nThe shortest thing that trains:\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: first_try\n    input_shape: [256, 256]\nfrom pyplatypus import build_engine, from_yaml\n\nengine = build_engine(from_yaml(\"run.yaml\"))\nengine.fit()\nprint(engine.evaluate())\nFour things are required and the rest have defaults: task, data.train_path, and a name and input_shape for each model. Everything else - the architecture, the loss, the optimiser, how many epochs - has a default that lives in the engine, so a short configuration is a complete one rather than an incomplete one.\ncolormap says which colour in a mask means which class, darkest first. Masks stored as label maps rather than pictures use labels: [0, 1] instead, and giving both is an error: exactly one says how a mask is encoded.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#several-models-at-once",
-    "href": "guide.html#several-models-at-once",
-    "title": "Writing a configuration",
-    "section": "Several models at once",
-    "text": "Several models at once\nmodels: is a list, and that is the reason this file format exists rather than only the code path. Each entry trains on the same data and lands in the same table, so the comparison is one run rather than a loop somebody has to write.\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: shallow\n    input_shape: [256, 256]\n    blocks: 3\n    filters: 16\n  - name: deep\n    input_shape: [256, 256]\n    blocks: 5\n    filters: 32\n    architecture: u_net_plus_plus\nname has to be unique, because it is how a model is identified in every score table, in every record and in engine.predict(model_name=...). Two models called the same thing is refused rather than resolved.\nTwo entries differing only in blocks is a legitimate configuration and a common one: this is for comparing variants, not only architectures.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#dividing-one-folder",
-    "href": "guide.html#dividing-one-folder",
-    "title": "Writing a configuration",
-    "section": "Dividing one folder",
-    "text": "Dividing one folder\nWith no validation_path, say how to divide train_path:\ntask: semantic_segmentation\ndata:\n  train_path: data/all\n  split:\n    fractions: [0.7, 0.15, 0.15]\n    group_by: \"^(patient\\\\d+)_\"\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: by_patient\n    input_shape: [256, 256]\nTwo fractions give train and validation, three add a test set. Nothing is written to disk - the samples are divided after they are discovered, so there are no new folders and no CSV.\ngroup_by is required and may be null. It is a regular expression whose first group is the thing that must not appear on both sides - a patient, a scan, a slide. The mistake it prevents leaves no trace: slices of one patient in both sets make validation measure memory rather than generalisation, and every number in the output still looks reasonable. An omitted key would be that choice made silently; null is the same choice made on purpose, for data where every sample is independent.\nExactly one of split and validation_path. If a run genuinely has no validation set - a final fit on everything - say validation: false, which is the third answer rather than an absence, because “I have no validation set” and “I forgot” look identical otherwise.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#augmentation-callbacks-and-the-rest-of-a-model",
-    "href": "guide.html#augmentation-callbacks-and-the-rest-of-a-model",
-    "title": "Writing a configuration",
-    "section": "Augmentation, callbacks, and the rest of a model",
-    "text": "Augmentation, callbacks, and the rest of a model\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: augmented\n    input_shape: [256, 256]\n    epochs: 40\n    loss: {name: dice}\n    metrics: [{name: iou}, {name: dice}]\n    optimizer: {name: adam, learning_rate: 0.001}\n    callbacks:\n      - {name: early_stopping, monitor: val_loss, patience: 10}\n      - {name: model_checkpoint, monitor: val_iou, path: runs/best.safetensors}\n    augmentation:\n      - {name: HorizontalFlip, params: {p: 0.5}}\n      - {name: RandomBrightnessContrast, params: {p: 0.3}}\nloss, optimizer, each metric and each callback are blocks chosen by name:, and the name decides which other keys that block accepts. A key the chosen one does not have is refused by name rather than ignored.\nThere is no mode on a callback that watches a number. The direction is taken from the name: anything ending in loss is better lower, anything else better higher. So monitor: val_iou maximises and monitor: val_loss minimises, and there is nothing to set inconsistently.\nAugmentation applies to the training data only - never to validation, where the point is to measure the same thing every epoch. The names are albumentations’ own, and available_transforms() lists what the installed version offers; at rank=3 the list is shorter, because support for volumes is uneven. Each step is probed at the model’s own input size while the pipeline is built, so a transform that cannot do the job says so before the first epoch rather than during it.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#overlapping-classes-instead-of-one-per-voxel",
-    "href": "guide.html#overlapping-classes-instead-of-one-per-voxel",
-    "title": "Writing a configuration",
-    "section": "Overlapping classes instead of one per voxel",
-    "text": "Overlapping classes instead of one per voxel\ncolormap and labels both say the same thing about a voxel: it is in exactly one class. regions is the third way of naming classes and the only one that drops that assumption - classes named as unions of a label map’s values, which is how BraTS and the lesion-inside-an-organ family actually store their ground truth.\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  regions:\n    - {name: whole tumour, of: [1, 2, 4]}\n    - {name: tumour core, of: [1, 4]}\n    - {name: enhancing, of: [4]}\nmodels:\n  - name: brats\n    input_shape: [240, 240]\n    loss: {name: focal}\nThe task is still semantic_segmentation. What changes is what a channel means.\nThere is no background entry, so the class count is not the one you would write as labels. Those same masks as labels: [0, 1, 2, 4] are four classes; as the three regions above they are three channels. And a voxel whose value is 4 is in all three of them at once, which is the point rather than a tolerated side effect.\nEach channel is an independent binary question - a sigmoid per channel rather than one softmax across them - so the channels do not compete and do not sum to one. That is what makes the overlap expressible, and it is also why a prediction cannot be written back as a single picture: one voxel gets one colour, and a voxel here may belong to three classes. A colour map refuses such a prediction rather than taking the strongest channel, and save_class_masks() is what it points at - one binary picture per region, named after the region, which is the only form a picture can hold without losing the overlap.\nTwo regions are the minimum, because one region is ordinary binary segmentation and labels: [0, 1] already says that - with a background channel, which regions has none of. Disjoint regions are allowed and are not a mistake: they group several values into one class and drop the background channel, which is a useful thing to ask for and is refused nowhere.\nThe failure this invites is quiet, so it is refused loudly. A region whose of matches nothing in the data - of: [3] against a label map holding 1, 2 and 4 - is a channel of zeros. It trains to predict nothing and scores a Dice of 0 for that region while every other number in the run looks ordinary, which is the kind of result that gets read as “that class is hard”. The mask check refuses it before training and names the region rather than its position, and inspect_masks answers the same question over as much of the data as you want, naming it the same way.\n\nWhen the overlap was drawn separately: classes_from\nregions needs the overlap to be a union of one label map’s values, which is how BraTS stores it - one integer per voxel, and the scored classes are conventions over those integers. Some overlaps are not like that. A vessel crossing an organ, or two annotators’ masks of the same structure, were drawn independently and no single integer can hold both. Those arrive as one binary file per class, and classes_from names them: one regular expression per class, in class order, matched against a sample’s mask files.\ntask: semantic_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  classes_from:\n    - _vessel\\.png$\n    - _organ\\.png$\nmodels:\n  - name: crossing\n    input_shape: [256, 256]\n    loss: {name: cce_dice}\nEverything the section above says about a channel still holds: independent binary questions, no background entry, a prediction that cannot be written back as one picture, save_class_masks() where a colour map refuses. The difference between the two namings is the file on disk and nothing else.\nEvery pattern must match exactly one of a sample’s mask files, and every mask file must match a pattern. Both halves are refused, because each is invisible from the other side: a pattern matching nothing is a class the model is never shown, and a file matching no pattern is a class the data has and nobody asked for. The order is written rather than inferred for the reason channels_from gives, with worse consequences here - sorting the names is reproducible and anatomically meaningless, and a model trained with the vessel in channel 0 and used where channel 0 is the organ answers plausibly, in range, with nothing downstream able to tell.\n#91 asked which of the two shapes this package needed; the answer, in 2026-10-12’s decision, was nested regions first. This is the other half.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#instances-instead-of-one-mask",
-    "href": "guide.html#instances-instead-of-one-mask",
-    "title": "Writing a configuration",
-    "section": "Instances instead of one mask",
-    "text": "Instances instead of one mask\ntask: instance_segmentation keeps the objects apart rather than uniting them. The data block gets shorter rather than longer: no colormap and no labels, because there are always exactly two classes - background and object - and what names the objects is the directory of per-object mask files itself.\ntask: instance_segmentation\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  mode: nested_dirs\nmodels:\n  - name: rim\n    input_shape: [256, 256]\n    separation: {name: rim, width: 2}\n    loss: {name: cce_dice}\n    decode: [{name: nearest_seed}, {name: connected_components}]\n  - name: flows\n    input_shape: [256, 256]\n    separation:\n      name: flows\n      loss: {name: mse, where: foreground}\nTwo axes, and they are deliberately different shapes. separation is one block per model and has no default: it is what the network is trained to predict, so it sets the width of the head - three channels for rim, four for flows at two classes - and that width is derived rather than written anywhere. decode is a list, because several decodings share one forward pass: a second decoding of 134 images costs 1.41 s against an hour and a half for a second training run, so it belongs beside metrics: rather than beside callbacks:. evaluate() then returns a row per (model, decoding).\nWhich mask column to read is a decision the table makes for you and it used to make it wrongly. Every row carries foreground_dice - the binary overlap of anything the model called an object against anything that is one, the same arithmetic whatever the separation is - and that is the one to read across models. The dice beside it is the training metric, a mean over the class channels the head has, so three for rim against two for flows: read down one model’s rows, never across two. On the Data Science Bowl’s validation cases the class column showed two masks 0.09 apart that are 0.0062 apart, and in the other direction.\nNo value appears in both lists, which is what settles which field a new idea belongs in: separation is a noun and decode is a verb. rim can be decoded by nearest_seed or watershed, flows by follow_flows, and connected_components reads no signal at all and works with every target. Leave decode out and it derives to the signal’s own decoding plus connected_components; write a list and you get the list you wrote.\nA model’s own loss and metrics score the mask at either separation, so they are an overlap or a cross-entropy loss here as everywhere else. A flows block carries its own loss for the two vector channels, which is where mse, l1 and smooth_l1 belong: where: foreground averages the error over the voxels the target is defined on, and on these images that is 13.97% of them.\nWhat this task is worth is measured, and it is not flattering. On the Data Science Bowl the separation signal is worth +0.068 of instance average precision at best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6 - and a perfect semantic mask decoded by connected_components still scores only 0.7655. That is what the yardstick row is for: a run that improved the mask and did nothing for the separation improves every row at once, and without the row that ignores the signal there is nothing to notice it against.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#detection-instead-of-segmentation",
-    "href": "guide.html#detection-instead-of-segmentation",
-    "title": "Writing a configuration",
-    "section": "Detection instead of segmentation",
-    "text": "Detection instead of segmentation\ntask: object_detection changes which fields the file accepts. Boxes rather than masks, so classes and an annotation format rather than a colormap:\ntask: object_detection\ndata:\n  train_path: data/train\n  validation_path: data/validation\n  annotation_format: pascal_voc\n  classes: [rbc, wbc, platelets]\nmodels:\n  - name: cells\n    input_shape: [416, 416]\nLeave anchors out and they are fitted to your own boxes by k-means on an IoU distance, anchors_per_grid of them per grid. That is worth about 0.23 of mean overlap against COCO’s nine on blood cells - measured, 0.65 against 0.88 - so the default is the useful one and naming anchors by hand is for reproducing a published model.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#not-training-at-all",
-    "href": "guide.html#not-training-at-all",
-    "title": "Writing a configuration",
-    "section": "Not training at all",
-    "text": "Not training at all\ntask: semantic_segmentation\ndata:\n  train_path: data/images\n  validation_path: data/images\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: published\n    input_shape: [256, 256]\n    weights: dsbowl-unet\n    fit: false\nweights takes a registry name, a local path, or hf://owner/repo/file@commit - and the hf:// form requires the commit, because weights that change under a stable name are the worst kind of irreproducibility. A registry name carries one already.\nWith fit: false nothing trains and engine.predict() works immediately. The weights are checked against the model they are being loaded into before torch is touched: a shape, a channel count or a class count that does not match is a refusal naming the field, not a tensor-size error from inside a loss.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#what-is-checked-and-when",
-    "href": "guide.html#what-is-checked-and-when",
-    "title": "Writing a configuration",
-    "section": "What is checked, and when",
-    "text": "What is checked, and when\nValidation happens in this order, and the first two cost no epochs:\n\nThe file, against the schema. Unknown fields, missing required ones, a name: that no block has, a callback watching a number nothing will produce. Before any path is read.\nThe data on disk, when the engine is built: that the folders exist, that images and masks correspond, and that every class in colormap or labels actually appears in the masks - because a declared class appearing in none has a target channel of zeros, so the model is never shown what it is being asked to find.\nEverything else, during the run.\n\nA refusal names the field and says what to do. models[0].callbacks[1].model_checkpoint.path: Field required is the whole message - the path through the file, then the problem.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "guide.html#the-same-run-from-code",
-    "href": "guide.html#the-same-run-from-code",
-    "title": "Writing a configuration",
-    "section": "The same run from code",
-    "text": "The same run from code\nThe file is not a second implementation. from_yaml() and from_dict() produce the same object, and so does building the models by hand:\nfrom pyplatypus import build_engine, from_dict\n\nspec = from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"data/train\",\n            \"validation_path\": \"data/validation\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [{\"name\": \"first_try\", \"input_shape\": [256, 256]}],\n    }\n)\nengine = build_engine(spec)\nWhich to use is a question about how many models and how often, not about what is possible. A file is better when there are several models, when the run is going to be repeated, or when somebody else has to see what was done; the dict is better inside a loop over something the file cannot express, like a list of datasets.",
-    "crumbs": [
-      "Articles",
-      "Writing a configuration"
-    ]
-  },
-  {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "pyplatypus",
-    "section": "",
-    "text": "The engine behind rplatypus: semantic segmentation and object detection in PyTorch, described by one specification and run from it.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#a-run-in-five-lines",
-    "href": "index.html#a-run-in-five-lines",
-    "title": "pyplatypus",
-    "section": "A run, in five lines",
-    "text": "A run, in five lines\nimport pyplatypus\n\nspec = pyplatypus.from_yaml(\"run.yaml\")\nengine = pyplatypus.build_engine(spec)\nengine.fit()\nengine.evaluate(\"validation\")\nfrom_yaml and from_dict build the same object, so a specification written by hand and one read from a file are the same thing. build_engine returns the engine the specification’s task asks for.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#the-same-run-as-a-configuration-file",
-    "href": "index.html#the-same-run-as-a-configuration-file",
-    "title": "pyplatypus",
-    "section": "The same run as a configuration file",
-    "text": "The same run as a configuration file\ntask: semantic_segmentation\ndata:\n  train_path: train/\n  validation_path: valid/\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [256, 256]\n    loss: {name: dice}\n    metrics: [{name: iou}]\nEverything not written down has a default, and the defaults live here rather than in the caller - so a short configuration is a complete one.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#where-to-start-reading",
-    "href": "index.html#where-to-start-reading",
-    "title": "pyplatypus",
-    "section": "Where to start reading",
-    "text": "Where to start reading\n\n\n\nIf you want to\nRead\n\n\n\n\nwrite a configuration file\nWriting a configuration, then every field\n\n\nhave your editor check that file as you type\nthe JSON Schema\n\n\ntrain and score something\nEngine.fit, Engine.evaluate, Engine.evaluate_cases\n\n\ndetect objects rather than segment\nDetectionEngine and its report\n\n\nnot train at all, and use published weights\navailable_weights\n\n\nsplit data without a patient on both sides\nsplit_samples, split_dataset",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#what-the-reference-is-generated-from",
-    "href": "index.html#what-the-reference-is-generated-from",
-    "title": "pyplatypus",
-    "section": "What the reference is generated from",
-    "text": "What the reference is generated from\nThe pages under Reference come from the docstrings through quartodoc, so they cannot describe a function this package does not have. The &gt;&gt;&gt; examples in them are run by pytest --doctest-modules, which means the site cannot publish an example that does not work - five claims written into Args: and Returns: were false when they were first written, and the doctests caught every one.\nThe configuration fields are documented on the models themselves, so the YAML reference and the validation messages say the same thing because they are the same text.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html",
-    "href": "data-science-bowl.html",
-    "title": "Finding nuclei in microscopy images",
-    "section": "",
-    "text": "The 2018 Data Science Bowl asked for the nuclei in microscopy images: several hundred pictures, taken down different microscopes under different stains, each with its nuclei outlined. It is a good first problem because it is genuinely varied and genuinely small.\nThis walks through it end to end.\nWhere the numbers come from. The figure and the foreground shares below were produced on this machine by the code shown; the trained rows are examples/data_science_bowl.yaml‘s, and the published weights’ scores are the registry’s own. Nothing was trained to write this page.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#before-any-of-that-a-mask-in-four-lines",
-    "href": "data-science-bowl.html#before-any-of-that-a-mask-in-four-lines",
-    "title": "Finding nuclei in microscopy images",
-    "section": "Before any of that: a mask in four lines",
-    "text": "Before any of that: a mask in four lines\nA model trained on this data is published, so the shortest way to see whether the package does anything useful is to borrow it. No training, no waiting:\nimport pyplatypus as pp\n\npublished = pp.from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"validation_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"mode\": \"nested_dirs\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [\n            {\n                \"name\": \"nuclei\",\n                \"input_shape\": [256, 256],\n                \"weights\": \"dsbowl-unet\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\nengine = pp.build_engine(published)\nengine.fit()\nmasks = engine.predict(\"nuclei\", \"validation\")\nmasks.shape\nfit() is still the call and fit: false only changes what it does - with the flag set it loads rather than trains. build_engine reads the data and builds the model; a predict straight after it answers no model has been trained or loaded yet.\nNotice what the specification does not say: no architecture, no blocks, no filters. A published file records its own geometry and the engine adopts it, so naming them would risk a specification that disagrees with the file - and the file would win.\nfigure = pp.plot_masks(images, prediction=masks[:3])\n\nThe weights came down from the Hub on first use and are cached afterwards, so running this again costs nothing. tools/readme_figures.py article-dsbowl is the script that drew it.\nNo score is reported here, on purpose. This directory and the one the weights were trained on come from the same collection and overlap, so anything measured here would flatter the model. The numbers that mean something were measured on a held-out split when the weights were published, and travel with them - available_weights() carries the description, and it says these are semantic, so touching nuclei come back as one region and a count taken from them would be wrong. Telling touching nuclei apart is the article about that.\nOne thing worth meeting here rather than later. Weights belong to an exact model, not to a task, and the rest of this page trains at 160x160 while these were trained at 256:\nmismatched = pp.from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"validation_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"mode\": \"nested_dirs\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [\n            {\n                \"name\": \"nuclei\",\n                \"architecture\": \"u_net\",\n                \"input_shape\": [160, 160],\n                \"blocks\": 4,\n                \"filters\": 16,\n                \"weights\": \"dsbowl-unet\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\npp.build_engine(mismatched).fit()\nWeightsError: 'dsbowl-unet' was trained for a different model:\n  - input_shape: weights say (256, 256), the model says (160, 160)\nLoading anyway would either fail inside torch or, where the shapes happen to agree, produce\na model that predicts confidently and means nothing.\nThe file itself is fine and that is the point of the two stages. from_dict accepts this: every field is spelled correctly and 160 is a legal input_shape. The refusal comes when the weights are loaded, because only then is there something to compare them against - which is why the message names the field rather than a tensor size.\nRefused with the field that differs, and before torch was reached. That check exists because the failure it prevents is silent: weights trained on a different colormap with the same number of classes load perfectly and predict nonsense.\nEverything below trains a model from scratch instead, which is what you will actually do on your own data - the published weights are a demonstration and a baseline, not an answer to your problem.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#the-data",
-    "href": "data-science-bowl.html#the-data",
-    "title": "Finding nuclei in microscopy images",
-    "section": "The data",
-    "text": "The data\nOne directory per image, each holding an images and a masks subdirectory. The masks subdirectory holds one file per nucleus:\nstage1_train/\n  00ae65c1c.../\n    images/00ae65c1c....png\n    masks/8a0ac8e3c....png      # one file per nucleus, 27 of them in this case\n    masks/9a1e2f4b7....png\n    ...\n536 cases in stage1_train and 134 in stage1_validation, and mode: nested_dirs is what reads that shape. For a semantic task the per-nucleus files are united - their element-wise maximum - which is the step that turns which nucleus into nucleus or not. That is the right thing here and the wrong thing for counting, which is the other article’s subject.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#look-at-it-before-training-on-it",
-    "href": "data-science-bowl.html#look-at-it-before-training-on-it",
-    "title": "Finding nuclei in microscopy images",
-    "section": "Look at it before training on it",
-    "text": "Look at it before training on it\nThe most useful thing to know before choosing anything else is how much of each picture is actually the thing you are looking for.\nimport numpy as np\nfrom pathlib import Path\n\ndef foreground(case: Path, size=(160, 160)) -&gt; float:\n    united = np.zeros(size, dtype=bool)\n    for file in (case / \"masks\").glob(\"*.png\"):\n        united |= pp.read_image(file, channels=1, size=size, nearest=True)[..., 0] &gt; 0.5\n    return float(united.mean())\nOver forty cases drawn from stage1_validation, measured on this machine:\n\n\n\n\nmin\nQ1\nmedian\nmean\nQ3\nmax\n\n\n\n\nforeground share\n0.013\n0.033\n0.109\n0.133\n0.214\n0.455\n\n\n\nNuclei are a minority of the pixels in every image, and how small a minority varies by a factor of 35 between images. Both facts are worth acting on now rather than discovering later. The R vignette this page mirrors reports 0.011 to 0.334 over its own forty - a different sample of the same data, and the same conclusion.\nBecause the foreground is a minority, a model that predicts background everywhere and finds nothing at all still scores well on accuracy, and well on a Dice averaged over both classes. So the metrics in the configuration below are asked for with include_background: false: the number reported is then the one about the nuclei, and a model that finds none of them scores zero, as it should.\nBecause the share varies so much, the loss has to hold up at both ends. Plain cross-entropy will happily settle into predicting background on the sparse images; blending it with Dice, or using Focal-Tversky with alpha above a half, keeps the rare class worth getting right.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#the-specification",
-    "href": "data-science-bowl.html#the-specification",
-    "title": "Finding nuclei in microscopy images",
-    "section": "The specification",
-    "text": "The specification\nTwo models, so there is something to compare. They share the data and differ in architecture and objective - u_net with cce_dice, and linknet with focal_tversky at alpha: 0.7:\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [160, 160]\n    blocks: 4\n    filters: 16\n    loss:\n      name: cce_dice\n    metrics:\n      - name: dice\n        include_background: false\n      - name: iou\n        include_background: false\n    epochs: 6\n\n  - name: linknet\n    architecture: linknet\n    input_shape: [160, 160]\n    blocks: 4\n    filters: 16\n    loss:\n      name: focal_tversky\n      alpha: 0.7            # weight missed nuclei more than false alarms\n    epochs: 6\nThe alpha: 0.7 weights false negatives above false positives: it would rather flag something that is not a nucleus than miss one. Whether that is the right trade depends entirely on what the count is for.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#train",
-    "href": "data-science-bowl.html#train",
-    "title": "Finding nuclei in microscopy images",
-    "section": "Train",
-    "text": "Train\nspec = pp.from_yaml(\"examples/data_science_bowl.yaml\")\nengine = pp.build_engine(spec, num_workers=4)\nhistory = engine.fit(verbose=True)\nnum_workers=4 is worth copying: the GPU spends most of a run waiting for PNGs to be decoded, and nothing about the model changes.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#compare",
-    "href": "data-science-bowl.html#compare",
-    "title": "Finding nuclei in microscopy images",
-    "section": "Compare",
-    "text": "Compare\nengine.evaluate(\"validation\") returns one row per model, and the columns to read are the metrics rather than the loss.\nRead the loss column with care, and note that loss_function sits beside it. These two models were trained on different objectives, so their losses are not on a common scale - a Focal-Tversky of 0.31 is not better or worse than a CCE-Dice of 0.22, it is not the same question. The metrics are comparable, because they measure the mask rather than the objective.\nThat is the column this table exists to make unquotable, and it is the same shape of mistake as dice in the instance table, where a mean over a different number of class channels made two models look 0.09 apart when their masks were 0.006 apart.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#look-at-what-it-did",
-    "href": "data-science-bowl.html#look-at-what-it-did",
-    "title": "Finding nuclei in microscopy images",
-    "section": "Look at what it did",
-    "text": "Look at what it did\npredictions = engine.predict(\"unet\", \"validation\")\nfigure = pp.plot_masks(images, prediction=predictions[shown], truth=truth)\nThe last column is the one that repays attention. Green is what was found, red what was missed, yellow what was invented - and a single overlap score cannot tell you which of the three you have.\nOn this data almost all of the red is a thin rim around nuclei that were otherwise found. The model is locating nuclei well and drawing them slightly too small. If the question is how many nuclei are there, that hardly matters. If it is how large are they, it is exactly what matters - and the fix is a longer run or a loss that weights boundaries, not a different architecture.\nNeither the Dice nor any other single number distinguishes those two situations from a model that found three quarters of the nuclei and missed the rest. That is the reason to draw the picture.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#the-same-thing-from-a-file",
-    "href": "data-science-bowl.html#the-same-thing-from-a-file",
-    "title": "Finding nuclei in microscopy images",
-    "section": "The same thing from a file",
-    "text": "The same thing from a file\nEverything above is one file in this repository:\nspec = pp.from_yaml(\"examples/data_science_bowl.yaml\")\nThe configuration guide walks the fields; Every configuration field is the reference beside it, generated from the models that read the file.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
-    ]
-  },
-  {
-    "objectID": "data-science-bowl.html#a-note-on-older-graphics-cards",
-    "href": "data-science-bowl.html#a-note-on-older-graphics-cards",
-    "title": "Finding nuclei in microscopy images",
-    "section": "A note on older graphics cards",
-    "text": "A note on older graphics cards\nPyTorch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and Volta generations - a GTX 10-series card cannot run them, and no driver update changes that.\nThis package does not install torch and will not choose a build for you. You install your own, so the equivalent of the R package’s platypus_use_torch(\"pascal\") is asking your index for the CUDA 12 wheels. If torch.cuda.is_available() is False on a machine that has a GPU, that is the first thing to check - otherwise everything above runs on the processor instead, perhaps ten times slower, and says nothing about it.",
-    "crumbs": [
-      "Articles",
-      "Finding nuclei in microscopy images"
     ]
   },
   {
