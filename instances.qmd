@@ -13,11 +13,12 @@ Science Bowl ships one mask per nucleus, and `data_science_bowl.yaml` unites the
 keep their identity, which turns the question from *where are the nuclei* into *how many are
 there, and which pixels belong to which one*.
 
-**Where the numbers come from.** Nothing on this page was measured for it. Every figure is
-cited where it is used: the published weights' scores are the registry's own, the ceilings
-are `pyplatypus#159` and `#212`, and the trained rows are
-`examples/publish_dsbowl_instance_weights.py`'s. That is deliberate - an article that
-re-trains a published recipe with fewer epochs adds a number nobody will compare.
+**Where the numbers come from.** The two object counts below were produced by running the
+code shown, on this machine, against the published weights - no training. Everything else
+is cited where it is used: the weights' three scores are the registry's own description,
+the ceilings are `pyplatypus#159` and `#212`, and the trained rows are
+`examples/publish_dsbowl_instance_weights.py`'s. That division is deliberate - an article
+that re-trains a published recipe with fewer epochs adds a number nobody will compare.
 
 ## Before any of that: objects in four lines
 
@@ -52,13 +53,20 @@ borrowed = pp.from_dict(
     }
 )
 engine = pp.build_engine(borrowed)
+engine.fit()
 objects = engine.predict_instances(split="validation", decode="nearest_seed")
 len(objects)
 ```
 
-With `fit: false` nothing trains and the weights are checked against the model they are
-being loaded into *before* torch is touched, so a wrong shape is a refusal naming the field
-rather than a tensor-size error from inside a loss.
+**`fit()` is still the call, and `fit: false` only changes what it does.** With the flag set
+it loads rather than trains, and nothing before it has touched the weights: `build_engine`
+reads the data and builds the model, so a `predict` straight after it is refused with *no
+model has been trained or loaded yet*. That is one line a reader would otherwise find out
+by being refused, and this page had it wrong in its first version.
+
+Loading does check the weights against the model they are going into, and before torch is
+reached: a wrong shape is a refusal naming the field rather than a tensor-size error from
+inside a loss.
 
 `predict_instances` returns **one integer label map per image, in the split's own order** -
 objects numbered from 1, with 0 for background. A list rather than a stacked array, because
@@ -82,7 +90,8 @@ counts[worst]
 
 On the picture where the two disagree most, that is **245 objects against 180**: one file of
 weights, one forward pass, two answers to *how many nuclei are in this picture*, and
-sixty-five touching nuclei run together by the second. Drawn with `overlay_instances`,
+sixty-five touching nuclei run together by the second. Over all 134 images it is **5,378
+against 4,914**, which is the same gap counted once rather than per picture. Drawn with `overlay_instances`,
 neither colour map is decoration - adjacent objects are guaranteed different colours, so a
 colour shared across a boundary is two nuclei the decoding ran together.
 
