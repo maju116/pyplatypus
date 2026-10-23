@@ -276,27 +276,67 @@ def _volume_cases(count: int, cases: Sequence[str] | None) -> list[str]:
     return names
 
 
-def _as_volume_list(prediction: np.ndarray | Sequence[np.ndarray]) -> list[np.ndarray]:
-    """One channels-last volume per case, from the several shapes a caller holds.
+def _as_volume_list(
+    prediction: np.ndarray | Sequence[np.ndarray], *, labels_allowed: bool = False
+) -> tuple[list[np.ndarray], bool]:
+    """One volume per case, and whether they are label maps or channels.
 
     `predict(space="source")` hands back a list because sources differ in size, and that is
-    the input this writer is for. A single `(d, h, w, c)` volume is accepted as a list of
-    one; a stacked `(n, d, h, w, c)` array is accepted because `predict(space="model")`
-    returns that when every scan happens to share a grid.
+    the input this writer is for. A single volume is accepted as a list of one, and a
+    stacked array is unstacked.
+
+    **A label map is accepted where one can be told apart from a prediction**, which is what
+    `labels_allowed` is for: `save_volumes` takes either, because the R package's `predict()`
+    returns class indices where this one returns probabilities, and expanding a label map
+    into one-hot to collapse it again costs a gigabyte of float for a 512-cubed volume.
+    `save_class_volumes` takes channels only - a binary file per class is a question about
+    channels, and a label map has none.
+
+    The rank decides, and **one case is genuinely ambiguous and is refused rather than
+    guessed**: a stack of label maps `(n, d, h, w)` and one volume's channels `(d, h, w, c)`
+    are both rank 4 and nothing in the array distinguishes them. `save_class_masks` names
+    the same ambiguity for pictures and the R package resolves it the same way, so a caller
+    meeting it here meets one rule rather than a third.
     """
-    if isinstance(prediction, (list, tuple)):
+    listed = isinstance(prediction, (list, tuple))
+    if listed:
         volumes = [np.asarray(one) for one in prediction]
     else:
         array = np.asarray(prediction)
         volumes = list(array) if array.ndim == 5 else [array]
-    for volume in volumes:
-        if volume.ndim != 4:
+
+    ranks = {volume.ndim for volume in volumes}
+    if len(ranks) != 1:
+        raise VolumeError(
+            "the volumes have different ranks "
+            f"({', '.join(str(rank) for rank in sorted(ranks))}), so they cannot all be "
+            "label maps or all be channels"
+        )
+    rank = ranks.pop()
+
+    if rank == 4:
+        if labels_allowed and not listed and np.asarray(prediction).ndim == 4:
             raise VolumeError(
-                f"expected channels-last volumes, got shape "
-                f"{' x '.join(str(size) for size in volume.shape)}. One `(d, h, w, c)` array "
-                "per case, which is what `predict(space='source')` returns."
+                "this is rank 4 and could be either a stack of label maps "
+                f"({' x '.join(str(size) for size in np.asarray(prediction).shape)} as "
+                "`n x d x h x w`) or one volume's channels (as `d x h x w x c`), and "
+                "nothing in the array says which. Pass a list - which is what "
+                "`predict(space='source')` returns - or keep the volume axis."
             )
-    return volumes
+        return volumes, False
+    if rank == 3 and labels_allowed:
+        return volumes, True
+
+    expected = (
+        "One `(d, h, w, c)` array per case, which is what `predict(space='source')` "
+        "returns, or a `(d, h, w)` map of class indices."
+        if labels_allowed
+        else "One `(d, h, w, c)` array per case, which is what `predict(space='source')` returns."
+    )
+    raise VolumeError(
+        f"expected channels-last volumes, got shape "
+        f"{' x '.join(str(size) for size in volumes[0].shape)}. {expected}"
+    )
 
 
 def _reference_affine(path: str | Path, shape: tuple[int, ...]):
@@ -373,7 +413,7 @@ def save_volumes(
     Returns:
         The paths written, in the order the predictions were given.
     """
-    volumes = _as_volume_list(prediction)
+    volumes, already_labels = _as_volume_list(prediction, labels_allowed=True)
     sources = [str(path) for path in reference]
     if len(sources) != len(volumes):
         raise VolumeError(
@@ -384,6 +424,14 @@ def save_volumes(
 
     written: list[Path] = []
     for volume, source, case in zip(volumes, sources, names, strict=True):
+        if already_labels:
+            # No overlap check, and that is not a hole. The refusal below protects the
+            # *collapse*: it exists because an argmax over channels silently picks one of
+            # the classes a voxel is in. An integer per voxel cannot express an overlap in
+            # the first place, so there is nothing here to detect and nothing being lost.
+            image = _reference_affine(source, volume.shape[:3])
+            written.append(_write_labels(volume, Path(directory) / f"{case}{suffix}.nii.gz", image))
+            continue
         hot = volume >= 0.5
         overlapping = int(hot.sum(axis=-1).max(initial=0))
         if overlapping > 1:
@@ -443,7 +491,7 @@ def save_class_volumes(
     """
     from pyplatypus.data.masks import class_filename
 
-    volumes = _as_volume_list(prediction)
+    volumes, _ = _as_volume_list(prediction)
     sources = [str(path) for path in reference]
     if len(sources) != len(volumes):
         raise VolumeError(

@@ -1,5 +1,7 @@
 """Many models from one spec - the reason the YAML path exists at all."""
 
+import warnings
+
 import numpy as np
 import pytest
 import torch
@@ -93,6 +95,45 @@ def test_the_table_names_the_loss_each_model_used(two_model_config):
     engine = Engine(from_dict(two_model_config), device="cpu")
     engine.fit()
     assert [row["loss_function"] for row in engine.evaluate()] == ["cce", "focal"]
+
+
+def test_the_table_says_which_grid_each_row_was_scored_on(two_model_config):
+    """`maju116/rplatypus#187`: two rows are comparable only if they share a grid.
+
+    Each model is scored through its own loader, so a row's metrics are measured against
+    the truth reduced to that model's `load_shape`. The column says which, permanently -
+    the warning below only fires when they differ, and a table outlives the session that
+    printed it.
+    """
+    engine = Engine(from_dict(two_model_config), device="cpu")
+    engine.fit()
+    assert [row["load_shape"] for row in engine.evaluate()] == ["32 x 32", "32 x 32"]
+
+
+def test_models_on_different_grids_say_so_rather_than_looking_comparable(two_model_config):
+    """The one that earns its keep: without it the table is a comparison of two questions.
+
+    Measured on retinal vessels, a resized model read at its own 512 against a tiled one
+    read at 2048 reported +0.0187 where the honest figure was +0.0033 - every number real,
+    none of them answers to the same question.
+    """
+    two_model_config["models"][1]["splits"] = [2, 2]
+    engine = Engine(from_dict(two_model_config), device="cpu")
+    engine.fit()
+
+    with pytest.warns(UserWarning, match="different grids"):
+        table = engine.evaluate()
+    assert [row["load_shape"] for row in table] == ["32 x 32", "64 x 64"]
+
+
+def test_models_on_one_grid_are_not_warned_about(two_model_config):
+    """The control. Without it every ordinary two-model run would start warning, which is
+    the state in which a warning stops being read."""
+    engine = Engine(from_dict(two_model_config), device="cpu")
+    engine.fit()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        engine.evaluate()
 
 
 def test_ranking_on_an_unknown_column_lists_the_real_ones(two_model_config):

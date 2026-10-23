@@ -718,7 +718,22 @@ class Engine(EngineBase):
         Returns:
             One row per model: what it is, how long it trained, its loss and its metrics.
             The `loss` column is comparable only between models trained on the same
-            objective, which is why `loss_function` sits beside it.
+            objective, which is why `loss_function` sits beside it - and the metrics are
+            comparable only between models scored on the same grid, which is why
+            `load_shape` sits beside them.
+
+        `load_shape` is the second of those and the one nothing used to say. Each model is
+        scored through its own loader, so a model at `input_shape: [512, 512]` is measured
+        against a truth reduced to 512 while a model that tiles 2048 is measured against the
+        truth as stored. Both numbers are a real Dice of a real prediction against a real
+        mask; they are not answers to the same question. Measured on retinal vessels
+        (`maju116/rplatypus#187`), that difference reported a resized model at **+0.0187
+        where the honest figure was +0.0033**, with the bias reversed on clDice because
+        upsampling smooths a prediction - better against a skeleton, worse against a
+        boundary. So when the rows do not share a grid this says so, once, rather than
+        leaving a table that looks like a comparison. Nothing here rescores: putting two
+        models on one grid is a thing to ask for rather than to do silently, and it is not
+        offered yet.
 
         Raises:
             EngineError: If the split carries no masks - and the message says `predict`
@@ -727,6 +742,21 @@ class Engine(EngineBase):
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
         self._needs_masks(split)
+
+        grids = {run.name: run.spec.load_shape for run in self.runs.values()}
+        if len(set(grids.values())) > 1:
+            described = ", ".join(
+                f"{name} at {' x '.join(str(size) for size in shape)}"
+                for name, shape in grids.items()
+            )
+            warnings.warn(
+                f"these models are scored on different grids ({described}), so their "
+                "metrics are not comparable: each is measured against the truth reduced to "
+                "its own `load_shape`. The `load_shape` column says which. To compare them, "
+                "score them on one grid - `predict(space='source')` is what puts every "
+                "prediction back on the grid of the file it came from.",
+                stacklevel=2,
+            )
 
         table = []
         for run in self.runs.values():
@@ -740,6 +770,16 @@ class Engine(EngineBase):
                     # were trained on the same one - see best_model().
                     "loss_function": run.spec.loss.name,
                     "parameters": run.parameters,
+                    # The grid this row's numbers were computed on. Beside the metrics for
+                    # the same reason `loss_function` sits beside `loss`: it is what decides
+                    # whether two rows may be compared, and a table that does not carry it
+                    # cannot be read correctly a month later.
+                    #
+                    # A string rather than the tuple, because this table crosses into R as a
+                    # data frame and a list column is not plain data - `test_the_table_is
+                    # _plain_data_for_the_trip_into_r` is the test that says so, and it
+                    # caught this the first time it ran.
+                    "load_shape": " x ".join(str(size) for size in run.spec.load_shape),
                     "epochs_run": len(run.history),
                     "best_epoch": best["epoch"] if best else None,
                     **{key.removeprefix("val_"): value for key, value in scores.items()},
