@@ -1,0 +1,304 @@
+---
+title: "Telling touching nuclei apart"
+description: "One dataset read two ways, and why the decoding is part of the number."
+mirrors: instances
+---
+
+`data_science_bowl.yaml` finds the nuclei in these pictures and stops there. The mask it
+produces says *nucleus* or *not nucleus* for every pixel, so two nuclei touching each other
+come back as one region, and **a count taken from it would be wrong**.
+
+This is the same dataset, read a different way. Nothing new was collected: the 2018 Data
+Science Bowl ships one mask per nucleus, and `data_science_bowl.yaml` unites them. Here they
+keep their identity, which turns the question from *where are the nuclei* into *how many are
+there, and which pixels belong to which one*.
+
+**Where the numbers come from.** Nothing on this page was measured for it. Every figure is
+cited where it is used: the published weights' scores are the registry's own, the ceilings
+are `pyplatypus#159` and `#212`, and the trained rows are
+`examples/publish_dsbowl_instance_weights.py`'s. That is deliberate - an article that
+re-trains a published recipe with fewer epochs adds a number nobody will compare.
+
+## Before any of that: objects in four lines
+
+Weights for this are published, so the difference is visible before anything is trained.
+The borrowed model predicts three channels - background, the interior of a nucleus and a rim
+around it - and `decode` says how those channels become objects:
+
+```python
+import pyplatypus as pp
+
+borrowed = pp.from_dict(
+    {
+        "task": "instance_segmentation",
+        "data": {
+            "train_path": "examples/data/data_science_bowl/stage1_validation",
+            "validation_path": "examples/data/data_science_bowl/stage1_validation",
+            "mode": "nested_dirs",
+        },
+        "models": [
+            {
+                "name": "published",
+                "architecture": "u_net",
+                "input_shape": [256, 256],
+                "blocks": 4,
+                "filters": 16,
+                "separation": {"name": "rim", "width": 2},
+                "decode": [{"name": "nearest_seed"}, {"name": "connected_components"}],
+                "weights": "dsbowl-instances",
+                "fit": False,
+            }
+        ],
+    }
+)
+engine = pp.build_engine(borrowed)
+objects = engine.predict_instances(split="validation", decode="nearest_seed")
+len(objects)
+```
+
+With `fit: false` nothing trains and the weights are checked against the model they are
+being loaded into *before* torch is touched, so a wrong shape is a refusal naming the field
+rather than a tensor-size error from inside a loss.
+
+`predict_instances` returns **one integer label map per image, in the split's own order** -
+objects numbered from 1, with 0 for background. A list rather than a stacked array, because
+what a caller does with these is read one case at a time.
+
+`predict` is the other call and it is not the same thing: it returns the model's own
+channels, class probabilities and raw vector components, which is what `predict_instances`
+decodes. A softmax across a flow component and a class would return a number and mean
+nothing, so that one is left raw.
+
+Now the same loaded file, decoded the other way. `connected_components` ignores the rim
+channel entirely - it labels connected foreground, which is what a semantic mask gives you:
+
+```python
+merged = engine.predict_instances(split="validation", decode="connected_components")
+
+counts = [(a.max(), b.max()) for a, b in zip(objects, merged)]
+worst = max(range(len(counts)), key=lambda i: counts[i][0] - counts[i][1])
+counts[worst]
+```
+
+On the picture where the two disagree most, that is **245 objects against 180**: one file of
+weights, one forward pass, two answers to *how many nuclei are in this picture*, and
+sixty-five touching nuclei run together by the second. Drawn with `overlay_instances`,
+neither colour map is decoration - adjacent objects are guaranteed different colours, so a
+colour shared across a boundary is two nuclei the decoding ran together.
+
+**No score is reported here, on purpose.** These weights were trained on `stage1_train` and
+this directory is `stage1_validation`, which is the split they were measured on - the numbers
+that mean something travel with them, and `available_weights()` carries them:
+
+```
+U-Net, 256x256, nuclei in light microscopy, trained to separate touching objects:
+interior, rim and background. BBBC038v1 (the 2018 Data Science Bowl, CC0), the same 134
+held-out images as `dsbowl-unet`. **One file, three scores** - instance average
+precision 0.5445 by nearest_seed, 0.5390 by watershed and 0.4822 by
+connected_components - so a number from these weights means nothing without the
+decoding it came from. Foreground Dice 0.9118. The separation signal is worth +0.0623
+here while a perfect mask is worth +0.2398: the mask is the limit on this data, not the
+signal.
+```
+
+That description is the thing to read before quoting anything. **One file, three scores**:
+the decoding is part of the number, and 0.0623 separates the best from the worst.
+
+## The semantic sibling, side by side
+
+`dsbowl-unet` is the published model `data_science_bowl.yaml` trains: same data, same
+held-out images, one foreground class. It is the comparison this whole document is about, so
+it is worth running rather than describing - the same `from_dict` with
+`task: semantic_segmentation`, a `colormap` of black and white, and
+`weights: dsbowl-unet`. Its `predict` returns a stacked array of masks, not a list of label
+maps, and that difference is the whole point.
+
+A mask is not worse. It answers a different question, and if the answer you need is *what
+fraction of this slide is nuclei* it is the one to use. The label map is what you need to
+count them, or to measure one of them.
+
+## The data
+
+The directory layout is `data_science_bowl.yaml`'s, because it is the same directory:
+
+```
+stage1_train/
+  00ae65c1c.../
+    images/00ae65c1c....png
+    masks/8a0ac8e3c....png      # one file per nucleus, 70 of them in this case
+    masks/9a1e2f4b7....png
+    ...
+```
+
+536 cases in `stage1_train`, and `mode: nested_dirs` is what reads that shape. The one
+difference from the semantic file is the task: `instance_segmentation` reads those
+per-object files as identities, where `semantic_segmentation` takes their element-wise
+maximum and destroys them.
+
+## The specification, with the borrowed model beside a new one
+
+Two models in one file, and `evaluate()` returns a row per model **and decoding**, so one
+table holds the comparison the rest of this document rests on. The shipped version of this
+is `examples/data_science_bowl_instances.yaml`, which trains `rim` beside `flows` rather
+than a borrowed file beside a new one - two separation signals, which is the question that
+file was written to answer.
+
+`separation` is one block per model and `decode` is a list, and the asymmetry is not
+cosmetic: the separation sets what the network predicts, so changing it means another
+training run, while a second decoding is another pass over the same predictions. Measured on
+these 134 images, a second decoding costs **1.41 seconds** against sixteen minutes for a
+second training run - so the right analogy is `metrics:` and not `callbacks:`.
+
+`connected_components` is in both models' `decode` lists on purpose. It ignores the
+separation signal, so it is the row the other rows have to be read against: not a weaker
+model, the same model asked a question that throws half its output away.
+
+## Train
+
+```python
+spec = pp.from_yaml("examples/data_science_bowl_instances.yaml")
+engine = pp.build_engine(spec, num_workers=4)
+history = engine.fit(verbose=True)
+```
+
+`num_workers=4` is worth copying: the GPU spends most of a run waiting for PNGs to be
+decoded, and nothing about the model changes.
+
+The epoch counts in that file are asymmetric and deliberately so - 120 for `rim` against 60
+for `flows`. Measured at 60 each on 2026-10-13, `rim` was still climbing while `flows` had
+flattened, and a table ranking two models needs both converged or a column reports the
+budget rather than the signal.
+
+## Compare
+
+`engine.evaluate("validation")` returns one row per *(model, decoding)*. Three things in it,
+in the order they matter.
+
+**Within either model, the mask is identical across its rows.** There is one forward pass;
+the rows differ only in how its channels were turned into objects. So the spread between a
+model's own rows is the decoding's contribution and nothing else.
+
+**`connected_components` is the row the others are read against**, for the reason above.
+
+**The two separation signals are a tie.** `rim` is worth +0.0676 of instance average
+precision over its own `connected_components` row and `flows` +0.0661 - a difference of
+0.0015 against a run-to-run spread of **0.0112** measured on that same file. On foreground
+Dice they are 0.9159 and 0.9097, which is 0.0062 apart.
+
+That last number is worth a warning, because the table had it wrong once. `dice` is a mean
+over whichever class channels a head has - three for `rim`, two for `flows` - so the column
+named `dice` compares two different quantities and showed the two masks 0.09 apart **with
+the sign reversed**. `foreground_dice` is the one to read across models; `class dice` is the
+honest name for the other.
+
+## What this does not settle, measured rather than guessed
+
+The instance milestone closed on numbers that say the interesting part is somewhere else:
+
+| route | instance AP on these 134 images |
+|---|---|
+| the published semantic weights through connected components | 0.4888 |
+| **a perfect semantic mask** through connected components | **0.7655** |
+| the published separation weights, `nearest_seed` | 0.5445 |
+| a perfect mask through the same separation route | 0.9846 |
+
+So connected components caps *any* model here at 0.7655 - a flawless mask still scores that
+- and the separation signal is worth about +0.06 on top of the mask it is computed from,
+where fixing the mask is worth +0.24. Three trained signals were compared and they agree.
+
+Read that as a closed direction rather than as a run to tune: on this data the headroom is
+in the mask, and a document that ended on a score would be claiming the opposite of what was
+measured.
+
+## Which objects, not how many pixels
+
+A score cannot tell you whether you found the wrong nuclei or drew the right ones badly.
+`overlay_instance_agreement` matches predicted objects to true ones the way the metric does
+and colours the three outcomes, so the failure is visible by kind: a true object a
+prediction matched, one that nothing matched, and a prediction matching nothing.
+
+The truth has to be assembled from the per-object files, and `read_image(nearest=True)`
+matters - interpolating a label map invents numbers belonging to no object:
+
+```python
+import numpy as np
+from pathlib import Path
+
+def truth_map(case: Path, size=(256, 256)) -> np.ndarray:
+    labels = np.zeros(size, dtype=np.int32)
+    for index, file in enumerate(sorted((case / "masks").glob("*.png")), start=1):
+        mask = pp.read_image(file, channels=1, size=size, nearest=True)
+        labels[mask[..., 0] > 0.5] = index
+    return labels
+```
+
+The threshold the matching uses is an IoU of 0.5 and it cannot be lowered below that: under
+0.5 one prediction can satisfy two true objects at once, the match stops being one to one,
+and the average precision refuses the same thing for the same reason.
+
+## A decoding changed without retraining
+
+This is what `decode` being a list is for. No model is loaded again and nothing is trained:
+
+```python
+for how in ("nearest_seed", "watershed", "connected_components"):
+    maps = engine.predict_instances("rim", split="validation", decode=how)
+    print(how, sum(int(m.max()) for m in maps))
+```
+
+Against 5,999 objects in the truth over 134 images. The counts, not the scores, are where
+the decoding shows itself most plainly: the gap between the first row and the last is nuclei
+that were found and then run together with a neighbour.
+
+## What it was for: a count and a size distribution
+
+One label map in, one row per object out - and this is the one place where the R package has
+a function and this one deliberately does not:
+
+```python
+labels = engine.predict_instances("rim", split="validation", decode="nearest_seed")[0]
+objects, voxels = np.unique(labels[labels > 0], return_counts=True)
+```
+
+`numpy.unique` with `return_counts` *is* the operation, so a wrapper here would be a name to
+learn in place of one a reader already has. The R package carries an `instance_sizes` for
+this, because R's idiom for the same two lines is clumsier; it is pure R and calls nothing
+in this package, which is why there is nothing here to point at instead.
+
+Written without parentheses on purpose, and the test is the reason: `tests/test_articles.py`
+reads a backticked name followed by parentheses as something offered to a reader to call, and
+resolves it against this package. A name belonging to the other package is not that, so it
+is named rather than offered - which is the same distinction `test_schema_prose_names.py`
+was written for after the schema's prose sent a Python reader to R's `training_history`.
+
+**In pixels, because this dataset has no physical scale.** A CT scan carries its spacing in
+its header and `target_spacing` is where that enters a run; these are microscopy images with
+no calibration recorded, so a number in micrometres here would be invented. A count is still
+a count.
+
+## The same thing from a file
+
+Everything above is one file in this repository:
+
+```python
+spec = pp.from_yaml("examples/data_science_bowl_instances.yaml")
+```
+
+That file is also the longest commented configuration here, because two of its decisions
+needed their reasons written down: the asymmetric epoch counts, and a correction kept in
+place rather than deleted after `dice` was read across two models with different numbers of
+class channels. The configuration guide's *Instances instead of one mask* section has the
+same fields with a reader's explanation beside each.
+
+## A note on older graphics cards
+
+PyTorch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and Volta
+generations - a GTX 10-series card cannot run them, and no driver update changes that.
+
+This package does not install torch and will not choose a build for you, which is the
+difference from the R package: there, `platypus_use_torch("pascal")` exists because
+`reticulate` provisions the environment and something has to decide. Here you install your
+own, so the equivalent is asking your index for the CUDA 12 wheels before anything else. If
+`torch.cuda.is_available()` is `False` on a machine that has a GPU, that is the first thing
+to check - otherwise everything above runs on the processor instead, perhaps ten times
+slower, and says nothing about it.

@@ -23,6 +23,7 @@ project:
   render:
   - index.qmd
   - guide.qmd
+  - instances.qmd
   - config.qmd
   - reference/
   - CHANGELOG.md
@@ -50,6 +51,8 @@ website:
       contents:
       - text: Writing a configuration
         file: guide.qmd
+      - text: Telling touching nuclei apart
+        file: instances.qmd
       - text: Every configuration field
         file: config.qmd
     - section: Reference
