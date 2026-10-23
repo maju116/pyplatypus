@@ -2385,56 +2385,6 @@
     ]
   },
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "pyplatypus",
-    "section": "",
-    "text": "The engine behind rplatypus: semantic segmentation and object detection in PyTorch, described by one specification and run from it.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#a-run-in-five-lines",
-    "href": "index.html#a-run-in-five-lines",
-    "title": "pyplatypus",
-    "section": "A run, in five lines",
-    "text": "A run, in five lines\nimport pyplatypus\n\nspec = pyplatypus.from_yaml(\"run.yaml\")\nengine = pyplatypus.build_engine(spec)\nengine.fit()\nengine.evaluate(\"validation\")\nfrom_yaml and from_dict build the same object, so a specification written by hand and one read from a file are the same thing. build_engine returns the engine the specification’s task asks for.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#the-same-run-as-a-configuration-file",
-    "href": "index.html#the-same-run-as-a-configuration-file",
-    "title": "pyplatypus",
-    "section": "The same run as a configuration file",
-    "text": "The same run as a configuration file\ntask: semantic_segmentation\ndata:\n  train_path: train/\n  validation_path: valid/\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [256, 256]\n    loss: {name: dice}\n    metrics: [{name: iou}]\nEverything not written down has a default, and the defaults live here rather than in the caller - so a short configuration is a complete one.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#where-to-start-reading",
-    "href": "index.html#where-to-start-reading",
-    "title": "pyplatypus",
-    "section": "Where to start reading",
-    "text": "Where to start reading\n\n\n\nIf you want to\nRead\n\n\n\n\nwrite a configuration file\nWriting a configuration, then every field\n\n\nhave your editor check that file as you type\nthe JSON Schema\n\n\ntrain and score something\nEngine.fit, Engine.evaluate, Engine.evaluate_cases\n\n\ndetect objects rather than segment\nDetectionEngine and its report\n\n\nnot train at all, and use published weights\navailable_weights\n\n\nsplit data without a patient on both sides\nsplit_samples, split_dataset",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
-    "objectID": "index.html#what-the-reference-is-generated-from",
-    "href": "index.html#what-the-reference-is-generated-from",
-    "title": "pyplatypus",
-    "section": "What the reference is generated from",
-    "text": "What the reference is generated from\nThe pages under Reference come from the docstrings through quartodoc, so they cannot describe a function this package does not have. The &gt;&gt;&gt; examples in them are run by pytest --doctest-modules, which means the site cannot publish an example that does not work - five claims written into Args: and Returns: were false when they were first written, and the doctests caught every one.\nThe configuration fields are documented on the models themselves, so the YAML reference and the validation messages say the same thing because they are the same text.",
-    "crumbs": [
-      "Home"
-    ]
-  },
-  {
     "objectID": "guide.html",
     "href": "guide.html",
     "title": "Writing a configuration",
@@ -2553,6 +2503,166 @@
     "crumbs": [
       "Articles",
       "Writing a configuration"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "pyplatypus",
+    "section": "",
+    "text": "The engine behind rplatypus: semantic segmentation and object detection in PyTorch, described by one specification and run from it.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#a-run-in-five-lines",
+    "href": "index.html#a-run-in-five-lines",
+    "title": "pyplatypus",
+    "section": "A run, in five lines",
+    "text": "A run, in five lines\nimport pyplatypus\n\nspec = pyplatypus.from_yaml(\"run.yaml\")\nengine = pyplatypus.build_engine(spec)\nengine.fit()\nengine.evaluate(\"validation\")\nfrom_yaml and from_dict build the same object, so a specification written by hand and one read from a file are the same thing. build_engine returns the engine the specification’s task asks for.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#the-same-run-as-a-configuration-file",
+    "href": "index.html#the-same-run-as-a-configuration-file",
+    "title": "pyplatypus",
+    "section": "The same run as a configuration file",
+    "text": "The same run as a configuration file\ntask: semantic_segmentation\ndata:\n  train_path: train/\n  validation_path: valid/\n  colormap: [[0, 0, 0], [255, 255, 255]]\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [256, 256]\n    loss: {name: dice}\n    metrics: [{name: iou}]\nEverything not written down has a default, and the defaults live here rather than in the caller - so a short configuration is a complete one.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#where-to-start-reading",
+    "href": "index.html#where-to-start-reading",
+    "title": "pyplatypus",
+    "section": "Where to start reading",
+    "text": "Where to start reading\n\n\n\nIf you want to\nRead\n\n\n\n\nwrite a configuration file\nWriting a configuration, then every field\n\n\nhave your editor check that file as you type\nthe JSON Schema\n\n\ntrain and score something\nEngine.fit, Engine.evaluate, Engine.evaluate_cases\n\n\ndetect objects rather than segment\nDetectionEngine and its report\n\n\nnot train at all, and use published weights\navailable_weights\n\n\nsplit data without a patient on both sides\nsplit_samples, split_dataset",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "index.html#what-the-reference-is-generated-from",
+    "href": "index.html#what-the-reference-is-generated-from",
+    "title": "pyplatypus",
+    "section": "What the reference is generated from",
+    "text": "What the reference is generated from\nThe pages under Reference come from the docstrings through quartodoc, so they cannot describe a function this package does not have. The &gt;&gt;&gt; examples in them are run by pytest --doctest-modules, which means the site cannot publish an example that does not work - five claims written into Args: and Returns: were false when they were first written, and the doctests caught every one.\nThe configuration fields are documented on the models themselves, so the YAML reference and the validation messages say the same thing because they are the same text.",
+    "crumbs": [
+      "Home"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html",
+    "href": "data-science-bowl.html",
+    "title": "Finding nuclei in microscopy images",
+    "section": "",
+    "text": "The 2018 Data Science Bowl asked for the nuclei in microscopy images: several hundred pictures, taken down different microscopes under different stains, each with its nuclei outlined. It is a good first problem because it is genuinely varied and genuinely small.\nThis walks through it end to end.\nWhere the numbers come from. The figure and the foreground shares below were produced on this machine by the code shown; the trained rows are examples/data_science_bowl.yaml‘s, and the published weights’ scores are the registry’s own. Nothing was trained to write this page.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#before-any-of-that-a-mask-in-four-lines",
+    "href": "data-science-bowl.html#before-any-of-that-a-mask-in-four-lines",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Before any of that: a mask in four lines",
+    "text": "Before any of that: a mask in four lines\nA model trained on this data is published, so the shortest way to see whether the package does anything useful is to borrow it. No training, no waiting:\nimport pyplatypus as pp\n\npublished = pp.from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"validation_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"mode\": \"nested_dirs\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [\n            {\n                \"name\": \"nuclei\",\n                \"input_shape\": [256, 256],\n                \"weights\": \"dsbowl-unet\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\nengine = pp.build_engine(published)\nengine.fit()\nmasks = engine.predict(\"nuclei\", \"validation\")\nmasks.shape\nfit() is still the call and fit: false only changes what it does - with the flag set it loads rather than trains. build_engine reads the data and builds the model; a predict straight after it answers no model has been trained or loaded yet.\nNotice what the specification does not say: no architecture, no blocks, no filters. A published file records its own geometry and the engine adopts it, so naming them would risk a specification that disagrees with the file - and the file would win.\nfigure = pp.plot_masks(images, prediction=masks[:3])\n\nThe weights came down from the Hub on first use and are cached afterwards, so running this again costs nothing. tools/readme_figures.py article-dsbowl is the script that drew it.\nNo score is reported here, on purpose. This directory and the one the weights were trained on come from the same collection and overlap, so anything measured here would flatter the model. The numbers that mean something were measured on a held-out split when the weights were published, and travel with them - available_weights() carries the description, and it says these are semantic, so touching nuclei come back as one region and a count taken from them would be wrong. Telling touching nuclei apart is the article about that.\nOne thing worth meeting here rather than later. Weights belong to an exact model, not to a task, and the rest of this page trains at 160x160 while these were trained at 256:\nmismatched = pp.from_dict(\n    {\n        \"task\": \"semantic_segmentation\",\n        \"data\": {\n            \"train_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"validation_path\": \"examples/data/data_science_bowl/stage1_validation\",\n            \"mode\": \"nested_dirs\",\n            \"colormap\": [[0, 0, 0], [255, 255, 255]],\n        },\n        \"models\": [\n            {\n                \"name\": \"nuclei\",\n                \"architecture\": \"u_net\",\n                \"input_shape\": [160, 160],\n                \"blocks\": 4,\n                \"filters\": 16,\n                \"weights\": \"dsbowl-unet\",\n                \"fit\": False,\n            }\n        ],\n    }\n)\npp.build_engine(mismatched).fit()\nWeightsError: 'dsbowl-unet' was trained for a different model:\n  - input_shape: weights say (256, 256), the model says (160, 160)\nLoading anyway would either fail inside torch or, where the shapes happen to agree, produce\na model that predicts confidently and means nothing.\nThe file itself is fine and that is the point of the two stages. from_dict accepts this: every field is spelled correctly and 160 is a legal input_shape. The refusal comes when the weights are loaded, because only then is there something to compare them against - which is why the message names the field rather than a tensor size.\nRefused with the field that differs, and before torch was reached. That check exists because the failure it prevents is silent: weights trained on a different colormap with the same number of classes load perfectly and predict nonsense.\nEverything below trains a model from scratch instead, which is what you will actually do on your own data - the published weights are a demonstration and a baseline, not an answer to your problem.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#the-data",
+    "href": "data-science-bowl.html#the-data",
+    "title": "Finding nuclei in microscopy images",
+    "section": "The data",
+    "text": "The data\nOne directory per image, each holding an images and a masks subdirectory. The masks subdirectory holds one file per nucleus:\nstage1_train/\n  00ae65c1c.../\n    images/00ae65c1c....png\n    masks/8a0ac8e3c....png      # one file per nucleus, 27 of them in this case\n    masks/9a1e2f4b7....png\n    ...\n536 cases in stage1_train and 134 in stage1_validation, and mode: nested_dirs is what reads that shape. For a semantic task the per-nucleus files are united - their element-wise maximum - which is the step that turns which nucleus into nucleus or not. That is the right thing here and the wrong thing for counting, which is the other article’s subject.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#look-at-it-before-training-on-it",
+    "href": "data-science-bowl.html#look-at-it-before-training-on-it",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Look at it before training on it",
+    "text": "Look at it before training on it\nThe most useful thing to know before choosing anything else is how much of each picture is actually the thing you are looking for.\nimport numpy as np\nfrom pathlib import Path\n\ndef foreground(case: Path, size=(160, 160)) -&gt; float:\n    united = np.zeros(size, dtype=bool)\n    for file in (case / \"masks\").glob(\"*.png\"):\n        united |= pp.read_image(file, channels=1, size=size, nearest=True)[..., 0] &gt; 0.5\n    return float(united.mean())\nOver forty cases drawn from stage1_validation, measured on this machine:\n\n\n\n\nmin\nQ1\nmedian\nmean\nQ3\nmax\n\n\n\n\nforeground share\n0.013\n0.033\n0.109\n0.133\n0.214\n0.455\n\n\n\nNuclei are a minority of the pixels in every image, and how small a minority varies by a factor of 35 between images. Both facts are worth acting on now rather than discovering later. The R vignette this page mirrors reports 0.011 to 0.334 over its own forty - a different sample of the same data, and the same conclusion.\nBecause the foreground is a minority, a model that predicts background everywhere and finds nothing at all still scores well on accuracy, and well on a Dice averaged over both classes. So the metrics in the configuration below are asked for with include_background: false: the number reported is then the one about the nuclei, and a model that finds none of them scores zero, as it should.\nBecause the share varies so much, the loss has to hold up at both ends. Plain cross-entropy will happily settle into predicting background on the sparse images; blending it with Dice, or using Focal-Tversky with alpha above a half, keeps the rare class worth getting right.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#the-specification",
+    "href": "data-science-bowl.html#the-specification",
+    "title": "Finding nuclei in microscopy images",
+    "section": "The specification",
+    "text": "The specification\nTwo models, so there is something to compare. They share the data and differ in architecture and objective - u_net with cce_dice, and linknet with focal_tversky at alpha: 0.7:\nmodels:\n  - name: unet\n    architecture: u_net\n    input_shape: [160, 160]\n    blocks: 4\n    filters: 16\n    loss:\n      name: cce_dice\n    metrics:\n      - name: dice\n        include_background: false\n      - name: iou\n        include_background: false\n    epochs: 6\n\n  - name: linknet\n    architecture: linknet\n    input_shape: [160, 160]\n    blocks: 4\n    filters: 16\n    loss:\n      name: focal_tversky\n      alpha: 0.7            # weight missed nuclei more than false alarms\n    epochs: 6\nThe alpha: 0.7 weights false negatives above false positives: it would rather flag something that is not a nucleus than miss one. Whether that is the right trade depends entirely on what the count is for.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#train",
+    "href": "data-science-bowl.html#train",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Train",
+    "text": "Train\nspec = pp.from_yaml(\"examples/data_science_bowl.yaml\")\nengine = pp.build_engine(spec, num_workers=4)\nhistory = engine.fit(verbose=True)\nnum_workers=4 is worth copying: the GPU spends most of a run waiting for PNGs to be decoded, and nothing about the model changes.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#compare",
+    "href": "data-science-bowl.html#compare",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Compare",
+    "text": "Compare\nengine.evaluate(\"validation\") returns one row per model, and the columns to read are the metrics rather than the loss.\nRead the loss column with care, and note that loss_function sits beside it. These two models were trained on different objectives, so their losses are not on a common scale - a Focal-Tversky of 0.31 is not better or worse than a CCE-Dice of 0.22, it is not the same question. The metrics are comparable, because they measure the mask rather than the objective.\nThat is the column this table exists to make unquotable, and it is the same shape of mistake as dice in the instance table, where a mean over a different number of class channels made two models look 0.09 apart when their masks were 0.006 apart.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#look-at-what-it-did",
+    "href": "data-science-bowl.html#look-at-what-it-did",
+    "title": "Finding nuclei in microscopy images",
+    "section": "Look at what it did",
+    "text": "Look at what it did\npredictions = engine.predict(\"unet\", \"validation\")\nfigure = pp.plot_masks(images, prediction=predictions[shown], truth=truth)\nThe last column is the one that repays attention. Green is what was found, red what was missed, yellow what was invented - and a single overlap score cannot tell you which of the three you have.\nOn this data almost all of the red is a thin rim around nuclei that were otherwise found. The model is locating nuclei well and drawing them slightly too small. If the question is how many nuclei are there, that hardly matters. If it is how large are they, it is exactly what matters - and the fix is a longer run or a loss that weights boundaries, not a different architecture.\nNeither the Dice nor any other single number distinguishes those two situations from a model that found three quarters of the nuclei and missed the rest. That is the reason to draw the picture.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#the-same-thing-from-a-file",
+    "href": "data-science-bowl.html#the-same-thing-from-a-file",
+    "title": "Finding nuclei in microscopy images",
+    "section": "The same thing from a file",
+    "text": "The same thing from a file\nEverything above is one file in this repository:\nspec = pp.from_yaml(\"examples/data_science_bowl.yaml\")\nThe configuration guide walks the fields; Every configuration field is the reference beside it, generated from the models that read the file.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
+    ]
+  },
+  {
+    "objectID": "data-science-bowl.html#a-note-on-older-graphics-cards",
+    "href": "data-science-bowl.html#a-note-on-older-graphics-cards",
+    "title": "Finding nuclei in microscopy images",
+    "section": "A note on older graphics cards",
+    "text": "A note on older graphics cards\nPyTorch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and Volta generations - a GTX 10-series card cannot run them, and no driver update changes that.\nThis package does not install torch and will not choose a build for you. You install your own, so the equivalent of the R package’s platypus_use_torch(\"pascal\") is asking your index for the CUDA 12 wheels. If torch.cuda.is_available() is False on a machine that has a GPU, that is the first thing to check - otherwise everything above runs on the processor instead, perhaps ten times slower, and says nothing about it.",
+    "crumbs": [
+      "Articles",
+      "Finding nuclei in microscopy images"
     ]
   },
   {
