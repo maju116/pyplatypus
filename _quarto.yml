@@ -27,6 +27,7 @@ project:
   - instances.qmd
   - retinal-vessels.qmd
   - blood-cells.qmd
+  - volumes.qmd
   - config.qmd
   - reference/
   - CHANGELOG.md
@@ -62,6 +63,8 @@ website:
         file: retinal-vessels.qmd
       - text: Counting cells in blood smears
         file: blood-cells.qmd
+      - text: Segmenting volumes
+        file: volumes.qmd
       - text: Every configuration field
         file: config.qmd
     - section: Reference

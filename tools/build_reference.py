@@ -188,6 +188,7 @@ def main() -> None:
                 "instances.qmd",
                 "retinal-vessels.qmd",
                 "blood-cells.qmd",
+                "volumes.qmd",
                 "config.qmd",
                 "reference/",
                 *about_files(),
@@ -256,6 +257,11 @@ def main() -> None:
                                 "text": "Counting cells in blood smears",
                                 "file": "blood-cells.qmd",
                             },
+                            # Mirrors R's `vignette("volumes")`. After the detector and
+                            # last of the five, because it is the only one whose data does
+                            # not exist until the page makes it - a reader who has met four
+                            # real datasets knows what the synthetic one is standing in for.
+                            {"text": "Segmenting volumes", "file": "volumes.qmd"},
                             {"text": "Every configuration field", "file": "config.qmd"},
                         ],
                     },
