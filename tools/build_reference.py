@@ -181,7 +181,14 @@ def main() -> None:
             # Named individually rather than by a glob: a glob would also pull in
             # README.md, which is GitHub's front page and opens with badges that mean
             # nothing on a site carrying its own navigation.
-            "render": ["index.qmd", "guide.qmd", "config.qmd", "reference/", *about_files()],
+            "render": [
+                "index.qmd",
+                "guide.qmd",
+                "instances.qmd",
+                "config.qmd",
+                "reference/",
+                *about_files(),
+            ],
             # The JSON Schema is not a page, so Quarto would not copy it to the site. It has
             # to be there, because its own `$id` is that address and an editor fetches it to
             # validate a configuration as it is typed - and until 0.7.0a3 that address was a
@@ -220,6 +227,10 @@ def main() -> None:
                         "section": "Articles",
                         "contents": [
                             {"text": "Writing a configuration", "file": "guide.qmd"},
+                            # Mirrors R's `vignette("instances")`; `tests/test_articles.py`
+                            # holds the two to the same walk. `rplatypus#117` makes the
+                            # vignette the source and this the copy.
+                            {"text": "Telling touching nuclei apart", "file": "instances.qmd"},
                             {"text": "Every configuration field", "file": "config.qmd"},
                         ],
                     },
