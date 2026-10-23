@@ -259,10 +259,80 @@ def boxes(bccd: Path) -> None:
     )
 
 
+def article_bccd(bccd: Path) -> None:
+    """The two anchor plots of `blood-cells.qmd`: the split they were fitted on, and one not.
+
+    `pyplatypus#174` says what has to survive the translation, and the expensive reading of
+    it is wrong. It names a 61.5-million-parameter detector trained for 150 epochs - about
+    37 minutes - as the cost of regenerating this article. That is the cost of the *trained*
+    anchors; the **published** weights carry theirs in the sidecar beside the file, so the
+    same two figures come from a load rather than a run. Nothing here trains, and the
+    anchors drawn are the ones `bccd-yolo3` actually decodes against.
+
+    Two plots, because a mean hides which class it is made of: anchors covering the training
+    boxes well and the validation boxes badly would say the two halves hold different
+    objects, and no training curve shows that.
+    """
+    root = bccd / "BCCD"
+
+    def listing(named: str) -> Path:
+        names = [
+            name
+            for name in (root / "ImageSets" / "Main" / f"{named}.txt").read_text().split()
+            if name.strip()
+        ]
+        rows = "\n".join(
+            f"{(root / 'JPEGImages' / f'{name}.jpg').resolve()},"
+            f"{(root / 'Annotations' / f'{name}.xml').resolve()}"
+            for name in names
+        )
+        path = Path(tempfile.mkdtemp(prefix=f"platypus-bccd-{named}-")) / f"{named}.csv"
+        path.write_text("images,annotations\n" + rows + "\n")
+        return path
+
+    train, validation = listing("train"), listing("val")
+    spec = pp.from_dict(
+        {
+            "task": "object_detection",
+            "data": {
+                "train_path": str(train),
+                "validation_path": str(validation),
+                "classes": ["RBC", "WBC", "Platelets"],
+                "mode": "config_file",
+            },
+            # No `anchors` beside `weights`: that pairing is refused, because a detector's
+            # weights decode boxes relative to the anchors they were trained with.
+            "models": [
+                {
+                    "name": "cells",
+                    "architecture": "yolo3",
+                    "input_shape": [416, 416],
+                    "weights": "bccd-yolo3",
+                    "fit": False,
+                }
+            ],
+        }
+    )
+    engine = pp.build_engine(spec)
+    engine.fit()
+
+    coverage = engine.anchor_coverage("cells")
+    print(f"anchors from the sidecar, mean IoU over the training boxes: {coverage['mean_iou']:.4f}")
+
+    for split, suffix in (("train", "fitted"), ("validation", "unseen")):
+        figure = pp.plot_anchors(engine, log=True, model="cells", split=split)
+        path = ASSETS / f"article-bccd-anchors-{suffix}.png"
+        figure.savefig(path, dpi=110, bbox_inches="tight")
+        print(f"wrote {path}  ({split})")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "which", nargs="*", default=None, choices=["masks", "boxes", "article-dsbowl", None]
+        "which",
+        nargs="*",
+        default=None,
+        choices=["masks", "boxes", "article-dsbowl", "article-bccd", None],
     )
     parser.add_argument(
         "--dsbowl",
@@ -282,6 +352,8 @@ def main() -> None:
         masks([Path(root) for root in arguments.dsbowl])
     if "boxes" in wanted:
         boxes(Path(arguments.bccd))
+    if "article-bccd" in wanted:
+        article_bccd(Path(arguments.bccd))
     if "article-dsbowl" in wanted:
         # The convenient directory on purpose - see that function's docstring.
         article_dsbowl(Path("examples/data/data_science_bowl/stage1_validation"))
