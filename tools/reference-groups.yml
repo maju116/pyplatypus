@@ -143,6 +143,8 @@ groups:
     '
   contents:
   - save_class_masks
+  - save_volumes
+  - save_class_volumes
 - title: When something is wrong
   desc: 'Three kinds, because they are three different problems: a configuration that cannot be
     read, an engine that cannot run it, and weights that do not belong to the model.
