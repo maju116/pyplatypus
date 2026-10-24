@@ -15,6 +15,7 @@ from pyplatypus.data.masks import save_class_masks
 from pyplatypus.data.splits import split_dataset, split_samples
 from pyplatypus.data.volumes import save_class_volumes, save_volumes
 from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
+from pyplatypus.device import device_report
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.instance_engine import InstanceEngine
@@ -59,7 +60,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a37"
+__version__ = "0.8.0a38"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -86,6 +87,7 @@ __all__ = [
     "available_transforms",
     "available_weights",
     "build_engine",
+    "device_report",
     "drawing_style",
     "export_weights",
     "flow_to_colours",

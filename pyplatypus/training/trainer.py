@@ -19,6 +19,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from pyplatypus.data.images import stitch
+from pyplatypus.device import pick_device as _pick_device
 from pyplatypus.objectives import build_loss, build_metrics
 from pyplatypus.objectives import functional as f
 from pyplatypus.spec.models import SegmentationModel
@@ -152,10 +153,10 @@ def format_logs(logs: dict[str, float]) -> str:
     return " ".join(parts)
 
 
-def pick_device(requested: str | None = None) -> torch.device:
-    if requested:
-        return torch.device(requested)
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Re-exported rather than defined: `pyplatypus.device` owns which device a run uses, and
+# the report that tells somebody about it reads the same backends. Two answers to "what
+# will this run on" is the one thing this module must not contain.
+pick_device = _pick_device
 
 
 class Trainer:

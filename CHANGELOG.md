@@ -1,6 +1,61 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a38] - 2026-10-24
+
+What the work will run on, decided and reported in one place.
+`maju116/pyplatypus#265`, `#266`.
+
+### Added
+
+ - **`device_report()`**, exported: the torch version, the CUDA build, which accelerator
+   will be used, what to call it, the architectures a CUDA build carries, and
+   `gpu_present_but_unusable` - the one field worth acting on.
+
+   **It is not new code.** It has existed since the R package was written, in
+   `inst/python/platypus_shim.py` - a file of Python shipped by the *R* package, where no
+   user of this one could reach it. So a Python user whose card the build cannot use was
+   told nothing, while an R user was told twice. The same move as `0.8.0a29`'s volume
+   writer: a mechanism that had been living on the wrong side of the bridge.
+
+   `gpu_present_but_unusable` reads `device_count()` rather than `is_available()`, and
+   that is the whole subtlety: a CUDA 13 build on a Pascal card returns 1 from the first
+   and False from the second - torch enumerates the card and cannot initialise it. Testing
+   for zero detects nothing.
+
+### Fixed
+
+ - **`pick_device()` asked about CUDA and nothing else**, so every Apple Silicon Mac - and
+   this project's own macOS CI - trained on its processor with a working `mps` backend
+   present in the same wheel. It asks `cuda`, `mps` and `xpu` in that order now, and the
+   order is a decision: every published set of weights here was trained on CUDA, so a
+   number from another backend is not obviously comparable.
+
+   A backend that raises while answering `is_available()` counts as unavailable. A build
+   with no CUDA support has done exactly that, and a chooser that propagates it turns a
+   usable processor into a failed run.
+
+### Changed
+
+ - `pick_device` lives in `pyplatypus.device` and the trainer re-exports it. Two answers
+   to *what will this run on* - one choosing, one reporting - cannot be allowed to
+   disagree, and a test pairs them.
+
+### Measured
+
+ - Five mutations, each caught - **but two of them only after the tests learned to fake a
+   machine this one is not.** On hardware with CUDA, restricting the backends to CUDA
+   alone changes no answer and a report that hardcodes `"cuda"` is right by accident: the
+   defect this release fixes is invisible to any test that asks the real machine. Four
+   tests now monkeypatch the backends and ask what an Apple Silicon or Intel machine would
+   be told.
+
+ - `tests/test_public_api.py` reported `device_name()` as a call a message tells somebody
+   to make. It was a false positive of its own pattern - the scanner read the span between
+   a dict key's closing quote and the next literal's opening one as a quoted sentence -
+   and the call moved onto its own line rather than the test being loosened. Its docstring
+   already records it catching its author once; this is the second shape.
+
 ## [0.8.0a37] - 2026-10-24
 
 A fourth callback hook, and the averager that needed it. `maju116/rplatypus#203`.
