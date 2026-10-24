@@ -504,6 +504,11 @@ class SegmentationModel(ModelSpec):
             super().monitorable
             | {f"val_{m.name}" for m in reported}
             | {f"train_{m.name}" for m in reported}
+            # The worst case of the split, for the metrics whose counts pool into one -
+            # validation only, because the training loader is shuffled and a case has no
+            # identity there. This is the number `summarise_cases` tells every reader to
+            # look at, and until it was in the logs no callback could watch it.
+            | {f"val_{m.name}_worst" for m in reported if not m.whole_mask}
         )
 
     @model_validator(mode="after")

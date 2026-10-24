@@ -267,3 +267,37 @@ def test_summarising_nothing_is_an_error():
 def test_rows_without_metrics_are_an_error():
     with pytest.raises(EngineError, match="no metric columns"):
         summarise_cases([{"case": "a"}])
+
+
+# ------------------------------------------- the worst case, from the engine's side
+def test_the_history_carries_the_worst_case(patients):
+    """The engine knows the names the validation loader serves, so the epoch can report it."""
+    engine = Engine(spec_for(patients), device="cpu")
+    histories = engine.fit()
+    history = histories["tiny"]
+
+    assert "val_dice_worst" in history.columns
+    for record in history.records:
+        assert record["val_dice_worst"] <= record["val_dice"] + 1e-9
+
+
+def test_the_history_agrees_with_evaluate_cases_at_the_last_epoch(patients):
+    """Two reports of one quantity, which is what `_PerCase` exists to keep from drifting."""
+    engine = Engine(spec_for(patients), device="cpu")
+    history = engine.fit()["tiny"]
+    rows = engine.evaluate_cases("tiny")
+
+    assert history.records[-1]["val_dice_worst"] == pytest.approx(
+        min(row["dice"] for row in rows), abs=1e-6
+    )
+
+
+def test_a_callback_may_watch_the_worst_case(patients):
+    """It is in the logs, so the validator has to admit it - and it is validation only,
+    because the training loader is shuffled and a case has no identity there."""
+    spec = spec_for(patients, callbacks=[{"name": "early_stopping", "monitor": "val_dice_worst"}])
+    engine = Engine(spec, device="cpu")
+    assert engine.fit()["tiny"] is not None
+
+    with pytest.raises(ConfigError, match="train_dice_worst"):
+        spec_for(patients, callbacks=[{"name": "early_stopping", "monitor": "train_dice_worst"}])

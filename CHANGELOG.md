@@ -1,6 +1,49 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a36] - 2026-10-24
+
+The number this package tells everybody to read becomes one a callback can watch.
+`maju116/rplatypus#205`.
+
+### Added
+
+ - **`val_<metric>_worst` in every epoch**, for the metrics whose counts pool into one
+   score: the lowest any single case scored. `summarise_cases` has said since it was
+   written that *"the minimum is the one nobody publishes and everybody should - a model
+   averaging 0.86 that scores 0.11 on some patient has a failure mode, and the mean is
+   where it hides"*, and then every callback in this package watched a mean. A declaration
+   beside a mechanism that did not describe it.
+
+   `monitor: val_dice_worst` works now, and so does a `when` condition on it.
+
+   **Validation only.** The training loader is shuffled, so a case has no identity in that
+   pass and there is nothing honest to pool by.
+
+### Changed
+
+ - `score_cases` and the epoch share one definition of a case's score, `_PerCase`. The
+   pooling is a ratio of sums - a case's tiles, or a patient's slices, are added up and the
+   formula applied once - and that arithmetic now exists in one place rather than in the
+   two that report it.
+
+### Measured
+
+ - **The worst case costs 5.6% of an epoch**, on 40 cases at 128x128 on this machine's
+   processor: 620.9 ms of training plus 366.3 ms of validation becomes 1042.6 ms. It is
+   computed in the pass that already happened - the counts are three reductions on a batch
+   that has been forwarded anyway - rather than in a second pass, which would have doubled
+   every epoch's validation to report a number the first one had the parts for.
+
+   The share *of the validation pass alone* came out 23.3% and then 15.1% on two runs of
+   the same measurement, so the epoch figure is the one worth quoting and the other is
+   noise.
+
+ - Five mutations, each caught: reporting the best instead of the worst fails 4 tests,
+   replacing a case's accumulation with its last piece fails 1, not noticing more examples
+   than names fails 1, not reporting it at all fails 5, and a spec that does not admit the
+   key fails 1.
+
 ## [0.8.0a35] - 2026-10-24
 
 The quiet failure of segmentation becomes a number, and then a refusal.

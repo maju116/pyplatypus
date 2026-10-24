@@ -26,6 +26,38 @@ from pyplatypus.training.callbacks import Callback, TrainingState, build_callbac
 from pyplatypus.training.optimizers import build_optimizer, parameter_groups
 
 
+class _PerCase:
+    """Overlap counts summed per case, which is how a case's score is assembled.
+
+    A case arrives in pieces - the tiles of one image, or the images of one patient - and
+    a counting metric is a ratio of sums, so the pieces' counts are added and the formula
+    is applied once. Averaging the pieces' scores is a different number, and the
+    difference is largest where it matters most: a tile holding a sliver of the object
+    scores badly and drags down a case the model segmented well.
+
+    One class rather than that arithmetic twice: `score_cases` reports these per case and
+    an epoch reads the worst of them, and the two must not be able to disagree about what
+    a case's score is.
+    """
+
+    def __init__(self) -> None:
+        self.totals: dict[str, list[torch.Tensor]] = {}
+        self.order: list[str] = []
+
+    def add(self, case: str, tp: torch.Tensor, fp: torch.Tensor, fn: torch.Tensor) -> None:
+        if case not in self.totals:
+            self.totals[case] = [torch.zeros_like(tp) for _ in range(3)]
+            self.order.append(case)
+        for slot, value in enumerate((tp, fp, fn)):
+            self.totals[case][slot] += value
+
+    def scores(self, metric: Any) -> dict[str, float]:
+        """One number per case for a metric that accumulates."""
+        return {
+            case: metric.reduce(metric.combine(*self.totals[case])).item() for case in self.order
+        }
+
+
 @dataclass
 class History:
     """One row per epoch. Plain data, so it crosses into R as a data.frame."""
@@ -184,6 +216,12 @@ class Trainer:
             return torch.stack([call(o) for o in out]).mean(), out[-1]
         return call(out), out
 
+    def _hard(self, final: torch.Tensor) -> torch.Tensor:
+        """The prediction as a decision rather than a score, the way scoring reads it."""
+        if self.multilabel:
+            return (final > 0).to(final.dtype)
+        return f.as_onehot(final.argmax(dim=1), final.shape[1])
+
     def foreground_share(self, final: torch.Tensor) -> float:
         """What fraction of the predicted voxels is not background.
 
@@ -222,7 +260,30 @@ class Trainer:
             return self.metrics
         return {name: m for name, m in self.metrics.items() if m.accumulates}
 
-    def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str) -> dict[str, float]:
+    def _run_epoch(
+        self,
+        loader: DataLoader,
+        *,
+        train: bool,
+        prefix: str,
+        cases: Sequence[str] | None = None,
+    ) -> dict[str, float]:
+        """One pass. With `cases`, the epoch also reports its **worst** case per metric.
+
+        The distribution is the finding, and every callback in this package watches a mean -
+        which is the number `summarise_cases` exists to warn about. `val_dice_worst` is
+        that warning made watchable: a model averaging 0.86 that scores 0.11 on some
+        patient has a failure mode, and only the minimum says so.
+
+        Computed in this pass rather than in a second one. The validation loader is never
+        shuffled, so a case's identity is positional exactly as `evaluate_cases` derives
+        it, and the counts a case needs are three reductions on a batch that has already
+        been forwarded. A second pass would double the validation time of every epoch to
+        report a number this one already has the parts for.
+
+        Only for metrics that accumulate, and only where `cases` is given - the training
+        pass is shuffled, so no case identity exists there to pool by.
+        """
         self.model.train(train)
         # After model.train(), never before: that call reaches every submodule, so a
         # transferred encoder put in eval() earlier would be switched straight back and
@@ -232,6 +293,8 @@ class Trainer:
         totals: dict[str, float] = {f"{prefix}_loss": 0.0, f"{prefix}_foreground": 0.0}
         totals.update({f"{prefix}_{name}": 0.0 for name in self._per_batch_metrics})
         batches = 0
+        per_case = _PerCase() if cases is not None else None
+        position = 0
 
         with torch.set_grad_enabled(train):
             for batch in loader:
@@ -256,11 +319,29 @@ class Trainer:
                 totals[f"{prefix}_foreground"] += self.foreground_share(final.detach())
                 for name, metric in self._per_batch_metrics.items():
                     totals[f"{prefix}_{name}"] += metric(final, batch_y).detach().item()
+                if per_case is not None:
+                    hard = self._hard(final.detach())
+                    tp, fp, fn = f.overlaps(hard, batch_y)
+                    for offset in range(batch_x.shape[0]):
+                        if position + offset >= len(cases):
+                            raise ValueError(
+                                f"the {prefix} loader served more examples than the "
+                                f"{len(cases)} case names given, so the names cannot be "
+                                "trusted and a score would belong to the wrong case"
+                            )
+                        per_case.add(cases[position + offset], tp[offset], fp[offset], fn[offset])
+                    position += batch_x.shape[0]
                 batches += 1
 
         if batches == 0:
             raise ValueError(f"the {prefix} loader produced no batches")
-        return {key: value / batches for key, value in totals.items()}
+        epoch = {key: value / batches for key, value in totals.items()}
+        if per_case is not None:
+            for name, metric in self._per_batch_metrics.items():
+                if not metric.accumulates:
+                    continue
+                epoch[f"{prefix}_{name}_worst"] = min(per_case.scores(metric).values())
+        return epoch
 
     def _set_transferred_frozen(self, frozen: bool) -> None:
         """Freeze or release the transferred layers.
@@ -284,6 +365,7 @@ class Trainer:
         *,
         epochs: int | None = None,
         verbose: bool = False,
+        validation_cases: Sequence[str] | None = None,
     ) -> History:
         epochs = epochs if epochs is not None else self.spec.epochs
         state = TrainingState(
@@ -302,7 +384,11 @@ class Trainer:
             self._set_transferred_frozen(epoch <= self.spec.freeze_encoder)
             logs = self._run_epoch(train_loader, train=True, prefix="train")
             if validation_loader is not None:
-                logs.update(self._run_epoch(validation_loader, train=False, prefix="val"))
+                logs.update(
+                    self._run_epoch(
+                        validation_loader, train=False, prefix="val", cases=validation_cases
+                    )
+                )
             logs["seconds"] = time.perf_counter() - started
             logs["learning_rate"] = self.optimizer.param_groups[0]["lr"]
 
@@ -377,9 +463,8 @@ class Trainer:
                 "line up one to one"
             )
 
-        totals: dict[str, list[torch.Tensor]] = {}
+        per_case = _PerCase()
         direct: dict[str, dict[str, list[torch.Tensor]]] = {}
-        order: list[str] = []
         position = 0
 
         # A metric that reads the shape of a whole mask cannot be rebuilt from a tile's
@@ -417,11 +502,7 @@ class Trainer:
 
             for offset in range(batch_x.shape[0]):
                 case = cases[position + offset]
-                if case not in totals:
-                    totals[case] = [torch.zeros_like(tp[offset]) for _ in range(3)]
-                    order.append(case)
-                for slot, value in enumerate((tp, fp, fn)):
-                    totals[case][slot] += value[offset]
+                per_case.add(case, tp[offset], fp[offset], fn[offset])
                 for name, value in whole.items():
                     direct.setdefault(name, {}).setdefault(case, []).append(value[offset])
                 if tiled and whole_names:
@@ -438,12 +519,11 @@ class Trainer:
             position += batch_x.shape[0]
 
         rows = []
-        for case in order:
-            case_tp, case_fp, case_fn = totals[case]
+        for case in per_case.order:
             row: dict[str, Any] = {"case": case}
             for name, metric in self.metrics.items():
                 if metric.accumulates:
-                    row[name] = metric.reduce(metric.combine(case_tp, case_fp, case_fn)).item()
+                    row[name] = per_case.scores(metric)[case]
                     continue
                 # Several whole images under one name - `group_by` pooling a patient's
                 # slices, or a disease's fifty photographs - so the group's figure is the

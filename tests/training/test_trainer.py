@@ -451,3 +451,51 @@ def test_an_epoch_reports_the_share_it_actually_predicted(loaders):
 
     assert expected > 0.0, "the fixture predicts no foreground, so this would prove nothing"
     assert scores["val_foreground"] == pytest.approx(expected, abs=1e-6)
+
+
+# ------------------------------------------------- the worst case, not the mean
+# `summarise_cases` tells every reader that the minimum is the number nobody publishes and
+# everybody should. Until this, no callback could watch it: the epoch reported means.
+def test_an_epoch_reports_the_worst_case_when_it_knows_the_cases(loaders):
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+    loader = loaders(spec)
+    names = [f"case{i}" for i in range(len(loader.dataset))]
+
+    logs = trainer._run_epoch(loader, train=False, prefix="val", cases=names)
+
+    assert "val_dice_worst" in logs
+    # The worst of the cases is at most their mean, and strictly below it unless every
+    # case scored the same - which is the degenerate reading this would otherwise permit.
+    assert logs["val_dice_worst"] <= logs["val_dice"] + 1e-9
+
+
+def test_the_worst_case_is_the_minimum_of_what_score_cases_reports(loaders):
+    """One definition of a case's score, checked across the two places that report it."""
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+    loader = loaders(spec)
+    names = [f"case{i}" for i in range(len(loader.dataset))]
+
+    logs = trainer._run_epoch(loader, train=False, prefix="val", cases=names)
+    rows = trainer.score_cases(loader, names)
+
+    assert len(rows) == len(names)
+    assert logs["val_dice_worst"] == pytest.approx(min(row["dice"] for row in rows), abs=1e-6)
+
+
+def test_without_cases_an_epoch_reports_no_worst(loaders):
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+
+    logs = trainer._run_epoch(loaders(spec), train=False, prefix="val")
+
+    assert not [key for key in logs if key.endswith("_worst")]
+
+
+def test_more_examples_than_names_is_refused_rather_than_misattributed(loaders):
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+
+    with pytest.raises(ValueError, match="case names"):
+        trainer._run_epoch(loaders(spec), train=False, prefix="val", cases=["only-one"])
