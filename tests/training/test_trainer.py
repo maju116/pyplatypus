@@ -499,3 +499,39 @@ def test_more_examples_than_names_is_refused_rather_than_misattributed(loaders):
 
     with pytest.raises(ValueError, match="case names"):
         trainer._run_epoch(loaders(spec), train=False, prefix="val", cases=["only-one"])
+
+
+# ------------------------------------------- the fourth hook, where the trainer fires it
+def test_the_batch_hook_fires_once_per_step_and_only_while_training(loaders):
+    """Counted rather than asserted to be non-zero: the number of steps is the number of
+    batches, and a hook that fired twice or fired on validation would still be 'non-zero'."""
+    from pyplatypus.training.callbacks import Callback, TrainingState
+
+    seen = []
+
+    class Counting(Callback):
+        def on_batch_end(self, state):
+            seen.append(state.step)
+
+    spec = model_spec()
+    model = build_model(spec, n_class=2)
+    trainer = Trainer(model, spec, device="cpu", callbacks=[Counting()])
+    loader = loaders(spec)
+    batches = len(loader)
+    state = TrainingState(model=model, optimizer=trainer.optimizer, total_epochs=1)
+
+    trainer._run_epoch(loader, train=True, prefix="train", state=state)
+    assert seen == list(range(1, batches + 1))
+    assert state.step == batches
+
+    seen.clear()
+    trainer._run_epoch(loader, train=False, prefix="val", state=state)
+    assert seen == [], "a validation batch is not a step"
+    assert state.step == batches
+
+
+def test_without_a_state_the_hook_cannot_fire_and_nothing_breaks(loaders):
+    """`evaluate()` runs an epoch with no state at all, which must stay true."""
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+    assert "val_loss" in trainer.evaluate(loaders(spec))

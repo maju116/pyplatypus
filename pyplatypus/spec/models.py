@@ -208,6 +208,25 @@ class ModelSpec(SpecModel):
         return self
 
     @model_validator(mode="after")
+    def one_averager(self):
+        """`ema` and `swa` both replace the model's weights when training ends.
+
+        Two of them would replace it twice, in whichever order the list happened to have
+        them, and the second would average nothing that the first had not already
+        rewritten. They answer the same question with different weightings, so a run picks
+        one.
+        """
+        averagers = [c.name for c in self.callbacks if c.name in ("ema", "swa")]
+        if len(averagers) > 1:
+            raise ValueError(
+                f"these callbacks are two weight averagers ({', '.join(averagers)}) and "
+                "both replace the model when training ends, so the second would average "
+                "what the first had already written. Keep one: `swa` folds the tail "
+                "uniformly from a declared start, `ema` weights recent steps more."
+            )
+        return self
+
+    @model_validator(mode="after")
     def callbacks_watch_something_that_exists(self):
         """A callback watching 'val_dice' when no Dice metric was requested would wait
         forever for a number that never arrives. The old package could not catch this

@@ -1468,6 +1468,46 @@ class TerminateOnCollapse(_Callback):
     )
 
 
+class Ema(_Callback):
+    """An exponential moving average of the weights, updated every optimiser step.
+
+    `swa`'s sibling and the other answer to the same observation: the last epoch's corner
+    is not the middle of the basin. `swa` averages the tail uniformly from a declared
+    start; this weights recent weights more and needs no start at all, because an average
+    with a decay forgets the beginning by itself.
+
+    **Updated per step, which is what makes it the estimator the literature means.** A
+    decay of 0.999 is 0.999 per *step*: over 60 epochs of 200 batches that is 12,000
+    updates and a half-life of about 700 steps. Announced per epoch the same number would
+    do almost nothing, and offering it that way would have been publishing a name whose
+    documented values mean something else - which is why `0.8.0a37` added a fourth
+    callback hook rather than approximating one.
+
+    Buffers are averaged too, which is the difference from `swa`: there a pass over the
+    training data recomputes batch-normalisation statistics at the end, because a uniform
+    average of weights has no matching statistics. An exponential average that also
+    averages the buffers carries its own, so it needs no second pass over the data.
+
+    One averager per run: `ema` and `swa` together are refused rather than silently
+    applied in the order the list happened to have them.
+    """
+
+    name: Literal["ema"] = Field("ema", description=_CALLBACK_NAME)
+    decay: float = Field(
+        0.999,
+        gt=0,
+        lt=1,
+        description=(
+            "How much of the average survives each step. 0.999 is the usual value and "
+            "means a half-life of about 700 steps - roughly three and a half epochs at "
+            "200 batches each. **Per step, not per epoch**, so the published values "
+            "transfer: a run with few steps wants a smaller number, because an average "
+            "that forgets more slowly than the run is long never leaves its starting "
+            "point. The model is replaced by the average when training ends."
+        ),
+    )
+
+
 class CsvLogger(_Callback):
     """The history, written as it arrives.
 
@@ -1504,6 +1544,7 @@ CallbackSpec = Annotated[
     | ModelCheckpoint
     | ReduceLrOnPlateau
     | CosineAnnealing
+    | Ema
     | LinearAnnealing
     | StepDecay
     | StopAfter

@@ -12,6 +12,9 @@ from pyplatypus.spec.components import (
     EarlyStopping as EarlyStoppingSpec,
 )
 from pyplatypus.spec.components import (
+    Ema as EmaSpec,
+)
+from pyplatypus.spec.components import (
     LinearAnnealing as LinearAnnealingSpec,
 )
 from pyplatypus.spec.components import (
@@ -436,3 +439,68 @@ def test_the_floor_is_a_floor_and_not_a_test_for_zero(state):
 def test_it_can_watch_the_training_share_instead(state):
     callback = build_callbacks([TerminateOnCollapseSpec(patience=2, monitor="train_foreground")])[0]
     assert collapse(callback, state, [0.0, 0.0], key="train_foreground") == 2
+
+
+# ------------------------------------------------------- a weight average fed per step
+def test_ema_folds_every_step_and_replaces_the_model(state):
+    ema = build_callbacks([EmaSpec(decay=0.5)])[0]
+    ema.on_train_begin(state)
+
+    before = state.model.weight.detach().clone()
+    for _ in range(4):
+        with torch.no_grad():
+            state.model.weight.add_(1.0)
+        state.step += 1
+        ema.on_batch_end(state)
+    moved = state.model.weight.detach().clone()
+    ema.on_train_end(state)
+    after = state.model.weight.detach().clone()
+
+    assert ema._folded == 4
+    # The average lags the weights, which is the whole point: behind the last step and
+    # ahead of where the run started. Two inequalities rather than one, because "it
+    # changed" would also be satisfied by an average that ran away from both.
+    assert torch.all(after < moved)
+    assert torch.all(after > before)
+
+
+def test_a_smaller_decay_lags_less(state):
+    """0.5 keeps half of the past each step; 0.99 keeps almost all of it and moves less."""
+    quick, slow = (
+        build_callbacks([EmaSpec(decay=0.5)])[0],
+        build_callbacks([EmaSpec(decay=0.99)])[0],
+    )
+    quick.on_train_begin(state)
+    slow.on_train_begin(state)
+
+    for _ in range(5):
+        with torch.no_grad():
+            state.model.weight.add_(1.0)
+        state.step += 1
+        quick.on_batch_end(state)
+        slow.on_batch_end(state)
+
+    fast = quick._averaged.module.weight.detach()
+    behind = slow._averaged.module.weight.detach()
+    assert torch.all(fast > behind)
+
+
+def test_an_ema_that_never_stepped_leaves_the_weights_alone(state):
+    """The reasoning `swa` applies to a run that ended before averaging began: there is no
+    average, and substituting the initial weights for one would be a lie about what
+    happened.
+
+    **The weights have to move first, or this proves nothing.** `AveragedModel` is built
+    from the model at `on_train_begin`, so with the model untouched its snapshot and the
+    model are the same tensors and writing one over the other is invisible - which is how
+    the first version of this test passed with the guard removed.
+    """
+    ema = build_callbacks([EmaSpec()])[0]
+    ema.on_train_begin(state)
+    with torch.no_grad():
+        state.model.weight.add_(1.0)
+    moved = state.model.weight.detach().clone()
+
+    ema.on_train_end(state)
+
+    assert torch.equal(state.model.weight.detach(), moved)
