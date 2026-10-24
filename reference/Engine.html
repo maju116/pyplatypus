@@ -1124,11 +1124,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="pyplatypus.Engine.evaluate" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.Engine.evaluate">evaluate</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Engine.evaluate(split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Engine.evaluate(split<span class="op">=</span><span class="st">'validation'</span>, <span class="op">*</span>, at<span class="op">=</span><span class="st">'model'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>One row per model: the comparison table the whole multi-model idea is for.</p>
 <section id="parameters-2" class="level4 doc-section doc-section-parameters">
 <h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-2">Parameters</h4>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 2%">
+<col style="width: 2%">
+<col style="width: 91%">
+<col style="width: 4%">
+</colgroup>
 <thead>
 <tr class="header">
 <th>Name</th>
@@ -1143,6 +1149,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td>str</td>
 <td>Which data to score on.</td>
 <td><code>'validation'</code></td>
+</tr>
+<tr class="even">
+<td>at</td>
+<td>str</td>
+<td>Which grid to score on. <code>"model"</code> is each model’s own <code>load_shape</code> and the default, because changing it would silently restate every number anybody has already written down. <code>"source"</code> puts every prediction back on the grid of the file it came from and scores it against the truth <strong>as stored</strong>, so the rows answer one question.</td>
+<td><code>'model'</code></td>
 </tr>
 </tbody>
 </table>
@@ -1190,7 +1202,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
-<p><code>load_shape</code> is the second of those and the one nothing used to say. Each model is scored through its own loader, so a model at <code>input_shape: [512, 512]</code> is measured against a truth reduced to 512 while a model that tiles 2048 is measured against the truth as stored. Both numbers are a real Dice of a real prediction against a real mask; they are not answers to the same question. Measured on retinal vessels (<code>maju116/rplatypus#187</code>), that difference reported a resized model at <strong>+0.0187 where the honest figure was +0.0033</strong>, with the bias reversed on clDice because upsampling smooths a prediction - better against a skeleton, worse against a boundary. So when the rows do not share a grid this says so, once, rather than leaving a table that looks like a comparison. Nothing here rescores: putting two models on one grid is a thing to ask for rather than to do silently, and it is not offered yet.</p>
+<p><code>load_shape</code> is the second of those and the one nothing used to say. At <code>at="model"</code> each model is scored through its own loader, so a model at <code>input_shape: [512, 512]</code> is measured against a truth reduced to 512 while a model that tiles 2048 is measured against the truth as stored. Both numbers are a real Dice of a real prediction against a real mask; they are not answers to the same question. Measured on retinal vessels (<code>maju116/rplatypus#187</code>), that difference reported a resized model at <strong>+0.0187 where the honest figure was +0.0033</strong>, with the bias reversed on clDice because upsampling smooths a prediction - better against a skeleton, worse against a boundary. So when the rows do not share a grid this says so, once, rather than leaving a table that looks like a comparison.</p>
+<p><strong><code>at="source"</code> is what that warning now points at.</strong> The truth is never resampled - only predictions move - which is why the grid is the files’ own rather than one the caller names: a named grid interpolates the very thing every model is being judged against. The column then reads <code>source</code>, because what it has always meant is the grid this row’s numbers were computed on.</p>
+<p>Two things that are the price of it, neither recoverable: interpolating probabilities softens a boundary, and where the forward crop cut anatomy away the inverse pads it with background, which means <em>not examined</em> rather than <em>nothing there</em>. For a comparison the second is correct rather than unfair - a model whose field of view did not contain the organ did not segment it - but a 0.000 arriving that way is a result and not a bug.</p>
+<p><strong>The loss is not reported at <code>at="source"</code>.</strong> A loss is defined by the objective a model was trained with, on the grid it was trained on; re-deriving one from a resampled prediction would be a number with no training meaning and a column somebody would compare.</p>
+<p><strong>The pooling is the same in both</strong>, deliberately: the mean over cases, which is what this table has always reported. <code>evaluate_cases</code> pools a group by adding its counts instead, which is the better statistic and a different number - so <code>at</code> changes the grid and nothing else, and the gap between its two values is the rig it exists to measure rather than that gap plus a change of definition. <code>maju116/rplatypus#196</code> is where the two poolings are written down.</p>
 </section>
 <section id="raises-1" class="level4 doc-section doc-section-raises">
 <h4 class="doc-section doc-section-raises anchored" data-anchor-id="raises-1">Raises</h4>
@@ -1219,17 +1235,23 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="pyplatypus.Engine.evaluate_cases" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.Engine.evaluate_cases">evaluate_cases</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Engine.evaluate_cases(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'validation'</span>, <span class="op">*</span>, group_by<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Engine.evaluate_cases(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    model_name<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    split<span class="op">=</span><span class="st">'validation'</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    group_by<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    at<span class="op">=</span><span class="st">'model'</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>One row per case instead of one row per model.</p>
 <p>The comparison table answers “which model”; this answers “on whom does it fail”, which is the question a clinician asks first and the one a single mean cannot answer. With <code>group_by</code>, each row also carries the group - the patient, usually - so the rows can be summarised per patient rather than per slice.</p>
 <section id="parameters-3" class="level4 doc-section doc-section-parameters">
 <h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-3">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
+<col style="width: 4%">
+<col style="width: 4%">
+<col style="width: 85%">
 <col style="width: 5%">
-<col style="width: 6%">
-<col style="width: 81%">
-<col style="width: 7%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1257,6 +1279,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td>str | None</td>
 <td>A pattern picking a group out of each case’s name. With it the rows are patients rather than slices: a patient’s slices are pooled into one score, the way a volume would be.</td>
 <td><code>None</code></td>
+</tr>
+<tr class="even">
+<td>at</td>
+<td>str</td>
+<td>Which grid to score on, as for <code>evaluate</code>. <code>"source"</code> reads each truth as stored and scores the prediction there, which is the only form in which rows from two models - or from two runs with different <code>target_spacing</code> - mean the same thing.</td>
+<td><code>'model'</code></td>
 </tr>
 </tbody>
 </table>
