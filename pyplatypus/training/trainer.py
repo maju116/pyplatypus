@@ -184,6 +184,25 @@ class Trainer:
             return torch.stack([call(o) for o in out]).mean(), out[-1]
         return call(out), out
 
+    def foreground_share(self, final: torch.Tensor) -> float:
+        """What fraction of the predicted voxels is not background.
+
+        Reported every epoch, like the loss, rather than offered as a metric to opt into.
+        It is not a metric: nothing is compared against the truth, and the question it
+        answers is *is this still a segmentation* rather than *is it a good one*. A
+        collapse to background is the quiet failure of this task - with
+        `include_background` the Dice is a mean over class channels and the background
+        channel is nearly perfect, so a collapsed model can report around 0.5 while its
+        loss falls contentedly - and a collapse you have to opt into noticing is one you
+        will not notice.
+
+        Exclusive classes: the argmax is above 0. Independent channels: any channel is on,
+        because there is no single background channel to be above.
+        """
+        if self.multilabel:
+            return (final > 0).any(dim=1).to(torch.float32).mean().item()
+        return (final.argmax(dim=1) > 0).to(torch.float32).mean().item()
+
     @property
     def _per_batch_metrics(self) -> dict[str, Any]:
         """The metrics an epoch can honestly report, which on a tiled run is not all of them.
@@ -210,7 +229,7 @@ class Trainer:
         # its BatchNorm statistics would drift after all.
         if self._frozen and self.transferred is not None:
             self.transferred.eval()
-        totals: dict[str, float] = {f"{prefix}_loss": 0.0}
+        totals: dict[str, float] = {f"{prefix}_loss": 0.0, f"{prefix}_foreground": 0.0}
         totals.update({f"{prefix}_{name}": 0.0 for name in self._per_batch_metrics})
         batches = 0
 
@@ -234,6 +253,7 @@ class Trainer:
                 # that still tracks gradients into a scalar, and it would warn once per
                 # batch for the whole run.
                 totals[f"{prefix}_loss"] += loss.detach().item()
+                totals[f"{prefix}_foreground"] += self.foreground_share(final.detach())
                 for name, metric in self._per_batch_metrics.items():
                     totals[f"{prefix}_{name}"] += metric(final, batch_y).detach().item()
                 batches += 1

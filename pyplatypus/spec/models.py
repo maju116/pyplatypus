@@ -119,8 +119,14 @@ class ModelSpec(SpecModel):
 
     @property
     def monitorable(self) -> set[str]:
-        """Quantities a callback may watch, given what this model reports."""
-        return {"train_loss", "val_loss"}
+        """Quantities a callback may watch, given what this model reports.
+
+        `foreground` is the share of the prediction that is not background, reported every
+        epoch beside the loss. It is not a metric - nothing is compared against the truth -
+        but it is a number an epoch produces, so a callback may watch it and `when` may
+        have a condition on it.
+        """
+        return {"train_loss", "val_loss", "train_foreground", "val_foreground"}
 
     def weights_fingerprint(self) -> dict:
         """What must match for a file of weights to belong to this model.
