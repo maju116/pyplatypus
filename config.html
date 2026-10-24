@@ -1261,7 +1261,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -1545,7 +1545,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -1865,7 +1865,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -2724,6 +2724,27 @@ Put the best weights back when training stops, rather than keeping the last - wh
 </dd>
 </dl>
 </section>
+<section id="callbacks-linear_annealing" class="level4">
+<h4 class="anchored" data-anchor-id="callbacks-linear_annealing"><code>linear_annealing</code></h4>
+<p>Decay the learning rate in a straight line, from its initial value to <code>min_lr</code>.</p>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <code>linear_annealing</code>
+Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.
+</dd>
+<dt><code>min_lr</code></dt>
+<dd>
+a number — <code>0.0</code>
+The rate at the last epoch, which the line descends to from the optimiser’s own learning_rate. Each parameter group descends from its own initial rate, so an encoder_learning_rate is not flattened at the first epoch.
+</dd>
+<dt><code>epochs</code></dt>
+<dd>
+a whole number — unset
+How many epochs to spread the decay over. Unset means the model’s <code>epochs</code>, which is what you want: a line that reaches <code>min_lr</code> where the run ends. Setting it shorter parks the rate at <code>min_lr</code> for the remaining epochs.
+</dd>
+</dl>
+</section>
 <section id="callbacks-model_checkpoint" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-model_checkpoint"><code>model_checkpoint</code></h4>
 <p>The run’s safety net - one file, overwritten.</p>
@@ -2778,6 +2799,37 @@ Epochs to wait, with no improvement, before acting.
 <dd>
 a number — <code>0.0</code>
 The floor the rate will not go below. Unlike <code>cosine_annealing</code>, this one acts on evidence rather than on a schedule, so it may never fire at all - which is why it is not refused alongside <code>swa</code> and a cosine is.
+</dd>
+</dl>
+</section>
+<section id="callbacks-step_decay" class="level4">
+<h4 class="anchored" data-anchor-id="callbacks-step_decay"><code>step_decay</code></h4>
+<p>Multiply the learning rate by <code>factor</code> at fixed points in the run.</p>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <code>step_decay</code>
+Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.
+</dd>
+<dt><code>factor</code></dt>
+<dd>
+a number — <code>0.1</code>
+What the rate is multiplied by at each drop. 0.1 is the usual recipe’s divide by ten. It must be below 1: a step schedule that raises the rate is a different idea with different arguments, and silently accepting it here would hide a typo.
+</dd>
+<dt><code>every</code></dt>
+<dd>
+a whole number — unset
+Drop every this many epochs. Mutually exclusive with <code>milestones</code> - one of the two, never both. A period survives a change to <code>epochs</code>, where a list of milestones does not, so this is the one to prefer when the schedule is yours rather than somebody else’s.
+</dd>
+<dt><code>milestones</code></dt>
+<dd>
+a list of whole numbers — unset
+The epochs to drop at, 1-based, as a published recipe states them - <code>[30, 60]</code> is divide by ten at thirty and again at sixty. Mutually exclusive with <code>every</code>. Strictly increasing, and an epoch past the end of the run is refused rather than ignored, because a milestone that never fires is almost always a number that was meant to fire.
+</dd>
+<dt><code>min_lr</code></dt>
+<dd>
+a number — <code>0.0</code>
+The floor the drops stop at, as in <code>reduce_lr_on_plateau</code>.
 </dd>
 </dl>
 </section>
