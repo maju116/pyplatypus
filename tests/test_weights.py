@@ -761,9 +761,13 @@ def test_a_checkpoint_named_safetensors_can_be_read_by_safetensors(tmp_path):
 def test_the_reader_ignores_the_name_in_both_directions(tmp_path):
     """Both are self-describing, so renaming a file must not change whether it reads."""
     state = a_state()
-    # What every version before 0.8.0a31 wrote when asked for a `.safetensors` checkpoint.
-    torch.save(state, tmp_path / "old.safetensors")
-    assert set(read_state(tmp_path / "old.safetensors")) == set(state)
+    # Written as an archive and then renamed, which is what every version before 0.8.0a31
+    # left on disk when asked for a `.safetensors` checkpoint. Renamed rather than written
+    # straight to that name, because torch 2.14's own `save` and `load` disagree about what
+    # the name means and the fixture must not depend on which side wins.
+    archive = save_state(state, tmp_path / "old.pt").rename(tmp_path / "old.safetensors")
+    assert archive.read_bytes()[:4] == b"PK\x03\x04"  # the premise, or this tests nothing
+    assert set(read_state(archive)) == set(state)
 
     renamed = save_state(state, tmp_path / "new.safetensors").rename(tmp_path / "new.pt")
     assert set(read_state(renamed)) == set(state)
@@ -780,7 +784,8 @@ def test_a_file_that_is_neither_format_says_what_it_begins_with(tmp_path):
 def test_a_torch_checkpoint_named_safetensors_loads_into_a_model(tmp_path):
     """`#256` end to end: the configuration that failed with an error about a header."""
     spec = model_spec()
-    path = tmp_path / "run.safetensors"
-    torch.save(build_model(spec, n_class=2).state_dict(), path)
+    state = build_model(spec, n_class=2).state_dict()
+    path = save_state(state, tmp_path / "run.pt").rename(tmp_path / "run.safetensors")
+    assert path.read_bytes()[:4] == b"PK\x03\x04"
 
     assert load_into(build_model(spec, n_class=2), str(path), spec) is None

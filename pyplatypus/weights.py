@@ -348,8 +348,16 @@ def read_state(path: str | Path) -> dict:
     with source.open("rb") as handle:
         head = handle.read(_SAFETENSORS_HEADER + 1)
     if head.startswith(_ZIP_MAGIC):
+        # An open file rather than a path, because `torch.load` reads the name too: on
+        # torch 2.14 a path ending `.safetensors` is forwarded to safetensors while
+        # `torch.save` still writes a zip under that name, so the defect this function
+        # exists to fix is also inside torch, one layer down. A handle has no name to
+        # dispatch on. Measured: torch 2.7.1 does not do this and CI's 2.14.1 does, which
+        # is why every matrix job failed on a suite that was green here.
+        #
         # weights_only=True so that loading a file cannot execute code that came with it.
-        return torch.load(str(source), map_location="cpu", weights_only=True)
+        with source.open("rb") as archive:
+            return torch.load(archive, map_location="cpu", weights_only=True)
     if head[_SAFETENSORS_HEADER:] == b"{":
         try:
             from safetensors.torch import load_file

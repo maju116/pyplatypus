@@ -267,10 +267,10 @@ def main() -> None:
     arguments = parser.parse_args()
 
     out = Path(arguments.out)
-    # `.pt`, not `.safetensors`, and that is a workaround rather than a preference:
-    # `model_checkpoint` writes with `torch.save` whatever the path says, while `weights:`
-    # chooses its reader from the extension, so a checkpoint named after the files this
-    # package publishes is written in one format and read as another. `#256`.
+    # `.pt`, not `.safetensors`: a checkpoint is the run's safety net rather than a
+    # publication, so it is a torch archive on purpose. It was a workaround when this was
+    # written - the callback wrote one format whatever the path said and the reader chose
+    # the other from the extension - which is `#256`, found here and fixed in `0.8.0a31`.
     checkpoint = out / "tumour.pt"
     print("--- one file per modality, the layout this field is for ---")
     split_modalities(Path(arguments.data), out / "cases", arguments.cases)

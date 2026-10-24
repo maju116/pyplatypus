@@ -37,6 +37,15 @@ One defect, and it is the package disagreeing with its own naming convention.
    Three mutations, each caught: a writer that ignores the extension fails 3 tests, a reader
    that trusts it fails 2, and a reader that returns `{}` rather than refusing fails 1.
 
+   **And the same defect turned out to be inside torch, one layer down.** `torch.load` reads
+   the *name* as well: on **torch 2.14.1** a path ending `.safetensors` is forwarded to
+   `safetensors.torch.load_file`, while `torch.save` still writes a zip under that name - so
+   the first fix failed every CI job on a suite that was green here, where torch is 2.7.1.
+   `read_state()` hands `torch.load` an **open file** rather than a path, because a handle
+   has no name to dispatch on. The fixtures were rebuilt the same way: an archive is written
+   to a `.pt` and renamed, so the test does not depend on which side of torch's own
+   disagreement wins, and it asserts the file really is an archive before reading it.
+
 ### Changed
 
  - `model_checkpoint`'s `path` description says the extension decides the format. The R
