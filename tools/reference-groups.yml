@@ -66,6 +66,7 @@ groups:
 - title: Training
   desc: The engine the task asks for, and the run itself.
   contents:
+  - device_report
   - build_engine
   - Engine
   - Engine.fit

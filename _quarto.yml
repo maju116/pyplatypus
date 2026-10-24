@@ -108,6 +108,7 @@ website:
         - reference/DetectionEngine.loader.qmd
       - section: Training
         contents:
+        - reference/device_report.qmd
         - reference/build_engine.qmd
         - reference/Engine.qmd
         - reference/Engine.fit.qmd
@@ -247,6 +248,7 @@ quartodoc:
   - title: Training
     desc: The engine the task asks for, and the run itself.
     contents:
+    - device_report
     - build_engine
     - Engine
     - Engine.fit
