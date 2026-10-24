@@ -1,6 +1,51 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a37] - 2026-10-24
+
+A fourth callback hook, and the averager that needed it. `maju116/rplatypus#203`.
+
+### Added
+
+ - **`Callback.on_batch_end`**, fired after every optimiser step on the training pass,
+   with `state.step` counting steps since training began. The protocol had three moments
+   and none of them was a step.
+
+   **It cannot stop the run**, and returns nothing to say so. A run that stopped mid epoch
+   would leave a record with training numbers and no validation ones, and every reader of
+   the history - `best()`, the callbacks that watch it, R's `training_history()` - would
+   have to learn that a row may be half a row. `stop_after`'s budget is therefore still
+   the budget plus one epoch, which its own description says.
+
+ - **`ema`**, an exponential moving average of the weights updated every step. `swa`'s
+   sibling and the reason the hook exists: a decay of 0.999 is 0.999 *per step*, which
+   over 60 epochs of 200 batches is 12,000 updates and a half-life of about 700 steps.
+   Announced per epoch the same number would do almost nothing, so offering it that way
+   would have published a name whose documented values mean something else.
+
+   Buffers are averaged alongside the weights, which is the difference from `swa`: a
+   uniform average of weights has batch-normalisation statistics belonging to no epoch, so
+   `swa` recomputes them with a pass over the training data; an exponential average that
+   also averages the buffers carries its own and needs no second pass.
+
+ - **One averager per run.** `ema` and `swa` together are refused: both replace the model
+   when training ends, so the second would average what the first had already written, in
+   whichever order the list happened to have them.
+
+### Measured
+
+ - Five mutations, each caught: firing the hook on validation batches fails 1 test, a step
+   counter that never advances fails 1, an average that is counted but not folded fails 2,
+   a run with no steps that still gets the average fails 1, and two averagers allowed
+   fails 1.
+
+ - **One of those was not caught the first time, and the test was the problem again.**
+   `AveragedModel` is built from the model at `on_train_begin`, so with the weights
+   untouched its snapshot and the model are the same numbers and writing one over the
+   other is invisible. The test now moves the weights before asking whether they were left
+   alone. The same shape as `0.8.0a35`'s range assertion: a check that cannot tell the
+   failure from the success.
+
 ## [0.8.0a36] - 2026-10-24
 
 The number this package tells everybody to read becomes one a callback can watch.

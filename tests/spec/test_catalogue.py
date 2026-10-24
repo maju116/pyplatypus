@@ -117,7 +117,7 @@ def test_the_listings_are_not_trivially_short():
     assert len(available_losses("instance_segmentation")) == 14
     assert len(available_metrics()) == 5
     assert len(available_optimizers()) == 8
-    assert len(available_callbacks()) == 11
+    assert len(available_callbacks()) == 12
     assert len(available_models()) == 4
     assert len(available_models("instance_segmentation")) == 4
     assert len(available_decodings()) == 4

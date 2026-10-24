@@ -267,6 +267,7 @@ class Trainer:
         train: bool,
         prefix: str,
         cases: Sequence[str] | None = None,
+        state: TrainingState | None = None,
     ) -> dict[str, float]:
         """One pass. With `cases`, the epoch also reports its **worst** case per metric.
 
@@ -312,6 +313,14 @@ class Trainer:
                 if train:
                     loss.backward()
                     self.optimizer.step()
+                    # After the step, so a callback that reads the weights reads the ones
+                    # the step produced - and only on the training pass, because a
+                    # validation batch is not a step and an average fed from one would be
+                    # an average of the same weights repeated.
+                    if state is not None:
+                        state.step += 1
+                        for callback in self.callbacks:
+                            callback.on_batch_end(state)
                 # detach before reading: torch >= 2.14 warns about turning a tensor
                 # that still tracks gradients into a scalar, and it would warn once per
                 # batch for the whole run.
@@ -382,7 +391,7 @@ class Trainer:
         for epoch in range(1, epochs + 1):
             started = time.perf_counter()
             self._set_transferred_frozen(epoch <= self.spec.freeze_encoder)
-            logs = self._run_epoch(train_loader, train=True, prefix="train")
+            logs = self._run_epoch(train_loader, train=True, prefix="train", state=state)
             if validation_loader is not None:
                 logs.update(
                     self._run_epoch(

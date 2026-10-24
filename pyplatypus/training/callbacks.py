@@ -35,6 +35,9 @@ from pyplatypus.spec.components import (
     EarlyStopping as EarlyStoppingSpec,
 )
 from pyplatypus.spec.components import (
+    Ema as EmaSpec,
+)
+from pyplatypus.spec.components import (
     LinearAnnealing as LinearAnnealingSpec,
 )
 from pyplatypus.spec.components import (
@@ -84,6 +87,11 @@ class TrainingState:
     #: counts up and stops wherever early stopping stops it.
     total_epochs: int = 0
     epoch: int = 0
+    #: Optimiser steps taken since training began, counted across epochs rather than
+    #: within one. What a per-step average is a function of: a decay of 0.999 means 0.999
+    #: per *step*, and over 60 epochs of 200 batches that is 12,000 updates rather than
+    #: 60. Only the training pass advances it - a validation batch is not a step.
+    step: int = 0
     logs: dict[str, float] = field(default_factory=dict)
     history: list[dict[str, float]] = field(default_factory=list)
     stop_reason: str | None = None
@@ -97,7 +105,26 @@ class TrainingState:
 
 
 class Callback:
+    """Four moments a callback may act on, and the fourth one is deliberately quiet.
+
+    `on_batch_end` fires after every optimiser **step**, on the training pass only, with
+    `state.step` counting steps since training began. It exists because a per-step average
+    is a different estimator from a per-epoch one and cannot be approximated by it: a decay
+    of 0.999 is 0.999 *per step*, which over 60 epochs of 200 batches is 12,000 updates.
+    Announcing it per epoch would have meant offering `ema` under a name whose published
+    values mean something else.
+
+    **It cannot stop the run**, which is why it returns nothing. A run that stopped mid
+    epoch would leave a record with training numbers and no validation ones, and every
+    reader of the history - `best()`, the callbacks that watch it, `training_history()` in
+    R - would have to learn that a row may be half a row. Stopping stays a decision taken
+    where an epoch's numbers are complete; `stop_after`'s budget is therefore the budget
+    plus one epoch, and says so.
+    """
+
     def on_train_begin(self, state: TrainingState) -> None: ...
+
+    def on_batch_end(self, state: TrainingState) -> None: ...
 
     def on_epoch_end(self, state: TrainingState) -> bool:
         """Return True to stop training."""
@@ -523,6 +550,49 @@ class TerminateOnCollapse(Callback):
         return True
 
 
+class Ema(Callback):
+    """A moving average of the weights, folded in after every step.
+
+    `AveragedModel` with torch's own EMA function rather than an average written here, for
+    the same reason `swa` uses it: the averaging rule is somebody else's arithmetic and
+    this package has no opinion about it.
+
+    `use_buffers=True` is the one difference from `swa` and it replaces a pass over the
+    training data: a uniform average of weights has batch-normalisation statistics
+    belonging to no epoch, so `swa` recomputes them at the end; an exponential average of
+    the buffers alongside the weights carries statistics of its own.
+    """
+
+    def __init__(self, decay: float = 0.999):
+        self.decay = decay
+        self._averaged = None
+        self._folded = 0
+
+    def on_train_begin(self, state: TrainingState) -> None:
+        from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
+
+        self._averaged = AveragedModel(
+            state.model, multi_avg_fn=get_ema_multi_avg_fn(self.decay), use_buffers=True
+        )
+        self._folded = 0
+
+    def on_batch_end(self, state: TrainingState) -> None:
+        if self._averaged is None:
+            return
+        self._averaged.update_parameters(state.model)
+        self._folded += 1
+
+    def on_train_end(self, state: TrainingState) -> None:
+        if self._averaged is None or self._folded == 0:
+            # A run that stopped before taking a step has no average, and substituting the
+            # initial weights for one would be a lie about what happened - the same
+            # reasoning `swa` applies to a run that ended before averaging began.
+            return
+        state.model.load_state_dict(self._averaged.module.state_dict())
+        if state.history:
+            state.history[-1]["ema_steps"] = float(self._folded)
+
+
 class CsvLogger(Callback):
     def __init__(self, path: str):
         self.path = Path(path)
@@ -567,6 +637,7 @@ _BUILDERS: dict[type, Any] = {
     CosineAnnealingSpec: lambda s: CosineAnnealing(s.min_lr, s.epochs),
     LinearAnnealingSpec: lambda s: LinearAnnealing(s.min_lr, s.epochs),
     StepDecaySpec: lambda s: StepDecay(s.factor, s.every, s.milestones, s.min_lr),
+    EmaSpec: lambda s: Ema(s.decay),
     SwaSpec: lambda s: Swa(s.start, s.learning_rate, s.start_epoch),
     CsvLoggerSpec: lambda s: CsvLogger(s.path),
     TerminateOnCollapseSpec: lambda s: TerminateOnCollapse(s.floor, s.patience, s.monitor),

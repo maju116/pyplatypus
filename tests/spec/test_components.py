@@ -195,6 +195,27 @@ def test_a_budget_has_to_be_a_positive_number_of_hours(config):
         from_dict(config)
 
 
+def test_two_weight_averagers_are_refused(config):
+    """Both replace the model when training ends, so the second averages what the first
+    already wrote - in whichever order the list happened to have them."""
+    config["models"][0]["callbacks"] = [{"name": "ema"}, {"name": "swa"}]
+    with pytest.raises(ConfigError, match="two weight averagers"):
+        from_dict(config)
+
+
+def test_one_averager_is_fine_either_way(config):
+    for callback in ({"name": "ema"}, {"name": "swa"}):
+        config["models"][0]["callbacks"] = [callback]
+        assert len(from_dict(config).models[0].callbacks) == 1
+
+
+def test_a_decay_outside_zero_to_one_is_refused(config):
+    for decay in (0, 1, 1.5, -0.1):
+        config["models"][0]["callbacks"] = [{"name": "ema", "decay": decay}]
+        with pytest.raises(ConfigError):
+            from_dict(config)
+
+
 def test_not_fitting_without_weights_is_refused(config):
     config["models"][0]["fit"] = False
     with pytest.raises(ConfigError, match="weights"):
