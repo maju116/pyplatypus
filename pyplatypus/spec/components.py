@@ -1103,7 +1103,12 @@ class CosineAnnealing(_Callback):
     """Decay the learning rate along a cosine, from its initial value to `min_lr`.
 
     No `monitor`: it is a function of how far through the run you are, not of how the run
-    is going. That is the difference from `reduce_lr_on_plateau`, and a run may want both.
+    is going. That is the difference from `reduce_lr_on_plateau`, and the two **cannot be
+    combined** - measured rather than assumed. A schedule recomputes the rate from the
+    optimiser's initial value at the end of every epoch, so it erases whatever the plateau
+    callback cut: with both configured the rate follows the cosine exactly, 0.0976, 0.0905,
+    0.0794 from 0.1, where the plateau alone reaches 1e-6 over the same six epochs. This
+    sentence used to say a run may want both, which was never true of the code.
     """
 
     name: Literal["cosine_annealing"] = Field("cosine_annealing", description=_CALLBACK_NAME)
@@ -1127,6 +1132,117 @@ class CosineAnnealing(_Callback):
             "stops the run part way down the curve."
         ),
     )
+
+
+class LinearAnnealing(_Callback):
+    """Decay the learning rate in a straight line, from its initial value to `min_lr`.
+
+    `cosine_annealing`'s simpler sibling and the same shape of argument: a function of how
+    far through the run you are rather than of how the run is going. A straight line spends
+    longer at high rates than a cosine does at the start and less at the end, which is the
+    whole difference; which one is better is a property of the problem and not a thing this
+    package has measured.
+
+    Like every schedule here, it is exclusive with the other schedules and with
+    `reduce_lr_on_plateau`.
+    """
+
+    name: Literal["linear_annealing"] = Field("linear_annealing", description=_CALLBACK_NAME)
+    min_lr: float = Field(
+        0.0,
+        ge=0,
+        description=(
+            "The rate at the last epoch, which the line descends to from the optimiser's own "
+            "learning_rate. Each parameter group descends from its own initial rate, so an "
+            "encoder_learning_rate is not flattened at the first epoch."
+        ),
+    )
+    epochs: int | None = Field(
+        None,
+        ge=1,
+        description=(
+            "How many epochs to spread the decay over. Unset means the model's `epochs`, "
+            "which is what you want: a line that reaches `min_lr` where the run ends. "
+            "Setting it shorter parks the rate at `min_lr` for the remaining epochs."
+        ),
+    )
+
+
+class StepDecay(_Callback):
+    """Multiply the learning rate by `factor` at fixed points in the run.
+
+    The schedule most published recipes are written in - *divide by ten at epochs 30 and
+    60* - which is why it is here beside the curves: reproducing somebody's result should
+    not require translating their staircase into a cosine.
+
+    The rate is computed from the optimiser's initial value and the number of drops so far
+    rather than by repeatedly multiplying what is there, so it does not drift and it is the
+    same whether an epoch is replayed or not.
+    """
+
+    name: Literal["step_decay"] = Field("step_decay", description=_CALLBACK_NAME)
+    factor: float = Field(
+        0.1,
+        gt=0,
+        lt=1,
+        description=(
+            "What the rate is multiplied by at each drop. 0.1 is the usual recipe's divide "
+            "by ten. It must be below 1: a step schedule that raises the rate is a different "
+            "idea with different arguments, and silently accepting it here would hide a typo."
+        ),
+    )
+    every: int | None = Field(
+        None,
+        ge=1,
+        description=(
+            "Drop every this many epochs. Mutually exclusive with `milestones` - one of the "
+            "two, never both. A period survives a change to `epochs`, where a list of "
+            "milestones does not, so this is the one to prefer when the schedule is yours "
+            "rather than somebody else's."
+        ),
+    )
+    milestones: list[int] | None = Field(
+        None,
+        description=(
+            "The epochs to drop at, 1-based, as a published recipe states them - "
+            "`[30, 60]` is divide by ten at thirty and again at sixty. Mutually exclusive "
+            "with `every`. Strictly increasing, and an epoch past the end of the run is "
+            "refused rather than ignored, because a milestone that never fires is almost "
+            "always a number that was meant to fire."
+        ),
+    )
+    min_lr: float = Field(
+        0.0,
+        ge=0,
+        description="The floor the drops stop at, as in `reduce_lr_on_plateau`.",
+    )
+
+    @model_validator(mode="after")
+    def one_way_of_saying_when(self):
+        """`every` or `milestones`, never both and never neither.
+
+        Two fields rather than one that takes either, because `every: 30` and
+        `milestones: [30]` are different schedules and a single field holding an integer or
+        a list would be read by YAML as whichever the author happened to type.
+        """
+        if (self.every is None) == (self.milestones is None):
+            raise ValueError(
+                "step_decay needs exactly one of `every` and `milestones`: `every: 30` "
+                "drops every thirty epochs, `milestones: [30, 60]` drops at those two. "
+                "Both set is two schedules; neither is none."
+            )
+        if self.milestones is not None:
+            if not self.milestones:
+                raise ValueError("step_decay's `milestones` is empty, so it would never drop")
+            if any(epoch < 1 for epoch in self.milestones):
+                raise ValueError(
+                    f"step_decay's `milestones` are 1-based epochs, got {self.milestones}"
+                )
+            if sorted(set(self.milestones)) != list(self.milestones):
+                raise ValueError(
+                    f"step_decay's `milestones` must be strictly increasing, got {self.milestones}"
+                )
+        return self
 
 
 class Swa(_Callback):
@@ -1229,6 +1345,8 @@ CallbackSpec = Annotated[
     | ModelCheckpoint
     | ReduceLrOnPlateau
     | CosineAnnealing
+    | LinearAnnealing
+    | StepDecay
     | Swa
     | CsvLogger
     | TerminateOnNaN,

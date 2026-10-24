@@ -1,6 +1,60 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a33] - 2026-10-24
+
+Two learning-rate schedules, and the discovery that the one we had could not be combined
+with the thing its own docstring said it combined with.
+`maju116/rplatypus#200`.
+
+### Added
+
+ - **`linear_annealing`** - the same shape as `cosine_annealing` with a straight line
+   instead of a curve: `min_lr`, an optional `epochs`, each parameter group descending
+   from its own initial rate.
+ - **`step_decay`** - multiply by `factor` at fixed points, which is how published recipes
+   are written: *divide by ten at epochs 30 and 60*. `every` for a period or `milestones`
+   for the epochs a paper names, **exactly one of the two**, because `every: 30` and
+   `milestones: [30]` are different schedules and one field holding either would be read
+   as whichever the author happened to type. The rate is computed as
+   `initial * factor ** drops` rather than by multiplying what is there, so replaying an
+   epoch cannot double a drop.
+
+### Fixed
+
+ - **A schedule beside `reduce_lr_on_plateau` silently erased the plateau's cuts, and
+   `cosine_annealing`'s docstring had promised the opposite since it shipped.** It said
+   *"a run may want both: a cosine floor with a plateau rescue on top is a legitimate
+   recipe"*. Measured instead of believed - the same six epochs, with a loss that never
+   improves:
+
+       epoch   both configured   the plateau alone
+         1          0.097553           0.100000
+         2          0.090451           0.010000
+         3          0.079389           0.001000
+         4          0.065451           0.000100
+         5          0.050000           0.000010
+         6          0.034549           0.000001
+
+   The left column is the pure cosine from 0.1, digit for digit: a schedule recomputes the
+   rate from the optimiser's initial value at the end of every epoch, so whatever the
+   plateau cut is gone before the next one begins. The spec refuses the pair now, by name,
+   and the docstring says what the code does.
+
+ - **Two schedules in one model are refused** for the same reason, where before the last
+   one in the list won silently.
+
+### Changed
+
+ - **`build_callbacks` declares an order instead of inheriting one.** `swa` pins a constant
+   rate once averaging starts and a schedule recomputes it every epoch, so which one an
+   epoch ended with depended on where they sat in the list and nothing said so. `swa` is
+   moved last - a constant tail rate is the whole point of configuring it - and everything
+   else keeps the order it was written in.
+ - `cosine_annealing`, `linear_annealing` and `step_decay` share a base class, so the
+   horizon, the per-group initial rates and the refusal to run without knowing the run's
+   length exist once rather than three times.
+
 ## [0.8.0a32] - 2026-10-24
 
 The honest comparison becomes a thing to ask for rather than a thing to write yourself.

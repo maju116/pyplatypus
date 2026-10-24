@@ -1,4 +1,5 @@
 import csv
+import itertools
 
 import pytest
 import torch
@@ -11,10 +12,19 @@ from pyplatypus.spec.components import (
     EarlyStopping as EarlyStoppingSpec,
 )
 from pyplatypus.spec.components import (
+    LinearAnnealing as LinearAnnealingSpec,
+)
+from pyplatypus.spec.components import (
     ModelCheckpoint as ModelCheckpointSpec,
 )
 from pyplatypus.spec.components import (
     ReduceLrOnPlateau as ReduceLrOnPlateauSpec,
+)
+from pyplatypus.spec.components import (
+    StepDecay as StepDecaySpec,
+)
+from pyplatypus.spec.components import (
+    Swa as SwaSpec,
 )
 from pyplatypus.spec.components import (
     TerminateOnNaN as TerminateOnNaNSpec,
@@ -134,3 +144,107 @@ def test_terminate_on_nan_stops_immediately(state):
 def test_terminate_on_nan_also_catches_infinity(state):
     callback = build_callbacks([TerminateOnNaNSpec()])[0]
     assert run(callback, state, [float("inf")]) == 1
+
+
+# ------------------------------------------------------ the learning-rate schedules
+# A schedule computes the rate from the optimiser's own initial value and the epoch. The
+# two tests that matter are the shape of the curve and the fact that each parameter group
+# keeps its own starting rate - the second is what `encoder_learning_rate` depends on, and
+# flattening it would be invisible, because the history records one rate: the first group's.
+def two_groups(first: float = 0.1, second: float = 0.01):
+    model = nn.Linear(2, 2)
+    optimizer = torch.optim.SGD(
+        [{"params": [model.weight], "lr": first}, {"params": [model.bias], "lr": second}]
+    )
+    state = TrainingState(model=model, optimizer=optimizer)
+    state.total_epochs = 10
+    return state, optimizer
+
+
+def rates(callback, state, optimizer, epochs, group=0):
+    callback.on_train_begin(state)
+    seen = []
+    for epoch in range(1, epochs + 1):
+        state.epoch, state.logs = epoch, {"val_loss": 1.0}
+        callback.on_epoch_end(state)
+        seen.append(optimizer.param_groups[group]["lr"])
+    return seen
+
+
+def test_linear_annealing_is_a_straight_line_to_min_lr():
+    state, optimizer = two_groups()
+    callback = build_callbacks([LinearAnnealingSpec(min_lr=0.0)])[0]
+
+    seen = rates(callback, state, optimizer, 10)
+    assert seen[0] == pytest.approx(0.09)
+    assert seen[4] == pytest.approx(0.05)
+    assert seen[-1] == pytest.approx(0.0, abs=1e-12)
+    # A line: every step down is the same size.
+    steps = [round(a - b, 12) for a, b in itertools.pairwise(seen)]
+    assert len(set(steps)) == 1
+
+
+def test_a_schedule_past_its_horizon_holds_rather_than_climbing_back():
+    state, optimizer = two_groups()
+    callback = build_callbacks([LinearAnnealingSpec(min_lr=0.001, epochs=5)])[0]
+
+    seen = rates(callback, state, optimizer, 8)
+    assert seen[4] == pytest.approx(0.001)
+    assert seen[7] == pytest.approx(0.001)
+
+
+def test_every_group_descends_from_its_own_rate():
+    """`encoder_learning_rate` exists to start the groups apart; a schedule must keep them so."""
+    state, optimizer = two_groups(first=0.1, second=0.01)
+    callback = build_callbacks([LinearAnnealingSpec(min_lr=0.0)])[0]
+    callback.on_train_begin(state)
+    state.epoch, state.logs = 5, {"val_loss": 1.0}
+    callback.on_epoch_end(state)
+
+    assert optimizer.param_groups[0]["lr"] == pytest.approx(0.05)
+    assert optimizer.param_groups[1]["lr"] == pytest.approx(0.005)
+
+
+def test_step_decay_drops_on_a_period_and_does_not_drift():
+    state, optimizer = two_groups()
+    callback = build_callbacks([StepDecaySpec(factor=0.1, every=2)])[0]
+
+    seen = rates(callback, state, optimizer, 6)
+    assert seen == pytest.approx([0.1, 0.01, 0.01, 0.001, 0.001, 0.0001])
+
+
+def test_step_decay_drops_at_the_epochs_a_recipe_names():
+    state, optimizer = two_groups()
+    callback = build_callbacks([StepDecaySpec(factor=0.1, milestones=[3, 5])])[0]
+
+    seen = rates(callback, state, optimizer, 6)
+    assert seen == pytest.approx([0.1, 0.1, 0.01, 0.01, 0.001, 0.001])
+
+
+def test_step_decay_stops_at_its_floor():
+    state, optimizer = two_groups()
+    callback = build_callbacks([StepDecaySpec(factor=0.1, every=1, min_lr=0.005)])[0]
+
+    seen = rates(callback, state, optimizer, 4)
+    assert seen == pytest.approx([0.01, 0.005, 0.005, 0.005])
+
+
+def test_swa_is_moved_last_whatever_the_list_said():
+    """Two callbacks write the rate in one epoch and the order decided itself before this.
+
+    `swa` pins a constant once averaging starts and a schedule recomputes from the initial
+    rate, so whichever runs second is what the epoch ends with. Written in either order,
+    the answer has to be the same one.
+    """
+    for specs in (
+        [StepDecaySpec(factor=0.1, every=1), SwaSpec(start=0.01, learning_rate=0.05)],
+        [SwaSpec(start=0.01, learning_rate=0.05), StepDecaySpec(factor=0.1, every=1)],
+    ):
+        state, optimizer = two_groups()
+        callbacks = build_callbacks(specs)
+        for callback in callbacks:
+            callback.on_train_begin(state)
+        state.epoch, state.logs = 1, {"val_loss": 1.0}
+        for callback in callbacks:
+            callback.on_epoch_end(state)
+        assert optimizer.param_groups[0]["lr"] == pytest.approx(0.05)

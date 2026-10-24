@@ -98,6 +98,60 @@ def test_checkpoint_requires_a_path(config):
         from_dict(config)
 
 
+# ---------------------------------------------------- one hand on the learning rate
+# A schedule recomputes the rate from the optimiser's initial value every epoch, so two of
+# them fight and the list order decides; a schedule beside `reduce_lr_on_plateau` erases
+# what the plateau cut. Measured: with both, the rate follows the cosine exactly - 0.0976,
+# 0.0905, 0.0794 from 0.1 - where the plateau alone reaches 1e-6 over the same six epochs.
+def test_two_schedules_are_refused(config):
+    config["models"][0]["callbacks"] = [
+        {"name": "cosine_annealing"},
+        {"name": "step_decay", "every": 10},
+    ]
+    with pytest.raises(ConfigError, match="two learning rate schedules"):
+        from_dict(config)
+
+
+def test_a_schedule_beside_the_plateau_callback_is_refused(config):
+    config["models"][0]["callbacks"] = [
+        {"name": "linear_annealing"},
+        {"name": "reduce_lr_on_plateau"},
+    ]
+    with pytest.raises(ConfigError, match="erases what the plateau callback cut"):
+        from_dict(config)
+
+
+def test_a_schedule_beside_swa_is_allowed(config):
+    """They are not in conflict: `swa` pins a constant tail and the order is declared."""
+    config["models"][0]["callbacks"] = [
+        {"name": "step_decay", "milestones": [1]},
+        {"name": "swa", "start": 0.75},
+    ]
+    assert len(from_dict(config).models[0].callbacks) == 2
+
+
+def test_step_decay_needs_exactly_one_way_of_saying_when(config):
+    for callback in (
+        {"name": "step_decay"},
+        {"name": "step_decay", "every": 10, "milestones": [10]},
+    ):
+        config["models"][0]["callbacks"] = [callback]
+        with pytest.raises(ConfigError, match="exactly one of"):
+            from_dict(config)
+
+
+def test_step_decay_refuses_milestones_that_are_not_increasing(config):
+    config["models"][0]["callbacks"] = [{"name": "step_decay", "milestones": [30, 10]}]
+    with pytest.raises(ConfigError, match="strictly increasing"):
+        from_dict(config)
+
+
+def test_step_decay_refuses_a_factor_that_raises_the_rate(config):
+    config["models"][0]["callbacks"] = [{"name": "step_decay", "factor": 1.5, "every": 10}]
+    with pytest.raises(ConfigError):
+        from_dict(config)
+
+
 def test_not_fitting_without_weights_is_refused(config):
     config["models"][0]["fit"] = False
     with pytest.raises(ConfigError, match="weights"):
