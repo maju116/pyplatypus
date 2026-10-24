@@ -163,6 +163,44 @@ class ModelSpec(SpecModel):
             )
         return self
 
+    #: The callbacks that compute the learning rate from the epoch rather than from how
+    #: the run is going. One of them at most, and none of them beside the reactive one -
+    #: see `one_hand_on_the_learning_rate` for the measurement that settles it.
+    SCHEDULES: ClassVar[frozenset[str]] = frozenset(
+        {"cosine_annealing", "linear_annealing", "step_decay"}
+    )
+
+    @model_validator(mode="after")
+    def one_hand_on_the_learning_rate(self):
+        """At most one schedule, and no schedule beside `reduce_lr_on_plateau`.
+
+        A schedule recomputes the rate from the optimiser's initial value at the end of
+        every epoch. Two of them write the same number and the last one in the list wins by
+        accident; a schedule beside the plateau callback **erases the plateau's cuts**,
+        measured rather than supposed - with both configured the rate follows the cosine
+        exactly, 0.0976, 0.0905, 0.0794 from 0.1, where the plateau alone reaches 1e-6 over
+        the same six epochs.
+
+        `cosine_annealing`'s docstring claimed a run may want both for as long as it has
+        existed. It was never true of the code, and this is the refusal that replaces it.
+        """
+        named = [callback.name for callback in self.callbacks]
+        schedules = [name for name in named if name in self.SCHEDULES]
+        if len(schedules) > 1:
+            raise ValueError(
+                f"these callbacks are two learning rate schedules ({', '.join(schedules)}) "
+                "and both write the rate every epoch, so whichever is last in the list "
+                "silently wins. Keep one."
+            )
+        if schedules and "reduce_lr_on_plateau" in named:
+            raise ValueError(
+                f"'{schedules[0]}' and 'reduce_lr_on_plateau' cannot be combined: the "
+                "schedule recomputes the rate from the optimiser's initial value every "
+                "epoch, which erases what the plateau callback cut. Keep the schedule for "
+                "a planned decay, or the plateau callback to react to the run."
+            )
+        return self
+
     @model_validator(mode="after")
     def callbacks_watch_something_that_exists(self):
         """A callback watching 'val_dice' when no Dice metric was requested would wait

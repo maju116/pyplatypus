@@ -33,10 +33,16 @@ from pyplatypus.spec.components import (
     EarlyStopping as EarlyStoppingSpec,
 )
 from pyplatypus.spec.components import (
+    LinearAnnealing as LinearAnnealingSpec,
+)
+from pyplatypus.spec.components import (
     ModelCheckpoint as ModelCheckpointSpec,
 )
 from pyplatypus.spec.components import (
     ReduceLrOnPlateau as ReduceLrOnPlateauSpec,
+)
+from pyplatypus.spec.components import (
+    StepDecay as StepDecaySpec,
 )
 from pyplatypus.spec.components import (
     Swa as SwaSpec,
@@ -187,7 +193,44 @@ class ReduceLrOnPlateau(_Watcher):
         return False
 
 
-class CosineAnnealing(Callback):
+class _Schedule(Callback):
+    """A learning rate that is a function of the epoch, not of how the run is going.
+
+    The horizon and the per-group initial rates are the same for every schedule, and so is
+    the reason each group keeps its own: `encoder_learning_rate` would otherwise be
+    flattened at the first epoch, invisibly, because the history records one
+    `learning_rate` - the first group's.
+    """
+
+    kind = "schedule"
+
+    def __init__(self, min_lr: float = 0.0, epochs: int | None = None):
+        self.min_lr = min_lr
+        self.epochs = epochs
+        self._initial: list[float] = []
+        self._horizon = 0
+
+    def on_train_begin(self, state: TrainingState) -> None:
+        self._initial = [group["lr"] for group in state.optimizer.param_groups]
+        self._horizon = self.epochs if self.epochs is not None else state.total_epochs
+        if self._horizon < 1:
+            raise ValueError(
+                f"{type(self).__name__} needs to know how many epochs the run will take; "
+                "the trainer did not say, and `epochs` was not given on the callback"
+            )
+
+    def factor_at(self, epoch: int) -> float:
+        """How much of the way from `min_lr` to the initial rate this epoch sits."""
+        raise NotImplementedError
+
+    def on_epoch_end(self, state: TrainingState) -> bool:
+        factor = self.factor_at(state.epoch)
+        for group, initial in zip(state.optimizer.param_groups, self._initial, strict=False):
+            group["lr"] = self.min_lr + (initial - self.min_lr) * factor
+        return False
+
+
+class CosineAnnealing(_Schedule):
     """Decay the learning rate along a cosine from its initial value to `min_lr`.
 
     Wanted because the measured BCCD run used it and the specification could not say so.
@@ -208,32 +251,61 @@ class CosineAnnealing(Callback):
       and epoch `total_epochs` trains at `min_lr`.
 
     It is a callback and not a field on the optimizer because that is where this package
-    puts things that change the rate - `reduce_lr_on_plateau` is one too - and because a
-    run may want both: a cosine floor with a plateau rescue on top is a legitimate recipe.
+    puts things that change the rate. It is **not** combinable with
+    `reduce_lr_on_plateau`, and the sentence here used to say the opposite: a schedule
+    recomputes the rate from the initial value every epoch, so it erases the plateau's
+    cuts. The spec refuses the pair rather than letting one silently win.
     """
 
-    def __init__(self, min_lr: float = 0.0, epochs: int | None = None):
+    def factor_at(self, epoch: int) -> float:
+        # Clamped, so a run that goes past the horizon - `fit(epochs=...)` overriding the
+        # spec - holds at min_lr instead of climbing back up the far side of the cosine.
+        progress = min(epoch / self._horizon, 1.0)
+        return (1 + math.cos(math.pi * progress)) / 2
+
+
+class LinearAnnealing(_Schedule):
+    def factor_at(self, epoch: int) -> float:
+        # Clamped for the same reason the cosine is: a run past the horizon holds at
+        # min_lr rather than walking off the end of the line into negative rates.
+        return 1.0 - min(epoch / self._horizon, 1.0)
+
+
+class StepDecay(Callback):
+    """Multiply by `factor` at fixed epochs, computed from the initial rate each time.
+
+    Computed rather than accumulated - `initial * factor ** drops` - so replaying an epoch
+    cannot double a drop, and so the schedule says the same thing whatever else wrote to
+    the learning rate in between.
+    """
+
+    kind = "schedule"
+
+    def __init__(
+        self,
+        factor: float = 0.1,
+        every: int | None = None,
+        milestones: list[int] | None = None,
+        min_lr: float = 0.0,
+    ):
+        self.factor = factor
+        self.every = every
+        self.milestones = milestones
         self.min_lr = min_lr
-        self.epochs = epochs
         self._initial: list[float] = []
-        self._horizon = 0
 
     def on_train_begin(self, state: TrainingState) -> None:
         self._initial = [group["lr"] for group in state.optimizer.param_groups]
-        self._horizon = self.epochs if self.epochs is not None else state.total_epochs
-        if self._horizon < 1:
-            raise ValueError(
-                "cosine_annealing needs to know how many epochs the run will take; the "
-                "trainer did not say, and `epochs` was not given on the callback"
-            )
+
+    def drops_by(self, epoch: int) -> int:
+        if self.milestones is not None:
+            return sum(1 for milestone in self.milestones if milestone <= epoch)
+        return epoch // self.every
 
     def on_epoch_end(self, state: TrainingState) -> bool:
-        # Clamped, so a run that goes past the horizon - `fit(epochs=...)` overriding the
-        # spec - holds at min_lr instead of climbing back up the far side of the cosine.
-        progress = min(state.epoch / self._horizon, 1.0)
-        factor = (1 + math.cos(math.pi * progress)) / 2
-        for group, initial in zip(state.optimizer.param_groups, self._initial):
-            group["lr"] = self.min_lr + (initial - self.min_lr) * factor
+        drops = self.drops_by(state.epoch)
+        for group, initial in zip(state.optimizer.param_groups, self._initial, strict=False):
+            group["lr"] = max(initial * self.factor**drops, self.min_lr)
         return False
 
 
@@ -350,6 +422,8 @@ _BUILDERS: dict[type, Any] = {
     ModelCheckpointSpec: lambda s: ModelCheckpoint(s.path, s.monitor, s.save_best_only),
     ReduceLrOnPlateauSpec: lambda s: ReduceLrOnPlateau(s.monitor, s.factor, s.patience, s.min_lr),
     CosineAnnealingSpec: lambda s: CosineAnnealing(s.min_lr, s.epochs),
+    LinearAnnealingSpec: lambda s: LinearAnnealing(s.min_lr, s.epochs),
+    StepDecaySpec: lambda s: StepDecay(s.factor, s.every, s.milestones, s.min_lr),
     SwaSpec: lambda s: Swa(s.start, s.learning_rate),
     CsvLoggerSpec: lambda s: CsvLogger(s.path),
     TerminateOnNaNSpec: lambda s: TerminateOnNaN(),
@@ -357,4 +431,17 @@ _BUILDERS: dict[type, Any] = {
 
 
 def build_callbacks(specs: list[CallbackSpec]) -> list[Callback]:
-    return [_BUILDERS[type(spec)](spec) for spec in specs]
+    """Built in the order given, except that `swa` is moved last.
+
+    Two callbacks may write the learning rate in one epoch: a schedule, which computes it
+    from the optimiser's initial value, and `swa`, which pins it to a constant once
+    averaging has begun. Which one the epoch ends with decided itself by where they
+    happened to sit in the list, and nothing said so - so the order is fixed here instead.
+    `swa` wins, because a constant tail rate is the whole point of configuring it.
+
+    The spec refuses the other pairs outright: two schedules, or a schedule beside
+    `reduce_lr_on_plateau`, which a schedule erases every epoch.
+    """
+    built = [_BUILDERS[type(spec)](spec) for spec in specs]
+    # Stable, so everything else keeps the order it was written in.
+    return sorted(built, key=lambda callback: isinstance(callback, Swa))
