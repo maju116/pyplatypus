@@ -2736,7 +2736,7 @@ Which callback, and it decides which other keys this block accepts. Giving a key
 <dt><code>path</code></dt>
 <dd>
 text — <strong>required</strong>
-Where to write the checkpoint. One file, overwritten - this is the run’s safety net, not a history; <code>export_weights()</code> is what produces a file to publish, with a sidecar recording what it is.
+Where to write the checkpoint. One file, overwritten - this is the run’s safety net, not a history; <code>export_weights()</code> is what produces a file to publish, with a sidecar recording what it is. <strong>The extension decides the format</strong>: <code>.safetensors</code> is written as safetensors and anything else as a torch archive, which is what <code>.pt</code> has always meant here. Reading does not depend on the name - both formats are recognised by their contents - so a file written by an older version still loads under whatever it was called.
 </dd>
 <dt><code>monitor</code></dt>
 <dd>
