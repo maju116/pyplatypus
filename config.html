@@ -1261,7 +1261,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_collapse</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -1545,7 +1545,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_collapse</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -1865,7 +1865,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_collapse</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -2892,6 +2892,32 @@ Do not act before this epoch, 1-based. Mutually exclusive with <code>start</code
 a number — unset
 Hold the rate at this value once averaging begins. Unset leaves whatever the run was doing.
 Worth setting, and the reason is the whole mechanism: averaging is only worth something while the weights are still moving. A rate that has decayed towards zero produces a set of nearly identical snapshots, and their average is the last one.
+</dd>
+</dl>
+</section>
+<section id="callbacks-terminate_on_collapse" class="level4">
+<h4 class="anchored" data-anchor-id="callbacks-terminate_on_collapse"><code>terminate_on_collapse</code></h4>
+<p>End the run when the model stops predicting any foreground at all.</p>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <code>terminate_on_collapse</code>
+Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.
+</dd>
+<dt><code>floor</code></dt>
+<dd>
+a number — <code>0.0001</code>
+Below this share of foreground the prediction counts as collapsed. A floor rather than exactly zero, because a model predicting 0.01% foreground on a target that is 14% foreground has collapsed in every sense that matters. The default is deliberately far below any real target: this is a guard against a failure, not a quality threshold, and a floor near a real foreground share would end runs that were merely bad.
+</dd>
+<dt><code>patience</code></dt>
+<dd>
+a whole number — <code>3</code>
+Epochs in a row below the floor before the run ends. An early epoch legitimately predicts almost nothing, which is why this is not 1.
+</dd>
+<dt><code>monitor</code></dt>
+<dd>
+text — <code>val_foreground</code>
+Which foreground share to watch. <code>train_foreground</code> is the other one, and it answers a different question: a model collapsing on the training data has a different problem from one collapsing only on data it has not seen.
 </dd>
 </dl>
 </section>
