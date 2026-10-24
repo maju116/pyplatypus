@@ -152,6 +152,49 @@ def test_step_decay_refuses_a_factor_that_raises_the_rate(config):
         from_dict(config)
 
 
+# ------------------------------------------- when a callback begins, and what it keeps
+def test_a_warm_up_cannot_be_said_two_ways(config):
+    for callback in (
+        {"name": "early_stopping", "start": 0.1, "start_epoch": 5},
+        {"name": "swa", "start": 0.5, "start_epoch": 5},
+    ):
+        config["models"][0]["callbacks"] = [callback]
+        with pytest.raises(ConfigError, match="not both"):
+            from_dict(config)
+
+
+def test_swa_still_takes_either_on_its_own(config):
+    """`start` carries a default, so the refusal has to read what was written rather than
+    what the value is - 0.75 is both the default and a legitimate thing to ask for."""
+    config["models"][0]["callbacks"] = [{"name": "swa", "start_epoch": 5}]
+    assert from_dict(config).models[0].callbacks[0].start_epoch == 5
+
+    config["models"][0]["callbacks"] = [{"name": "swa", "start": 0.5}]
+    assert from_dict(config).models[0].callbacks[0].start == pytest.approx(0.5)
+
+
+def test_a_condition_on_a_quantity_this_model_will_never_report_is_refused(config):
+    config["models"][0]["callbacks"] = [
+        {"name": "model_checkpoint", "path": "out.pt", "when": {"val_dice": 0.9}}
+    ]
+    with pytest.raises(ConfigError, match="condition on 'val_dice'"):
+        from_dict(config)
+
+
+def test_a_condition_on_a_quantity_it_does_report_is_accepted(config):
+    config["models"][0]["metrics"] = [{"name": "dice"}]
+    config["models"][0]["callbacks"] = [
+        {"name": "model_checkpoint", "path": "out.pt", "when": {"val_dice": 0.9}}
+    ]
+    assert from_dict(config).models[0].callbacks[0].when == {"val_dice": 0.9}
+
+
+def test_a_budget_has_to_be_a_positive_number_of_hours(config):
+    config["models"][0]["callbacks"] = [{"name": "stop_after", "hours": 0}]
+    with pytest.raises(ConfigError):
+        from_dict(config)
+
+
 def test_not_fitting_without_weights_is_refused(config):
     config["models"][0]["fit"] = False
     with pytest.raises(ConfigError, match="weights"):

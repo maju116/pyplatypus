@@ -1,6 +1,62 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a34] - 2026-10-24
+
+Three answers to one question - *when may this callback act, and on what evidence* -
+shipped together because they are one vocabulary rather than three features.
+`maju116/rplatypus#199`, `#201`, `#207`.
+
+### Added
+
+ - **`early_stopping` takes a warm-up**: `start` as a fraction of the run or `start_epoch`
+   as an epoch, exactly one of the two. `patience` alone could not express it, because it
+   is in force for the whole run: a model that needs fifteen epochs before its validation
+   curve means anything forced `patience > 15` permanently, paying the same slack at the
+   end where the point was to cut quickly.
+
+   **It delays the stopping and nothing else.** An epoch inside the warm-up can still be
+   the best one and `restore_best` can still return to it - those are the best weights the
+   run has if it ends for another reason, and discarding them to tidy the bookkeeping
+   would lose a real answer.
+
+ - **`swa` takes `start_epoch`** as the exclusive alternative to its `start` fraction. The
+   same concept and therefore the same two words, by §3A. Its refusal reads
+   `model_fields_set` rather than the value, because `start` carries a default and 0.75 is
+   both the default and a perfectly good thing to ask for.
+
+ - **`model_checkpoint` takes `when`**: thresholds that must all hold before anything is
+   written, `{val_dice: 0.9, val_loss: 0.2}`. **The direction is derived, not configured** -
+   anything ending in `loss` has to be below its threshold and everything else above it,
+   which is the rule `monitor` already uses, so there is no `above`/`below` to get
+   backwards. The keys are checked against what the model actually reports when the
+   specification is built, the same validator that refuses an impossible `monitor`.
+
+   `when` and `save_best_only` are **both gates**, not alternatives: with both, a file is
+   written when the watched number improves *and* every threshold holds. And a run whose
+   conditions never held **says so when it ends**, because silence there is
+   indistinguishable from a callback nobody configured, and a run that kept no weights is
+   worth knowing about before somebody goes looking for the file.
+
+ - **`stop_after`**, a wall-clock budget in hours. An epoch cap is the wrong instrument:
+   how long an epoch takes is a property of the data and the shape, and the cases where
+   this matters are the ones where that was not what anybody expected. Checked at the end
+   of an epoch, so the real limit is the budget plus one epoch - said in the field's
+   description rather than discovered. The run's `stop_reason` names the clock, so a run
+   that ran out of time does not read as a run that converged.
+
+### Notes
+
+ - A fraction and an epoch are **two fields** in both places, never one that accepts
+   either: `1` and `1.0` are the same value once YAML is parsed, so "epoch one" and "the
+   whole run" would be one configuration and the mistake would be silent - both are in
+   range for both meanings.
+ - Eight mutations, each caught: ignoring the warm-up fails 2 tests, letting it gate the
+   best fails 3, reading a fraction as an epoch fails 1, turning the conditions into an OR
+   fails 4, reading every condition as *above* fails 1, staying silent about a run that
+   wrote nothing fails 1, a clock that never runs out fails 1, and an unchecked condition
+   key fails 1.
+
 ## [0.8.0a33] - 2026-10-24
 
 Two learning-rate schedules, and the discovery that the one we had could not be combined

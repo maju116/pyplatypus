@@ -384,6 +384,6 @@ def available_callbacks() -> list[dict[str, Any]]:
         One row per callback: the name, the arguments it accepts, and what it is for.
 
     >>> next(row for row in available_callbacks() if row["name"] == "early_stopping")["arguments"]
-    ('monitor', 'patience', 'min_delta', 'restore_best')
+    ('monitor', 'patience', 'min_delta', 'restore_best', 'start', 'start_epoch')
     """
     return _rows(CallbackSpec)

@@ -1004,6 +1004,20 @@ _MONITOR = (
     "run with `validation: false`, rather than waiting for a number that never arrives."
 )
 _PATIENCE = "Epochs to wait, with no improvement, before acting."
+#: The pair that says when a callback begins to act. Two fields rather than one that takes
+#: either, because `1` and `1.0` are the same value once YAML is parsed - so "epoch one" and
+#: "the whole run" would be one configuration, and the mistake would be silent, since both
+#: are in range for both meanings.
+_WARMUP_START = (
+    "Do not act before this fraction of the run has passed - 0.1 leaves the first tenth "
+    "alone. Mutually exclusive with `start_epoch`: a fraction survives a change to "
+    "`epochs` and an epoch count does not."
+)
+_WARMUP_EPOCH = (
+    "Do not act before this epoch, 1-based. Mutually exclusive with `start`. This is the "
+    "one to use when the warm-up is a property of the optimisation rather than of the "
+    "run's length - a schedule's warm-up is fifteen epochs whether the run is 60 or 600."
+)
 
 
 class EarlyStopping(_Callback):
@@ -1035,6 +1049,33 @@ class EarlyStopping(_Callback):
             "replaces nothing if a run stops before averaging began."
         ),
     )
+    start: float | None = Field(
+        None,
+        gt=0,
+        lt=1,
+        description=(
+            f"{_WARMUP_START} Unset is no warm-up, which is what this callback did "
+            "before `0.8.0a34`.\n\n"
+            "**It delays the stopping and nothing else.** An epoch before the warm-up ends "
+            "can still become the best one and `restore_best` can still return to it - "
+            "those weights are the best the run has if it ends for some other reason, and "
+            "throwing them away to tidy the bookkeeping would lose a real answer."
+        ),
+    )
+    start_epoch: int | None = Field(
+        None,
+        ge=1,
+        description=_WARMUP_EPOCH,
+    )
+
+    @model_validator(mode="after")
+    def one_way_of_saying_when_to_begin(self):
+        if self.start is not None and self.start_epoch is not None:
+            raise ValueError(
+                "early_stopping takes `start` or `start_epoch`, not both: `start` is a "
+                "fraction of the run and `start_epoch` is an epoch number."
+            )
+        return self
 
 
 class ModelCheckpoint(_Callback):
@@ -1065,6 +1106,27 @@ class ModelCheckpoint(_Callback):
             "Write only when the watched number improves. With `false` every epoch is "
             "written, which is what to use when a run may be interrupted rather than when "
             "the best epoch is wanted."
+        ),
+    )
+    when: dict[str, float] | None = Field(
+        None,
+        description=(
+            "Thresholds that must all hold before anything is written: "
+            "`{val_dice: 0.9, val_loss: 0.2}` writes nothing until the model is at least "
+            "that good. Each key is a quantity this model reports, checked when the "
+            "specification is built rather than at the first epoch.\n\n"
+            "**The direction is derived, not configured.** Anything ending in `loss` has "
+            "to be *below* its threshold and everything else *above* it, which is the same "
+            "rule `monitor` already uses - so there is no `above`/`below` to get backwards."
+            "\n\n"
+            "**This is an extra gate, not a replacement for `save_best_only`.** With both, "
+            "a file is written when the watched number improves *and* every threshold "
+            "holds.\n\n"
+            "**A threshold is a number about your data.** Unlike `patience` or `factor` it "
+            "does not transfer: `val_dice: 0.9` copied from somebody else's configuration "
+            "means something entirely different on other images. And a run whose "
+            "conditions never hold writes nothing at all - the callback says so when the "
+            "run ends, rather than leaving an empty directory to be discovered later."
         ),
     )
 
@@ -1295,6 +1357,14 @@ class Swa(_Callback):
             "weights rather than none."
         ),
     )
+    start_epoch: int | None = Field(
+        None,
+        ge=1,
+        description=(
+            "Do not act before this epoch, 1-based. Mutually exclusive with `start`. This is the one to use when the warm-up is a property of the optimisation rather than of the run's length - a schedule's warm-up is fifteen epochs whether the run is 60 or 600. For `swa` that is the epoch averaging begins at, and it is the "
+            "same concept `early_stopping` names with these two words."
+        ),
+    )
     learning_rate: float | None = Field(
         None,
         gt=0,
@@ -1305,6 +1375,48 @@ class Swa(_Callback):
             "something while the weights are still moving. A rate that has decayed towards "
             "zero produces a set of nearly identical snapshots, and their average is the "
             "last one."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def one_way_of_saying_when_to_begin(self):
+        """`start` or `start_epoch`, never both.
+
+        `start` carries a default, so "was it set" cannot be read off its value - 0.75 is
+        both the default and a perfectly good thing to write. `model_fields_set` is what
+        pydantic knows about the configuration as it was actually written, which is the
+        only thing that can tell the two apart.
+        """
+        if "start" in self.model_fields_set and self.start_epoch is not None:
+            raise ValueError(
+                "swa takes `start` or `start_epoch`, not both: `start` is a fraction of "
+                "the run and `start_epoch` is an epoch number."
+            )
+        return self
+
+
+class StopAfter(_Callback):
+    """End the run on the clock, whatever the epochs say.
+
+    An epoch cap is the wrong instrument for a wall-clock budget: how long an epoch takes
+    is a property of the data and the shape, and the cases where this matters are exactly
+    the ones where that was not what anybody expected. A card shared between queued
+    measurements is the usual reason - a run that overshoots does not cost itself, it costs
+    whatever was waiting behind it.
+
+    **Stopping on the clock is not stopping on evidence**, so the weights at that moment
+    are whichever epoch happened to be last. Pair it with `early_stopping`'s
+    `restore_best`, or with `model_checkpoint`, if what the run produced matters.
+    """
+
+    name: Literal["stop_after"] = Field("stop_after", description=_CALLBACK_NAME)
+    hours: float = Field(
+        gt=0,
+        description=(
+            "The budget, in hours. Checked at the end of each epoch, so the real limit is "
+            "this plus one epoch - said here rather than discovered, because on a long arm "
+            "that remainder is twenty minutes. The run's `stop_reason` names the clock, so "
+            "a run that ran out of time does not read as a run that converged."
         ),
     )
 
@@ -1347,6 +1459,7 @@ CallbackSpec = Annotated[
     | CosineAnnealing
     | LinearAnnealing
     | StepDecay
+    | StopAfter
     | Swa
     | CsvLogger
     | TerminateOnNaN,
