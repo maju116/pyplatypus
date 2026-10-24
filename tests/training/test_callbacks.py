@@ -24,6 +24,9 @@ from pyplatypus.spec.components import (
     StepDecay as StepDecaySpec,
 )
 from pyplatypus.spec.components import (
+    StopAfter as StopAfterSpec,
+)
+from pyplatypus.spec.components import (
     Swa as SwaSpec,
 )
 from pyplatypus.spec.components import (
@@ -248,3 +251,149 @@ def test_swa_is_moved_last_whatever_the_list_said():
         for callback in callbacks:
             callback.on_epoch_end(state)
         assert optimizer.param_groups[0]["lr"] == pytest.approx(0.05)
+
+
+# ------------------------------------------------------------------- the warm-up
+# `patience` alone cannot express "be patient at the start and quick at the end": it is in
+# force for the whole run. These two say when the counting may begin, and nothing else -
+# the best epoch is still recorded from epoch one, because those weights are the best the
+# run has if it ends for another reason.
+def test_a_warm_up_in_epochs_delays_the_stopping_and_nothing_else(state):
+    callback = build_callbacks([EarlyStoppingSpec(patience=2, start_epoch=5)])[0]
+    state.total_epochs = 10
+
+    # Never improves, so without a warm-up this would stop at epoch 2.
+    stopped = run(callback, state, [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+    assert stopped == 6
+
+
+def test_a_warm_up_as_a_fraction_is_resolved_against_the_run(state):
+    callback = build_callbacks([EarlyStoppingSpec(patience=1, start=0.5)])[0]
+    state.total_epochs = 10
+
+    assert run(callback, state, [1.0] * 8) == 6
+
+
+def test_the_best_epoch_is_still_recorded_during_the_warm_up(state):
+    """The weights from epoch 2 are the best this run has; a warm-up must not discard them."""
+    callback = build_callbacks([EarlyStoppingSpec(patience=2, start_epoch=5)])[0]
+    state.total_epochs = 10
+
+    run(callback, state, [1.0, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0])
+    assert callback.best == pytest.approx(0.5)
+
+
+def test_no_warm_up_is_the_old_behaviour(state):
+    """Epoch 1 is an improvement on nothing, so patience starts counting at epoch 2 and
+    a patience of 2 stops at epoch 3. The warm-up test above moves exactly this."""
+    callback = build_callbacks([EarlyStoppingSpec(patience=2)])[0]
+    state.total_epochs = 10
+
+    assert run(callback, state, [1.0] * 5) == 3
+
+
+# -------------------------------------------------------- what is worth keeping
+def test_a_checkpoint_waits_for_its_conditions(tmp_path, state):
+    path = tmp_path / "best.pt"
+    callback = build_callbacks(
+        [ModelCheckpointSpec(path=str(path), save_best_only=False, when={"val_dice": 0.9})]
+    )[0]
+    callback.on_train_begin(state)
+
+    for epoch, dice in enumerate([0.50, 0.85, 0.95], start=1):
+        state.epoch, state.logs = epoch, {"val_loss": 1.0, "val_dice": dice}
+        callback.on_epoch_end(state)
+
+    assert callback.saved_epoch == 3
+    assert path.exists()
+
+
+def test_the_direction_of_a_condition_is_derived_not_configured(tmp_path, state):
+    """`loss` has to be below its threshold and everything else above it - the same rule
+    `monitor` uses, so there is no `above`/`below` to write backwards."""
+    path = tmp_path / "best.pt"
+    callback = build_callbacks(
+        [
+            ModelCheckpointSpec(
+                path=str(path), save_best_only=False, when={"val_loss": 0.2, "val_dice": 0.9}
+            )
+        ]
+    )[0]
+    callback.on_train_begin(state)
+
+    # Dice is high enough but the loss is not low enough: one gate open is not both.
+    state.epoch, state.logs = 1, {"val_loss": 0.5, "val_dice": 0.95}
+    callback.on_epoch_end(state)
+    assert callback.saved_epoch is None
+
+    state.epoch, state.logs = 2, {"val_loss": 0.1, "val_dice": 0.95}
+    callback.on_epoch_end(state)
+    assert callback.saved_epoch == 2
+
+
+def test_the_conditions_and_save_best_only_are_both_gates(tmp_path, state):
+    path = tmp_path / "best.pt"
+    callback = build_callbacks([ModelCheckpointSpec(path=str(path), when={"val_dice": 0.9})])[0]
+    callback.on_train_begin(state)
+
+    # Improving, but not good enough yet.
+    state.epoch, state.logs = 1, {"val_loss": 1.0, "val_dice": 0.5}
+    callback.on_epoch_end(state)
+    assert callback.saved_epoch is None
+
+    # Good enough, and improving.
+    state.epoch, state.logs = 2, {"val_loss": 0.4, "val_dice": 0.95}
+    callback.on_epoch_end(state)
+    assert callback.saved_epoch == 2
+
+    # Good enough, and not improving: the other gate is still shut.
+    state.epoch, state.logs = 3, {"val_loss": 0.9, "val_dice": 0.99}
+    callback.on_epoch_end(state)
+    assert callback.saved_epoch == 2
+
+
+def test_a_run_that_never_met_its_conditions_says_so(tmp_path, state):
+    """Silence here is indistinguishable from a callback nobody configured."""
+    path = tmp_path / "best.pt"
+    callback = build_callbacks([ModelCheckpointSpec(path=str(path), when={"val_dice": 0.9})])[0]
+    callback.on_train_begin(state)
+    state.epoch, state.logs = 1, {"val_loss": 1.0, "val_dice": 0.1}
+    callback.on_epoch_end(state)
+
+    with pytest.warns(UserWarning, match="wrote nothing"):
+        callback.on_train_end(state)
+    assert not path.exists()
+
+
+# ------------------------------------------------------------------- the clock
+def test_a_spent_budget_ends_the_run_and_says_the_clock_did_it(state):
+    """The clock is moved rather than waited on: what is under test is the comparison,
+    and a test that sleeps for a real budget is a test nobody runs."""
+    callback = build_callbacks([StopAfterSpec(hours=1)])[0]
+    state.total_epochs = 10
+    callback.on_train_begin(state)
+    callback._started -= 2 * 3600
+
+    state.epoch, state.logs = 1, {"val_loss": 1.0}
+    assert callback.on_epoch_end(state) is True
+    assert "stop_after" in state.stop_reason
+    assert "did not converge" in state.stop_reason
+
+
+def test_a_budget_that_is_not_spent_changes_nothing(state):
+    callback = build_callbacks([StopAfterSpec(hours=10)])[0]
+    state.total_epochs = 10
+
+    assert run(callback, state, [1.0, 1.0, 1.0]) is None
+    assert state.stop_reason is None
+
+
+def test_swa_can_be_told_the_epoch_instead_of_the_fraction(state):
+    by_epoch = build_callbacks([SwaSpec(start_epoch=8)])[0]
+    by_fraction = build_callbacks([SwaSpec(start=0.7)])[0]
+    state.total_epochs = 10
+    by_epoch.on_train_begin(state)
+    by_fraction.on_train_begin(state)
+
+    assert by_epoch._first == 8
+    assert by_fraction._first == 8

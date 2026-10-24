@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import csv
 import math
+import time
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -43,6 +45,9 @@ from pyplatypus.spec.components import (
 )
 from pyplatypus.spec.components import (
     StepDecay as StepDecaySpec,
+)
+from pyplatypus.spec.components import (
+    StopAfter as StopAfterSpec,
 )
 from pyplatypus.spec.components import (
     Swa as SwaSpec,
@@ -98,6 +103,21 @@ class Callback:
     def on_train_end(self, state: TrainingState) -> None: ...
 
 
+def first_epoch(start: float | None, start_epoch: int | None, total: int) -> int:
+    """The first epoch at which a callback may act, from whichever of the two was given.
+
+    A fraction is resolved against the run's length, so `start=0.1` over 60 epochs begins
+    at 7 - the first epoch *after* the first tenth, because an epoch is finished or it has
+    not happened. Neither given is epoch 1, which is what every callback here did before
+    `0.8.0a34`.
+    """
+    if start_epoch is not None:
+        return start_epoch
+    if start is not None:
+        return int(total * start) + 1
+    return 1
+
+
 class _Watcher(Callback):
     def __init__(self, monitor: str, min_delta: float = 0.0):
         self.monitor = monitor
@@ -118,12 +138,20 @@ class EarlyStopping(_Watcher):
         patience: int = 10,
         min_delta: float = 0.0,
         restore_best: bool = True,
+        start: float | None = None,
+        start_epoch: int | None = None,
     ):
         super().__init__(monitor, min_delta)
         self.patience = patience
         self.restore_best = restore_best
+        self.start = start
+        self.start_epoch = start_epoch
         self.waited = 0
+        self._from = 1
         self._best_weights: dict[str, torch.Tensor] | None = None
+
+    def on_train_begin(self, state: TrainingState) -> None:
+        self._from = first_epoch(self.start, self.start_epoch, state.total_epochs)
 
     def on_epoch_end(self, state: TrainingState) -> bool:
         value = state.logs[self.monitor]
@@ -134,6 +162,11 @@ class EarlyStopping(_Watcher):
                 self._best_weights = {
                     k: v.detach().clone() for k, v in state.model.state_dict().items()
                 }
+            return False
+        # The best is recorded above whatever the warm-up says; only the counting waits.
+        # An epoch before the warm-up ends is still the best weights this run has if it
+        # ends for some other reason, and discarding it would lose a real answer.
+        if state.epoch < self._from:
             return False
         self.waited += 1
         if self.waited >= self.patience:
@@ -150,23 +183,58 @@ class EarlyStopping(_Watcher):
 
 
 class ModelCheckpoint(_Watcher):
-    def __init__(self, path: str, monitor: str = "val_loss", save_best_only: bool = True):
+    def __init__(
+        self,
+        path: str,
+        monitor: str = "val_loss",
+        save_best_only: bool = True,
+        when: dict[str, float] | None = None,
+    ):
         super().__init__(monitor)
         self.path = Path(path)
         self.save_best_only = save_best_only
+        self.when = when or {}
         self.saved_epoch: int | None = None
 
     def on_train_begin(self, state: TrainingState) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
+    def conditions_hold(self, logs: dict[str, float]) -> bool:
+        """Every threshold, with its direction derived the way `monitor`'s is.
+
+        Anything ending in `loss` has to be below its threshold and everything else above
+        it, so there is no `above`/`below` field to write backwards.
+        """
+        return all(
+            logs[key] <= limit if better_is_lower(key) else logs[key] >= limit
+            for key, limit in self.when.items()
+        )
+
     def on_epoch_end(self, state: TrainingState) -> bool:
         value = state.logs[self.monitor]
         if self.save_best_only and not self.improved(value):
+            return False
+        # An extra gate rather than a replacement: with both, a file is written when the
+        # watched number improves *and* every threshold holds.
+        if not self.conditions_hold(state.logs):
             return False
         self.best = value
         self.saved_epoch = state.epoch
         save_state(state.model.state_dict(), self.path)
         return False
+
+    def on_train_end(self, state: TrainingState) -> None:
+        """Say when nothing was written, because silence here is indistinguishable from
+        a callback nobody configured - and a run that kept no weights is worth knowing
+        about before somebody goes looking for the file."""
+        if self.when and self.saved_epoch is None:
+            conditions = ", ".join(f"{key} {limit}" for key, limit in self.when.items())
+            warnings.warn(
+                f"model_checkpoint wrote nothing: its conditions ({conditions}) never all "
+                f"held, so there is no file at {self.path}. The run is over and its "
+                "weights are whatever the last epoch produced.",
+                stacklevel=2,
+            )
 
 
 class ReduceLrOnPlateau(_Watcher):
@@ -331,8 +399,14 @@ class Swa(Callback):
     run cannot ask for `swa` and `cosine_annealing` at once - the specification refuses it.
     """
 
-    def __init__(self, start: float = 0.75, learning_rate: float | None = None):
+    def __init__(
+        self,
+        start: float = 0.75,
+        learning_rate: float | None = None,
+        start_epoch: int | None = None,
+    ):
         self.start = start
+        self.start_epoch = start_epoch
         self.learning_rate = learning_rate
         self._averaged = None
         self._first: int | None = None
@@ -346,7 +420,13 @@ class Swa(Callback):
         # "average the final weights", which is a no-op rather than a run with nothing
         # averaged at all.
         horizon = max(1, state.total_epochs)
-        self._first = min(horizon, max(1, round(horizon * self.start) + 1))
+        # `start_epoch` says the same thing in epochs, and is clamped to the run's length
+        # for the same reason the fraction is: a start past the end would fold nothing,
+        # and folding the last epoch alone is the honest reading of "begin at the end".
+        if self.start_epoch is not None:
+            self._first = min(horizon, self.start_epoch)
+        else:
+            self._first = min(horizon, max(1, round(horizon * self.start) + 1))
         self._folded = 0
 
     def on_epoch_end(self, state: TrainingState) -> bool:
@@ -381,6 +461,33 @@ class Swa(Callback):
         if not any(isinstance(m, _BATCH_NORM) for m in state.model.modules()):
             return
         update_bn(state.train_loader, state.model, device=next(state.model.parameters()).device)
+
+
+class StopAfter(Callback):
+    """End the run once a wall-clock budget is spent.
+
+    Checked at the end of an epoch, so the real limit is the budget plus one epoch. That
+    is said in the field's description rather than fixed with a per-batch hook, because
+    this package's callbacks do not see a step and adding that for a clock would be a
+    large change for a small gain.
+    """
+
+    def __init__(self, hours: float):
+        self.hours = hours
+        self._started = 0.0
+
+    def on_train_begin(self, state: TrainingState) -> None:
+        self._started = time.perf_counter()
+
+    def on_epoch_end(self, state: TrainingState) -> bool:
+        spent = (time.perf_counter() - self._started) / 3600
+        if spent < self.hours:
+            return False
+        state.stop_reason = (
+            f"stop_after: {spent:.2f} hours spent of a {self.hours:g} hour budget, "
+            f"at epoch {state.epoch}. The clock ran out; the run did not converge."
+        )
+        return True
 
 
 class CsvLogger(Callback):
@@ -418,13 +525,16 @@ class TerminateOnNaN(Callback):
 
 
 _BUILDERS: dict[type, Any] = {
-    EarlyStoppingSpec: lambda s: EarlyStopping(s.monitor, s.patience, s.min_delta, s.restore_best),
-    ModelCheckpointSpec: lambda s: ModelCheckpoint(s.path, s.monitor, s.save_best_only),
+    EarlyStoppingSpec: lambda s: EarlyStopping(
+        s.monitor, s.patience, s.min_delta, s.restore_best, s.start, s.start_epoch
+    ),
+    ModelCheckpointSpec: lambda s: ModelCheckpoint(s.path, s.monitor, s.save_best_only, s.when),
+    StopAfterSpec: lambda s: StopAfter(s.hours),
     ReduceLrOnPlateauSpec: lambda s: ReduceLrOnPlateau(s.monitor, s.factor, s.patience, s.min_lr),
     CosineAnnealingSpec: lambda s: CosineAnnealing(s.min_lr, s.epochs),
     LinearAnnealingSpec: lambda s: LinearAnnealing(s.min_lr, s.epochs),
     StepDecaySpec: lambda s: StepDecay(s.factor, s.every, s.milestones, s.min_lr),
-    SwaSpec: lambda s: Swa(s.start, s.learning_rate),
+    SwaSpec: lambda s: Swa(s.start, s.learning_rate, s.start_epoch),
     CsvLoggerSpec: lambda s: CsvLogger(s.path),
     TerminateOnNaNSpec: lambda s: TerminateOnNaN(),
 }

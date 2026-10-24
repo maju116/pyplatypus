@@ -214,6 +214,15 @@ class ModelSpec(SpecModel):
                     f"callback '{callback.name}' watches '{watched}', which this model "
                     f"does not produce; available: {', '.join(sorted(available))}"
                 )
+            # A condition is a watch with a threshold on it, so it answers to the same
+            # rule: a key this model will never report would wait forever.
+            for key in getattr(callback, "when", None) or {}:
+                if key not in available:
+                    raise ValueError(
+                        f"callback '{callback.name}' has a condition on '{key}', which "
+                        f"this model does not produce; available: "
+                        f"{', '.join(sorted(available))}"
+                    )
         return self
 
     @model_validator(mode="after")
