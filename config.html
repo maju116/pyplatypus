@@ -1261,7 +1261,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -1545,7 +1545,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -1865,7 +1865,7 @@ How the weights are updated. <code>name</code> selects which one and decides whi
 </dd>
 <dt><code>callbacks</code></dt>
 <dd>
-a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_nan</code> — optional
 Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
 </dd>
 <dt><code>augmentation</code></dt>
@@ -2722,6 +2722,17 @@ Improvement smaller than this does not count as improvement. Useful where the wa
 <code>true</code> or <code>false</code> — <code>true</code>
 Put the best weights back when training stops, rather than keeping the last - which are by definition the ones that were not improving. Note that <code>swa</code> replaces nothing if a run stops before averaging began.
 </dd>
+<dt><code>start</code></dt>
+<dd>
+a number — unset
+Do not act before this fraction of the run has passed - 0.1 leaves the first tenth alone. Mutually exclusive with <code>start_epoch</code>: a fraction survives a change to <code>epochs</code> and an epoch count does not. Unset is no warm-up, which is what this callback did before <code>0.8.0a34</code>.
+<strong>It delays the stopping and nothing else.</strong> An epoch before the warm-up ends can still become the best one and <code>restore_best</code> can still return to it - those weights are the best the run has if it ends for some other reason, and throwing them away to tidy the bookkeeping would lose a real answer.
+</dd>
+<dt><code>start_epoch</code></dt>
+<dd>
+a whole number — unset
+Do not act before this epoch, 1-based. Mutually exclusive with <code>start</code>. This is the one to use when the warm-up is a property of the optimisation rather than of the run’s length - a schedule’s warm-up is fifteen epochs whether the run is 60 or 600.
+</dd>
 </dl>
 </section>
 <section id="callbacks-linear_annealing" class="level4">
@@ -2768,6 +2779,14 @@ What to watch: <code>val_loss</code>, <code>train_loss</code>, or <code>val_</co
 <dd>
 <code>true</code> or <code>false</code> — <code>true</code>
 Write only when the watched number improves. With <code>false</code> every epoch is written, which is what to use when a run may be interrupted rather than when the best epoch is wanted.
+</dd>
+<dt><code>when</code></dt>
+<dd>
+a mapping — unset
+Thresholds that must all hold before anything is written: <code>{val_dice: 0.9, val_loss: 0.2}</code> writes nothing until the model is at least that good. Each key is a quantity this model reports, checked when the specification is built rather than at the first epoch.
+<strong>The direction is derived, not configured.</strong> Anything ending in <code>loss</code> has to be <em>below</em> its threshold and everything else <em>above</em> it, which is the same rule <code>monitor</code> already uses - so there is no <code>above</code>/<code>below</code> to get backwards.
+<strong>This is an extra gate, not a replacement for <code>save_best_only</code>.</strong> With both, a file is written when the watched number improves <em>and</em> every threshold holds.
+<strong>A threshold is a number about your data.</strong> Unlike <code>patience</code> or <code>factor</code> it does not transfer: <code>val_dice: 0.9</code> copied from somebody else’s configuration means something entirely different on other images. And a run whose conditions never hold writes nothing at all - the callback says so when the run ends, rather than leaving an empty directory to be discovered later.
 </dd>
 </dl>
 </section>
@@ -2833,6 +2852,22 @@ The floor the drops stop at, as in <code>reduce_lr_on_plateau</code>.
 </dd>
 </dl>
 </section>
+<section id="callbacks-stop_after" class="level4">
+<h4 class="anchored" data-anchor-id="callbacks-stop_after"><code>stop_after</code></h4>
+<p>End the run on the clock, whatever the epochs say.</p>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <code>stop_after</code>
+Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.
+</dd>
+<dt><code>hours</code></dt>
+<dd>
+a number — <strong>required</strong>
+The budget, in hours. Checked at the end of each epoch, so the real limit is this plus one epoch - said here rather than discovered, because on a long arm that remainder is twenty minutes. The run’s <code>stop_reason</code> names the clock, so a run that ran out of time does not read as a run that converged.
+</dd>
+</dl>
+</section>
 <section id="callbacks-swa" class="level4">
 <h4 class="anchored" data-anchor-id="callbacks-swa"><code>swa</code></h4>
 <p>Average the weights over the last part of the run instead of taking the final ones.</p>
@@ -2846,6 +2881,11 @@ Which callback, and it decides which other keys this block accepts. Giving a key
 <dd>
 a number — <code>0.75</code>
 The fraction of the run after which averaging begins - 0.75 folds the last quarter. A fraction rather than an epoch so that it survives a change to <code>epochs</code>, and the final epoch is always folded, so 1.0 averages one set of weights rather than none.
+</dd>
+<dt><code>start_epoch</code></dt>
+<dd>
+a whole number — unset
+Do not act before this epoch, 1-based. Mutually exclusive with <code>start</code>. This is the one to use when the warm-up is a property of the optimisation rather than of the run’s length - a schedule’s warm-up is fifteen epochs whether the run is 60 or 600. For <code>swa</code> that is the epoch averaging begins at, and it is the same concept <code>early_stopping</code> names with these two words.
 </dd>
 <dt><code>learning_rate</code></dt>
 <dd>

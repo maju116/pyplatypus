@@ -837,6 +837,7 @@
                 "model_checkpoint": "#/$defs/ModelCheckpoint",
                 "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
                 "step_decay": "#/$defs/StepDecay",
+                "stop_after": "#/$defs/StopAfter",
                 "swa": "#/$defs/Swa",
                 "terminate_on_nan": "#/$defs/TerminateOnNaN"
               },
@@ -860,6 +861,9 @@
               },
               {
                 "$ref": "#/$defs/StepDecay"
+              },
+              {
+                "$ref": "#/$defs/StopAfter"
               },
               {
                 "$ref": "#/$defs/Swa"
@@ -1157,6 +1161,35 @@
           "description": "Put the best weights back when training stops, rather than keeping the last - which are by definition the ones that were not improving. Note that `swa` replaces nothing if a run stops before averaging began.",
           "title": "Restore Best",
           "type": "boolean"
+        },
+        "start": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 1,
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Do not act before this fraction of the run has passed - 0.1 leaves the first tenth alone. Mutually exclusive with `start_epoch`: a fraction survives a change to `epochs` and an epoch count does not. Unset is no warm-up, which is what this callback did before `0.8.0a34`.\n\n**It delays the stopping and nothing else.** An epoch before the warm-up ends can still become the best one and `restore_best` can still return to it - those weights are the best the run has if it ends for some other reason, and throwing them away to tidy the bookkeeping would lose a real answer.",
+          "title": "Start"
+        },
+        "start_epoch": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Do not act before this epoch, 1-based. Mutually exclusive with `start`. This is the one to use when the warm-up is a property of the optimisation rather than of the run's length - a schedule's warm-up is fifteen epochs whether the run is 60 or 600.",
+          "title": "Start Epoch"
         }
       },
       "title": "EarlyStopping",
@@ -1601,6 +1634,7 @@
                 "model_checkpoint": "#/$defs/ModelCheckpoint",
                 "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
                 "step_decay": "#/$defs/StepDecay",
+                "stop_after": "#/$defs/StopAfter",
                 "swa": "#/$defs/Swa",
                 "terminate_on_nan": "#/$defs/TerminateOnNaN"
               },
@@ -1624,6 +1658,9 @@
               },
               {
                 "$ref": "#/$defs/StepDecay"
+              },
+              {
+                "$ref": "#/$defs/StopAfter"
               },
               {
                 "$ref": "#/$defs/Swa"
@@ -2222,6 +2259,22 @@
           "description": "Write only when the watched number improves. With `false` every epoch is written, which is what to use when a run may be interrupted rather than when the best epoch is wanted.",
           "title": "Save Best Only",
           "type": "boolean"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Thresholds that must all hold before anything is written: `{val_dice: 0.9, val_loss: 0.2}` writes nothing until the model is at least that good. Each key is a quantity this model reports, checked when the specification is built rather than at the first epoch.\n\n**The direction is derived, not configured.** Anything ending in `loss` has to be *below* its threshold and everything else *above* it, which is the same rule `monitor` already uses - so there is no `above`/`below` to get backwards.\n\n**This is an extra gate, not a replacement for `save_best_only`.** With both, a file is written when the watched number improves *and* every threshold holds.\n\n**A threshold is a number about your data.** Unlike `patience` or `factor` it does not transfer: `val_dice: 0.9` copied from somebody else's configuration means something entirely different on other images. And a run whose conditions never hold writes nothing at all - the callback says so when the run ends, rather than leaving an empty directory to be discovered later.",
+          "title": "When"
         }
       },
       "required": [
@@ -2785,6 +2838,7 @@
                 "model_checkpoint": "#/$defs/ModelCheckpoint",
                 "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
                 "step_decay": "#/$defs/StepDecay",
+                "stop_after": "#/$defs/StopAfter",
                 "swa": "#/$defs/Swa",
                 "terminate_on_nan": "#/$defs/TerminateOnNaN"
               },
@@ -2808,6 +2862,9 @@
               },
               {
                 "$ref": "#/$defs/StepDecay"
+              },
+              {
+                "$ref": "#/$defs/StopAfter"
               },
               {
                 "$ref": "#/$defs/Swa"
@@ -3352,6 +3409,30 @@
       "title": "StepDecay",
       "type": "object"
     },
+    "StopAfter": {
+      "additionalProperties": false,
+      "description": "End the run on the clock, whatever the epochs say.\n\nAn epoch cap is the wrong instrument for a wall-clock budget: how long an epoch takes\nis a property of the data and the shape, and the cases where this matters are exactly\nthe ones where that was not what anybody expected. A card shared between queued\nmeasurements is the usual reason - a run that overshoots does not cost itself, it costs\nwhatever was waiting behind it.\n\n**Stopping on the clock is not stopping on evidence**, so the weights at that moment\nare whichever epoch happened to be last. Pair it with `early_stopping`'s\n`restore_best`, or with `model_checkpoint`, if what the run produced matters.",
+      "properties": {
+        "hours": {
+          "description": "The budget, in hours. Checked at the end of each epoch, so the real limit is this plus one epoch - said here rather than discovered, because on a long arm that remainder is twenty minutes. The run's `stop_reason` names the clock, so a run that ran out of time does not read as a run that converged.",
+          "exclusiveMinimum": 0,
+          "title": "Hours",
+          "type": "number"
+        },
+        "name": {
+          "const": "stop_after",
+          "default": "stop_after",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "hours"
+      ],
+      "title": "StopAfter",
+      "type": "object"
+    },
     "SurfaceDiceMetric": {
       "additionalProperties": false,
       "description": "How much of each boundary lies within a tolerance of the other, rather than how much\nof the volume coincides.\n\nDice asks about volume. `cldice` asks about connectedness. Neither asks **how far\nwrong** a boundary is, and that is what is asked of a contour somebody has to approve:\nthe volume vignette ended on a model at Dice 0.88 whose volumes were 12% to 23% too\nlarge, and this is the number that says so directly rather than being inferred from two\ncolumns that disagree. It is also what `boundary` optimises and nothing here reported,\nso that loss was being judged by the metric it exists to improve on.\n\nNormalised surface Dice as published (Nikolov et al., 2018), and symmetric on purpose:\nthe truth's surface near the prediction is the boundary's recall, the prediction's\nsurface near the truth is its precision, and the single ratio weights the two by\nsurface size.\n\n**The one metric here that reads the voxel spacing**, which is why it belongs in a\npackage that carries one. With `target_spacing` set every sample is on a common grid and\n`tau` is in millimetres; without it each sample was resized independently and `tau` is\nin voxels - the same pair of answers the signed distance map gives, and for the same\nreason. A 0.5 mm and a 2.5 mm acquisition are not comparable in voxels at all.\n\nLike `cldice` it is a property of a whole mask, so on a tiled run (`splits`) it is\nreported per case by `evaluate_cases` rather than per batch.",
@@ -3421,6 +3502,20 @@
           "maximum": 1,
           "title": "Start",
           "type": "number"
+        },
+        "start_epoch": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Do not act before this epoch, 1-based. Mutually exclusive with `start`. This is the one to use when the warm-up is a property of the optimisation rather than of the run's length - a schedule's warm-up is fifteen epochs whether the run is 60 or 600. For `swa` that is the epoch averaging begins at, and it is the same concept `early_stopping` names with these two words.",
+          "title": "Start Epoch"
         }
       },
       "title": "Swa",
