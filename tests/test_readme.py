@@ -41,7 +41,7 @@ SECTION_ORDER = [
 def sections() -> list[str]:
     """Top-level sections, skipping fenced code - a `## ` inside a block is not a heading."""
     found, fenced = [], False
-    for line in README.read_text().splitlines():
+    for line in README.read_text(encoding="utf-8").splitlines():
         if re.match(r"^\s*```", line):
             fenced = not fenced
             continue
@@ -88,7 +88,7 @@ def test_the_banner_names_no_version():
     `tests/test_version.py` does that against three places that are supposed to agree - this
     asserts that the README does not repeat it.
     """
-    banner = README.read_text().split("## ", 1)[0]
+    banner = README.read_text(encoding="utf-8").split("## ", 1)[0]
     versions = re.findall(r"\b\d+\.\d+\.\d+[ab]?\d*\b", banner)
 
     allowed = {"0.1.0rc2"}  # the TensorFlow package, named so it can still be installed
@@ -111,7 +111,7 @@ def test_the_readme_pins_no_transform_count():
     count sat in the README unguarded through the rewrite that changed it. A test whose
     docstring claims more than its body is the kind that reads as cover and is none.
     """
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     counted = re.findall(r"\b\d+\b(?=\s+(?:of\s+)?(?:its\s+|the\s+)?transforms?\b)", text)
     counted += re.findall(r"\btransforms?\b[^.\n]{0,30}?\b(\d+)\s+(?:take|work|support)", text)
 
@@ -135,7 +135,7 @@ def test_the_readme_pins_no_count_of_example_programs():
     §3C's rule applies to both - a number in prose needs a test holding it to the
     measurement, or no number at all - so what is asserted is the absence.
     """
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
 
     counted = re.findall(r"\b(?:two|three|four|five|six|\d+)\s+programs?\b", text, re.IGNORECASE)
     assert not counted, (
@@ -157,7 +157,7 @@ def test_every_example_file_the_readme_names_exists():
     beside it, so the names have to resolve. Controlled by renaming one in a scratch copy:
     the assertion fires.
     """
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     named = sorted(set(re.findall(r"`(examples/[A-Za-z0-9_./-]+)`", text)))
     assert len(named) > 3, f"the scan found {len(named)} example paths, so it found nothing"
 
@@ -190,13 +190,24 @@ def _menu_name(written: str) -> str:
     `CCE-Dice` is `cce_dice`, `clDice` is `cldice`, `Lovász` is `lovasz`. Normalising here
     rather than demanding the README use snake_case keeps the page readable and still makes
     the comparison exact.
+
+    The accent is stripped by decomposing and dropping the combining marks rather than by
+    replacing the one character this list happens to contain. The literal version passed
+    here and **failed on both Windows jobs**: `Path.read_text()` with no encoding reads the
+    file in the platform's, so on Windows the UTF-8 bytes of `á` arrived as something else
+    and the replacement matched nothing. Both halves of that are fixed - every read in this
+    file now names UTF-8 - and the general form is kept because the next accented name
+    would otherwise be the same bug again.
     """
     import re as _re
+    import unicodedata
 
     # Whitespace collapsed first: the bullet wraps, so a two-word name arrives with the
     # newline and the next line's indent in the middle of it.
     squeezed = _re.sub(r"\s+", " ", written).strip().lower()
-    return squeezed.replace("á", "a").replace("-", "_").replace(" ", "_")
+    decomposed = unicodedata.normalize("NFKD", squeezed)
+    plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return plain.replace("-", "_").replace(" ", "_")
 
 
 def test_the_feature_list_counts_the_losses_and_metrics_the_engine_offers():
@@ -221,7 +232,7 @@ def test_the_feature_list_counts_the_losses_and_metrics_the_engine_offers():
 
     from pyplatypus import available_losses, available_metrics
 
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
 
     for noun, menu in (("losses", available_losses()), ("metrics", available_metrics())):
         found = _re.search(rf"\*\*(\w+) {noun}\*\*\s*\(([^)]*)\)", text.replace("\n", " "))
