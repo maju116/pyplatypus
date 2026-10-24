@@ -20,6 +20,7 @@ from pyplatypus.spec.components import (
     TerminateOnNaN as TerminateOnNaNSpec,
 )
 from pyplatypus.training.callbacks import TrainingState, better_is_lower, build_callbacks
+from pyplatypus.weights import read_state
 
 
 @pytest.fixture
@@ -84,6 +85,16 @@ def test_checkpoint_only_saves_improvements(tmp_path, state):
     run(callback, state, [1.0, 0.5, 0.7])
     assert path.exists()
     assert callback.saved_epoch == 2  # not 3, which was worse
+
+
+def test_a_checkpoint_is_written_in_the_format_its_path_names(tmp_path, state):
+    """`#256`: the callback wrote a torch archive whatever the path said."""
+    path = tmp_path / "best.safetensors"
+    callback = build_callbacks([ModelCheckpointSpec(path=str(path))])[0]
+    run(callback, state, [1.0, 0.5])
+
+    assert path.read_bytes()[8:9] == b"{"
+    assert set(read_state(path)) == set(state.model.state_dict())
 
 
 def test_checkpoint_can_save_every_epoch(tmp_path, state):

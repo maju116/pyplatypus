@@ -44,6 +44,7 @@ from pyplatypus.spec.components import (
 from pyplatypus.spec.components import (
     TerminateOnNaN as TerminateOnNaNSpec,
 )
+from pyplatypus.weights import save_state
 
 #: The modules whose running statistics an averaged weight tensor cannot carry honestly.
 _BATCH_NORM = (nn.modules.batchnorm._BatchNorm,)
@@ -158,7 +159,7 @@ class ModelCheckpoint(_Watcher):
             return False
         self.best = value
         self.saved_epoch = state.epoch
-        torch.save(state.model.state_dict(), self.path)
+        save_state(state.model.state_dict(), self.path)
         return False
 
 

@@ -1051,7 +1051,11 @@ class ModelCheckpoint(_Callback):
         description=(
             "Where to write the checkpoint. One file, overwritten - this is the run's safety "
             "net, not a history; `export_weights()` is what produces a file to publish, with "
-            "a sidecar recording what it is."
+            "a sidecar recording what it is. **The extension decides the format**: "
+            "`.safetensors` is written as safetensors and anything else as a torch archive, "
+            "which is what `.pt` has always meant here. Reading does not depend on the name - "
+            "both formats are recognised by their contents - so a file written by an older "
+            "version still loads under whatever it was called."
         ),
     )
     monitor: str = Field("val_loss", description=_MONITOR)

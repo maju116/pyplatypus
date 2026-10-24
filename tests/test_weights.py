@@ -25,7 +25,9 @@ from pyplatypus.weights import (
     describe,
     export_weights,
     load_into,
+    read_state,
     resolve_weights,
+    save_state,
 )
 
 
@@ -727,3 +729,63 @@ def test_weights_published_before_this_still_load(tmp_path):
     assert (
         other._load_weights(other.runs["m"].model, str(written), other.runs["m"].spec) is not None
     )
+
+
+# ------------------------------------------------ what a file is, rather than what it is
+# called. `#256`: `model_checkpoint` wrote a torch archive under every name, including the
+# `.safetensors` every published file here uses, and the reader chose its branch from the
+# extension - so following this package's own naming convention produced a file it refused.
+def a_state(n_class: int = 2) -> dict:
+    return build_model(model_spec(), n_class=n_class).state_dict()
+
+
+def test_save_state_writes_the_format_the_extension_names(tmp_path):
+    safetensors = save_state(a_state(), tmp_path / "best.safetensors")
+    archive = save_state(a_state(), tmp_path / "best.pt")
+
+    # A safetensors file opens with an 8-byte header length and then its JSON; a torch
+    # archive is a zip. Asserted on the bytes rather than on a reader, because a reader
+    # that guesses is exactly what was wrong here.
+    assert safetensors.read_bytes()[:4] != b"PK\x03\x04"
+    assert safetensors.read_bytes()[8:9] == b"{"
+    assert archive.read_bytes()[:4] == b"PK\x03\x04"
+
+
+def test_a_checkpoint_named_safetensors_can_be_read_by_safetensors(tmp_path):
+    from safetensors.torch import load_file
+
+    path = save_state(a_state(), tmp_path / "best.safetensors")
+    assert set(load_file(str(path))) == set(a_state())
+
+
+def test_the_reader_ignores_the_name_in_both_directions(tmp_path):
+    """Both are self-describing, so renaming a file must not change whether it reads."""
+    state = a_state()
+    # Written as an archive and then renamed, which is what every version before 0.8.0a31
+    # left on disk when asked for a `.safetensors` checkpoint. Renamed rather than written
+    # straight to that name, because torch 2.14's own `save` and `load` disagree about what
+    # the name means and the fixture must not depend on which side wins.
+    archive = save_state(state, tmp_path / "old.pt").rename(tmp_path / "old.safetensors")
+    assert archive.read_bytes()[:4] == b"PK\x03\x04"  # the premise, or this tests nothing
+    assert set(read_state(archive)) == set(state)
+
+    renamed = save_state(state, tmp_path / "new.safetensors").rename(tmp_path / "new.pt")
+    assert set(read_state(renamed)) == set(state)
+
+
+def test_a_file_that_is_neither_format_says_what_it_begins_with(tmp_path):
+    """`header too large` is what safetensors says about a file that has no header."""
+    path = tmp_path / "notes.safetensors"
+    path.write_bytes(b"these are my notes, not a model")
+    with pytest.raises(WeightsError, match="neither a safetensors header"):
+        read_state(path)
+
+
+def test_a_torch_checkpoint_named_safetensors_loads_into_a_model(tmp_path):
+    """`#256` end to end: the configuration that failed with an error about a header."""
+    spec = model_spec()
+    state = build_model(spec, n_class=2).state_dict()
+    path = save_state(state, tmp_path / "run.pt").rename(tmp_path / "run.safetensors")
+    assert path.read_bytes()[:4] == b"PK\x03\x04"
+
+    assert load_into(build_model(spec, n_class=2), str(path), spec) is None

@@ -76,10 +76,11 @@ models:
       # Without this a two-hour run keeps nothing: the first one wrote only `run.json`, so
       # redrawing a figure cost the whole run again.
       #
-      # `.pt` and not `.safetensors`: this callback is `torch.save(state_dict())`, which is
-      # a pickle, and `export_weights()` is the safetensors path. Naming a pickle after the
-      # format this package chose *because* it is not a pickle is the kind of label that
-      # gets believed - this file said `.safetensors` for one run and the file was a zip.
+      # `.pt` and not `.safetensors`, which since `0.8.0a31` is a preference rather than a
+      # trap: the extension decides the format now, so this name asks for a torch archive and
+      # gets one. It stays a `.pt` because a checkpoint is the run's safety net and
+      # `export_weights()` is what publishes - the pickle belongs where nobody else loads it.
+      # This file said `.safetensors` for one run and the file was a zip; that is `#256`.
       - name: model_checkpoint
         path: examples/output/rim/weights.pt
         monitor: val_dice

@@ -1,6 +1,57 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a31] - 2026-10-24
+
+One defect, and it is the package disagreeing with its own naming convention.
+`pyplatypus#256`.
+
+### Fixed
+
+ - **A checkpoint named `.safetensors` was written as a torch archive and then refused by
+   the reader its own extension had selected.** `model_checkpoint` called `torch.save`
+   whatever the path said; `load_into` chose `safetensors.load_file` when the suffix was
+   `.safetensors`. So the round trip failed with `SafetensorError: Error while deserializing
+   header: header too large` - an error about a header, raised on a file that has none, and
+   naming neither the cause nor the field that caused it.
+
+   **The configuration that breaks is the one in this package's own guide**, on both sides:
+   `- {name: model_checkpoint, monitor: val_iou, path: runs/best.safetensors}` appears in
+   `guide.qmd` and in the R package's `configuration` vignette. Every published set in the
+   registry is `.safetensors`, so a person naming a checkpoint that way is following the
+   convention this package teaches. Found while writing `#202`'s example, which had to work
+   around it with a `.pt` and a comment.
+
+   Fixed in both directions, because they are not alternatives:
+
+     - `save_state()` writes the format the extension names, and is now the **one** writer -
+       `export_weights()` and the checkpoint callback had been two, which is the defect
+       stated from the other end.
+     - `read_state()` reads what the file **is**, from the first bytes: a zip is a torch
+       archive, an 8-byte header length followed by `{` is safetensors. So a file written by
+       an older version of this package loads under whatever name it was given, and renaming
+       a file never changes whether it can be read.
+     - A file that is neither now says what it begins with, instead of letting a library
+       report a header that was never there.
+
+   Three mutations, each caught: a writer that ignores the extension fails 3 tests, a reader
+   that trusts it fails 2, and a reader that returns `{}` rather than refusing fails 1.
+
+   **And the same defect turned out to be inside torch, one layer down.** `torch.load` reads
+   the *name* as well: on **torch 2.14.1** a path ending `.safetensors` is forwarded to
+   `safetensors.torch.load_file`, while `torch.save` still writes a zip under that name - so
+   the first fix failed every CI job on a suite that was green here, where torch is 2.7.1.
+   `read_state()` hands `torch.load` an **open file** rather than a path, because a handle
+   has no name to dispatch on. The fixtures were rebuilt the same way: an archive is written
+   to a `.pt` and renamed, so the test does not depend on which side of torch's own
+   disagreement wins, and it asserts the file really is an archive before reading it.
+
+### Changed
+
+ - `model_checkpoint`'s `path` description says the extension decides the format. The R
+   package's prose for it is unchanged until its pin moves, which is when the field-prose
+   ledger asks.
+
 ## [0.8.0a30] - 2026-10-23
 
 Two things a table and a writer could not say, and the second one is `0.8.0a29`'s own half

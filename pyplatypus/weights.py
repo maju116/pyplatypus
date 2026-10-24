@@ -277,6 +277,103 @@ def describe(weights: Path) -> dict | None:
     return _SIDECARS.get(str(weights))
 
 
+#: What a file *is*, read from its first bytes rather than from its name. A torch archive is
+#: a zip; a safetensors file is an 8-byte little-endian header length followed by the `{` that
+#: opens its JSON header. `model_checkpoint` wrote the first under whatever name it was given
+#: while this module chose its reader from the extension, so a checkpoint named the way every
+#: published file here is named failed with `header too large` - an error about a header, from
+#: a file that has none. `#256`.
+_ZIP_MAGIC = b"PK\x03\x04"
+_SAFETENSORS_HEADER = 8
+
+
+def save_state(state: dict, path: str | Path) -> Path:
+    """Write a state dict in the format the extension names, and return where it went.
+
+    One writer rather than two, which is the defect stated from the other end: this module
+    wrote safetensors and the checkpoint callback wrote a torch archive whatever its path
+    said, so the two disagreed about what a name meant. Anything with no suffix, or one that
+    is not `.safetensors`, is a torch archive - which is what `.pt` has always meant here.
+
+    Args:
+        state: A model's `state_dict`.
+        path: Where to write. Its parent is created.
+
+    Returns:
+        The path written.
+
+    Raises:
+        WeightsError: If safetensors is asked for and the package is missing.
+    """
+    target = Path(path).expanduser()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # contiguous() because safetensors refuses a view, and a state dict can hold them.
+    tensors = {name: value.detach().cpu().contiguous() for name, value in state.items()}
+    if target.suffix == ".safetensors":
+        try:
+            from safetensors.torch import save_file
+        except ImportError:  # pragma: no cover - safetensors is a hard dependency
+            raise WeightsError(
+                "writing .safetensors needs the safetensors package, which should have been "
+                "installed with this one."
+            ) from None
+        save_file(tensors, str(target))
+    else:
+        import torch
+
+        torch.save(tensors, target)
+    return target
+
+
+def read_state(path: str | Path) -> dict:
+    """A state dict read from what the file is, not from what it is called.
+
+    Both formats describe themselves in their first bytes, so the extension is a hint and
+    never the decision. That matters in both directions: a file written by a version of this
+    package older than `0.8.0a31` carries a torch archive under whatever name the checkpoint
+    callback was given, and renaming a file must not change whether it can be read.
+
+    Args:
+        path: A local file. `resolve_weights` is what turns a reference into one.
+
+    Returns:
+        The state dict.
+
+    Raises:
+        WeightsError: If the file is neither format, naming what it begins with.
+    """
+    import torch
+
+    source = Path(path)
+    with source.open("rb") as handle:
+        head = handle.read(_SAFETENSORS_HEADER + 1)
+    if head.startswith(_ZIP_MAGIC):
+        # An open file rather than a path, because `torch.load` reads the name too: on
+        # torch 2.14 a path ending `.safetensors` is forwarded to safetensors while
+        # `torch.save` still writes a zip under that name, so the defect this function
+        # exists to fix is also inside torch, one layer down. A handle has no name to
+        # dispatch on. Measured: torch 2.7.1 does not do this and CI's 2.14.1 does, which
+        # is why every matrix job failed on a suite that was green here.
+        #
+        # weights_only=True so that loading a file cannot execute code that came with it.
+        with source.open("rb") as archive:
+            return torch.load(archive, map_location="cpu", weights_only=True)
+    if head[_SAFETENSORS_HEADER:] == b"{":
+        try:
+            from safetensors.torch import load_file
+        except ImportError:  # pragma: no cover - safetensors is a hard dependency
+            raise WeightsError(
+                "reading .safetensors needs the safetensors package, which should have been "
+                "installed with this one."
+            ) from None
+        return load_file(str(source))
+    raise WeightsError(
+        f"'{source}' is not weights this package can read: it begins with {head[:8]!r}, "
+        "which is neither a safetensors header nor the 'PK' of a torch archive. Both are "
+        "recognised by their contents here, so renaming the file will not help."
+    )
+
+
 def load_into(model, reference: str, spec, *, extra: dict | None = None) -> dict | None:
     """Load weights into a model, after checking they belong to it.
 
@@ -288,26 +385,13 @@ def load_into(model, reference: str, spec, *, extra: dict | None = None) -> dict
     the class *names*, because weights trained on the same number of differently ordered
     classes load cleanly and label every box wrongly.
     """
-    import torch
 
     path = resolve_weights(reference)
     sidecar = describe(path)
     if sidecar is not None:
         _refuse_mismatch(sidecar, spec, reference, extra=extra)
 
-    if path.suffix == ".safetensors":
-        try:
-            from safetensors.torch import load_file
-        except ImportError:  # pragma: no cover - safetensors is a hard dependency
-            raise WeightsError(
-                "reading .safetensors needs the safetensors package, which should have been "
-                "installed with this one."
-            ) from None
-        state = load_file(str(path))
-    else:
-        # A checkpoint this package wrote with torch.save. weights_only=True so that loading
-        # a file cannot execute code that came with it.
-        state = torch.load(str(path), map_location="cpu", weights_only=True)
+    state = read_state(path)
 
     try:
         model.load_state_dict(state)
@@ -381,22 +465,12 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
     safetensors rather than a pickle, which would make a weights file a program somebody
     else wrote.
     """
-    try:
-        from safetensors.torch import save_file
-    except ImportError:  # pragma: no cover
-        raise WeightsError(
-            "writing .safetensors needs the safetensors package, which should have been "
-            "installed with this one."
-        ) from None
-
     target = Path(path).expanduser()
     if target.suffix != ".safetensors":
         target = target.with_suffix(".safetensors")
-    target.parent.mkdir(parents=True, exist_ok=True)
 
-    # contiguous() because safetensors refuses a view, and a state dict can hold them.
     state = {name: value.detach().cpu().contiguous() for name, value in model.state_dict().items()}
-    save_file(state, str(target))
+    save_state(state, target)
 
     sidecar = {
         **spec.weights_fingerprint(),
