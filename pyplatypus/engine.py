@@ -681,6 +681,16 @@ class Engine(EngineBase):
                     if "validation" in self._samples
                     else None,
                     verbose=verbose,
+                    # The names the validation loader serves, in its order - the same list
+                    # `evaluate_cases` builds, and safe for the same reason: that loader is
+                    # never shuffled. With them the epoch can report its worst case, which
+                    # is the number this package tells everybody to read and gave nobody a
+                    # way to watch.
+                    validation_cases=(
+                        self._case_names(model_spec, "validation")
+                        if "validation" in self._samples
+                        else None
+                    ),
                 )
                 run.trained = True
             self.runs[model_spec.name] = run
@@ -890,18 +900,27 @@ class Engine(EngineBase):
             )
             return [{key: row.pop("case"), **row} for row in rows]
 
-        dataset = self.dataset(run.spec, split)
-        tiles = dataset.tiles_per_sample
-        cases = [
-            group_of(sample.key, group_by) if group_by else sample.key
-            for sample in dataset.samples
-            for _ in range(tiles)
-        ]
+        cases = self._case_names(run.spec, split, group_by=group_by)
         # Never shuffled: the case names line up with the order examples arrive in.
         loader = self.loader(run.spec, split, shuffle=False, for_loss=False)
         rows = run.trainer.score_cases(loader, cases)
         key = "group" if group_by else "case"
         return [{key: row.pop("case"), **row} for row in rows]
+
+    def _case_names(self, model, split: str, *, group_by: str | None = None) -> list[str]:
+        """One name per example the loader will serve, in its order.
+
+        A tiled run serves several examples per sample, so a case's name repeats - which is
+        what lets the counts be pooled back into one score per case. Safe only where the
+        loader is not shuffled, which is every split but training.
+        """
+        dataset = self.dataset(model, split)
+        tiles = dataset.tiles_per_sample
+        return [
+            group_of(sample.key, group_by) if group_by else sample.key
+            for sample in dataset.samples
+            for _ in range(tiles)
+        ]
 
     def _score_at_source(self, run, split: str, bucket) -> list[dict[str, Any]]:
         """Metrics on the grid of the file each prediction came from, bucket by bucket.
