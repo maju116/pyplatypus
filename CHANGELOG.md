@@ -1,6 +1,75 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a32] - 2026-10-24
+
+The honest comparison becomes a thing to ask for rather than a thing to write yourself.
+`maju116/rplatypus#187`.
+
+### Added
+
+ - **`evaluate(at="source")` and `evaluate_cases(at="source")`**: every prediction goes
+   back onto the grid of the file it came from and is scored against the truth **as
+   stored**. `at="model"` is the default and is unchanged, because changing it would
+   silently restate every number anybody has written down.
+
+   What it is for: scored each through its own loader, a model at `input_shape: [512, 512]`
+   is measured against a truth reduced to 512 while a model that tiles 2048 is measured
+   against the truth as stored. Both are a real Dice of a real prediction against a real
+   mask and they answer different questions. Measured on retinal vessels, that difference
+   **reported a resized model at +0.0187 where the honest figure was +0.0033** - 5.7 times
+   - with the bias reversed on clDice, because upsampling smooths a prediction: better
+   against a skeleton, worse against a boundary.
+
+   **The grid is the files' own and cannot be named by the caller.** A named grid resamples
+   the *truth*, so the thing every model is judged against would itself become an
+   interpolation chosen by whoever typed the number - which is the defect this argument
+   exists to remove. Here the truth is never touched; only predictions move.
+
+   **Streamed.** One case at a time through `predict_stream`, because the predictions are
+   at full resolution and tiling exists for images too large to resize: 200 FIVES retinas
+   at 2048 are 6.7 GB of probabilities, so this grid is exactly where holding the split
+   would hurt most.
+
+   **The spacing is each file's own**, which is what makes `surface_dice` mean millimetres
+   here. On the model's grid every case shares `target_spacing` by construction; on this
+   one they do not, so the metrics are built per case.
+
+   Two prices, both named in the prose rather than discovered: interpolating probabilities
+   softens a boundary, and where the forward crop cut anatomy away the inverse pads it with
+   background - *not examined* rather than *nothing there*. For a comparison the second is
+   correct rather than unfair, but a 0.000 arriving that way is a result and not a bug.
+
+   The `load_shape` column reads `source` when scored there, because what it has always
+   meant is the grid the row's numbers were computed on. The loss is not reported: a loss
+   is defined by the objective a model trained with, on the grid it trained on.
+
+### Changed
+
+ - The comparability warning now names `evaluate(at='source')` instead of describing what a
+   reader would have to build. It had pointed at `predict(space='source')` since
+   `0.8.0a30`, which is the raw material rather than the answer - an instruction addressed
+   to a human in the place where a mechanism now exists.
+ - `Dataset.to_target()` is the three-way expansion `__getitem__` used to end with, and
+   `Dataset.target_as_stored()` reads a sample's masks at the size its files hold. Reading
+   `size=None` as *as stored* goes through the same reader as everything else: the three
+   namings are the part that must not exist twice.
+
+### Measured while building it
+
+ - **`evaluate()` means over batches and `evaluate_cases()` pools by counts**, so a split's
+   figure depends on `batch_size`. `at="source"` deliberately matches `evaluate()`'s
+   pooling so that the argument changes the grid and nothing else; the two poolings differ
+   by 4e-5 on six similar cases and by more on unequal ones. Filed as
+   `maju116/rplatypus#196` rather than changed here, because changing it restates every
+   number this project has published.
+ - **The warning cannot be narrowed to physical extent, and does not need to be.**
+   `target_spacing` lives on the data spec, so every model in one `evaluate()` shares it
+   and the extent differs only by `load_shape`, which the warning already compares. The
+   case that motivated the narrowing - three arms at one `load_shape` and three spacings -
+   is three separate runs, which one engine never sees side by side. `at="source"` is what
+   makes those comparable, because the files' grid is shared by construction.
+
 ## [0.8.0a31] - 2026-10-24
 
 One defect, and it is the package disagreeing with its own naming convention.
