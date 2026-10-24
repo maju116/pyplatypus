@@ -833,6 +833,7 @@
                 "cosine_annealing": "#/$defs/CosineAnnealing",
                 "csv_logger": "#/$defs/CsvLogger",
                 "early_stopping": "#/$defs/EarlyStopping",
+                "ema": "#/$defs/Ema",
                 "linear_annealing": "#/$defs/LinearAnnealing",
                 "model_checkpoint": "#/$defs/ModelCheckpoint",
                 "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
@@ -856,6 +857,9 @@
               },
               {
                 "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Ema"
               },
               {
                 "$ref": "#/$defs/LinearAnnealing"
@@ -1197,6 +1201,29 @@
         }
       },
       "title": "EarlyStopping",
+      "type": "object"
+    },
+    "Ema": {
+      "additionalProperties": false,
+      "description": "An exponential moving average of the weights, updated every optimiser step.\n\n`swa`'s sibling and the other answer to the same observation: the last epoch's corner\nis not the middle of the basin. `swa` averages the tail uniformly from a declared\nstart; this weights recent weights more and needs no start at all, because an average\nwith a decay forgets the beginning by itself.\n\n**Updated per step, which is what makes it the estimator the literature means.** A\ndecay of 0.999 is 0.999 per *step*: over 60 epochs of 200 batches that is 12,000\nupdates and a half-life of about 700 steps. Announced per epoch the same number would\ndo almost nothing, and offering it that way would have been publishing a name whose\ndocumented values mean something else - which is why `0.8.0a37` added a fourth\ncallback hook rather than approximating one.\n\nBuffers are averaged too, which is the difference from `swa`: there a pass over the\ntraining data recomputes batch-normalisation statistics at the end, because a uniform\naverage of weights has no matching statistics. An exponential average that also\naverages the buffers carries its own, so it needs no second pass over the data.\n\nOne averager per run: `ema` and `swa` together are refused rather than silently\napplied in the order the list happened to have them.",
+      "properties": {
+        "decay": {
+          "default": 0.999,
+          "description": "How much of the average survives each step. 0.999 is the usual value and means a half-life of about 700 steps - roughly three and a half epochs at 200 batches each. **Per step, not per epoch**, so the published values transfer: a run with few steps wants a smaller number, because an average that forgets more slowly than the run is long never leaves its starting point. The model is replaced by the average when training ends.",
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Decay",
+          "type": "number"
+        },
+        "name": {
+          "const": "ema",
+          "default": "ema",
+          "description": "Which callback, and it decides which other keys this block accepts. Giving a key the chosen callback does not have is refused by name rather than ignored.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "Ema",
       "type": "object"
     },
     "Flows": {
@@ -1634,6 +1661,7 @@
                 "cosine_annealing": "#/$defs/CosineAnnealing",
                 "csv_logger": "#/$defs/CsvLogger",
                 "early_stopping": "#/$defs/EarlyStopping",
+                "ema": "#/$defs/Ema",
                 "linear_annealing": "#/$defs/LinearAnnealing",
                 "model_checkpoint": "#/$defs/ModelCheckpoint",
                 "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
@@ -1657,6 +1685,9 @@
               },
               {
                 "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Ema"
               },
               {
                 "$ref": "#/$defs/LinearAnnealing"
@@ -2842,6 +2873,7 @@
                 "cosine_annealing": "#/$defs/CosineAnnealing",
                 "csv_logger": "#/$defs/CsvLogger",
                 "early_stopping": "#/$defs/EarlyStopping",
+                "ema": "#/$defs/Ema",
                 "linear_annealing": "#/$defs/LinearAnnealing",
                 "model_checkpoint": "#/$defs/ModelCheckpoint",
                 "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
@@ -2865,6 +2897,9 @@
               },
               {
                 "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Ema"
               },
               {
                 "$ref": "#/$defs/LinearAnnealing"
