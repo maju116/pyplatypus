@@ -1,6 +1,50 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a35] - 2026-10-24
+
+The quiet failure of segmentation becomes a number, and then a refusal.
+`maju116/rplatypus#206`.
+
+### Added
+
+ - **Every epoch reports `foreground`**, for both passes: the share of the prediction that
+   is not background. Beside the loss rather than among the metrics, and the distinction is
+   the point - nothing is compared against the truth, so this is not a measure of quality.
+   It answers *is this still a segmentation* rather than *is it a good one*.
+
+   Reported unconditionally rather than offered as a metric to opt into, because **a
+   collapse you have to opt into noticing is one you will not notice.** A model predicting
+   background everywhere is not visible in the numbers it already produced: with
+   `include_background` the Dice is a mean over class channels and the background channel
+   is nearly perfect, so a collapsed model reports around 0.5 while its loss falls.
+
+ - **`terminate_on_collapse`**, `terminate_on_nan`'s quiet sibling: it ends the run when
+   the foreground share stays at or below `floor` for `patience` epochs. A floor rather
+   than a test for zero, because 0.01% foreground on a target that is 14% foreground has
+   collapsed in every sense that matters; and a patience, because an early epoch
+   legitimately predicts almost nothing. It can watch the training share instead, which
+   answers a different question - a model collapsing on data it has seen has a different
+   problem from one collapsing only on data it has not.
+
+### Changed
+
+ - `evaluate()`'s rows carry `foreground`. It is the one column there that is not a
+   quality measure, and it is there for the reason `load_shape` is: a collapsed model
+   reports a plausible Dice, and a table that cannot show the foreground beside it is a
+   table somebody misreads.
+
+### Measured while building it
+
+ - **The test fixture collapses.** Three 32x32 images trained for a few epochs predict no
+   foreground at all - share exactly 0.0 - which is a fair demonstration of what this
+   release is for and makes that fixture useless for comparing the reported number against
+   a computed one. That test evaluates an untrained model instead, and says why.
+ - **One mutation was not caught the first time, and the test was the problem.** Deleting
+   the accumulation entirely left every test passing, because the assertion was
+   `0.0 <= share <= 1.0` and a counter that was never added to is zero - which is in range.
+   The test compares values now, with the fixture's own share asserted non-zero first.
+
 ## [0.8.0a34] - 2026-10-24
 
 Three answers to one question - *when may this callback act, and on what evidence* -

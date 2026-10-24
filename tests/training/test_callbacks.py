@@ -30,6 +30,9 @@ from pyplatypus.spec.components import (
     Swa as SwaSpec,
 )
 from pyplatypus.spec.components import (
+    TerminateOnCollapse as TerminateOnCollapseSpec,
+)
+from pyplatypus.spec.components import (
     TerminateOnNaN as TerminateOnNaNSpec,
 )
 from pyplatypus.training.callbacks import TrainingState, better_is_lower, build_callbacks
@@ -397,3 +400,39 @@ def test_swa_can_be_told_the_epoch_instead_of_the_fraction(state):
 
     assert by_epoch._first == 8
     assert by_fraction._first == 8
+
+
+# ---------------------------------------------------------------- the quiet failure
+# A model predicting background everywhere reports a plausible loss and, with
+# `include_background`, a Dice around 0.5 - the background channel is nearly perfect. This
+# is the one failure of this task that the numbers do not show.
+def collapse(callback, state, shares, key="val_foreground"):
+    callback.on_train_begin(state)
+    for epoch, share in enumerate(shares, start=1):
+        state.epoch, state.logs = epoch, {key: share, "val_loss": 0.3}
+        if callback.on_epoch_end(state):
+            return epoch
+    return None
+
+
+def test_a_collapse_ends_the_run_after_its_patience(state):
+    callback = build_callbacks([TerminateOnCollapseSpec(patience=3)])[0]
+    assert collapse(callback, state, [0.2, 0.0, 0.0, 0.0, 0.0]) == 4
+    assert "predicting background everywhere" in state.stop_reason
+
+
+def test_one_empty_epoch_is_not_a_collapse(state):
+    """An early epoch legitimately predicts almost nothing, which is why patience is not 1."""
+    callback = build_callbacks([TerminateOnCollapseSpec(patience=3)])[0]
+    assert collapse(callback, state, [0.0, 0.0, 0.1, 0.0, 0.0, 0.2]) is None
+
+
+def test_the_floor_is_a_floor_and_not_a_test_for_zero(state):
+    """0.01% foreground on a target that is 14% foreground has collapsed in every sense."""
+    callback = build_callbacks([TerminateOnCollapseSpec(floor=0.001, patience=2)])[0]
+    assert collapse(callback, state, [0.0005, 0.0002]) == 2
+
+
+def test_it_can_watch_the_training_share_instead(state):
+    callback = build_callbacks([TerminateOnCollapseSpec(patience=2, monitor="train_foreground")])[0]
+    assert collapse(callback, state, [0.0, 0.0], key="train_foreground") == 2

@@ -1421,6 +1421,53 @@ class StopAfter(_Callback):
     )
 
 
+class TerminateOnCollapse(_Callback):
+    """End the run when the model stops predicting any foreground at all.
+
+    `terminate_on_nan`'s quiet sibling. A model that collapses to background is not
+    obviously broken from the numbers: with `include_background` the Dice is a mean over
+    class channels and the background channel is nearly perfect, so a collapsed model can
+    report around 0.5 while the loss falls. The run completes, the table looks plausible
+    and the masks are empty.
+
+    What it watches is `val_foreground`, which every epoch reports: the share of the
+    prediction that is not background.
+    """
+
+    name: Literal["terminate_on_collapse"] = Field(
+        "terminate_on_collapse", description=_CALLBACK_NAME
+    )
+    floor: float = Field(
+        0.0001,
+        ge=0,
+        lt=1,
+        description=(
+            "Below this share of foreground the prediction counts as collapsed. A floor "
+            "rather than exactly zero, because a model predicting 0.01% foreground on a "
+            "target that is 14% foreground has collapsed in every sense that matters. The "
+            "default is deliberately far below any real target: this is a guard against a "
+            "failure, not a quality threshold, and a floor near a real foreground share "
+            "would end runs that were merely bad."
+        ),
+    )
+    patience: int = Field(
+        3,
+        ge=1,
+        description=(
+            "Epochs in a row below the floor before the run ends. An early epoch "
+            "legitimately predicts almost nothing, which is why this is not 1."
+        ),
+    )
+    monitor: str = Field(
+        "val_foreground",
+        description=(
+            "Which foreground share to watch. `train_foreground` is the other one, and it "
+            "answers a different question: a model collapsing on the training data has a "
+            "different problem from one collapsing only on data it has not seen."
+        ),
+    )
+
+
 class CsvLogger(_Callback):
     """The history, written as it arrives.
 
@@ -1461,6 +1508,7 @@ CallbackSpec = Annotated[
     | StepDecay
     | StopAfter
     | Swa
+    | TerminateOnCollapse
     | CsvLogger
     | TerminateOnNaN,
     Field(discriminator="name"),

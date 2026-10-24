@@ -53,6 +53,9 @@ from pyplatypus.spec.components import (
     Swa as SwaSpec,
 )
 from pyplatypus.spec.components import (
+    TerminateOnCollapse as TerminateOnCollapseSpec,
+)
+from pyplatypus.spec.components import (
     TerminateOnNaN as TerminateOnNaNSpec,
 )
 from pyplatypus.weights import save_state
@@ -490,6 +493,36 @@ class StopAfter(Callback):
         return True
 
 
+class TerminateOnCollapse(Callback):
+    """Stop once the prediction has held no foreground for `patience` epochs.
+
+    Not a `_Watcher`: this is a threshold rather than an improvement, and the direction is
+    not derived from the name - `foreground` is neither a loss to minimise nor a score to
+    maximise, it is a share that should simply not be zero.
+    """
+
+    def __init__(self, floor: float = 0.0001, patience: int = 3, monitor: str = "val_foreground"):
+        self.floor = floor
+        self.patience = patience
+        self.monitor = monitor
+        self.below = 0
+
+    def on_epoch_end(self, state: TrainingState) -> bool:
+        share = state.logs[self.monitor]
+        if share > self.floor:
+            self.below = 0
+            return False
+        self.below += 1
+        if self.below < self.patience:
+            return False
+        state.stop_reason = (
+            f"terminate_on_collapse: {self.monitor} has been at or below {self.floor:g} "
+            f"for {self.patience} epochs - the model is predicting background everywhere, "
+            "and the loss and Dice can both look reasonable while it does"
+        )
+        return True
+
+
 class CsvLogger(Callback):
     def __init__(self, path: str):
         self.path = Path(path)
@@ -536,6 +569,7 @@ _BUILDERS: dict[type, Any] = {
     StepDecaySpec: lambda s: StepDecay(s.factor, s.every, s.milestones, s.min_lr),
     SwaSpec: lambda s: Swa(s.start, s.learning_rate, s.start_epoch),
     CsvLoggerSpec: lambda s: CsvLogger(s.path),
+    TerminateOnCollapseSpec: lambda s: TerminateOnCollapse(s.floor, s.patience, s.monitor),
     TerminateOnNaNSpec: lambda s: TerminateOnNaN(),
 }
 

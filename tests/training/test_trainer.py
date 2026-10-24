@@ -57,8 +57,10 @@ def test_history_carries_losses_metrics_and_timing(loaders):
         "epoch",
         "train_loss",
         "train_dice",
+        "train_foreground",
         "val_loss",
         "val_dice",
+        "val_foreground",
         "seconds",
         "learning_rate",
     }
@@ -115,9 +117,12 @@ def test_deep_supervision_trains_on_every_output(loaders):
 
 
 def test_evaluate_scores_without_training(loaders):
+    """`val_foreground` is in here on purpose, and it is the one column that is not a
+    quality measure: a collapsed model reports a plausible Dice beside a foreground of
+    zero, and a comparison table that cannot show that is a table somebody misreads."""
     spec = model_spec()
     scores = Trainer(build_model(spec, n_class=2), spec, device="cpu").evaluate(loaders(spec))
-    assert set(scores) == {"val_loss", "val_dice"}
+    assert set(scores) == {"val_loss", "val_dice", "val_foreground"}
 
 
 def test_predict_returns_channels_last_probabilities(loaders):
@@ -390,3 +395,59 @@ def test_the_loader_carries_a_distance_map_only_when_the_loss_asks(config, neste
     # Negative somewhere and positive somewhere: a map that is all one sign is a mask with
     # no boundary, and this fixture has one.
     assert float(distance.min()) < 0 < float(distance.max())
+
+
+# ------------------------------------------------- what share of the prediction is anything
+# Reported every epoch like the loss rather than offered as a metric: a collapse to
+# background is the quiet failure of this task, and one you have to opt into noticing is
+# one you will not notice.
+def test_the_foreground_share_is_what_the_prediction_actually_holds():
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu")
+
+    # Logits for two classes over four voxels: background wins three, class 1 wins one.
+    final = torch.tensor([[[[2.0, 2.0], [2.0, 0.0]], [[0.0, 0.0], [0.0, 1.0]]]])
+    assert trainer.foreground_share(final) == pytest.approx(0.25)
+
+    # Everything background: the number this callback family exists to notice.
+    assert trainer.foreground_share(torch.tensor([[[[9.0]], [[0.0]]]])) == pytest.approx(0.0)
+
+
+def test_the_foreground_share_counts_any_channel_when_they_are_independent():
+    """With independent channels there is no single background channel to be above."""
+    spec = model_spec()
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu", multilabel=True)
+
+    # Two channels, four voxels: one voxel has a channel on, the rest have none.
+    final = torch.tensor([[[[1.0, -1.0], [-1.0, -1.0]], [[-1.0, -1.0], [-1.0, -1.0]]]])
+    assert trainer.foreground_share(final) == pytest.approx(0.25)
+
+
+def test_an_epoch_reports_the_share_it_actually_predicted(loaders):
+    """Against the number computed outside the epoch, not merely against a range.
+
+    `0.0 <= x <= 1.0` is satisfied by a counter that was never added to - the key exists
+    because it is initialised at zero - so that version of this test passed with the
+    accumulation deleted. This one compares values, with the fixture's own share asserted
+    to be non-zero first, or it would be two zeros agreeing.
+
+    **Untrained on purpose.** This fixture, trained, collapses to predicting background
+    everywhere - its share is exactly 0.0 - which is a fair demonstration of what
+    `terminate_on_collapse` is for and useless as a comparison.
+    """
+    spec = model_spec()
+    torch.manual_seed(0)
+    model = build_model(spec, n_class=2)
+    trainer = Trainer(model, spec, device="cpu")
+
+    scores = trainer.evaluate(loaders(spec))
+
+    model.eval()
+    shares = []
+    with torch.no_grad():
+        for batch in loaders(spec):
+            shares.append(trainer.foreground_share(model(batch[0])))
+    expected = sum(shares) / len(shares)
+
+    assert expected > 0.0, "the fixture predicts no foreground, so this would prove nothing"
+    assert scores["val_foreground"] == pytest.approx(expected, abs=1e-6)
