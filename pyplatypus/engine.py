@@ -709,11 +709,16 @@ class Engine(EngineBase):
             f"predict('{split}') works on it, and save_masks() writes what it predicts.",
         )
 
-    def evaluate(self, split: str = "validation") -> list[dict[str, Any]]:
+    def evaluate(self, split: str = "validation", *, at: str = "model") -> list[dict[str, Any]]:
         """One row per model: the comparison table the whole multi-model idea is for.
 
         Args:
             split: Which data to score on.
+            at: Which grid to score on. `"model"` is each model's own `load_shape` and the
+                default, because changing it would silently restate every number anybody
+                has already written down. `"source"` puts every prediction back on the grid
+                of the file it came from and scores it against the truth **as stored**, so
+                the rows answer one question.
 
         Returns:
             One row per model: what it is, how long it trained, its loss and its metrics.
@@ -722,18 +727,41 @@ class Engine(EngineBase):
             comparable only between models scored on the same grid, which is why
             `load_shape` sits beside them.
 
-        `load_shape` is the second of those and the one nothing used to say. Each model is
-        scored through its own loader, so a model at `input_shape: [512, 512]` is measured
-        against a truth reduced to 512 while a model that tiles 2048 is measured against the
-        truth as stored. Both numbers are a real Dice of a real prediction against a real
-        mask; they are not answers to the same question. Measured on retinal vessels
-        (`maju116/rplatypus#187`), that difference reported a resized model at **+0.0187
-        where the honest figure was +0.0033**, with the bias reversed on clDice because
-        upsampling smooths a prediction - better against a skeleton, worse against a
-        boundary. So when the rows do not share a grid this says so, once, rather than
-        leaving a table that looks like a comparison. Nothing here rescores: putting two
-        models on one grid is a thing to ask for rather than to do silently, and it is not
-        offered yet.
+        `load_shape` is the second of those and the one nothing used to say. At
+        `at="model"` each model is scored through its own loader, so a model at
+        `input_shape: [512, 512]` is measured against a truth reduced to 512 while a model
+        that tiles 2048 is measured against the truth as stored. Both numbers are a real
+        Dice of a real prediction against a real mask; they are not answers to the same
+        question. Measured on retinal vessels (`maju116/rplatypus#187`), that difference
+        reported a resized model at **+0.0187 where the honest figure was +0.0033**, with
+        the bias reversed on clDice because upsampling smooths a prediction - better
+        against a skeleton, worse against a boundary. So when the rows do not share a grid
+        this says so, once, rather than leaving a table that looks like a comparison.
+
+        **`at="source"` is what that warning now points at.** The truth is never resampled -
+        only predictions move - which is why the grid is the files' own rather than one the
+        caller names: a named grid interpolates the very thing every model is being judged
+        against. The column then reads `source`, because what it has always meant is the
+        grid this row's numbers were computed on.
+
+        Two things that are the price of it, neither recoverable: interpolating
+        probabilities softens a boundary, and where the forward crop cut anatomy away the
+        inverse pads it with background, which means *not examined* rather than *nothing
+        there*. For a comparison the second is correct rather than unfair - a model whose
+        field of view did not contain the organ did not segment it - but a 0.000 arriving
+        that way is a result and not a bug.
+
+        **The loss is not reported at `at="source"`.** A loss is defined by the objective a
+        model was trained with, on the grid it was trained on; re-deriving one from a
+        resampled prediction would be a number with no training meaning and a column
+        somebody would compare.
+
+        **The pooling is the same in both**, deliberately: the mean over cases, which is
+        what this table has always reported. `evaluate_cases` pools a group by adding its
+        counts instead, which is the better statistic and a different number - so `at`
+        changes the grid and nothing else, and the gap between its two values is the rig it
+        exists to measure rather than that gap plus a change of definition.
+        `maju116/rplatypus#196` is where the two poolings are written down.
 
         Raises:
             EngineError: If the split carries no masks - and the message says `predict`
@@ -741,10 +769,12 @@ class Engine(EngineBase):
         """
         if not self.runs:
             raise EngineError("nothing has been trained or loaded yet; call fit() first")
+        if at not in ("model", "source"):
+            raise EngineError(f"at is 'model' or 'source', got '{at}'")
         self._needs_masks(split)
 
         grids = {run.name: run.spec.load_shape for run in self.runs.values()}
-        if len(set(grids.values())) > 1:
+        if at == "model" and len(set(grids.values())) > 1:
             described = ", ".join(
                 f"{name} at {' x '.join(str(size) for size in shape)}"
                 for name, shape in grids.items()
@@ -753,14 +783,30 @@ class Engine(EngineBase):
                 f"these models are scored on different grids ({described}), so their "
                 "metrics are not comparable: each is measured against the truth reduced to "
                 "its own `load_shape`. The `load_shape` column says which. To compare them, "
-                "score them on one grid - `predict(space='source')` is what puts every "
-                "prediction back on the grid of the file it came from.",
+                "score them on one grid: `evaluate(at='source')` puts every prediction back "
+                "on the grid of the file it came from and scores it against the truth as "
+                "stored.",
                 stacklevel=2,
             )
 
         table = []
         for run in self.runs.values():
-            scores = run.trainer.evaluate(self.loader(run.spec, split))
+            if at == "source":
+                # The **mean over cases**, because that is what `at="model"` reports and
+                # `at` must change exactly one thing. A ratio of sums over the split is the
+                # better statistic and is what `evaluate_cases` pools a group with; the two
+                # disagree here by 4e-5 on six similar cases and by more on unequal ones.
+                # Making this one ratio-of-sums would mean the argument changed the grid
+                # *and* the definition, so that the difference between its two values could
+                # not be read as the rig it exists to measure. `maju116/rplatypus#196`.
+                rows = self._score_at_source(run, split, lambda case: case)
+                scores = {
+                    name: sum(row[name] for row in rows) / len(rows)
+                    for name in rows[0]
+                    if name != "case"
+                }
+            else:
+                scores = run.trainer.evaluate(self.loader(run.spec, split))
             best = run.history.best("val_loss")
             table.append(
                 {
@@ -779,7 +825,11 @@ class Engine(EngineBase):
                     # data frame and a list column is not plain data - `test_the_table_is
                     # _plain_data_for_the_trip_into_r` is the test that says so, and it
                     # caught this the first time it ran.
-                    "load_shape": " x ".join(str(size) for size in run.spec.load_shape),
+                    "load_shape": (
+                        "source"
+                        if at == "source"
+                        else " x ".join(str(size) for size in run.spec.load_shape)
+                    ),
                     "epochs_run": len(run.history),
                     "best_epoch": best["epoch"] if best else None,
                     **{key.removeprefix("val_"): value for key, value in scores.items()},
@@ -793,6 +843,7 @@ class Engine(EngineBase):
         split: str = "validation",
         *,
         group_by: str | None = None,
+        at: str = "model",
     ) -> list[dict[str, Any]]:
         """One row per case instead of one row per model.
 
@@ -807,6 +858,10 @@ class Engine(EngineBase):
             group_by: A pattern picking a group out of each case's name. With it the rows
                 are patients rather than slices: a patient's slices are pooled into one
                 score, the way a volume would be.
+            at: Which grid to score on, as for `evaluate`. `"source"` reads each truth as
+                stored and scores the prediction there, which is the only form in which
+                rows from two models - or from two runs with different `target_spacing` -
+                mean the same thing.
 
         Returns:
             One row per case, or per group. `summarise_cases` turns them into the
@@ -822,7 +877,18 @@ class Engine(EngineBase):
                 f"'{model_name}' has no metrics, so there is nothing to report per case. "
                 "Add at least one, for example metrics: [{name: dice}]."
             )
+        if at not in ("model", "source"):
+            raise EngineError(f"at is 'model' or 'source', got '{at}'")
         self._needs_masks(split)
+
+        if at == "source":
+            key = "group" if group_by else "case"
+            rows = self._score_at_source(
+                run,
+                split,
+                (lambda case: group_of(case, group_by)) if group_by else (lambda case: case),
+            )
+            return [{key: row.pop("case"), **row} for row in rows]
 
         dataset = self.dataset(run.spec, split)
         tiles = dataset.tiles_per_sample
@@ -836,6 +902,109 @@ class Engine(EngineBase):
         rows = run.trainer.score_cases(loader, cases)
         key = "group" if group_by else "case"
         return [{key: row.pop("case"), **row} for row in rows]
+
+    def _score_at_source(self, run, split: str, bucket) -> list[dict[str, Any]]:
+        """Metrics on the grid of the file each prediction came from, bucket by bucket.
+
+        `bucket` maps a case name to the row it belongs in: itself for `evaluate_cases`,
+        its group when `group_by` says so, and one name for everything when `evaluate`
+        wants the split's figure. One function rather than three, because the pooling rule
+        is the thing that must not exist in several versions.
+
+        **Streamed, one case at a time.** The predictions are at full resolution and tiling
+        exists for images too large to resize, so this is exactly where holding the split
+        would hurt most - 200 FIVES retinas at 2048 are 6.7 GB of probabilities.
+
+        **No tiles here.** A prediction arrives whole from `predict_stream`, so every
+        metric is measured once per case and the tile pooling `score_cases` does has
+        nothing to do. What is left is the pooling across cases, which is the same rule it
+        uses: a counting metric adds TP, FP and FN and applies its formula once, and a
+        whole-mask metric is the mean of its cases, which is a weaker statement and is
+        reported as one rather than dressed up as a pooled figure.
+
+        **The spacing is each file's own**, which is what makes `surface_dice` mean
+        millimetres here. On the model's grid every case shares `target_spacing` by
+        construction; on this grid they do not, so the metrics are built per case.
+        """
+        import torch
+
+        from pyplatypus.objectives import build_metrics
+        from pyplatypus.objectives import functional as f
+
+        dataset = self.dataset(run.spec, split)
+        samples = self._samples[split]
+        multilabel = self.spec.data.multilabel
+        rank = run.spec.rank
+
+        totals: dict[str, list[torch.Tensor]] = {}
+        whole: dict[str, dict[str, list[float]]] = {}
+        order: list[str] = []
+
+        stream = self.predict_stream(run.name, split, space="source")
+        with torch.no_grad():
+            for sample, (case, probabilities) in zip(samples, stream, strict=True):
+                # The stream yields its own case names and this walks the sample list
+                # beside it; if the two ever disagree every score after it is against the
+                # wrong mask, and nothing downstream could tell.
+                if case != sample.key:
+                    raise EngineError(
+                        f"the prediction stream gave '{case}' where the samples give "
+                        f"'{sample.key}'; the two are out of step and a score would be "
+                        "computed against another case's mask"
+                    )
+                target = dataset.target_as_stored(sample)
+                if target.shape[:-1] != probabilities.shape[:-1]:
+                    raise EngineError(
+                        f"'{case}': the prediction is {probabilities.shape[:-1]} and the "
+                        f"truth as stored is {target.shape[:-1]}. These are different "
+                        "pictures and scoring them would compare nothing."
+                    )
+
+                prediction = torch.from_numpy(
+                    np.ascontiguousarray(np.moveaxis(probabilities, -1, 0))
+                )[None]
+                truth = torch.from_numpy(np.ascontiguousarray(np.moveaxis(target, -1, 0)))[None].to(
+                    prediction.dtype
+                )
+                hard = (
+                    (prediction > 0.5).to(truth.dtype)
+                    if multilabel
+                    # Probabilities rather than logits - `predict_stream` has activated
+                    # them - so the threshold is 0.5 and the exclusive case is an argmax.
+                    else f.as_onehot(prediction.argmax(dim=1), prediction.shape[1])
+                )
+                metrics = build_metrics(
+                    run.spec.metrics,
+                    multilabel=multilabel,
+                    spacing=self._source_spacing(sample) if rank == 3 else None,
+                )
+                tp, fp, fn = f.overlaps(hard, truth)
+
+                name = bucket(case)
+                if name not in totals:
+                    totals[name] = [torch.zeros_like(tp[0]) for _ in range(3)]
+                    order.append(name)
+                for slot, value in enumerate((tp, fp, fn)):
+                    totals[name][slot] += value[0]
+                for metric_name, metric in metrics.items():
+                    if metric.accumulates:
+                        continue
+                    whole.setdefault(metric_name, {}).setdefault(name, []).append(
+                        float(metric.coefficient(hard, truth)[0])
+                    )
+
+        built = build_metrics(run.spec.metrics, multilabel=multilabel, spacing=None)
+        rows = []
+        for name in order:
+            row: dict[str, Any] = {"case": name}
+            for metric_name, metric in built.items():
+                if metric.accumulates:
+                    row[metric_name] = metric.reduce(metric.combine(*totals[name])).item()
+                else:
+                    scores = whole[metric_name][name]
+                    row[metric_name] = sum(scores) / len(scores)
+            rows.append(row)
+        return rows
 
     # ---------------------------------------------------------------- predict
     def predict(self, model_name: str | None = None, split: str = "test", *, space: str = "model"):

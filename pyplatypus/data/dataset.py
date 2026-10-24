@@ -210,7 +210,7 @@ class SegmentationDataset:
         if self.model.rank == 3 and _is_series(paths):
             from pyplatypus.data.dicom_series import read_dicom_series
 
-            if self.data.target_spacing is not None:
+            if self.data.target_spacing is not None and size is not None:
                 return self._at_spacing(
                     read_dicom_series(
                         list(paths), window=self.data.window, channels=channels, nearest=nearest
@@ -268,6 +268,8 @@ class SegmentationDataset:
             )
 
         stacked = np.concatenate(planes, axis=-1)
+        if size is None:
+            return stacked
         if self.data.target_spacing is not None:
             if len({tuple(round(v, 4) for v in s) for s in spacings}) > 1:
                 raise DataError(
@@ -282,10 +284,16 @@ class SegmentationDataset:
         return resize_volume(stacked, size, nearest=nearest)
 
     def _read_one(
-        self, path, *, channels: int, size: tuple[int, ...], nearest: bool = False
+        self, path, *, channels: int, size: tuple[int, ...] | None, nearest: bool = False
     ) -> np.ndarray:
-        """One file, resampled to the wanted voxel size when that was asked for."""
-        if self.model.rank == 3 and self.data.target_spacing is not None:
+        """One file, resampled to the wanted voxel size when that was asked for.
+
+        `size=None` means **as stored**: no resampling and no crop, which is the grid the
+        annotation was drawn on and the only one every model in a comparison shares. It is
+        what `evaluate(at="source")` scores against, and it has to skip `target_spacing`
+        rather than merely skipping the crop - resampling is what moves a voxel.
+        """
+        if self.model.rank == 3 and self.data.target_spacing is not None and size is not None:
             from pyplatypus.data.volumes import volume_spacing
 
             volume = read_image(
@@ -312,8 +320,13 @@ class SegmentationDataset:
         resampled = resample_to_spacing(volume, spacing, self.data.target_spacing, nearest=nearest)
         return crop_or_pad(resampled, size)
 
-    def _read_masks(self, sample, size: tuple[int, ...]) -> tuple[np.ndarray, float]:
+    def _read_masks(self, sample, size: tuple[int, ...] | None) -> tuple[np.ndarray, float]:
         """One sample's masks as one integer per voxel, and what matched nothing.
+
+        `size=None` reads them **as stored** - the grid the annotation was drawn on, with no
+        resampling and no crop. That is what `evaluate(at="source")` compares against, and
+        reading it through this method rather than through a second one of its own is
+        deliberate: the three namings below are the part that must not exist twice.
 
         Nearest, always: interpolating a mask invents values that belong to no class and
         would quietly become background.
@@ -400,16 +413,36 @@ class SegmentationDataset:
         image = to_float(image)
         if classes is None:
             return image, None
+        return image, self.to_target(classes)
+
+    def to_target(self, classes: np.ndarray) -> np.ndarray:
+        """One integer per voxel expanded into one channel per class.
+
+        Three ways, decided by how this dataset names its classes - and a method rather
+        than a tail of `__getitem__` because scoring on the source grid needs the same
+        expansion, and which of the three applies is a property of the data rather than of
+        where the scoring happens.
+        """
         if self.data.classes_from is not None:
             # Bits rather than a table: a table of combinations would need two to the power
             # of the classes, where the regions' table needs one row per label value.
-            return image, codes_to_onehot(classes, self.data.n_class)
+            return codes_to_onehot(classes, self.data.n_class)
         if self.data.regions is not None:
             # The exclusive case is `np.eye(n_class)[classes]`; this is the same indexing
             # with a table whose rows are region membership instead of the identity, so a
             # voxel can land in several channels at once - or, from row 0, in none.
-            return image, self._region_table[classes]
-        return image, classes_to_onehot(classes, self.data.n_class)
+            return self._region_table[classes]
+        return classes_to_onehot(classes, self.data.n_class)
+
+    def target_as_stored(self, sample) -> np.ndarray:
+        """A sample's target on the grid its files hold: channels last, one per class.
+
+        No resampling, no crop and no tiling - the grid the annotation was drawn on, which
+        is the one grid every model in a comparison shares. `evaluate(at="source")` scores
+        against this.
+        """
+        classes, _ = self._read_masks(sample, None)
+        return self.to_target(classes)
 
     def foreground_of(self, mask: np.ndarray) -> np.ndarray:
         """Which voxels the mask assigns to something, for a loss that needs to know.
