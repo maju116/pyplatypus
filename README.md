@@ -129,9 +129,11 @@ Semantic segmentation in 2D, end to end:
 - **Four architectures**: U-Net, U-Net++, Res-U-Net, LinkNet, each composable with
   separable convolutions, spatial dropout, learned or interpolated upsampling, deep
   supervision and configurable block width.
-- **Nine losses** (IoU, Dice, CCE, CCE-Dice, Focal, Tversky, Focal-Tversky, Combo,
-  Lovász) and three metrics, all reducing over every axis except batch and channel — so
-  they already work on volumes.
+- **Eleven losses** (boundary, CCE, CCE-Dice, Combo, Dice, Focal, Focal-Tversky,
+  generalized Dice, IoU, Lovász, Tversky) and **five metrics** (clDice, Dice, IoU, surface
+  Dice, Tversky), all reducing over every axis except batch and channel — so they already
+  work on volumes. Both lists are the semantic task's; the instance task adds the three
+  regression losses a flow field is scored with.
 - **Instances, and what they are worth**: `task: instance_segmentation` keeps the
   per-object masks apart instead of uniting them, derives the head's width from a
   `separation:` block named `rim` or `flows`, and scores the Data Science Bowl's own average
@@ -142,6 +144,13 @@ Semantic segmentation in 2D, end to end:
   semantic mask scores 0.7655 through it on this data, because touching nuclei are one
   region. The signal itself is worth +0.068 at best where a perfect mask is worth +0.2398 -
   measured, three ways, and the reason that number is here rather than in a footnote.
+- **A voxel in more than one class**, by either of two namings: `regions` groups a label
+  map's values into classes that may overlap - the shape BraTS ships - and `classes_from`
+  reads one binary file per class, which is the only naming that can express an overlap two
+  annotators drew independently. One switch is read downstream rather than either field: a
+  sigmoid per channel instead of a softmax across them, a per-channel threshold instead of
+  an `argmax`, and `save_class_masks` instead of a colour map, which cannot represent such
+  a voxel at all.
 - **Tiling that goes both ways**: cut a large image into a grid instead of shrinking it,
   and get a full-size mask back.
 - **DICOM, read properly**: stored values converted to real units through the modality
@@ -350,13 +359,6 @@ reading even if you never write R.
 ## What is not in it yet
 
 Ensembling remains out of scope.
-
-Multilabel segmentation - a voxel belonging to two classes at once - is not here either, and
-it is structural rather than a missing flag: the output is a softmax over channels and both
-mask representations encode one class per voxel. `MULTILABEL_RECON.md` measures what it would
-take and
-[pyplatypus#91](https://github.com/maju116/pyplatypus/issues/91) is where the first decision
-sits.
 
 Classification has no task of its own. `DetectionEngine.crops()` cuts detected objects out of
 their images at a fixed size, which is the half of it this package is the right place for; the
