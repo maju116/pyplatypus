@@ -89,8 +89,12 @@ def mask_volume(mask: np.ndarray, spacing: Any, class_index: int = 1) -> float:
             three dimensions, not a stack.
         spacing: Voxel size in millimetres, three numbers, in the array's own axis order.
             `pyplatypus.data.volumes.volume_spacing` reads it out of the file.
-        class_index: Which channel to measure, numbered from 0 as this package's channels
-            are. The default is 1, the foreground of a binary segmentation.
+        class_index: The class to measure, **matched against the array's own values**
+            rather than used as an index into it. For a mask from `argmax` that value is
+            the channel number, counted from 0, so the default of 1 is the foreground of a
+            binary segmentation. It is what makes the R package's forward trivial: R
+            collapses with `which.max` and counts its classes from 1, so R passes its own
+            numbering and no translation happens anywhere.
 
     Returns:
         The volume in millilitres.

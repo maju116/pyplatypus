@@ -57,21 +57,32 @@ def test_a_volume_is_millilitres_and_says_so_in_the_arithmetic():
     assert abs(got - 0.032) > 0.1, "that is a voxel count divided by 1000, with no spacing"
 
 
-def test_the_class_index_counts_one_channel_and_is_numbered_from_zero():
-    """R numbers classes from 1 and this package numbers channels from 0.
+def test_the_class_is_matched_against_the_values_and_is_not_an_index():
+    """Which is why there is no off-by-one between the two packages, measured rather than
+    reasoned about.
 
-    The off-by-one belongs in exactly one place, which is R's forward, so the engine's own
-    default has to be unambiguous here: `class_index=1` is the foreground of a binary
-    segmentation, and class 0 is the background, which is almost all of any mask.
+    `pyplatypus#270` was filed saying the forward would own a translation, because R counts
+    its classes from 1 and this package counts channels from 0. It owns none: the argument
+    is compared with `==` against whatever is in the array, so R hands over its own mask and
+    its own class number and both sides agree. Checked on R's own convention - a `which.max`
+    map holding 1 and 2 - where `class_index=2` is the foreground, and 0 selects nothing at
+    all because no such value is present.
     """
-    mask = np.zeros((4, 4, 4), dtype=int)
-    mask[0, 0, 0] = 1
-    mask[1, 1, 1] = 2
+    engine_style = np.zeros((4, 4, 4), dtype=int)
+    engine_style[0, 0, 0] = 1
+    engine_style[1, 1, 1] = 2
+    assert mask_volume(engine_style, spacing=(1, 1, 1)) == pytest.approx(0.001)
+    assert mask_volume(engine_style, spacing=(1, 1, 1), class_index=2) == pytest.approx(0.001)
+    assert mask_volume(engine_style, spacing=(1, 1, 1), class_index=0) == pytest.approx(0.062)
+    assert mask_volume(engine_style, spacing=(1, 1, 1), class_index=7) == 0.0
 
-    assert mask_volume(mask, spacing=(1, 1, 1)) == pytest.approx(0.001)
-    assert mask_volume(mask, spacing=(1, 1, 1), class_index=2) == pytest.approx(0.001)
-    assert mask_volume(mask, spacing=(1, 1, 1), class_index=0) == pytest.approx(0.062)
-    assert mask_volume(mask, spacing=(1, 1, 1), class_index=7) == 0.0
+    # R's convention, which is where this matters: a `which.max` map has no zero in it, so
+    # an argument read as a 0-based index would select the background and report 0.
+    r_style = np.ones((10, 10, 4), dtype=int)
+    r_style[2:6, 2:6, 1:3] = 2
+    assert int((r_style == 2).sum()) == 32
+    assert mask_volume(r_style, spacing=(2, 2, 5), class_index=2) == pytest.approx(0.64)
+    assert mask_volume(r_style, spacing=(2, 2, 5), class_index=0) == 0.0
 
 
 def test_the_size_of_an_object_is_named_after_the_unit_its_rank_implies():
@@ -208,6 +219,20 @@ def test_spacing_multiplies_the_coordinates_and_not_the_answer():
         assert ellipse_circumference(circle, spacing=(side, side)) == pytest.approx(
             in_pixels * side, rel=1e-12
         ), side
+
+    # **A circle cannot tell `(row, column)` from `(column, row)`**, and this test was
+    # written with one until R's mutation batch said so: reversing the pair gives the same
+    # ellipse with its axes exchanged, so 968.88 either way. An already-elongated mask
+    # separates them - 968.79 against 1637.79, 1.7 times apart - which is the one shape that
+    # pins which number goes with which axis. The wide ellipse below is 200 columns by 50
+    # rows, so the taller pixels have to land on the *short* side.
+    oval = filled_ellipse((301, 501), (150, 250), 200.0, 50.0)
+    assert ellipse_circumference(oval, spacing=(2.0, 1.0)) == pytest.approx(
+        _integrated_perimeter(200.0, 100.0), rel=0.01
+    )
+    assert ellipse_circumference(oval, spacing=(1.0, 2.0)) == pytest.approx(
+        _integrated_perimeter(400.0, 50.0), rel=0.01
+    )
 
 
 def test_a_ring_of_pixels_is_invisible_to_dice_and_large_in_millimetres():
