@@ -1,6 +1,81 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a40] - 2026-10-25
+
+`batch_size` leaves the reported score. `maju116/rplatypus#196`.
+
+### Fixed
+
+ - **An epoch's numbers are weighted by the examples that produced them, not by the number
+   of batches.** `_run_epoch` divided each total by the batch count, which weights the
+   examples of a short last batch by `batch_size / last_size` - so a split's reported figure
+   moved with a training setting that has no business in it. Measured on 199 validation
+   cases: 2.3e-04 at `batch_size` 4 and 3.5e-03 at 32, and **the gap is not monotone in the
+   setting**, because its size depends on which cases land in the short batch.
+
+   **This was never a second definition of anything, which is why it is a fix and not a
+   migration.** The per-batch value is already the mean over the examples *in that batch* -
+   `overlaps` sums the spatial dimensions only and `SegmentationMetric.reduce` ends in
+   `per_class.mean()` over the batch - so a mean of means was reaching for the mean over
+   examples and mis-weighting one batch of it.
+
+ - **`evaluate()` is the mean over cases, which its own docstring has claimed since `at` was
+   added.** It was not: the `at="model"` branch called `trainer.evaluate(loader)` without
+   case names and got the batch mean, while the paragraph above it said *"the pooling is the
+   same in both, deliberately: the mean over cases"* and the `at="source"` branch's comment
+   said it matched `at="model"` on purpose. Both rested on something the code did not do.
+   `evaluate()` now passes the case names, so a tiled run's tiles are pooled into cases
+   rather than averaged as tiles - the reassembly `score_cases` argues for.
+
+   **On a tiled run that second half is the larger change by an order of magnitude.**
+   Recomputed from the stored per-case rows of every FIVES arm on this disk: the figure moves
+   **+0.033 to +0.049** of Dice on the tiled arms and by 1e-9 on the untiled ones. The
+   measured tables in both packages' articles and vignettes **do not move**, because every
+   one of them was built from the per-case route already - `focal` 0.8673, `generalized_dice`
+   0.8504, `iou` 0.8309, `dice` 0.8127, and the headline 0.8828 / 0.8014 are all the
+   per-case means. This release brings `evaluate()` into agreement with prose that was
+   already right.
+
+ - **`evaluate()`'s figure is now exactly the mean of `evaluate_cases()`'s own rows**, which
+   is the consequence the issue was filed for, and a test pins it at `rel=1e-9` where it used
+   to read `abs=0.05`. That tolerance was hiding nothing on its fixture - 12 samples at
+   `batch_size` 2 is six full batches - which is why the test that replaces it scores one
+   trained model through six batch sizes, five of which do not divide the split.
+
+ - **An epoch's mean and its `_worst` are two readings of one set of per-case scores.** They
+   were computed from the accumulator separately; now the scores are taken once, so an epoch
+   cannot report a worst case that is not among the cases its mean covers.
+
+### Changed
+
+ - **`Trainer.evaluate` takes `cases`.** It was a one-line wrapper on the training path and
+   is now the one place the difference is stated: a training pass is shuffled and has no case
+   identity, so its line is the mean over examples; a caller scoring a split has the names.
+
+ - **`best_model()` needs no change and may answer differently.** It ranks on `evaluate()`,
+   so it gets this for free - and where two models sat within the pooling's own shift of each
+   other, the winner can change. Recomputed on the eleven-loss FIVES table: the winner is
+   unchanged and its margin over the runner-up grows from +0.0006 to +0.0033, while the one
+   pair that swaps rank differs by 1e-4, which that table already called a tie.
+
+### Not in this release
+
+ - **The detector's epoch has a different defect and its own issue**, `maju116/rplatypus#218`.
+   `DetectionTrainer._run_epoch` divides by batches too, but every component of the YOLO loss
+   is normalised by the number of **objects** in the batch, so averaging over batches weights
+   a frame of thirty cells like a frame of two platelets. The repair there is a ratio of sums
+   at the object level and needs `LossParts` to carry what it divided by - a different
+   mechanism, and one release should not carry two poolings' changes. No published detection
+   number moves: the AP table is scored per image through its own path.
+
+ - **The published weights are retrained separately.** `restore_best` selected on a quantity
+   this release changes, and the histories do not store per-case scores per epoch, so which
+   epoch a run would now keep cannot be recomputed from disk. Bounded from what is stored:
+   on HC18's run the mis-weighting can move an epoch by up to 5.8e-03 while the nearest
+   rival sat 1.4e-03 behind, so the selection is not provably the one a correct weighting
+   would have made.
+
 ## [0.8.0a39] - 2026-10-25
 
 Millilitres, square millimetres and millimetres, in the engine rather than in the R

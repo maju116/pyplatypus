@@ -443,13 +443,23 @@ def test_an_epoch_reports_the_share_it_actually_predicted(loaders):
     scores = trainer.evaluate(loaders(spec))
 
     model.eval()
-    shares = []
+    shares, sizes = [], []
     with torch.no_grad():
         for batch in loaders(spec):
             shares.append(trainer.foreground_share(model(batch[0])))
-    expected = sum(shares) / len(shares)
+            sizes.append(batch[0].shape[0])
+    # **Weighted by the batch's size**, which is what an epoch divides by since
+    # `maju116/rplatypus#196`. This read `sum(shares) / len(shares)` and so encoded the
+    # pooling that issue replaced - the mean of per-batch means, which is the mean over
+    # examples only when the batches are equal. Here they are not, and the two answers are
+    # 0.0749 apart against the 1e-6 this compares to: the test named the right quantity and
+    # computed a different one.
+    expected = sum(s * n for s, n in zip(shares, sizes, strict=True)) / sum(sizes)
 
     assert expected > 0.0, "the fixture predicts no foreground, so this would prove nothing"
+    assert len(set(sizes)) > 1, (
+        "every batch here is the same size, so this test cannot tell the two poolings apart"
+    )
     assert scores["val_foreground"] == pytest.approx(expected, abs=1e-6)
 
 

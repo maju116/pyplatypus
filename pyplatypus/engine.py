@@ -766,12 +766,18 @@ class Engine(EngineBase):
         resampled prediction would be a number with no training meaning and a column
         somebody would compare.
 
-        **The pooling is the same in both**, deliberately: the mean over cases, which is
-        what this table has always reported. `evaluate_cases` pools a group by adding its
-        counts instead, which is the better statistic and a different number - so `at`
-        changes the grid and nothing else, and the gap between its two values is the rig it
-        exists to measure rather than that gap plus a change of definition.
-        `maju116/rplatypus#196` is where the two poolings are written down.
+        **The pooling is the same in both**: the mean over cases. That has been the claim
+        here since `at` was added and became true in `0.8.0a40` - until then this branch
+        passed no case names and reported the mean over *batches*, so the sentence described
+        a pooling the code did not do and the comment in the `at="source"` branch rested on
+        it. `maju116/rplatypus#196`.
+
+        A case's own score is a ratio of sums - its tiles' counts added, the formula applied
+        once - and the split's is the mean of those. `evaluate_cases` pools a **group** the
+        same way, by adding the counts of the images in it, which is a different number again
+        and the better statistic for a patient: `summarise_cases` is where to read it. So
+        `at` changes the grid and nothing else, and the gap between its two values is the rig
+        it exists to measure rather than that gap plus a change of definition.
 
         Raises:
             EngineError: If the split carries no masks - and the message says `predict`
@@ -816,7 +822,18 @@ class Engine(EngineBase):
                     if name != "case"
                 }
             else:
-                scores = run.trainer.evaluate(self.loader(run.spec, split))
+                # The case names, so this really is the mean over cases rather than the
+                # mean over whatever the loader happened to batch. Until
+                # `maju116/rplatypus#196` they were not passed, so this branch reported the
+                # mean over **batches** - and the paragraph above, which says the pooling
+                # is the same in both and has said so since `at` was added, was describing
+                # a pooling the code did not do. The comment in the `at="source"` branch
+                # rested on it too. A declaration beside a mechanism that does not match
+                # it, in the one place the two values of one argument are meant to differ
+                # by the grid alone.
+                scores = run.trainer.evaluate(
+                    self.loader(run.spec, split), self._case_names(run.spec, split)
+                )
             best = run.history.best("val_loss")
             table.append(
                 {
