@@ -15,6 +15,7 @@ from pyplatypus import Engine, from_dict, summarise_cases
 from pyplatypus.engine import EngineError
 from pyplatypus.errors import ConfigError
 from pyplatypus.objectives.metrics import Dice
+from pyplatypus.training.torch_data import make_loader
 from tests.conftest import metric_configs, write_png
 
 
@@ -192,14 +193,128 @@ def test_a_callback_cannot_watch_what_a_tiled_epoch_does_not_produce(patients, m
     )
 
 
-def test_the_mean_of_case_scores_is_close_to_the_split_score(patients):
-    """Sanity, not equality: the split score averages over batches, so they differ a
-    little. A large gap would mean one of the two is measuring something else."""
+def test_the_split_score_is_exactly_the_mean_of_its_own_case_scores(patients):
+    """Equality, not sanity, which is the whole of `maju116/rplatypus#196`.
+
+    This test read `abs=0.05` and its docstring said the two "differ a little, because the
+    split score averages over batches". Both halves were wrong about this fixture: 12
+    samples at `batch_size` 2 is six full batches, so the two poolings were already
+    identical here and the tolerance was hiding nothing. The case the prose described was
+    never in the fixture - §4's commonest shape - and the test below adds it.
+
+    The consequence this pins is the one the issue was filed for: a reader who computes
+    `mean(evaluate_cases()$dice)` and a reader who asks `evaluate()` for the split's figure
+    must get the same number.
+    """
     engine = Engine(spec_for(patients), device="cpu")
     engine.fit()
     per_case = np.mean([row["dice"] for row in engine.evaluate_cases("tiny")])
     whole_split = engine.evaluate()[0]["dice"]
-    assert per_case == pytest.approx(whole_split, abs=0.05)
+    assert per_case == pytest.approx(whole_split, rel=1e-9)
+
+
+BATCHES = [1, 2, 5, 7, 8, 12]
+
+
+def test_the_two_poolings_are_different_things_and_the_difference_needs_a_short_batch():
+    """The arithmetic on its own, with no model in it - which is the only honest place for it.
+
+    This control was written twice inside the trained test above and was flaky both times.
+    Per batch size it demanded that every size not dividing 12 expose the old pooling, and
+    `batch_size` 7 falsified that: whether two groupings of the same numbers average alike
+    depends on the numbers. Taken once over all sizes it still failed about one run in three,
+    because an unseeded one-epoch model can give every case the same score, and then no
+    grouping of them differs from any other.
+
+    **A control that depends on the luck of an initialisation is not a control.** The claim
+    being guarded is about arithmetic, so it is asserted on numbers chosen here: a mean of
+    group means is not the mean unless the groups are the same size.
+    """
+    scores = [0.1 * (i + 1) for i in range(12)]
+    exact = float(np.mean(scores))
+    for batch in BATCHES:
+        chunks = [scores[i : i + batch] for i in range(0, len(scores), batch)]
+        old = float(np.mean([np.mean(c) for c in chunks]))
+        if 12 % batch:
+            assert abs(old - exact) > 1e-9, (
+                f"batch {batch} leaves a short last batch, so the two poolings must differ "
+                "on numbers that are not all equal"
+            )
+        else:
+            assert old == pytest.approx(exact, rel=1e-12), (
+                f"batch {batch} divides 12, so the two must agree exactly"
+            )
+
+
+def test_the_split_score_is_the_mean_over_cases_whatever_the_batch_size(patients):
+    """Because `batch_size` is a training setting and has no business in a reported score.
+
+    One trained model, scored through loaders of different batch sizes, so the only variable
+    is the batching, and five of the six sizes do not divide the 12 samples. No control for
+    the old pooling here - that is the test above, where it does not depend on what a random
+    initialisation happened to produce.
+    """
+    engine = Engine(spec_for(patients), device="cpu")
+    engine.fit()
+    run = engine.runs["tiny"]
+    dataset = engine.dataset(run.spec, "validation")
+    cases = engine._case_names(run.spec, "validation")
+    expected = float(np.mean([row["dice"] for row in engine.evaluate_cases("tiny")]))
+
+    for batch in BATCHES:
+        reported = run.trainer.evaluate(make_loader(dataset, batch_size=batch), cases=cases)
+        assert reported["val_dice"] == pytest.approx(expected, rel=1e-9), (
+            f"at batch_size {batch} the reported figure is not the mean over cases"
+        )
+
+
+@pytest.mark.parametrize("batch", [1, 5, 7, 12])
+def test_an_epoch_line_is_the_mean_over_examples_whatever_the_batching(patients, batch):
+    """The half of `#196` the test above cannot see, and a mutation batch found that out.
+
+    `evaluate()` passes case names, so its accumulating metrics are read off the per-case
+    accumulator - which means the example weighting underneath is invisible there, and three
+    mutations of it survived the first batch. It is not invisible on an **epoch line**: a
+    training pass is shuffled, so there is no case identity to pool by and the division is
+    all there is. Same for `loss` and `foreground` in any pass, which have no per-case
+    definition at all.
+
+    So this scores with no case names, which is the shape a training epoch has, and asserts
+    that nothing moves with the batching.
+    """
+    engine = Engine(spec_for(patients), device="cpu")
+    engine.fit()
+    run = engine.runs["tiny"]
+    dataset = engine.dataset(run.spec, "validation")
+
+    reference = run.trainer.evaluate(make_loader(dataset, batch_size=3))
+    got = run.trainer.evaluate(make_loader(dataset, batch_size=batch))
+
+    # 12 samples, so 3 divides and the reference is the mean over examples by construction.
+    for key in ("val_loss", "val_foreground", "val_dice"):
+        assert got[key] == pytest.approx(reference[key], rel=1e-6), (
+            f"{key} moved from {reference[key]:.8f} to {got[key]:.8f} between batch sizes "
+            "3 and " + str(batch) + ", so a training setting is still in the number"
+        )
+
+
+def test_the_worst_case_is_one_of_the_cases_the_mean_was_taken_over(patients):
+    """Two readings of one set of scores, which is what the epoch now computes once.
+
+    Not arithmetic for its own sake: if the mean came from the accumulator and the minimum
+    from somewhere else, an epoch could report a worst case that is not among the cases its
+    mean covers, and `val_dice_worst` is a number callbacks act on.
+    """
+    engine = Engine(spec_for(patients), device="cpu")
+    history = engine.fit()["tiny"]
+    rows = engine.evaluate_cases("tiny")
+    per_case = sorted(row["dice"] for row in rows)
+
+    last = history.records[-1]
+    assert last["val_dice_worst"] == pytest.approx(per_case[0], rel=1e-6)
+    assert per_case[0] <= last["val_dice"] <= per_case[-1], (
+        "the epoch's mean falls outside the range of the case scores its own worst came from"
+    )
 
 
 def test_a_model_without_metrics_says_so(patients):

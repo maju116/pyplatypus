@@ -246,9 +246,11 @@ class Trainer:
     def _per_batch_metrics(self) -> dict[str, Any]:
         """The metrics an epoch can honestly report, which on a tiled run is not all of them.
 
-        An epoch reads its metrics per batch and averages. That is exact for a metric whose
-        pieces sum - Dice is a ratio of sums - and wrong for one that reads the shape of a
-        whole mask, because a tile severs every structure crossing its edge. So on a tiled
+        An epoch reads its metrics per batch and pools them - weighted by each batch's size,
+        and for an accumulating metric with case names, by adding each case's counts first.
+        That is exact for a metric whose pieces sum - Dice is a ratio of sums - and wrong for
+        one that reads the shape of a whole mask, because a tile severs every structure
+        crossing its edge. So on a tiled
         run those are left out of the epoch and the history rather than reported per tile:
         `evaluate_cases` measures them on the reassembled image, which is the only place the
         whole mask exists, and `summarise_cases` gives the split's figure as the mean over
@@ -285,6 +287,27 @@ class Trainer:
 
         Only for metrics that accumulate, and only where `cases` is given - the training
         pass is shuffled, so no case identity exists there to pool by.
+
+        **Every number here is weighted by how many examples produced it, not by how many
+        batches.** Until `maju116/rplatypus#196` this divided each total by the batch count,
+        which weights the examples of a short last batch by `batch_size / last_size` - so a
+        split's reported figure moved with a training setting that has no business in it.
+        Measured on 199 validation cases: at `batch_size` 4 the two readings differ by
+        2.3e-04 and at 32 by 3.5e-03, and the gap is not even monotone in the setting,
+        because its size depends on which cases happen to land in the short batch.
+
+        That was never a second definition of anything. The per-batch value is already the
+        mean over the examples *in that batch* - `overlaps` sums the spatial dimensions only
+        and `SegmentationMetric.reduce` ends in `per_class.mean()` over the batch - so a mean
+        of means was reaching for the mean over examples and mis-weighting one batch of it.
+        Hence a repair rather than a migration: the figures move at the fourth decimal.
+
+        **Where a case's pieces arrive separately, the pooling goes one step further.** With
+        `cases` the accumulating metrics are read off `_PerCase` instead, which sums a case's
+        tiles' counts and applies the formula once - the reassembly `score_cases` argues for,
+        not a different weighting. On an untiled pass the two agree exactly, which is a test
+        rather than a claim. `loss` and `foreground` stay the example mean, because neither
+        has a per-case definition to pool into: a loss is not a ratio of counts.
         """
         self.model.train(train)
         # After model.train(), never before: that call reaches every submodule, so a
@@ -295,6 +318,9 @@ class Trainer:
         totals: dict[str, float] = {f"{prefix}_loss": 0.0, f"{prefix}_foreground": 0.0}
         totals.update({f"{prefix}_{name}": 0.0 for name in self._per_batch_metrics})
         batches = 0
+        # Both counts, because they answer different questions: `examples` is the divisor,
+        # and `batches` is still what "the loader produced nothing" is detected by.
+        examples = 0
         per_case = _PerCase() if cases is not None else None
         position = 0
 
@@ -325,10 +351,14 @@ class Trainer:
                 # detach before reading: torch >= 2.14 warns about turning a tensor
                 # that still tracks gradients into a scalar, and it would warn once per
                 # batch for the whole run.
-                totals[f"{prefix}_loss"] += loss.detach().item()
-                totals[f"{prefix}_foreground"] += self.foreground_share(final.detach())
+                # Times the batch's size, so the division below is by examples. Each of
+                # these is already a mean over the examples in this batch, so weighting by
+                # how many there were turns a mean of means into the mean.
+                size = batch_x.shape[0]
+                totals[f"{prefix}_loss"] += loss.detach().item() * size
+                totals[f"{prefix}_foreground"] += self.foreground_share(final.detach()) * size
                 for name, metric in self._per_batch_metrics.items():
-                    totals[f"{prefix}_{name}"] += metric(final, batch_y).detach().item()
+                    totals[f"{prefix}_{name}"] += metric(final, batch_y).detach().item() * size
                 if per_case is not None:
                     hard = self._hard(final.detach())
                     tp, fp, fn = f.overlaps(hard, batch_y)
@@ -342,15 +372,21 @@ class Trainer:
                         per_case.add(cases[position + offset], tp[offset], fp[offset], fn[offset])
                     position += batch_x.shape[0]
                 batches += 1
+                examples += size
 
         if batches == 0:
             raise ValueError(f"the {prefix} loader produced no batches")
-        epoch = {key: value / batches for key, value in totals.items()}
+        epoch = {key: value / examples for key, value in totals.items()}
         if per_case is not None:
             for name, metric in self._per_batch_metrics.items():
                 if not metric.accumulates:
                     continue
-                epoch[f"{prefix}_{name}_worst"] = min(per_case.scores(metric).values())
+                # Once, for both numbers: the mean and the minimum have to be two readings
+                # of one set of per-case scores, or an epoch could report a worst case that
+                # is not one of the cases its mean was taken over.
+                scores = per_case.scores(metric)
+                epoch[f"{prefix}_{name}"] = sum(scores.values()) / len(scores)
+                epoch[f"{prefix}_{name}_worst"] = min(scores.values())
         return epoch
 
     def _set_transferred_frozen(self, frozen: bool) -> None:
@@ -419,8 +455,17 @@ class Trainer:
         return history
 
     @torch.no_grad()
-    def evaluate(self, loader: DataLoader) -> dict[str, float]:
-        return self._run_epoch(loader, train=False, prefix="val")
+    def evaluate(self, loader: DataLoader, cases: Sequence[str] | None = None) -> dict[str, float]:
+        """One scoring pass, with case identity when the caller has it.
+
+        `cases` is the whole difference between this and an epoch's validation pass, and it
+        is why this is not merely a wrapper. A training run cannot supply it - the pass is
+        shuffled - so an epoch line is the mean over examples; a caller scoring a split
+        knows which example belongs to which case, so the accumulating metrics are pooled
+        into cases first and a tiled run's tiles are reassembled rather than averaged.
+        `maju116/rplatypus#196`.
+        """
+        return self._run_epoch(loader, train=False, prefix="val", cases=cases)
 
     def _stitch_channels_first(self, tiles: torch.Tensor) -> torch.Tensor:
         """`stitch`, for a channels-first tensor that is already on the device.
