@@ -114,6 +114,7 @@ import numpy as np
 from PIL import Image
 
 import pyplatypus as pp
+from pyplatypus import ellipse_circumference
 
 #: The examination, out of the file name. Everything sharing one must land in one split, and
 #: the first capture group is what `group_of` reads.
@@ -156,65 +157,20 @@ def fill(outline: np.ndarray) -> np.ndarray:
     return np.asarray(binary_fill_holes(outline > 0), dtype=bool)
 
 
-def largest_filled(mask: np.ndarray) -> np.ndarray:
-    """The biggest connected piece, with its holes filled.
-
-    A prediction is not an ellipse. It can arrive in two pieces or with a hole in the
-    middle, and the second moments of either are not the second moments of a skull: a hole
-    pushes the variance outwards and a stray island drags the centre. Taking the largest
-    component and filling it is the smallest honest repair, and it is applied to the truth
-    as well so that both sides of every comparison went through the same arithmetic.
-    """
-    from scipy.ndimage import binary_fill_holes, label
-
-    pieces, count = label(mask)
-    if count > 1:
-        sizes = np.bincount(pieces.ravel())
-        sizes[0] = 0
-        mask = pieces == int(np.argmax(sizes))
-    return np.asarray(binary_fill_holes(mask), dtype=bool)
-
-
-def semi_axes(mask: np.ndarray) -> tuple[float, float]:
-    """The ellipse's semi-axes in pixels, from the region's second moments.
-
-    For a uniform filled ellipse the covariance of the member pixels has eigenvalues
-    `a^2 / 4` and `b^2 / 4`, so the axes come out of an eigendecomposition of a 2x2 matrix
-    and nothing is fitted iteratively. Returned major first.
-    """
-    rows, columns = np.nonzero(mask)
-    if rows.size < 3:
-        return 0.0, 0.0
-    covariance = np.cov(np.stack([columns.astype(np.float64), rows.astype(np.float64)]))
-    spread = np.linalg.eigvalsh(covariance)
-    spread = np.clip(spread, 0.0, None)
-    return 2.0 * math.sqrt(spread[1]), 2.0 * math.sqrt(spread[0])
-
-
-def perimeter(a: float, b: float) -> float:
-    """An ellipse's circumference by Ramanujan's second approximation.
-
-    There is no closed form. This one is right to about `1e-7` relative at the
-    eccentricities a fetal skull has - four orders of magnitude below one pixel - and
-    `pi * (a + b)`, which is the thing somebody reaches for instead, is wrong by 1.5% at an
-    axis ratio of 0.7.
-    """
-    if a <= 0.0 or b <= 0.0:
-        return 0.0
-    h = ((a - b) / (a + b)) ** 2
-    return math.pi * (a + b) * (1.0 + 3.0 * h / (10.0 + math.sqrt(4.0 - 3.0 * h)))
-
-
 def circumference_mm(mask: np.ndarray, pixel_mm: float) -> float:
     """The head circumference a mask implies, in millimetres.
 
+    The arithmetic is the engine's as of `0.8.0a39` - `largest_filled_object` for the
+    repair, `ellipse_axes` for the second moments, `ellipse_circumference` for Ramanujan's
+    perimeter - and this is the one line of it that belongs to the dataset: HC18 records one
+    `pixel size(mm)` per image, square, so the spacing is that number twice.
+
     The pixel size is the image's own, out of the dataset's CSV, which is why this is
-    measured on the **source** grid: a prediction resized to the model's shape has pixels
-    of a size nobody recorded, and multiplying by the file's number there would be wrong by
-    the ratio of the two shapes.
+    measured on the **source** grid: a prediction resized to the model's shape has pixels of
+    a size nobody recorded, and multiplying by the file's number there would be wrong by the
+    ratio of the two shapes.
     """
-    a, b = semi_axes(largest_filled(mask))
-    return perimeter(a, b) * pixel_mm
+    return ellipse_circumference(mask, (pixel_mm, pixel_mm))
 
 
 def dice(prediction: np.ndarray, truth: np.ndarray) -> float:
@@ -389,9 +345,9 @@ def pipeline_control(
             if index >= limit:
                 break
             key = row["key"]
-            truth = largest_filled(_read_mask(row["masks"]))
-            a, b = semi_axes(truth)
-            length = perimeter(a, b)
+            # In pixels, because the line width this measures is a pixel count: the
+            # annotation's own stroke, divided out of it below.
+            length = ellipse_circumference(_read_mask(row["masks"]))
             outline = np.asarray(
                 pp.read_image(images / f"{key}_Annotation.png", channels=1, size=None, nearest=True)
             )

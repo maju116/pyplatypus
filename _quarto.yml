@@ -167,6 +167,11 @@ website:
         - reference/drawing_style.qmd
       - section: Masks and volumes
         contents:
+        - reference/mask_volume.qmd
+        - reference/instance_sizes.qmd
+        - reference/largest_filled_object.qmd
+        - reference/ellipse_axes.qmd
+        - reference/ellipse_circumference.qmd
         - reference/save_class_masks.qmd
         - reference/save_volumes.qmd
         - reference/save_class_volumes.qmd
@@ -318,11 +323,18 @@ quartodoc:
     - flow_to_colours
     - drawing_style
   - title: Masks and volumes
-    desc: 'Overlapping classes cannot be one picture, so they are one picture each. The rest of
-      this group is R''s: reading and uniting masks is where an R user meets them.
+    desc: 'Measuring a mask and writing it back. Millilitres, square millimetres and millimetres
+      rather than voxels, because a voxel count means nothing outside the scanner that produced
+      it - and overlapping classes cannot be one picture, so they are one picture each. The rest
+      of this group is R''s: reading and uniting masks is where an R user meets them.
 
       '
     contents:
+    - mask_volume
+    - instance_sizes
+    - largest_filled_object
+    - ellipse_axes
+    - ellipse_circumference
     - save_class_masks
     - save_volumes
     - save_class_volumes
