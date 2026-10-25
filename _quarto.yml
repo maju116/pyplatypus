@@ -28,6 +28,7 @@ project:
   - retinal-vessels.qmd
   - blood-cells.qmd
   - volumes.qmd
+  - fetal-head.qmd
   - config.qmd
   - reference/
   - CHANGELOG.md
@@ -65,6 +66,8 @@ website:
         file: blood-cells.qmd
       - text: Segmenting volumes
         file: volumes.qmd
+      - text: A head circumference in millimetres
+        file: fetal-head.qmd
       - text: Every configuration field
         file: config.qmd
     - section: Reference
