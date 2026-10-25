@@ -804,6 +804,36 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reference/mask_volume.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">mask_volume</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/instance_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">instance_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/largest_filled_object.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">largest_filled_object</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ellipse_axes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ellipse_axes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ellipse_circumference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ellipse_circumference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference/save_class_masks.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">save_class_masks</span></a>
   </div>
@@ -1160,9 +1190,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="millilitres-not-voxels" class="level2">
 <h2 class="anchored" data-anchor-id="millilitres-not-voxels">Millilitres, not voxels</h2>
 <p>The size of a finding is reported in millilitres. A voxel count means nothing outside the scanner that produced it - the same lesion is 4,000 voxels on one machine and 12,000 on another - and resampling is what makes the conversion trivial: at <code>target_spacing: [1, 1, 1]</code> a voxel is exactly one cubic millimetre.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># On the model's grid, where target_spacing has made a voxel one cubic millimetre.</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>prediction <span class="op">=</span> engine.predict(<span class="st">"lesion"</span>, split<span class="op">=</span><span class="st">"validation"</span>, space<span class="op">=</span><span class="st">"model"</span>)</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>millilitres <span class="op">=</span> [<span class="bu">float</span>((case.argmax(axis<span class="op">=-</span><span class="dv">1</span>) <span class="op">==</span> <span class="dv">1</span>).<span class="bu">sum</span>()) <span class="op">/</span> <span class="dv">1000</span> <span class="cf">for</span> case <span class="kw">in</span> prediction]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyplatypus <span class="im">import</span> mask_volume</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># On the model's grid, where target_spacing has made a voxel one cubic millimetre - and</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># `spacing` is passed rather than assumed, because the division is only right while it is</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co"># true and nothing about a voxel count says whether it still is.</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>prediction <span class="op">=</span> engine.predict(<span class="st">"lesion"</span>, split<span class="op">=</span><span class="st">"validation"</span>, space<span class="op">=</span><span class="st">"model"</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>millilitres <span class="op">=</span> [</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    mask_volume(case.argmax(axis<span class="op">=-</span><span class="dv">1</span>), spacing<span class="op">=</span>(<span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">1</span>), class_index<span class="op">=</span><span class="dv">1</span>) <span class="cf">for</span> case <span class="kw">in</span> prediction</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <table class="caption-top table">
 <thead>
 <tr class="header">

@@ -768,6 +768,36 @@ ul.task-list li input[type="checkbox"] {
       <ul id="quarto-sidebar-section-11" class="collapse list-unstyled sidebar-section depth2 ">  
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/mask_volume.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">mask_volume</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/instance_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">instance_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/largest_filled_object.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">largest_filled_object</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/ellipse_axes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ellipse_axes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../reference/ellipse_circumference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ellipse_circumference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/save_class_masks.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">save_class_masks</span></a>
   </div>
@@ -1264,18 +1294,38 @@ ul.task-list li input[type="checkbox"] {
 </section>
 <section id="masks-and-volumes" class="level2">
 <h2 class="anchored" data-anchor-id="masks-and-volumes">Masks and volumes</h2>
-<p>Overlapping classes cannot be one picture, so they are one picture each. The rest of this group is R’s: reading and uniting masks is where an R user meets them.</p>
+<p>Measuring a mask and writing it back. Millilitres, square millimetres and millimetres rather than voxels, because a voxel count means nothing outside the scanner that produced it - and overlapping classes cannot be one picture, so they are one picture each. The rest of this group is R’s: reading and uniting masks is where an R user meets them.</p>
 <table class="caption-top table">
 <tbody>
 <tr class="odd">
+<td><a href="../reference/mask_volume.html#pyplatypus.mask_volume">mask_volume</a></td>
+<td>How much of a volume one class occupies, in millilitres.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/instance_sizes.html#pyplatypus.instance_sizes">instance_sizes</a></td>
+<td>How big each object is, one row per object.</td>
+</tr>
+<tr class="odd">
+<td><a href="../reference/largest_filled_object.html#pyplatypus.largest_filled_object">largest_filled_object</a></td>
+<td>The biggest connected piece of a mask, with its holes filled.</td>
+</tr>
+<tr class="even">
+<td><a href="../reference/ellipse_axes.html#pyplatypus.ellipse_axes">ellipse_axes</a></td>
+<td>The semi-axes of the ellipse a region implies, major first.</td>
+</tr>
+<tr class="odd">
+<td><a href="../reference/ellipse_circumference.html#pyplatypus.ellipse_circumference">ellipse_circumference</a></td>
+<td>The circumference of the ellipse a region implies.</td>
+</tr>
+<tr class="even">
 <td><a href="../reference/save_class_masks.html#pyplatypus.save_class_masks">save_class_masks</a></td>
 <td>One binary picture per class, which is how an overlapping prediction reaches disk.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="../reference/save_volumes.html#pyplatypus.save_volumes">save_volumes</a></td>
 <td>A predicted volume as NIfTI, written onto the geometry of the scan it came from.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="../reference/save_class_volumes.html#pyplatypus.save_class_volumes">save_class_volumes</a></td>
 <td>One binary volume per class, which is how an overlapping prediction reaches disk in 3D.</td>
 </tr>
