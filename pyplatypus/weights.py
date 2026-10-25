@@ -111,6 +111,22 @@ REGISTRY: dict[str, Published] = {
             "the data is - attribution travels with them and the sidecar carries the citation."
         ),
     ),
+    "hc18-unet": Published(
+        repo="maju116/platypus-weights",
+        filename="hc18-unet.safetensors",
+        revision="9c6d859900b262cfb073b9af371ec0b29bcfe8ea",
+        description=(
+            "U-Net, 544x800, the fetal skull in 2D ultrasound, for measuring **head circumference "
+            "in millimetres**. HC18 (CC BY 4.0), split by examination rather than by row. Median "
+            "absolute error 2.44 mm against the sonographer's measurement over 199 held-out "
+            "images, mean 3.84 mm, worst 48.07 mm - and 3.41 mm against the truth mask's own "
+            "circumference, which is this model's contribution rather than the dataset's drawing "
+            "convention. **Do not choose these weights on the Dice**: it is 0.9494, it orders the "
+            "cases differently from the millimetres, and 85 of the 144 cases scoring 0.95 or "
+            "better are still wrong by more than 2 mm. **CC BY 4.0, not MIT**, because the data "
+            "is."
+        ),
+    ),
 }
 
 
@@ -130,18 +146,25 @@ def available_weights() -> dict[str, str]:
 
     >>> listing = available_weights()
     >>> sorted(listing)
-    ['bccd-yolo3', 'dsbowl-instances', 'dsbowl-unet', 'fives-unet']
+    ['bccd-yolo3', 'dsbowl-instances', 'dsbowl-unet', 'fives-unet', 'hc18-unet']
     >>> "BBBC038v1" in listing["dsbowl-unet"]
     True
     >>> listing["dsbowl-unet"].startswith("U-Net, 256x256")
     True
 
-    Two of those four are the same images read two ways, which is the case the descriptions
+    Two of those five are the same images read two ways, which is the case the descriptions
     have to carry rather than the names: one is semantic and one tells the objects apart.
 
     >>> "instance" in listing["dsbowl-unet"].lower()
     True
     >>> "One file, three scores" in listing["dsbowl-instances"]
+    True
+
+    And one of the five is not to be chosen on the score every other entry leads with, which
+    is the sharpest case for reading the descriptions: `hc18-unet` is published for a length
+    in millimetres, and its Dice orders the cases differently from the millimetres.
+
+    >>> "Do not choose these weights on the Dice" in listing["hc18-unet"]
     True
     """
     return {name: entry.description for name, entry in REGISTRY.items()}

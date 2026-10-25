@@ -1375,3 +1375,46 @@ def test_the_card_is_not_indented_because_an_indented_card_is_a_code_block():
         "a line of the card is indented four spaces or more outside the code block, which "
         "markdown reads as preformatted text"
     )
+
+
+def test_the_hc18_registry_entry_carries_the_numbers_it_was_handed():
+    """`UPLOAD.md` said this script printed the registry entry for a day before it did.
+
+    The entry is generated for the same reason the card is: the description is the only part
+    of a registry entry carrying numbers, and one copied out of a terminal is one nothing
+    holds to the run. The fixture's numbers are deliberately not this model's, so an entry
+    printing a constant fails here rather than passing on the real figures.
+    """
+    import publish_hc18_weights as script
+
+    measured = _hc18_measured()
+    entry = script.registry_entry(measured, (123, 456))
+    flat = " ".join(entry.split())
+
+    assert '"hc18-unet": Published(' in entry
+    assert 'filename="hc18-unet.safetensors"' in entry
+    assert "ls-remote" in entry, "the revision is a placeholder until the upload has a commit"
+
+    assert "123x456" in flat, "the input shape is the one it was handed"
+    for number in (
+        f"{measured['spread']['median_mm']:.2f} mm",
+        f"{measured['summary']['mae_mm']:.2f} mm",
+        f"{measured['summary']['worst_mm']:.2f} mm",
+        f"{measured['summary']['model_mae_mm']:.2f} mm",
+        f"{measured['summary']['dice']:.4f}",
+    ):
+        assert number in flat, f"{number} is not in the entry"
+    assert (
+        f"{measured['published_but_wrong']['n_over']} of the "
+        f"{measured['published_but_wrong']['n_publishable']} cases"
+    ) in flat
+
+    # The two claims the entry exists to make, in the order that is the claim.
+    assert flat.index("millimetres") < flat.index("Dice")
+    assert "Do not choose these weights on the Dice" in flat
+    assert "not MIT" in flat
+
+    # And the control: none of the published run's own figures may appear, or the entry is
+    # printing something it was not handed.
+    for published in ("2.44 mm", "3.84 mm", "0.9494", "85 of the 144"):
+        assert published not in flat, f"{published} came from outside this run"

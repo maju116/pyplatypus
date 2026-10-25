@@ -343,6 +343,51 @@ def card(measured: dict) -> str:
         """).strip()
 
 
+def registry_entry(measured: dict, shape: tuple[int, int]) -> str:
+    """The lines somebody adds to `REGISTRY` once the upload has a commit.
+
+    Printed rather than described, for the reason the card is generated: the description is
+    the only part of a registry entry that carries numbers, and a number copied out of a
+    terminal into a registry is one nothing holds to the run. `UPLOAD.md` said this script
+    printed the entry before it did, which is what prompted writing it.
+
+    The entry leads with millimetres and names the Dice only inside the sentence warning the
+    reader off it, because that order *is* the finding - `tests/test_weights.py` asserts it.
+    """
+    totals = measured["summary"]
+    median = measured["spread"]["median_mm"]
+    wrong = measured["published_but_wrong"]
+    description = (
+        f"U-Net, {shape[0]}x{shape[1]}, the fetal skull in 2D ultrasound, for measuring "
+        "**head circumference in millimetres**. HC18 (CC BY 4.0), split by examination "
+        f"rather than by row. Median absolute error {median:.2f} mm against the "
+        f"sonographer's measurement over {totals['n']} held-out images, mean "
+        f"{totals['mae_mm']:.2f} mm, worst {totals['worst_mm']:.2f} mm - and "
+        f"{totals['model_mae_mm']:.2f} mm against the truth mask's own circumference, which "
+        "is this model's contribution rather than the dataset's drawing convention. **Do "
+        f"not choose these weights on the Dice**: it is {totals['dice']:.4f}, it orders the "
+        f"cases differently from the millimetres, and {wrong['n_over']} of the "
+        f"{wrong['n_publishable']} cases scoring {wrong['dice_at_least']:.2f} or better are "
+        f"still wrong by more than {wrong['matters_mm']:.0f} mm. **CC BY 4.0, not MIT**, "
+        "because the data is."
+    )
+    wrapped = textwrap.wrap(description, width=84)
+    body = [f'            "{line} "' for line in wrapped[:-1]]
+    body.append(f'            "{wrapped[-1]}"')
+    return "\n".join(
+        [
+            '    "hc18-unet": Published(',
+            '        repo="maju116/platypus-weights",',
+            '        filename="hc18-unet.safetensors",',
+            '        revision="<the commit git ls-remote reports after the upload>",',
+            "        description=(",
+            *body,
+            "        ),",
+            "    ),",
+        ]
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -537,9 +582,11 @@ def main() -> None:
     print(f"      {path.with_suffix('.json')}")
     print(f"      {out / 'hc18-unet-card.md'}")
     print(
-        "\nNothing was uploaded. The upload is the author's: see weights/UPLOAD.md, and the "
-        "registry entry is pinned to the Hub commit that upload produces."
+        "\nNothing was uploaded. The upload is the author's: see weights/UPLOAD.md. Then the "
+        "registry entry, pinned to the Hub commit that upload produces:"
     )
+    print()
+    print(registry_entry(measured, (arguments.height, arguments.width)))
 
 
 if __name__ == "__main__":
