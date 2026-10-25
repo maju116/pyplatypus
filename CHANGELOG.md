@@ -1,6 +1,56 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a42] - 2026-10-25
+
+A detection epoch is pooled by what the loss divided by. `maju116/rplatypus#218`.
+
+### Fixed
+
+ - **`DetectionTrainer._run_epoch` ended in `{key: value / batches}`, and the thing being
+   averaged is not an average over examples.** Every component of the YOLO loss is divided
+   inside the loss: `coordinates`, `objectness` and `classes` by a grid's **object count**,
+   and `no_object` by the **cells it supervises**. Averaging those over batches weights a
+   frame holding thirty blood cells the same as a frame holding two.
+
+   This is not `0.8.0a40`'s repair in another trainer, which is why it is its own release.
+   There the per-batch value was already a mean over the batch's examples, so weighting by
+   `batch_size` turned a mean of means into the mean - one correct answer. Here the
+   denominators live inside the loss and there are **four of them per scale**, so
+   `LossParts` carries `grids`, one `GridParts` per scale holding the four terms and the
+   two divisors, and an epoch is `sum over grids of (sum over batches of value * divisor) /
+   (sum over batches of divisor)`.
+
+   **The grids are summed, not mixed.** `forward` sums the three scales, each already
+   divided by its own grid's count, so pooling across grids *and* batches together would
+   turn a sum of three into an average of three. That is a different quantity rather than a
+   different weighting: it moves the reported loss by a factor of about three and picks
+   epochs for that reason. The first measurement of this issue made exactly that mistake
+   and reported a moved epoch that was the artefact.
+
+   **`total` is rebuilt rather than pooled**, because it is a weighted sum of four terms
+   divided by two different denominators and so has no denominator of its own.
+
+### Migration
+
+ - **A detection run's epoch line changes.** On BCCD at the example's own settings the
+   reported `val_loss` moves by up to 0.33 over 150 epochs, and the change is not a constant
+   offset - it ranges from -0.14 to +0.33 and changes sign. Anything comparing a recorded
+   detection loss against a new run is comparing two definitions.
+
+ - **No published number moves.** `bccd-yolo3`'s card reports average precision through
+   `evaluate_classes` and `evaluate_images`, which score per image on their own path. What
+   changes is which epoch `early_stopping` keeps.
+
+ - **Measured, and it did not move the epoch on the run that matters.** 150 instrumented
+   epochs of `examples/detect_blood_cells.py`: both poolings pick epoch 14 and agree on the
+   first five in order. That is reported as *too close to call* rather than as no effect -
+   the winner's margin over the runner-up is 0.0558 and the gap between the two poolings
+   varies across that neighbourhood by 0.0585, which is 1.05x the margin. The argmin
+   survived because the gap is nearly constant where the minimum lies, not because the
+   weighting does not matter. So this ships on the arithmetic rather than on an effect size,
+   and `bccd-yolo3` is not retrained for it.
+
 ## [0.8.0a41] - 2026-10-25
 
 `hc18-unet`, the fifth published name and the first whose headline figure is not an overlap

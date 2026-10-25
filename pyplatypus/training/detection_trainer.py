@@ -39,6 +39,11 @@ from pyplatypus.training.trainer import History, format_logs, pick_device
 GRADIENT_CLIP = 10.0
 
 
+#: The four terms an epoch pools, in the order `LossParts` declares them. `loss` is not
+#: among them: it is their weighted sum and is rebuilt from them rather than pooled.
+TERMS = ("coordinates", "objectness", "no_object", "classes")
+
+
 class DetectionTrainer:
     def __init__(
         self,
@@ -72,7 +77,12 @@ class DetectionTrainer:
     # ------------------------------------------------------------------ one epoch
     def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str) -> dict[str, float]:
         self.model.train(train)
-        totals: dict[str, float] = {}
+        # Per grid and per term: the un-normalised sum, and what it was divided by. An
+        # epoch is then `sum_g (sum_g / count_g)` for each term - the arithmetic the loss
+        # does within a batch, carried across the epoch - rather than a mean over batches.
+        # `maju116/rplatypus#218`.
+        weighted: list[dict[str, float]] = []
+        divisors: list[dict[str, float]] = []
         batches = 0
         pending = 0
         if train:
@@ -94,8 +104,19 @@ class DetectionTrainer:
                         self._step()
                         pending = 0
 
-                for key, value in parts.as_dict().items():
-                    totals[f"{prefix}_{key}"] = totals.get(f"{prefix}_{key}", 0.0) + value
+                if not parts.grids:
+                    raise ValueError(
+                        "the loss reported no per-grid parts, so an epoch cannot be pooled "
+                        "by the counts it divided by"
+                    )
+                for index, grid in enumerate(parts.grids):
+                    while len(weighted) <= index:
+                        weighted.append(dict.fromkeys(TERMS, 0.0))
+                        divisors.append(dict.fromkeys(TERMS, 0.0))
+                    for term in TERMS:
+                        denominator = grid.cells if term == "no_object" else grid.objects
+                        weighted[index][term] += getattr(grid, term) * denominator
+                        divisors[index][term] += denominator
                 batches += 1
 
         if train and pending:
@@ -104,7 +125,30 @@ class DetectionTrainer:
             self._step()
         if batches == 0:
             raise ValueError(f"the {prefix} loader produced no batches")
-        return {key: value / batches for key, value in totals.items()}
+
+        # The grids are SUMMED, because that is what `forward` does with them: a term is
+        # `sum_g (part_g)` where each `part_g` already carries its own grid's divisor. A
+        # pooling that mixed the grids would turn a sum of three into an average of three,
+        # which is a different quantity rather than a different weighting - it moves the
+        # reported loss by a factor of about three and would pick epochs for that reason.
+        epoch = {}
+        for term in TERMS:
+            value = 0.0
+            for grid in range(len(weighted)):
+                divisor = divisors[grid][term]
+                # A grid that saw nothing to divide by contributed a zero term, so it
+                # contributes nothing here either rather than a division by zero.
+                if divisor:
+                    value += weighted[grid][term] / divisor
+            epoch[f"{prefix}_{term}"] = value
+
+        # `total` is reconstructed rather than pooled. It is a WEIGHTED SUM of four terms
+        # divided by two different denominators, so it has no denominator of its own and
+        # nothing to pool it by; the loss builds it the same way from the same weights.
+        epoch[f"{prefix}_loss"] = sum(
+            self.loss_fn.weights[term] * epoch[f"{prefix}_{term}"] for term in TERMS
+        )
+        return epoch
 
     def _step(self) -> None:
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), GRADIENT_CLIP)

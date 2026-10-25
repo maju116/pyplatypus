@@ -47,6 +47,32 @@ from pyplatypus.detection.metrics import DetectionError
 
 
 @dataclass(frozen=True)
+class GridParts:
+    """One scale's four terms and the two denominators they were divided by.
+
+    Carried so that an epoch can be pooled the way the loss is computed rather than by
+    counting batches. Three of the terms are divided by that grid's **object count** and
+    `no_object` by the **cells it supervises**, which are different numbers and neither is
+    the batch size - so a mean over batches weights a frame of thirty blood cells the same
+    as a frame of two. `maju116/rplatypus#218`.
+
+    Floats rather than tensors: these are read once a batch by the trainer and never
+    differentiated through. Keeping them as tensors would hold a graph alive for the length
+    of an epoch for no purpose.
+    """
+
+    coordinates: float
+    objectness: float
+    no_object: float
+    classes: float
+    #: The clamped object count this grid divided `coordinates`, `objectness` and `classes` by.
+    objects: float
+    #: The punished cells `no_object` was averaged over. Zero when the grid punished none,
+    #: in which case that term is zero too and contributes nothing either way.
+    cells: float
+
+
+@dataclass(frozen=True)
 class LossParts:
     """The objective broken out, because one number cannot say what is wrong.
 
@@ -60,6 +86,9 @@ class LossParts:
     objectness: torch.Tensor
     no_object: torch.Tensor
     classes: torch.Tensor
+    #: One per scale, in the order the anchors describe them. Empty only if a caller built
+    #: a `LossParts` by hand, which nothing in this package does.
+    grids: tuple[GridParts, ...] = ()
 
     def as_dict(self) -> dict[str, float]:
         """The five numbers, detached.
@@ -149,6 +178,7 @@ class Yolo3Loss(nn.Module):
         device = predictions[0].device
         zero = torch.zeros((), device=device)
         coordinates, objectness, no_object, classes = zero, zero, zero, zero
+        per_grid: list[GridParts] = []
 
         # Every truth box in the batch, per image, recovered from the targets themselves -
         # which works because `encode` and `decode` are exact inverses, and means the loss
@@ -166,6 +196,7 @@ class Yolo3Loss(nn.Module):
             objectness = objectness + parts[1]
             no_object = no_object + parts[2]
             classes = classes + parts[3]
+            per_grid.append(parts[4])
 
         total = (
             self.weights["coordinates"] * coordinates
@@ -179,6 +210,7 @@ class Yolo3Loss(nn.Module):
             objectness=objectness,
             no_object=no_object,
             classes=classes,
+            grids=tuple(per_grid),
         )
 
     # ------------------------------------------------------------------ internals
@@ -249,7 +281,22 @@ class Yolo3Loss(nn.Module):
         else:
             no_object = torch.zeros((), device=device)
 
-        return coordinates, objectness, no_object, classes
+        # What this grid divided by, so an epoch can be pooled the way the loss computes
+        # rather than by counting batches. `maju116/rplatypus#218`.
+        #
+        # `punish` is computed above the branch, so it is in scope either way: when nothing
+        # was punished its sum is zero, which is the honest denominator for a term that is
+        # also zero and contributes nothing to either pooling.
+        cells = float(punish.sum().item())
+        counted = GridParts(
+            coordinates=float(coordinates.detach().item()),
+            objectness=float(objectness.detach().item()),
+            no_object=float(no_object.detach().item()),
+            classes=float(classes.detach().item()),
+            objects=float(count.item()),
+            cells=cells,
+        )
+        return coordinates, objectness, no_object, classes, counted
 
     def _giou_term(
         self,
