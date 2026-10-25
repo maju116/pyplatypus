@@ -1,0 +1,256 @@
+---
+title: "A fetal head circumference: the measurement a Dice cannot see"
+description: "Ultrasound, an ellipse fitted to a predicted mask, and the one page in this documentation whose answer is a length rather than a score."
+mirrors: fetal-head
+---
+
+[HC18](https://zenodo.org/records/1327317) is 999 two-dimensional ultrasound images of the
+fetal skull, each with an ellipse drawn round it by a sonographer, and a CSV giving every
+image's pixel size in millimetres and the head circumference that was recorded. It is CC BY
+4.0.
+
+Every other article here ends on an overlap score. This one ends on a **length in
+millimetres**, because that is what a clinician writes down and charts against gestational
+age. Nobody charts a Dice.
+
+The run below is `examples/measure_fetal_head_circumference.py`, and the weights it produced
+are published as `hc18-unet`. Where a number belongs to those published weights rather than
+to this run, it says so - the two are different draws of one recipe, and how different is
+itself one of the findings.
+
+## Why a circumference is not a score
+
+A Dice asks how many pixels two masks share. A circumference asks how long the boundary of
+one of them is. The two fail in different directions, and the directions are the wrong way
+round for anybody measuring a length.
+
+**A ragged boundary barely moves an integral over a region.** Add and remove pixels along an
+edge in roughly equal measure and the area, and the ellipse fitted to it, hardly move - while
+the Dice falls with every one of them.
+
+**A mask that is systematically fat or thin moves it linearly.** Grow the whole outline by a
+pixel and the circumference grows with it, every time, in one direction - while the Dice
+barely notices, because a one-pixel rim is a small share of a large blob.
+
+So the error a Dice sees best is the one that does not matter here, and the error it sees
+worst is the one that does. That is an argument until it is measured, and the last three
+sections measure it.
+
+## The data
+
+The archive unpacks to `training_set/` with an image and an `_Annotation.png` beside it, and
+`training_set_pixel_size_and_HC.csv` giving the pixel size and the recorded circumference.
+
+The annotation is **a drawn curve rather than a filled region** - an ellipse two or three
+pixels wide with nothing inside it - so the region has to be filled before anything can be
+trained. The example does that with a hole fill before it builds the configuration, and the
+criterion for a usable case falls out of the fill rather than being chosen: a curve that runs
+off the edge of the frame encloses nothing, so the fill returns it unchanged.
+
+    186_HC, 346_HC, 628_2HC, 787_HC
+
+Four of the 999, left out. The sonographer's ellipse continues outside the picture, so the
+recorded millimetres describe a shape the file does not contain - a limitation of this
+instrument rather than a defect in the data, and the reason fitting a conic to the visible
+arc is how the literature handles it.
+
+## Splitting by examination, not by image
+
+HC18 names its files `000_HC`, `628_2HC`: the leading number is the **examination**, and
+several images can come from one. Dividing at random by file puts an image of an examination
+in training and another image of the same examination in the test set, and the score becomes
+partly a memory test.
+
+`split.group_by` is where that belongs. It is a regular expression over the sample key, and
+the key here is the file name without its extension:
+
+```yaml
+split:
+  fractions: [0.6, 0.2, 0.2]
+  group_by: '^(\d+)_'
+  seed: 1
+```
+
+995 usable images from 803 examinations. **Three fractions rather than two**, because the
+millimetres are reported on the third: no number on this page comes off the data
+`early_stopping` watched.
+
+## The specification
+
+```yaml
+task: semantic_segmentation
+data:
+  train_path: measurements/hc18/cases.csv
+  mode: config_file
+  colormap: [[0, 0, 0], [255, 255, 255]]
+  split:
+    fractions: [0.6, 0.2, 0.2]
+    group_by: '^(\d+)_'
+    seed: 1
+models:
+  - name: skull
+    architecture: u_net
+    # 800 x 540 arrives as 800 x 544, which divides by 2^4 and resamples the data almost
+    # not at all. A measurement that ends in millimetres should argue with the ellipse,
+    # not with the interpolation.
+    input_shape: [544, 800]
+    blocks: 4
+    filters: 16
+    batch_size: 4
+    epochs: 40
+    loss:
+      name: cce_dice
+    metrics:
+      - name: dice
+        include_background: false
+      - name: iou
+        include_background: false
+    optimizer:
+      name: adam
+      learning_rate: 0.001
+    callbacks:
+      - name: early_stopping
+        monitor: val_dice
+        patience: 8
+        restore_best: true
+    augmentation:
+      # No vertical flip: an ultrasound fan has a top and a bottom, and a mirrored one is a
+      # picture of nothing. The ellipse is symmetric under the horizontal one.
+      - name: HorizontalFlip
+        params:
+          p: 0.5
+      - name: RandomBrightnessContrast
+        params:
+          p: 0.3
+```
+
+## Training
+
+```python
+from pyplatypus import Engine, from_yaml
+
+engine = Engine(from_yaml("examples/hc18.yaml"))
+engine.fit()
+```
+
+Forty epochs at 544 x 800, about half an hour on a GTX 1070. The run this page describes
+reached a mean Dice of **0.9347** on its held-out third; the published `hc18-unet` weights
+are a different draw of the same recipe and reached 0.9494.
+
+Neither number is the point of the page, which is the next three sections.
+
+## From a mask to a millimetre
+
+A prediction is a mask on a grid. A circumference is a length in the world, and what connects
+them is the **pixel size**, which is a property of the file rather than of the model.
+
+```python
+from pyplatypus import ellipse_circumference
+
+for case, prediction in engine.predict_stream("skull", split="test", space="source"):
+    mask = prediction.argmax(axis=-1) == 1
+    mm = ellipse_circumference(mask, spacing=(pixel_mm, pixel_mm))
+```
+
+Two things in those four lines decide whether the number means anything.
+
+**`space="source"`, not the model's grid.** The pixel size in the CSV describes the image as
+it is on disk. A prediction resized to the model's input shape has pixels of a size nobody
+recorded, and multiplying by the file's number would be wrong by the ratio of the two shapes.
+
+**`spacing` scales the coordinates, not the answer.** For an area the two are the same thing,
+since a count scales by the product of the sides either way. For a *length* they are not: a
+perimeter is not separable in its axes, so there is no number to multiply a pixel-space
+circumference by unless the pixels happen to be square. Measured on a circle of radius 100 px
+at `spacing=(2, 1)`, which is an ellipse of semi-axes 200 and 100: scaling the coordinates
+gives 968.9 against 968.8 integrated, where the two scalings somebody reaches for answer
+628.3 and 1256.7. HC18's pixels are square, so this example would have been right either way
+and would have stopped being right on the first anisotropic dataset.
+
+`ellipse_axes()` returns the two axes if the shape rather than the perimeter is what is
+wanted, and `mask_volume()` and `instance_sizes()` are the same idea for areas and volumes.
+
+## What the annotation costs before the model does
+
+Before blaming a model for a millimetre, measure what the pipeline costs with **no model at
+all**: put the truth masks through the same ellipse fit and compare with the sonographer's
+figures.
+
+    truth masks against the chart, 200 cases      +0.692 mm
+    the annotation's drawn line                    2.523 px
+    pi * w * pixel predicts                       +0.685 mm
+    correlation of prediction with error            0.9994
+    left unexplained                               0.008 mm
+
+The floor is **biased rather than noisy** - every case too large by about the same amount -
+and the cause is the annotation's own line. The curve a sonographer drew is two and a half
+pixels wide, not one; filling it puts the region's boundary half a width outside the curve,
+and a radius larger by `w/2` makes a circumference larger by `pi * w`.
+
+That is the difference between an explanation and a guess, and it is why the prediction is
+reported **beside** the bias rather than subtracted from it: a correction folded into the
+measurement would hide the one number here that is about the dataset rather than about us.
+
+A model reproducing the truth masks perfectly would still read +0.69 mm high. So the model's
+own contribution is the comparison against the truth masks rather than against the chart, and
+both belong on a page that reports millimetres - the first blames the model for a drawing
+convention, the second hides the convention from whoever reads the number.
+
+## The Dice cannot see this error
+
+![](https://raw.githubusercontent.com/maju116/pyplatypus/main/assets/article-hc18-millimetres.png)
+
+    mean Dice                                       0.9347
+    median absolute error                           2.00 mm
+    mean absolute error                             5.66 mm
+    75th and 90th percentile                  4.43, 12.36 mm
+    worst case                                     96.35 mm
+    Spearman between the two orderings               0.620
+
+Of the 136 test images scoring 0.95 or better - a figure anybody would publish - **49 are
+still wrong by more than 2 mm**, which is 36% of them. On the published weights the same
+count is 85 of 144, or 59%.
+
+Read the vertical spread of the right-hand panel at any fixed Dice. A column of points two
+orders of magnitude tall is the finding: the score does not tell you what the measurement
+will be.
+
+**The median and the mean are both here because they disagree.** The error distribution has a
+long tail - half the cases inside 2.00 mm and a tenth outside 12.36 - so the mean describes
+the tail rather than a typical case, and the median alone would hide that some images are out
+by the width of a head.
+
+## What this does not settle
+
+**One run.** The same recipe trained again gives a different correlation. Four draws of it
+have been measured:
+
+    the run on this page                             0.620
+    a second                                         0.435
+    the published hc18-unet weights                  0.153
+    the R vignette's own                             0.458
+
+All four are far from a shared ordering and they span a factor of four. The *direction* is
+the finding; the magnitude is one draw, and a single number quoted from this page would
+overstate the case at one end.
+
+```python
+from pyplatypus import available_weights
+
+available_weights()["hc18-unet"]
+```
+
+**A measurement is not a measuring instrument.** The worst case here is out by 96 mm. These
+weights are not a biometric tool with a person looking at them, let alone without.
+
+**The ellipse is the shape assumed.** `ellipse_circumference()` fits one, which is right for a
+fetal skull and wrong for anything that is not an ellipse - and it measures **one object per
+image**, which is HC18's shape rather than the general one. Every object in an image, measured
+separately, is `#272` and is not built.
+
+## Notes on the machine
+
+A GTX 1070, which wants the CUDA 12 line of PyTorch; `device_report()` says what the card can
+do and `pick_device()` chooses without assuming CUDA. Training is about half an hour at these
+settings, and filling the 999 annotations into masks takes a couple of minutes before it.
+Nothing on this page depends on which card it was, except how long it took.

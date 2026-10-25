@@ -189,6 +189,7 @@ def main() -> None:
                 "retinal-vessels.qmd",
                 "blood-cells.qmd",
                 "volumes.qmd",
+                "fetal-head.qmd",
                 "config.qmd",
                 "reference/",
                 *about_files(),
@@ -262,6 +263,14 @@ def main() -> None:
                             # not exist until the page makes it - a reader who has met four
                             # real datasets knows what the synthetic one is standing in for.
                             {"text": "Segmenting volumes", "file": "volumes.qmd"},
+                            # Mirrors R's `vignette("fetal-head")`. Last of the six and the
+                            # only one that does not end on a score: a reader meets five
+                            # pages that answer with an overlap before the page whose whole
+                            # argument is that an overlap is the wrong answer.
+                            {
+                                "text": "A head circumference in millimetres",
+                                "file": "fetal-head.qmd",
+                            },
                             {"text": "Every configuration field", "file": "config.qmd"},
                         ],
                     },
