@@ -1218,3 +1218,160 @@ def test_an_open_curve_fills_to_itself_which_is_what_the_guard_reads():
         "an open curve filled to a region; the guard in `prepare` would then write a mask "
         "that is a line and train a model to find one"
     )
+
+
+def test_the_published_hc18_weights_are_the_run_the_example_documents():
+    """Every argument that shapes the model has the same default in both scripts.
+
+    `publish_hc18_weights.py` imports `specification()` rather than copying it, so the
+    *structure* cannot drift - but it declares its own flags, and a `--filters 32` here
+    would publish a model the example does not describe while both files still looked right.
+    The flags are read out of the source, so an argument added to either script is covered
+    by arriving rather than by being listed here.
+    """
+    example = _declared_arguments("measure_fetal_head_circumference")
+    publish = _declared_arguments("publish_hc18_weights")
+
+    shapes_the_model = (
+        "height",
+        "width",
+        "epochs",
+        "patience",
+        "batch",
+        "filters",
+        "rate",
+        "loss",
+        "seed",
+    )
+    for name in shapes_the_model:
+        assert hasattr(example, name), f"the example no longer declares --{name}"
+        assert getattr(publish, name) == getattr(example, name), (
+            f"--{name} is {getattr(publish, name)!r} in the publishing script and "
+            f"{getattr(example, name)!r} in the example, so the published weights would not "
+            "be the run the example documents"
+        )
+
+    # And the control: the two scripts do differ, or this test is comparing a file with
+    # itself. `--out` is the difference that matters - the example writes measurements, this
+    # writes weights.
+    assert publish.out != example.out
+
+
+def test_the_hc18_checkpoint_watches_what_the_stopping_rule_watches():
+    """Or the file on disk is from one epoch and the published weights from another.
+
+    `restore_best` hands back the epoch `early_stopping` judged best, so a checkpoint
+    monitoring anything else leaves two things named for the same run and measured on
+    different ones. The publishing script reads the monitor off the stopping rule rather
+    than repeating it, and this asserts that it did.
+    """
+    import publish_hc18_weights as script
+
+    example = _declared_arguments("measure_fetal_head_circumference")
+    base = script.example_module().specification(Path("cases.csv"), example)
+    configured = script.with_checkpoint(base, Path("/tmp/does-not-matter"))
+
+    callbacks = {entry["name"]: entry for entry in configured["models"][0]["callbacks"]}
+    assert "model_checkpoint" in callbacks, "the checkpoint was not added"
+    assert callbacks["model_checkpoint"]["monitor"] == callbacks["early_stopping"]["monitor"]
+    assert callbacks["model_checkpoint"]["save_best_only"] is True
+
+    # The whole configuration still has to be one the engine accepts, with the callback on
+    # it: a checkpoint is the kind of addition that validates on its own and fails in a pair.
+    _validate(configured)
+
+
+def _hc18_measured() -> dict:
+    """Everything the HC18 card reads, with numbers that are not this model's.
+
+    Deliberately not the published figures, for the reason `_measured` above gives: a card
+    tested on the numbers it really prints passes when it prints a constant, and the failure
+    this guards is a card describing a run that never happened.
+    """
+    return {
+        "summary": {
+            "n": 111,
+            "dice": 0.8111,
+            "dice_worst": 0.2111,
+            "mae_mm": 9.111,
+            "bias_mm": 3.111,
+            "model_mae_mm": 8.111,
+            "model_bias_mm": 1.111,
+            "worst_mm": 71.111,
+        },
+        "spread": {"median_mm": 6.111, "p75_mm": 11.111, "p90_mm": 21.111},
+        "pipeline_control": {
+            "n": 112,
+            "line_width_px": 3.111,
+            "predicted_bias_mm": 1.311,
+            "bias_mm": 1.411,
+            "correlation": 0.9111,
+            "residual_mae_mm": 0.111,
+        },
+        "split": {"train": 311, "validation": 111, "test": 112},
+        "disagreement": {
+            "spearman": 0.711,
+            "best_decile_by_dice": {"n": 11, "dice": 0.9111, "mae_mm": 5.111, "worst_mm": 9.111},
+        },
+        "published_but_wrong": {
+            "dice_at_least": 0.95,
+            "matters_mm": 2.0,
+            "n_publishable": 71,
+            "n_over": 31,
+            "share_over": 31 / 71,
+            "worst_case": "111_HC",
+            "worst_dice": 0.9611,
+            "worst_error_mm": 7.111,
+        },
+        "epochs": 11,
+        "minutes": 11.1,
+        "trained_with": "pyplatypus 9.9.9",
+    }
+
+
+def test_the_card_says_the_spearman_is_one_draw_and_says_what_the_others_were():
+    """The one figure on this card measured on a single run and quoted as a property.
+
+    Three runs of the one recipe gave 0.62, 0.435 and 0.153, and this script's own docstring
+    said "about 0.6" for a day while the run it publishes measured 0.15 - so the card quotes
+    the range and the table, and the rows are generated from `RUNS` rather than typed. Every
+    row has to reach the card, or editing the constant and leaving the prose behind is
+    possible again.
+    """
+    import publish_hc18_weights as script
+
+    card = script.card(_hc18_measured())
+    flat = " ".join(card.split())
+
+    for label, dice, rho, share in script.RUNS:
+        assert label in flat, f"the row for {label!r} is not on the card"
+        assert f"{dice:.4f}" in flat, f"{label!r} lost its Dice"
+        assert f"{rho:.2f}" in flat, f"{label!r} lost its Spearman"
+        assert ("not counted" if share is None else f"{share * 100:.0f}%") in flat
+
+    assert f"moved from {max(r[2] for r in script.RUNS):.2f}" in flat
+    assert f"to {min(r[2] for r in script.RUNS):.2f}" in flat
+
+    # And the control, which is the whole reason the fixture's numbers are invented: the
+    # published run's own Spearman is the fixture's and not one of the recorded three, so a
+    # card that printed `RUNS`'s last row where it means *this* run would fail here.
+    assert "0.71" in flat, "the run's own Spearman is not on the card"
+    assert "0.153" not in flat, "a recorded run's figure is standing in for this run's"
+
+
+def test_the_card_is_not_indented_because_an_indented_card_is_a_code_block():
+    """`textwrap.dedent` strips the COMMON prefix, and a block interpolated at column 0
+    leaves none - so adding the spread note indented the whole card by eight spaces and the
+    Hub would have rendered the entire section as preformatted text. Found by reading the
+    generated card, which is the only thing that could have found it.
+    """
+    import publish_hc18_weights as script
+
+    card = script.card(_hc18_measured())
+    lines = card.splitlines()
+
+    assert lines[0] == "## hc18-unet", f"the card does not start at column 0: {lines[0]!r}"
+    assert not any(line.startswith("    ") and "=" not in line for line in lines), (
+        "a line of the card is indented four spaces or more outside the code block, which "
+        "markdown reads as preformatted text"
+    )
