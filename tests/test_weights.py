@@ -789,3 +789,66 @@ def test_a_torch_checkpoint_named_safetensors_loads_into_a_model(tmp_path):
     assert path.read_bytes()[:4] == b"PK\x03\x04"
 
     assert load_into(build_model(spec, n_class=2), str(path), spec) is None
+
+
+def test_the_hc18_entry_leads_with_millimetres_and_warns_off_the_dice():
+    """The fifth published name, and the first whose headline figure is not an overlap score.
+
+    A head circumference is what a clinician writes down, and on this run the Dice and the
+    millimetres order the same cases differently - 85 of the 144 test cases scoring 0.95 or
+    better are still wrong by more than 2 mm. So somebody picking these weights off a Dice,
+    which is what a reader does with every other entry here, would be picking them on the
+    wrong number, and the registry description is where they read before reading any card.
+
+    The arithmetic is held where a test offline can hold it: the measurements live in
+    `weights/`, which is not in this repository, so nothing here can confirm 2.44 mm. What it
+    can confirm is that the entry's own numbers are consistent - the median below the mean,
+    which is the long tail the card is about, the wrong count a subset of the publishable
+    one and a majority of it, and the millimetres standing before the Dice rather than after.
+    """
+    from pyplatypus.weights import REGISTRY
+
+    description = REGISTRY["hc18-unet"].description
+    assert "HC18" in description
+    assert "not MIT" in description, (
+        "the second entry here whose licence is not the repository's, and a reader who "
+        "assumes MIT would be wrong"
+    )
+
+    # Read the numbers out of the entry BY THEIR ROLE, and compare what was read. A first
+    # version of this test bound `median, mean = 2.44, 3.84` and asserted `median < mean`,
+    # which compares two literals and is true whatever the entry says: swapping the two
+    # figures in the description left it green. Likewise `"85 of the 144 cases" in
+    # description` survived the count being changed to 185, because it is a substring of it.
+    # Both are §4's first bullet, found by mutating this entry rather than by reading this.
+    median = float(re.search(r"Median absolute error ([\d.]+) mm", description).group(1))
+    mean = float(re.search(r"mean ([\d.]+) mm", description).group(1))
+    assert median < mean, (
+        f"the median ({median}) is quoted beside the mean ({mean}) because they disagree, "
+        "and a median above its mean means one of the two was transcribed"
+    )
+
+    wrong, publishable = (
+        int(group) for group in re.search(r"\b(\d+) of the (\d+) cases", description).groups()
+    )
+    assert wrong < publishable, (
+        f"{wrong} cases wrong of {publishable} publishable: the wrong ones are a subset"
+    )
+    assert wrong / publishable > 0.5, (
+        "the entry's claim is that most of the cases a reader would publish are still wrong "
+        f"in millimetres; {wrong}/{publishable} is not most of them, which is a different "
+        "and weaker claim"
+    )
+
+    # The ordering is the claim, not decoration: millimetres first, the Dice second, and the
+    # Dice arriving inside a sentence telling the reader not to choose on it.
+    assert description.index("millimetres") < description.index("Dice")
+    assert "Do not choose" in description
+    assert description.index("Do not choose") < description.index("0.9494")
+
+    # And the control, because every assertion above is about this entry being unlike its
+    # neighbours: the same reading of the entry closest to it has to fail.
+    assert "mm" not in REGISTRY["fives-unet"].description, (
+        "the control is broken - if another entry reports millimetres too, these assertions "
+        "are not about what makes this one different"
+    )

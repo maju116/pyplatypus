@@ -1,6 +1,64 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a41] - 2026-10-25
+
+`hc18-unet`, the fifth published name and the first whose headline figure is not an overlap
+score. `maju116/rplatypus#205`.
+
+### Added
+
+ - **`hc18-unet` in the weights registry**, pinned to Hub commit `9c6d8599`: a U-Net at
+   544x800 for the fetal skull in 2D ultrasound, trained on HC18 and published for measuring
+   **head circumference in millimetres**. CC BY 4.0 rather than MIT, because HC18 is - the
+   same bracket as `fives-unet` and not a new one, read from the dataset's own Zenodo record
+   (`10.5281/zenodo.1327317`).
+
+   Median absolute error **2.44 mm** against the sonographer's measurement over 199 held-out
+   images, mean 3.84 mm, worst 48.07 mm; 3.41 mm against the circumference of the truth mask,
+   which is the model's own contribution rather than the dataset's drawing convention. The
+   median and the mean are both published because they disagree: half the cases are inside
+   2.44 mm and a tenth outside 7.23 mm, so the mean describes the tail.
+
+ - **The entry warns the reader off the Dice, and that is the measurement rather than
+   modesty.** The Dice is 0.9494 and it orders the cases differently from the millimetres -
+   Spearman 0.153 on this run - with **85 of the 144 cases scoring 0.95 or better still wrong
+   by more than 2 mm**. A ragged boundary barely moves an integral over a region and a
+   systematically fat or thin mask moves it linearly, which are the two errors Dice is
+   respectively most and least able to see, and they are the wrong way round for anybody
+   measuring a length. So the description leads with millimetres and names the Dice only
+   inside the sentence saying not to choose on it, and a test asserts that order.
+
+ - **`examples/publish_hc18_weights.py`**, which trains the model
+   `measure_fetal_head_circumference.py` documents and writes the file, the sidecar and the
+   card. It imports `specification()`, `prepare()` and `measure()` from that example rather
+   than copying them, and a test holds the two scripts' defaults equal for every argument
+   that shapes the model. It uploads nothing: the upload is the author's.
+
+### Fixed
+
+ - **The Spearman was quoted as a property of the task and it is one draw.** The publishing
+   script's docstring said the two orderings disagree with "a Spearman of about 0.6",
+   "measured on the run this script publishes", while the run it publishes measured 0.153.
+   Three runs of the one recipe gave 0.620, 0.435 and 0.153: the direction holds in all three
+   and the magnitude moves fourfold, and it moves the *same way* each time - the better the
+   Dice, the less it orders anything, which is what a rank statistic does over a narrower
+   spread. The card now carries all three in a table generated from a constant, and says
+   three runs is a direction and not a law.
+
+ - **Two tests that could not have failed**, both in this release's own test for the registry
+   description and both found by mutating the entry rather than by reading them. `median,
+   mean = 2.44, 3.84` followed by `assert median < mean` compares two literals and is true
+   whatever the entry says, so swapping the two figures in the description left it green; and
+   `"85 of the 144 cases" in description` survives the count becoming 185, because it is a
+   substring of it. Both assertions now read the numbers out of the description by their role
+   and compare what was read.
+
+ - **An interpolated block broke the card's indentation.** `textwrap.dedent` strips the
+   common leading prefix, a block inserted at column 0 leaves none, and the whole section
+   came out indented eight spaces - which the Hub renders as preformatted text. Found by
+   reading the generated card, and now held by a test asserting it starts at column 0.
+
 ## [0.8.0a40] - 2026-10-25
 
 `batch_size` leaves the reported score. `maju116/rplatypus#196`.
