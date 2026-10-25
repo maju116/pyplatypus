@@ -19,6 +19,13 @@ from pyplatypus.device import device_report
 from pyplatypus.engine import Engine, summarise_cases
 from pyplatypus.errors import ConfigError, PlatypusError
 from pyplatypus.instance_engine import InstanceEngine
+from pyplatypus.measure import (
+    ellipse_axes,
+    ellipse_circumference,
+    instance_sizes,
+    largest_filled_object,
+    mask_volume,
+)
 from pyplatypus.plots import (
     flow_to_colours,
     overlay_agreement,
@@ -60,7 +67,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a38"
+__version__ = "0.8.0a39"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -89,10 +96,15 @@ __all__ = [
     "build_engine",
     "device_report",
     "drawing_style",
+    "ellipse_axes",
+    "ellipse_circumference",
     "export_weights",
     "flow_to_colours",
     "from_dict",
     "from_yaml",
+    "instance_sizes",
+    "largest_filled_object",
+    "mask_volume",
     "overlay_agreement",
     "overlay_instance_agreement",
     "overlay_instances",

@@ -138,11 +138,19 @@ groups:
   - drawing_style
 
 - title: Masks and volumes
-  desc: 'Overlapping classes cannot be one picture, so they are one picture each. The rest of
-    this group is R''s: reading and uniting masks is where an R user meets them.
+  desc: 'Measuring a mask and writing it back. Millilitres, square millimetres and
+    millimetres rather than voxels, because a voxel count means nothing outside the scanner
+    that produced it - and overlapping classes cannot be one picture, so they are one
+    picture each. The rest of this group is R''s: reading and uniting masks is where an R
+    user meets them.
 
     '
   contents:
+  - mask_volume
+  - instance_sizes
+  - largest_filled_object
+  - ellipse_axes
+  - ellipse_circumference
   - save_class_masks
   - save_volumes
   - save_class_volumes

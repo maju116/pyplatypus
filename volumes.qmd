@@ -257,9 +257,15 @@ another - and resampling is what makes the conversion trivial: at `target_spacin
 a voxel is exactly one cubic millimetre.
 
 ```python
-# On the model's grid, where target_spacing has made a voxel one cubic millimetre.
+from pyplatypus import mask_volume
+
+# On the model's grid, where target_spacing has made a voxel one cubic millimetre - and
+# `spacing` is passed rather than assumed, because the division is only right while it is
+# true and nothing about a voxel count says whether it still is.
 prediction = engine.predict("lesion", split="validation", space="model")
-millilitres = [float((case.argmax(axis=-1) == 1).sum()) / 1000 for case in prediction]
+millilitres = [
+    mask_volume(case.argmax(axis=-1), spacing=(1, 1, 1), class_index=1) for case in prediction
+]
 ```
 
 | case | predicted ml | true ml | error |

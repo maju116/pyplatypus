@@ -11,6 +11,21 @@ from pyplatypus.spec.data import SegmentationData
 DSBOWL = Path("examples/data/data_science_bowl")
 
 
+def filled_ellipse(shape, centre, a, b, angle=0.0):
+    """A uniform filled ellipse, which is the shape the moment fit is exact for.
+
+    Shared because two suites need it for different reasons: `test_measure.py` measures the
+    ellipse, and `test_examples.py` draws one to make an *open* curve out of it.
+    """
+    rows, columns = np.ogrid[: shape[0], : shape[1]]
+    y = rows - centre[0]
+    x = columns - centre[1]
+    cos, sin = np.cos(angle), np.sin(angle)
+    major = x * cos + y * sin
+    minor = -x * sin + y * cos
+    return (major / a) ** 2 + (minor / b) ** 2 <= 1.0
+
+
 def write_png(path, array):
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(array.astype(np.uint8)).save(path)

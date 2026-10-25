@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from pyplatypus import from_dict
+from tests.conftest import filled_ellipse
 
 EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 sys.path.insert(0, str(EXAMPLES))
@@ -1163,19 +1164,6 @@ def _hc18():
     return script
 
 
-def _filled_ellipse(shape, centre, a, b, angle=0.0):
-    """A uniform filled ellipse, which is the shape the moment fit is exact for."""
-    import numpy as np
-
-    rows, columns = np.ogrid[: shape[0], : shape[1]]
-    y = rows - centre[0]
-    x = columns - centre[1]
-    cos, sin = np.cos(angle), np.sin(angle)
-    major = x * cos + y * sin
-    minor = -x * sin + y * cos
-    return (major / a) ** 2 + (minor / b) ** 2 <= 1.0
-
-
 def test_the_head_circumference_configuration_is_accepted():
     """And it divides by examination rather than by row, which is the whole of the split.
 
@@ -1206,56 +1194,6 @@ def test_the_head_circumference_configuration_is_accepted():
     )
 
 
-def test_the_moment_fit_returns_the_axes_of_an_ellipse_it_was_handed():
-    """Exact for a true ellipse, which is the claim the example rests on.
-
-    Measured on a 120 x 90 ellipse rotated 0.3 rad: pixel counting is the only error, and it
-    is under half a percent. A fit that dropped the factor of two, or returned the variances
-    rather than their roots, misses by a factor rather than by a fraction.
-    """
-    script = _hc18()
-    mask = _filled_ellipse((500, 600), (250, 300), 120.0, 90.0, angle=0.3)
-    major, minor = script.semi_axes(mask)
-
-    assert major > minor, "the major axis is returned first"
-    assert abs(major - 120.0) / 120.0 < 0.005, major
-    assert abs(minor - 90.0) / 90.0 < 0.005, minor
-
-    # A circle, where the two must agree with each other as well as with the radius: an
-    # ellipse test alone passes for a fit that swaps the axes under rotation.
-    major, minor = script.semi_axes(_filled_ellipse((400, 400), (200, 200), 80.0, 80.0))
-    assert abs(major - minor) < 0.5 and abs(major - 80.0) / 80.0 < 0.005, (major, minor)
-
-
-def test_ramanujan_matches_an_integrated_perimeter_and_the_naive_formula_does_not():
-    """The approximation, against the arc length of the parametric ellipse.
-
-    Both halves are the test. Without the second, a circumference of `pi * (a + b)` - which
-    is what somebody writes when they remember the circle - passes at every axis ratio a
-    test like this would casually use, because it is exact for a circle and wrong by 1.5% at
-    0.7. A fetal skull sits near 0.75.
-    """
-    import numpy as np
-
-    script = _hc18()
-    angle = np.linspace(0.0, 2.0 * np.pi, 2_000_001)
-
-    worst, naive_worst = 0.0, 0.0
-    for a, b in ((100.0, 100.0), (120.0, 90.0), (120.0, 84.0), (150.0, 75.0)):
-        # The trapezoid by hand rather than `np.trapezoid`, which numpy only grew in 2.0:
-        # this suite runs against whatever the resolver picks on four Python versions.
-        speed = np.sqrt((a * np.sin(angle)) ** 2 + (b * np.cos(angle)) ** 2)
-        exact = float((0.5 * (speed[:-1] + speed[1:]) * np.diff(angle)).sum())
-        worst = max(worst, abs(script.perimeter(a, b) - exact) / exact)
-        naive_worst = max(naive_worst, abs(np.pi * (a + b) - exact) / exact)
-
-    assert worst < 1e-6, f"Ramanujan is off by {worst:.3e} relative"
-    assert naive_worst > 0.01, (
-        f"the naive formula is only {naive_worst:.3e} off on these axes, so this test would "
-        "pass for it too and proves nothing"
-    )
-
-
 def test_an_open_curve_fills_to_itself_which_is_what_the_guard_reads():
     """The four excluded annotations, as the shape the exclusion is triggered by.
 
@@ -1265,7 +1203,7 @@ def test_an_open_curve_fills_to_itself_which_is_what_the_guard_reads():
     a large factor, an open one does not grow at all.
     """
     script = _hc18()
-    inside = _filled_ellipse((400, 400), (200, 200), 150.0, 110.0)
+    inside = filled_ellipse((400, 400), (200, 200), 150.0, 110.0)
     from scipy.ndimage import binary_erosion
 
     closed = inside ^ binary_erosion(inside)
@@ -1273,111 +1211,10 @@ def test_an_open_curve_fills_to_itself_which_is_what_the_guard_reads():
 
     # The real shape of it: the ellipse runs off the top of the image, so the curve is open
     # where the frame cuts it.
-    cut = _filled_ellipse((400, 400), (60, 200), 150.0, 110.0)
+    cut = filled_ellipse((400, 400), (60, 200), 150.0, 110.0)
     open_curve = cut ^ binary_erosion(cut)
     open_curve[0, :] = False
     assert script.fill(open_curve).sum() < 2.0 * open_curve.sum(), (
         "an open curve filled to a region; the guard in `prepare` would then write a mask "
         "that is a line and train a model to find one"
     )
-
-
-def test_the_largest_piece_is_taken_and_a_hole_in_it_is_closed():
-    """A prediction is not an ellipse, and both repairs change the answer.
-
-    A hole pushes the second moments outwards and an island drags the centre, so each is
-    asserted against the clean ellipse's own axes rather than against a tolerance nobody
-    measured.
-    """
-    script = _hc18()
-    clean = _filled_ellipse((500, 600), (250, 300), 120.0, 90.0)
-    expected = script.semi_axes(clean)
-
-    holed = clean & ~_filled_ellipse((500, 600), (250, 300), 40.0, 30.0)
-    island = clean | _filled_ellipse((500, 600), (60, 60), 25.0, 25.0)
-
-    for broken in (holed, island):
-        repaired = script.largest_filled(broken)
-        got = script.semi_axes(repaired)
-        assert abs(got[0] - expected[0]) < 0.5 and abs(got[1] - expected[1]) < 0.5, got
-    # And the control: without the repair the same masks give a different answer, or this
-    # test is asserting that two numbers are equal for reasons of its own.
-    assert abs(script.semi_axes(holed)[0] - expected[0]) > 1.0
-    assert abs(script.semi_axes(island)[0] - expected[0]) > 1.0
-
-
-def test_a_ring_of_pixels_is_invisible_to_dice_and_large_in_millimetres():
-    """The example's claim, on a shape where both quantities can be worked out by hand.
-
-    A 120 x 90 ellipse dilated by two pixels keeps a Dice above 0.97 - a number anybody
-    would publish - while its circumference grows by about `2 * pi * 2` pixels, which at
-    this dataset's coarsest pixel size is millimetres rather than a rounding difference. The
-    ragged arm is the same statement from the other side: the boundary moves everywhere and
-    the length does not.
-    """
-    import numpy as np
-    from scipy.ndimage import binary_dilation, binary_erosion
-
-    script = _hc18()
-    truth = _filled_ellipse((500, 600), (250, 300), 120.0, 90.0)
-    pixel_mm = 0.2
-
-    grown = binary_dilation(truth, iterations=2)
-    overlap = script.dice(grown, truth)
-    shift = script.circumference_mm(grown, pixel_mm) - script.circumference_mm(truth, pixel_mm)
-    assert overlap > 0.97, overlap
-    # Pinned to the geometry rather than to "large": a radius bigger by r makes a
-    # circumference bigger by `2 * pi * r`, which is 2.51 mm here, and the measured 2.26 is
-    # 0.90 of it because `binary_dilation`'s default element is a 4-connected cross - two
-    # iterations reach 2 along the axes and 1.41 on the diagonal, so the diamond is smaller
-    # than the disc its radius names. Both ends of the bound are therefore measured: the
-    # shift sits in [0.8, 1.0] of the disc's prediction, and the two wrong quantities this
-    # test exists to reject are a hundred times outside it - the mask's **area** answers
-    # 240 mm, and a circumference left in pixels answers 11. A loose `shift > 2.0` passed
-    # for the area, which is how this came to be written this way.
-    expected = 2.0 * np.pi * 2.0 * pixel_mm
-    assert 0.8 * expected < shift <= expected, (
-        f"{shift:.3f} mm where a ring of two pixels predicts at most {expected:.3f}"
-    )
-
-    rng = np.random.default_rng(0)
-    band = binary_dilation(truth, iterations=2) ^ binary_erosion(truth, iterations=2)
-    ragged = truth ^ (band & (rng.random(truth.shape) < 0.5))
-    rough = script.dice(ragged, truth)
-    wobble = abs(
-        script.circumference_mm(ragged, pixel_mm) - script.circumference_mm(truth, pixel_mm)
-    )
-    assert rough < overlap, (
-        f"the ragged mask scores {rough:.4f} and the dilated one {overlap:.4f}; the whole "
-        "point is that Dice ranks them the other way round from the millimetres"
-    )
-    assert wobble < shift / 2.0, (
-        f"roughing the boundary moved the length by {wobble:.3f} mm against the dilation's "
-        f"{shift:.3f}; the fit is supposed to integrate the ripple away"
-    )
-
-
-def test_the_millimetres_are_a_length_and_not_some_other_quantity():
-    """The headline number, against the arc length of the ellipse it was given.
-
-    This is the test the mutation batch was missing: eight mutations of the arithmetic were
-    caught and replacing the whole circumference with the mask's **area** was not, because
-    every assertion about it was a comparison between two of its own outputs. An absolute
-    one cannot be fooled that way - an area is out by a factor of fifty here, and a
-    circumference left in pixels by a factor of five.
-    """
-    import numpy as np
-
-    script = _hc18()
-    a, b, pixel_mm = 120.0, 90.0, 0.2
-    mask = _filled_ellipse((500, 600), (250, 300), a, b)
-
-    angle = np.linspace(0.0, 2.0 * np.pi, 200_001)
-    speed = np.sqrt((a * np.sin(angle)) ** 2 + (b * np.cos(angle)) ** 2)
-    exact = float((0.5 * (speed[:-1] + speed[1:]) * np.diff(angle)).sum()) * pixel_mm
-
-    got = script.circumference_mm(mask, pixel_mm)
-    assert abs(got - exact) / exact < 0.01, f"{got:.3f} mm against {exact:.3f} integrated"
-    # Named so the failure says which wrong quantity was returned.
-    assert abs(got - a * b * np.pi * pixel_mm) > 1.0, "that is the area"
-    assert abs(got - exact / pixel_mm) > 1.0, "that is the length in pixels"

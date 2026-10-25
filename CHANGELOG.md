@@ -1,6 +1,64 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a39] - 2026-10-25
+
+Millilitres, square millimetres and millimetres, in the engine rather than in the R
+package. `maju116/pyplatypus#270`.
+
+### Added
+
+ - **`pyplatypus.measure`**, and five exported names: `mask_volume`, `instance_sizes`,
+   `largest_filled_object`, `ellipse_axes` and `ellipse_circumference`. A voxel count is
+   not a measurement - the same lesion is 4,000 voxels on one scanner and 12,000 on
+   another - and until now this package had no way to turn one into the number a report is
+   written in.
+
+   **None of this arithmetic is new and none of it was reachable.** `mask_volume` and
+   `instance_sizes` were implemented in the R package, in R; `voxel_ml` was computed in
+   `inst/python/platypus_shim.py`, which is Python shipped by the *R* package; and the head
+   circumference was in `examples/`, which the wheel does not contain
+   (`include = ["pyplatypus*"]`). So a `pip install pyplatypus` user asking how big a
+   finding is got a voxel count. The third release in a row to move a mechanism off the
+   wrong side of the bridge, after `0.8.0a29`'s volume writer and `0.8.0a38`'s
+   `device_report()` - and the second to come out of that same file.
+
+   This package had also promised the first one twice and never had it:
+   `volume_spacing()`'s docstring says it is needed by *"anything reporting a volume in
+   millilitres rather than in voxels - which is the number a clinician asked for"*, and
+   `save_volumes()` says *"every volume in millilitres reads position and spacing out of
+   it"*. Both true, neither naming a function. The same shape as `save_class_masks` before
+   `0.8.0a23`.
+
+ - **`MeasureError`**, so a refusal here is one kind rather than a `ValueError`. R turns it
+   into `platypus_measure_error` by the rule it applies to every kind the engine has.
+
+### Changed
+
+ - **`spacing` multiplies the coordinates, not the answer** - the one decision in this
+   release that is not a name. For a volume or an area the two are the same thing, because
+   a count scales by the product of the sides either way. For a **length** they are not: an
+   ellipse's perimeter is not separable in its axes, so there is no number to multiply a
+   pixel-space circumference by unless the pixels happen to be square.
+
+   Measured on a circle of radius 100 px with `spacing=(2, 1)`, which *is* an ellipse of
+   semi-axes 200 and 100: scaling the coordinates gives 968.9 against 968.8 integrated,
+   where the two scalings somebody would reach for answer 628.3 and 1256.7. HC18's pixels
+   are square, so `examples/measure_fetal_head_circumference.py` was correct and would have
+   stopped being correct on the first anisotropic 2D dataset. Its own composition on square
+   pixels is now that claim's control, and the two have to agree to twelve digits.
+
+ - **`examples/measure_fetal_head_circumference.py` calls the engine** instead of carrying
+   61 lines of its own geometry, which is what makes this a move rather than a second copy.
+   `fill()` stays in the example: turning a sonographer's open curve into the region it
+   encloses is a convention of one dataset's annotations rather than a measurement.
+
+ - **The configuration guide's millilitre section calls `mask_volume`.** The division it
+   showed is correct and says why - at `target_spacing: [1, 1, 1]` a voxel is exactly one
+   cubic millimetre - three sections before the same page says resampling is offered rather
+   than imposed. Documentation to be copied, with a precondition the reader is invited to
+   drop and a failure that is silent; a function taking `spacing` cannot fail that way.
+
 ## [0.8.0a38] - 2026-10-24
 
 What the work will run on, decided and reported in one place.
