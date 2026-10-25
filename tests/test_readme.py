@@ -41,7 +41,7 @@ SECTION_ORDER = [
 def sections() -> list[str]:
     """Top-level sections, skipping fenced code - a `## ` inside a block is not a heading."""
     found, fenced = [], False
-    for line in README.read_text().splitlines():
+    for line in README.read_text(encoding="utf-8").splitlines():
         if re.match(r"^\s*```", line):
             fenced = not fenced
             continue
@@ -88,7 +88,7 @@ def test_the_banner_names_no_version():
     `tests/test_version.py` does that against three places that are supposed to agree - this
     asserts that the README does not repeat it.
     """
-    banner = README.read_text().split("## ", 1)[0]
+    banner = README.read_text(encoding="utf-8").split("## ", 1)[0]
     versions = re.findall(r"\b\d+\.\d+\.\d+[ab]?\d*\b", banner)
 
     allowed = {"0.1.0rc2"}  # the TensorFlow package, named so it can still be installed
@@ -111,7 +111,7 @@ def test_the_readme_pins_no_transform_count():
     count sat in the README unguarded through the rewrite that changed it. A test whose
     docstring claims more than its body is the kind that reads as cover and is none.
     """
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     counted = re.findall(r"\b\d+\b(?=\s+(?:of\s+)?(?:its\s+|the\s+)?transforms?\b)", text)
     counted += re.findall(r"\btransforms?\b[^.\n]{0,30}?\b(\d+)\s+(?:take|work|support)", text)
 
@@ -135,7 +135,7 @@ def test_the_readme_pins_no_count_of_example_programs():
     §3C's rule applies to both - a number in prose needs a test holding it to the
     measurement, or no number at all - so what is asserted is the absence.
     """
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
 
     counted = re.findall(r"\b(?:two|three|four|five|six|\d+)\s+programs?\b", text, re.IGNORECASE)
     assert not counted, (
@@ -157,9 +157,99 @@ def test_every_example_file_the_readme_names_exists():
     beside it, so the names have to resolve. Controlled by renaming one in a scratch copy:
     the assertion fires.
     """
-    text = README.read_text()
+    text = README.read_text(encoding="utf-8")
     named = sorted(set(re.findall(r"`(examples/[A-Za-z0-9_./-]+)`", text)))
     assert len(named) > 3, f"the scan found {len(named)} example paths, so it found nothing"
 
     missing = [name for name in named if not (ROOT / name).exists()]
     assert not missing, f"the README names example files that do not exist: {missing}"
+
+
+#: The number words the feature list is written in, because "Eleven losses" reads better in
+#: a bullet than "11 losses" and a test should not force the prose to change register.
+NUMBERS = {
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+}
+
+
+def _menu_name(written: str) -> str:
+    """A name as the feature list writes it, as the menu spells it.
+
+    `CCE-Dice` is `cce_dice`, `clDice` is `cldice`, `Lovász` is `lovasz`. Normalising here
+    rather than demanding the README use snake_case keeps the page readable and still makes
+    the comparison exact.
+
+    The accent is stripped by decomposing and dropping the combining marks rather than by
+    replacing the one character this list happens to contain. The literal version passed
+    here and **failed on both Windows jobs**: `Path.read_text()` with no encoding reads the
+    file in the platform's, so on Windows the UTF-8 bytes of `á` arrived as something else
+    and the replacement matched nothing. Both halves of that are fixed - every read in this
+    file now names UTF-8 - and the general form is kept because the next accented name
+    would otherwise be the same bug again.
+    """
+    import re as _re
+    import unicodedata
+
+    # Whitespace collapsed first: the bullet wraps, so a two-word name arrives with the
+    # newline and the next line's indent in the middle of it.
+    squeezed = _re.sub(r"\s+", " ", written).strip().lower()
+    decomposed = unicodedata.normalize("NFKD", squeezed)
+    plain = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return plain.replace("-", "_").replace(" ", "_")
+
+
+def test_the_feature_list_counts_the_losses_and_metrics_the_engine_offers():
+    """Both counts and both lists of names, against the menus themselves.
+
+    This is the one count in the README that *is* holdable, which is why it gets a pair
+    rather than the absence the two tests above assert. The transform count depends on the
+    installed albumentations and the vignettes live in the other repository; `loss` and
+    `metrics` are this package's own menus, so `available_losses()` can simply be asked.
+
+    It was not asked, and the bullet rotted the way §4 says documentation rots - in the
+    direction of the work having been done. It read "Nine losses ... and three metrics"
+    while the engine offered eleven and five: `boundary` and `generalized_dice` had arrived
+    among the losses, `surface_dice` and `tversky` among the metrics, and the first four
+    claims this file was written for were the same mistake in the same file.
+
+    Both halves are asserted, because either alone passes for the wrong reason: a count
+    with no names goes stale silently the moment a loss is renamed, and names with no count
+    pass while the prose says nine of them.
+    """
+    import re as _re
+
+    from pyplatypus import available_losses, available_metrics
+
+    text = README.read_text(encoding="utf-8")
+
+    for noun, menu in (("losses", available_losses()), ("metrics", available_metrics())):
+        found = _re.search(rf"\*\*(\w+) {noun}\*\*\s*\(([^)]*)\)", text.replace("\n", " "))
+        assert found is not None, (
+            f"the feature list no longer states the {noun} as `**N {noun}** (a, b, c)`; "
+            "this test reads that shape, so either restore it or rewrite the test with it"
+        )
+        written = found.group(1).lower()
+        assert written in NUMBERS, f"{written!r} is not a number word this test knows"
+        offered = {row["name"] for row in menu}
+        assert NUMBERS[written] == len(offered), (
+            f"the README says {written} {noun} and the engine offers {len(offered)}: "
+            f"{sorted(offered)}"
+        )
+        named = {_menu_name(part) for part in found.group(2).split(",")}
+        assert named == offered, (
+            f"the {noun} the README names are not the {noun} the engine offers.\n"
+            f"  only in the README: {sorted(named - offered)}\n"
+            f"  only in the engine: {sorted(offered - named)}"
+        )
