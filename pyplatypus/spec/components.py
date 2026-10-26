@@ -1586,7 +1586,12 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
     a probe, and some of them fail it for reasons that have nothing to do with volumes. What the
     27 refusals actually are, counted on albumentations 2.0.8 rather than reasoned about:
 
-        10   no volume support, which is the answer being asked for - `KeyError: 'images'`
+        10   no volume support, which is the answer being asked for - `KeyError: 'images'`,
+             and `ValueError: Unsupported number of dimensions` on older albumentations,
+             which is the same answer in different words. `LongestMaxSize` and
+             `SmallestMaxSize` say it that way at 2.0.0; here they take a volume. The
+             category is named in both wordings because `test_no_refusal_is_unexplained`
+             holds this table and has to recognise the refusal wherever the floors land
          9   require three channels, where the probe has one
          8   require a target the probe does not supply: seven ask for metadata of their own
              (`FDA`, `HistogramMatching`, `Mosaic`, `OverlayElements`,
