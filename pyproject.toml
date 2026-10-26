@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a44"
+version = "0.8.0a45"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -53,7 +53,27 @@ dependencies = [
     # Weights are read and written as safetensors, never pickle: a pickle executes code when
     # it is loaded, so a weights file would be a program somebody else wrote. Tiny.
     "safetensors>=0.4",
-    "albumentations>=1.4",
+    # The floor is 1.4.23 and every digit of it was measured. `>=1.4` was fiction: resolved
+    # at the floor, the suite gives 50 failures, 28 of them one line -
+    # `Compose.__init__() got an unexpected keyword argument 'seed'`. `seed=` is what
+    # `deterministic = True` is built on, so the floor was permitting a version that cannot
+    # honour this package's own determinism promise, whose help page says the refusal without
+    # a seed is deliberate. Bisected rather than rounded up, because `>=2.0` is the easy
+    # answer and narrows what a user may install by 24 releases:
+    #
+    #     1.4.0    no seed=, no D4, no CenterCrop3D     the floor as it stood
+    #     1.4.18   D4 only
+    #     1.4.21   seed= and D4, still no 3D transforms
+    #     1.4.23   all three - the first version this package's code can run on
+    #
+    # `>=2.0` was tried here for one commit and **bought nothing**, which is why it is not
+    # the floor: the same four tests fail at 2.0.0 as at 1.4.23, one of them to the digit
+    # (`1.5301895141601562` of warp slack either way), so albumentations is not that test's
+    # variable. Three of the four pin albumentations' transform INVENTORY through a number in
+    # a docstring - 118, against 113 at 1.4.23, 114 at 2.0.0 and 118 at 2.0.8 - so satisfying
+    # them would make the floor `==2.0.8`, which is a pin and not a floor. That is a defect in
+    # those tests rather than in this number, and it is where the work goes next.
+    "albumentations>=1.4.23",
     # The signed distance transform the `boundary` loss is built on. Present anyway -
     # albumentations requires it - but a package whose code imports scipy should say so
     # rather than rely on somebody else's dependency list not changing.

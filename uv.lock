@@ -1961,7 +1961,7 @@ wheels = [
 
 [[package]]
 name = "pyplatypus"
-version = "0.8.0a44"
+version = "0.8.0a45"
 source = { editable = "." }
 dependencies = [
     { name = "albumentations" },
@@ -2004,7 +2004,7 @@ lint = [
 
 [package.metadata]
 requires-dist = [
-    { name = "albumentations", specifier = ">=1.4" },
+    { name = "albumentations", specifier = ">=1.4.23" },
     { name = "build", marker = "extra == 'dev'" },
     { name = "huggingface-hub", marker = "extra == 'hub'", specifier = ">=0.30" },
     { name = "matplotlib", specifier = ">=3.7" },

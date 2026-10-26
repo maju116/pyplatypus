@@ -1,6 +1,52 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a45] - 2026-10-26
+
+`albumentations>=1.4` was a floor this package could not run on.
+
+### Fixed
+
+ - **The floor is `>=1.4.23`, and every digit of it was measured.** Resolved at `>=1.4`, the
+   suite gives **50 failures against 2266 passed**, and 28 of the 50 are one line:
+   `Compose.__init__() got an unexpected keyword argument 'seed'`. `seed=` is what
+   `deterministic = True` is built on - the promise whose help page says the refusal without a
+   seed is deliberate - so the floor had been permitting a version that cannot honour it.
+   Nothing here could see that, because every gate and every scanner was reading `uv.lock`,
+   which has held 2.0.8 throughout. A lock is not a floor.
+
+   Bisected rather than rounded up, because `>=2.0` is the easy answer and narrows what a user
+   may install by 24 releases:
+
+        1.4.0    no seed=, no D4, no CenterCrop3D     the floor as it stood
+        1.4.18   D4 only
+        1.4.21   seed= and D4, still no 3D transforms
+        1.4.23   all three - the first version this package's code can run on
+
+   **`>=2.0` was tried for one commit and bought nothing**, which is recorded rather than
+   quietly dropped: the same four tests fail at 2.0.0 as at 1.4.23, one of them to the digit -
+   `1.5301895141601562` of warp slack either way - so albumentations is not that test's
+   variable. The lock does not move for any of this, which is the whole distinction being
+   drawn.
+
+### Known, measured, and deliberately not fixed here
+
+ - **Three tests pin albumentations' transform inventory through a number in a docstring.**
+   118, against 113 at 1.4.23, 114 at 2.0.0 and 118 at 2.0.8 - so making them pass would make
+   the floor `==2.0.8`, a pin rather than a floor, in a library that has no business pinning.
+   §3C is explicit about a number that is not portable: it must not be written down, only
+   explained. That is a defect in those tests and not in this floor.
+
+ - **`GridDistortion` leaves 1.53 px of slack against a 1.5 px tolerance** at the floors, by
+   0.03 px, identically at 1.4.23 and 2.0.0. So the variable is elsewhere - opencv or numpy,
+   both of which `lowest-direct` also moves - and the bound needs measuring at both ends
+   rather than loosening, which is the one repair §4 names as not being a repair.
+
+ - **The `floors (lowest-direct)` job that found all of this is on a branch, not here.** It is
+   the instrument, it is correct, and it is red until the four above are settled - and a red
+   job on every pull request becomes the step nobody reads, which this repository's own
+   workflow comments say about `continue-on-error`. It lands when it is believable.
+
 ## [0.8.0a44] - 2026-10-26
 
 Python 3.10 is dropped. It reached end of life on 2026-10-01.
