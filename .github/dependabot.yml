@@ -2,7 +2,24 @@
 # being replaced. Once main carries the rewrite, this keeps it from happening again.
 version: 2
 updates:
-  - package-ecosystem: pip
+  # `uv` rather than `pip`, and the difference is not cosmetic. The dependency state of
+  # this project lives in `uv.lock` - the security alerts say so themselves, every one of
+  # them reporting `manifest_path: uv.lock` - and GitHub documents `uv` as its own
+  # ecosystem, separate from `pip`. Declared as `pip`, Dependabot read `pyproject.toml` and
+  # never touched the lock, so the file the alerts are about was the one file nothing
+  # updated. Zero pull requests in this repository's whole history, against 46 open
+  # advisories, 41 of them one package.
+  #
+  # `increase-if-necessary` stays, and the reference is explicit about why that is the right
+  # half of this: it leaves a version requirement alone when the requirement already allows
+  # the new release, and *still updates the resolved version*. That is correct for a library
+  # - raising a floor narrows what a user can install, which is a decision rather than
+  # maintenance - and it is also the gap. A floor that already permits the fixed version is
+  # never flagged, while somebody resolving against that floor can still land on a
+  # vulnerable release. That is what happened to `pillow>=10.0`, and what no scanner here
+  # would have reported, because every scanner reasons about resolved versions and the
+  # exposure was in the unresolved range. The `floors` job in CI is the instrument for it.
+  - package-ecosystem: uv
     directory: /
     schedule: { interval: monthly }
     open-pull-requests-limit: 5
