@@ -302,6 +302,39 @@ class TestAvailableTransforms:
         for name in composition + ("BboxParams", "KeypointParams"):
             assert name not in names, name
 
+    @staticmethod
+    def _stated_inventory():
+        """The albumentations version the docstring's inventory was measured on, and its total.
+
+        Read out of the prose rather than written down here, because a second copy of the
+        version is the drift this whole file is about. The docstring says "albumentations 2.0.8
+        offers 118 transforms", so it is already honest about being version-scoped - what was
+        missing is the tests noticing.
+
+        Why that matters: `0.8.0a45`'s `floors` job runs the suite at the oldest versions the
+        manifest permits, and the inventory there is a different inventory - 113 transforms at
+        albumentations 1.4.23, 114 at 2.0.0, 118 at 2.0.8. A test that asserts 118 without
+        asking which version it is looking at would make the floor `==2.0.8`, which is a pin
+        and not a floor.
+        """
+        albumentations = pytest.importorskip("albumentations")
+        doc = inspect.getdoc(available_transforms) or ""
+        # `[^.]*` would not do here: the sentence names the albumentations version, so the
+        # span before the count contains "2.0.8".
+        stated = re.search(r"albumentations\s+(\S+)\s+offers\s+(\d+)\s+transforms", doc, re.DOTALL)
+        assert stated, "the docstring no longer states its version and total in a readable form"
+        return stated.group(1), int(stated.group(2)), albumentations.__version__
+
+    @staticmethod
+    def _as_tuple(version: str) -> tuple[int, ...]:
+        """`"1.4.23"` as `(1, 4, 23)`, for comparing against the version the prose names.
+
+        Parsed here rather than with `packaging`, which is not a dependency of this package
+        and would have to be either added or skipped around - and a skip in the gate that
+        decides whether to assert is a gate nobody can read.
+        """
+        return tuple(int(part) for part in re.findall(r"\d+", version)[:3])
+
     def test_the_docstring_total_is_the_measured_one(self):
         """The prose states how many transforms there are, and this is what keeps it true.
 
@@ -325,17 +358,20 @@ class TestAvailableTransforms:
         of recalled. A sum nothing adds up is the cheapest kind of wrong number to ship, and
         `test_no_refusal_is_unexplained` is the part that now holds it.
         """
-        pytest.importorskip("albumentations")
-        doc = inspect.getdoc(available_transforms) or ""
-        # `[^.]*` would not do here: the sentence names the albumentations version, so the
-        # span before the count contains "2.0.8".
-        stated = re.search(r"albumentations\s+\S+\s+offers\s+(\d+)\s+transforms", doc, re.DOTALL)
-        assert stated, "the docstring no longer states the total in a readable form"
-
+        version, total, installed = self._stated_inventory()
         measured = len(available_transforms())
-        assert int(stated.group(1)) == measured, (
-            f"the docstring says {stated.group(1)} transforms; measured {measured}"
-        )
+
+        if installed != version:
+            # The subject is absent rather than wrong: this count is a property of one
+            # albumentations release and the docstring says which. What is still assertable
+            # is that the prose is version-scoped at all, which is what makes it checkable
+            # wherever that version IS installed - and that the listing works here.
+            assert measured > 0, (
+                f"albumentations {installed} is installed and offers no transforms at all"
+            )
+            return
+
+        assert total == measured, f"the docstring says {total} transforms; measured {measured}"
 
     def test_the_volume_list_is_a_smaller_subset(self):
         """What is portable about rank 3: shorter, contained, and not empty.
@@ -409,13 +445,25 @@ class TestAvailableTransforms:
 
         added = set(with_escalation) - set(small_only)
 
+        # The two portable directions, asserted on every version: escalating only ever adds,
+        # and `<` is strict so it has to add SOMETHING - which is the mutation control the
+        # docstring above is about. Neither depends on which transform it is.
         assert small_only < with_escalation, "escalating must only ever add names"
+        assert not added - set(self.SIZE_DEPENDENT), (
+            f"the escalation added something unaccounted for: {sorted(added - set(self.SIZE_DEPENDENT))}"
+        )
+
+        # And the named member, which is not portable and is the stronger claim where it
+        # applies. `Crop`'s default crop box is 1024x1024 in the version the docstring was
+        # measured on; at albumentations 2.0.0 the escalation adds the other three and not
+        # `Crop`, so asserting the name everywhere would be asserting that release's
+        # defaults. `0.8.0a45`'s floors job is what found this.
+        version, _, installed = self._stated_inventory()
+        if installed != version:
+            return
         assert "Crop" in added, (
             "`Crop` refuses an 8x8 probe on every platform and every run, so the escalation "
             f"is what lists it; the escalation added {sorted(added)}"
-        )
-        assert not added - set(self.SIZE_DEPENDENT), (
-            f"the escalation added something unaccounted for: {sorted(added - set(self.SIZE_DEPENDENT))}"
         )
 
     def test_no_refusal_is_unexplained(self):
@@ -434,6 +482,25 @@ class TestAvailableTransforms:
         import numpy as np
 
         from pyplatypus.spec import components
+
+        # OLDER than the table was measured on and the categories are not this test's to
+        # hold: at albumentations 1.4.23 `RandomFog` raises `AxisError: axis 2 is out of
+        # bounds`, and at 2.0.0 `LongestMaxSize` raises `Unsupported number of dimensions` -
+        # transforms that simply had no volume support yet, each announcing it in its own
+        # way. Naming those messages one by one is how a closed set stops being closed, and
+        # the closed set is this test's entire value.
+        #
+        # **The comparison is `<` and not `!=`, and that asymmetry is the design.** A count
+        # belongs to exactly one release, so `test_the_docstring_total_is_the_measured_one`
+        # gates on `!=`. A taxonomy is expected to hold FORWARD - an upgrade may move the
+        # numbers and is not expected to invent a new kind of refusal, which is what this
+        # test's own docstring promises - so anything at or above the stated version is
+        # asserted, and a newer albumentations inventing a fifth category still fails here.
+        # Gating this one on `!=` would have silenced it at the next lock bump, which is the
+        # one moment it exists for.
+        version, _, installed = self._stated_inventory()
+        if self._as_tuple(installed) < self._as_tuple(version):
+            return
 
         refused = sorted(available_transforms() - available_transforms(rank=3))
         assert refused, "some transform must be refused, or this test proves nothing"

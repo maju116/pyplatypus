@@ -77,9 +77,32 @@ WARPING = [
     ("GridDistortion", {}),
 ]
 
-#: What the measurement above found, plus a little. Not a guess: at 1.0 the suite would sit
-#: exactly on the worst observed draw.
-WARP_TOLERANCE = 1.5
+#: Two bounds, because the two directions are two different claims and one number was
+#: holding both. `outside` is the object escaping its box - the failure this file exists for,
+#: which would train a model to find blood cells in background. `slack` is the box being
+#: looser than the pixels that survived the threshold, which is interpolation behaviour
+#: rather than a defect in this package.
+#:
+#: Both ends measured, which is what §4 asks of a bound, over the five warping transforms
+#: and `DRAWS` seeds each:
+#:
+#:                  noise, locked stack   noise, oldest floors   box left unwarped
+#:     outside             1.00                   1.00              6.00 .. 26.00
+#:     slack               1.00                   1.53              0.00 .. 11.00
+#:
+#: The right-hand column is the defect: the box the caller passed in, never transformed.
+#: `outside` is what catches it - every one of the five, by 4x the bound at worst - and
+#: `slack` catches only the two transforms that enlarge the object, which is why both
+#: directions exist and why they cannot share a number.
+#:
+#: The `slack` bound is 2.0 rather than 1.5 because 1.5 is not portable across the
+#: dependency range this package permits: at the declared floors `GridDistortion` leaves
+#: 1.5301895 px, and that is interpolation on the old stack rather than anything here
+#: moving. 2.0 sits 1.3x above the worst noise observed anywhere in the supported range and
+#: 3.5x below `GridDistortion`'s own slack when the box is wrong. Found by the `floors` job;
+#: before it, the suite could not see the floors at all.
+WARP_TOLERANCE_OUTSIDE = 1.5
+WARP_SLACK_TOLERANCE = 2.0
 
 DRAWS = 20
 
@@ -134,12 +157,14 @@ def test_a_warping_transform_still_bounds_the_object(name, params):
             got[0] - where[0], got[1] - where[1], where[2] - got[2], where[3] - got[3], 0.0
         )
         slack = max(where[0] - got[0], where[1] - got[1], got[2] - where[2], got[3] - where[3], 0.0)
-        assert outside <= WARP_TOLERANCE, (
+        assert outside <= WARP_TOLERANCE_OUTSIDE, (
             f"{name} seed {seed}: {outside:.2f} px of the object is outside the box "
             f"{got} - the box no longer covers what it labels"
         )
-        assert slack <= WARP_TOLERANCE, (
-            f"{name} seed {seed}: the box {got} is {slack:.2f} px larger than the object at {where}"
+        assert slack <= WARP_SLACK_TOLERANCE, (
+            f"{name} seed {seed}: the box {got} is {slack:.2f} px larger than the object at "
+            f"{where}. This bound is interpolation noise across the supported dependency "
+            f"range, not a claim about correctness - the claim is the assertion above"
         )
 
 

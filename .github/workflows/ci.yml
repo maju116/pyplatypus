@@ -108,6 +108,82 @@ jobs:
       - name: Confirm the CPU build is what was tested
         run: uv run --no-sync python -c "import torch; assert torch.version.cuda is None or '${{ runner.os }}' == 'macOS', f'CUDA build {torch.version.cuda} leaked into CI'; print(torch.__version__)"
 
+  # DELIBERATELY NOT A REQUIRED STATUS CHECK, and deliberately not `continue-on-error`
+  # either - the comment on the format step above says what a step that gates nothing turns
+  # into. This is a real job that goes red when it is wrong. What it does not do is block a
+  # merge, because it can also go red for news rather than for a change: `lowest-direct`
+  # resolves against whatever PyPI serves today, so a yanked old release reddens it with
+  # nothing here having moved, and a required check that fails on somebody else's disclosure
+  # blocks every merge until somebody else fixes it.
+  #
+  # WHAT IT IS FOR. Every `>=` in pyproject.toml is a claim about a version somebody can
+  # install, and until this job nothing tested those claims. `0.8.0a43` is why it exists: the
+  # pillow floor sat at `>=10.0` while the decoder advisories it was meant to answer were
+  # fixed in 13.0.0, and `uv.lock` said 12.3.0 - because a lock is not a floor, and the
+  # suite, CI and every scanner only ever saw the lock. Dependabot cannot see it either:
+  # `increase-if-necessary` leaves a requirement alone when it already allows the new
+  # release, which is the right strategy for a library and means a permissive floor is never
+  # flagged. The exposure was in the unresolved range, and this is the only thing here that
+  # resolves it.
+  #
+  # Python 3.11 rather than the matrix, because it is the lowest `requires-python` admits: the
+  # job is then the worst case a user can assemble, oldest interpreter with oldest
+  # dependencies, rather than one more cell of the ordinary one.
+  floors:
+    name: floors (lowest-direct)
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Create the environment on the oldest interpreter the manifest admits
+        run: uv venv --python 3.11
+
+      # The same CPU-index reasoning as the test job above, with `--resolution lowest-direct`
+      # so this is the oldest torch the floor permits rather than the newest it allows.
+      - name: Install the lowest torch and torchvision the floors permit, CPU build
+        run: uv pip install --resolution lowest-direct torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      # `[hub,encoders]` but NOT `dev`, and the first run of this job is why. The claim being
+      # tested is about what the package NEEDS - `huggingface_hub` and `timm` are part of that,
+      # the test tooling is not. `dev` holds `pytest-cov`, `build` and `twine` with no floors
+      # at all, so `lowest-direct` took them to 0.6, 0.0.1 and 1.0.1: versions nobody has
+      # claimed anything about, in a job whose whole subject is claims.
+      - name: Install the package at its declared floors
+        run: uv pip install --resolution lowest-direct -e ".[hub,encoders]"
+
+      # After, and at the ordinary resolution, so the tooling is not part of the measurement.
+      - name: Install the test tooling, which is not what this job is about
+        run: uv pip install pytest pytest-cov
+
+      # BEFORE the tests, not after. When this job goes red the first question is which
+      # versions it was red about, and a failed test run does not answer that. The list is
+      # read off the installed distribution's own `Requires-Dist` rather than written out
+      # here, because a second copy of the dependency list is one more thing to drift.
+      - name: What the floors actually resolved to
+        run: |
+          uv run --no-sync python - <<'PY'
+          import importlib.metadata as m, re
+          seen = []
+          for raw in m.requires("pyplatypus") or []:
+              name = re.split(r"[\s\[<>=!;(]", raw, 1)[0]
+              if name in seen:
+                  continue
+              seen.append(name)
+              try:
+                  print(f"  {name:22s} {m.version(name)}")
+              except m.PackageNotFoundError:
+                  print(f"  {name:22s} not installed - an extra this job did not select")
+          PY
+
+      - name: Run the tests against the floors
+        run: uv run --no-sync pytest -q
+
   build:
     needs: test
     runs-on: ubuntu-latest
