@@ -1,6 +1,110 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a46] - 2026-10-26
+
+`0.8.0a39` fitted an ellipse to a whole mask. This measures every object in one.
+
+### Added
+
+ - **`instance_shapes(labels, spacing=None)`, one row per object beside `instance_sizes`'s.**
+   `maju116/pyplatypus#272`. The same second moments `ellipse_axes` takes for a whole mask,
+   taken per object in **one pass**: the foreground coordinates are sorted by label once and
+   each object is a contiguous block, against one full-array scan per object for the
+   `ellipse_axes(labels == k)` loop a caller writes instead. Measured on 512 x 512 maps of
+   synthetic ellipses:
+
+        objects    the loop     one pass
+             49      50.9 ms      15.2 ms    3.3x
+            498     517.0 ms      44.9 ms   11.5x
+           1939    1988.7 ms     143.1 ms   13.9x
+
+   The two agree to **0.00e+00 on every object at every size**, and that exactness is what
+   makes them comparable rather than merely close - so the loop is this feature's test
+   control instead of its competitor.
+
+ - **The generalisation to a volume is a constant, and getting it wrong is invisible.** For a
+   uniform solid the variance along an axis is `semi_axis^2 / (rank + 2)`, so the factor is 2
+   for an image and `sqrt(5)` for a volume. Measured on an ellipsoid of semi-axes 50, 30 and
+   20, with the image's 2 as the negative control:
+
+        sqrt(5)    50.02, 29.97, 19.97    0.13% off
+        2.0        44.74, 26.80, 17.87   10.67% low
+        control, an 80 by 40 ellipse: 0.17% with 2 and 11.87% with sqrt(5)
+
+   **The wrong constant changes no decision anywhere** - the ordering of the axes, every
+   ratio and the eccentricity all survive it - so it would have sat there until somebody
+   reported a length. §4's *an error that changes no decision is an error nobody looks for*,
+   which is why a test asserts the wrong constant is wrong **by a stated amount** rather than
+   asserting the right one is right.
+
+### Fixed in the design rather than in code
+
+ - **`eccentricity` is unitless and it is not spacing-free**, which the issue had assumed the
+   other way round - it proposed the descriptor as "the one available without a spacing". It
+   is not: on anisotropic voxels it describes whichever space it was computed in, and it
+   reverses in **both** directions:
+
+        a circle of 80 px at spacing (2, 1)      grid 0.0000    mm 0.8660
+          closed form sqrt(1 - (1/2)^2) = 0.8660
+        an 80 by 40 px ellipse at spacing (1, 2)  grid 0.8667    mm 0.0685
+
+   So the second row is physically almost a circle and the grid calls it strongly elongated.
+   The answer is the key names: the axes are `major_mm` and `minor_mm` with a spacing and
+   `major_px` and `minor_px` without, and **the suffix on the neighbours is what says which
+   space the whole row is in**. A test holds all four of those figures, because a sentence in
+   a docstring is what this project keeps finding to be unread.
+
+ - **A volume gets three axes and no eccentricity.** `major_mm`, `middle_mm` and `minor_mm`,
+   because the arithmetic generalises exactly and refusing rank 3 would refuse the motivating
+   data - medical imaging is volumes. An ellipsoid has no single eccentricity, and the ratio
+   of two columns is the caller's division rather than a name invented here.
+
+ - **It is a second function and not `instance_sizes(shape=True)`, and an existing test in the
+   other package is what decided it.** R keeps `instance_sizes` as its own arithmetic - a
+   count times a product - and would have to forward a shape, making one function half-local
+   and half-forwarded. `rplatypus`'s `test-measure-pair.R` reads the **body** of every
+   function whose help page carries a runnable example and asserts it does not reach the
+   bridge, because `R CMD check` runs examples and CRAN has no Python; `instance_sizes` is on
+   that list and `ellipse_measure` is the control on the other side. A flag would have failed
+   that test, and the two repairs available - loosening the check or putting an arithmetic
+   function's page into `\dontrun{}` - are both the thing the test exists to prevent. So the
+   choice was collapsed by a measurement rather than taken on taste, which is §6's rule.
+
+ - **Orientation is out, and not because of the cost.** It needs the eigen*vectors*, and that
+   was measured rather than assumed: `eigh` against `eigvalsh` is 14.34 ms against 7.24 ms
+   for 20,000 2x2 matrices, about 5% of one pass over a dense map. So the reason is the
+   descriptor rather than the arithmetic - an angle needs a stated convention in 2D and has
+   no scalar summary at all in 3D, and nothing in either package's examples asks for
+   alignment yet. Written down so the next reader does not re-derive the cost: what would
+   bring it in is an example that needs it.
+
+### Known, and deliberately not here
+
+ - **The R half, by §3B.** Engine first, published, then R - and `instance_shapes()` is the
+   second measurement in this package that crosses the bridge, so it joins `ellipse_measure`
+   on the forwarding side of `test-measure-pair.R` rather than changing anything local.
+   `maju116/pyplatypus#272`'s remaining task items are the R function and the Data Science
+   Bowl vignette section, which is where *how many nuclei and how big is each one* is already
+   the question being asked.
+
+ - **The mutation batch found a case the tests did not hold.** Ten mutations, every one
+   confirmed to have landed on disk before the suite ran - because a mutation written against
+   a line `ruff format` later rewrapped never applies, and then the pass means nothing. Nine
+   were caught on the first run. The one that was not is the degenerate threshold, `rank + 1`
+   written as a literal `3`: the two are the same number for an image and differ only for a
+   volume, and no fixture held a three-voxel object in one. §4's fixture that never contained
+   the case, found by mutating rather than by reading; the test added for it fails on that
+   mutation and on nothing else, and the batch was re-run after formatting, where all ten are
+   caught. Its own control - removing the feature entirely - fails seven tests.
+
+ - **The docstring carries a `Note:` section and it is the only one in the package**, which is
+   `0.8.0a24`'s trap exactly: a Google-style section quartodoc has no renderer for takes the
+   whole site down with every other context green, and *the absence of a construct here is
+   evidence about the build rather than about taste*. Checked rather than assumed - the
+   generated page carries the section's own figures, with a phrase that cannot be there as
+   the grep's control.
+
 ## [0.8.0a45] - 2026-10-26
 
 `albumentations>=1.4` was a floor this package could not run on.

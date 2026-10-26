@@ -148,6 +148,7 @@ groups:
   contents:
   - mask_volume
   - instance_sizes
+  - instance_shapes
   - largest_filled_object
   - ellipse_axes
   - ellipse_circumference

@@ -172,6 +172,7 @@ website:
         contents:
         - reference/mask_volume.qmd
         - reference/instance_sizes.qmd
+        - reference/instance_shapes.qmd
         - reference/largest_filled_object.qmd
         - reference/ellipse_axes.qmd
         - reference/ellipse_circumference.qmd
@@ -335,6 +336,7 @@ quartodoc:
     contents:
     - mask_volume
     - instance_sizes
+    - instance_shapes
     - largest_filled_object
     - ellipse_axes
     - ellipse_circumference

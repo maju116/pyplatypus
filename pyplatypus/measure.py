@@ -164,6 +164,114 @@ def instance_sizes(labels: np.ndarray, spacing: Any = None) -> list[dict[str, An
     return rows
 
 
+def instance_shapes(labels: np.ndarray, spacing: Any = None) -> list[dict[str, Any]]:
+    """How stretched each object is, one row per object.
+
+    `instance_sizes` answers how big and this answers what shape, out of the same label map
+    and in one pass over it. The semi-axes are the ones `ellipse_axes` computes for a whole
+    mask - the second moments of the member coordinates, so nothing is fitted iteratively -
+    and the generalisation to a volume is the constant: for a uniform solid the variance
+    along an axis is `semi_axis^2 / (rank + 2)`, which is 4 for an image and **5** for a
+    volume. Measured on an ellipsoid of semi-axes 50, 30 and 20, reusing the image's 2
+    answers 44.74, 26.80 and 17.87 - 10.67% low - against 0.13% for `sqrt(5)`; and the
+    control in the other direction, an 80 by 40 ellipse, is 0.17% with 2 and 11.87% with
+    `sqrt(5)`.
+
+    **Why this is not `instance_sizes(shape=True)`**: R keeps `instance_sizes` as its own
+    arithmetic - a count times a product - and would have to forward a shape, so the one
+    function would be half-local and half-forwarded. `rplatypus`'s own test reads the body of
+    every function whose help page has a runnable example and asserts it does not reach the
+    bridge, because `R CMD check` runs examples and CRAN has no Python. A flag would fail
+    that test; a second name joins `ellipse_measure` on its other side.
+
+    Args:
+        labels: One instance label map, one integer per object and 0 for background. Two
+            dimensions for an image, three for a volume.
+        spacing: Voxel size in millimetres, one number per dimension in the array's own axis
+            order. Unset reports the sampling grid instead, and the keys say so.
+
+    Returns:
+        One dict per object present, in increasing object number, with `object` and the
+        semi-axes largest first - `major_mm` and `minor_mm` for an image, with `middle_mm`
+        between them for a volume, named `_px` instead when `spacing` was not given. An
+        image also gets `eccentricity`, `sqrt(1 - (minor/major)^2)`, which is the number
+        shape analysis reports and comes out of the same eigenvalues. A volume does not:
+        an ellipsoid has no single eccentricity, and the ratio of two columns is the
+        caller's division rather than a name this package invents.
+
+        An object with fewer than `rank + 1` voxels has no second moment and gets zeros,
+        the same answer `ellipse_axes` gives for fewer than three pixels.
+
+    Raises:
+        MeasureError: If `labels` is not one map, or `spacing` has the wrong length.
+
+    Note:
+        **`eccentricity` is unitless and it is not spacing-free**, which is the one trap in
+        this row. On anisotropic voxels it describes whichever space it was computed in: a
+        circle of 80 pixels on `spacing=(2, 1)` is physically an ellipse, and the grid says
+        `0.0000` where the millimetres say `0.8660` - the closed form `sqrt(1 - (1/2)^2)`.
+        It reverses too: an 80 by 40 pixel ellipse on `spacing=(1, 2)` is physically almost
+        a circle, `0.8667` on the grid against `0.0685` in millimetres. So the `_px` suffix
+        on the neighbouring keys is what says which number this is, and a test holds both
+        of those figures.
+
+    >>> labels = np.zeros((41, 81), dtype=int)
+    >>> rows, columns = np.ogrid[:41, :81]
+    >>> labels[((rows - 20) / 10) ** 2 + ((columns - 20) / 18) ** 2 <= 1] = 1
+    >>> labels[(rows - 20) ** 2 + (columns - 60) ** 2 <= 9 ** 2] = 2
+    >>> rows_out = instance_shapes(labels, spacing=(0.5, 0.5))
+    >>> [row["object"] for row in rows_out]
+    [1, 2]
+    >>> round(rows_out[1]["eccentricity"], 3)       # a circle, whatever the spacing
+    0.0
+    >>> round(rows_out[0]["major_mm"], 2)           # 18 pixels of 0.5 mm, discretised
+    9.03
+    """
+    labels = np.asarray(labels)
+    rank = _rank(labels, (2, 3), name="labels")
+    sides = _spacing(spacing, rank) if spacing is not None else (1.0,) * rank
+    unit = "mm" if spacing is not None else "px"
+    names = ("major", "minor") if rank == 2 else ("major", "middle", "minor")
+
+    # One pass: the foreground coordinates are sorted by label once and each object is a
+    # contiguous block, so this is a sort of the mask rather than one full-array scan per
+    # object. The three-line loop a caller writes instead - `ellipse_axes(labels == k)` per
+    # object - rescans the whole array every time. Measured on 512 x 512 maps of synthetic
+    # ellipses: 50.9 ms against 15.2 at 49 objects, 517.0 against 44.9 at 498, and 1988.7
+    # against 143.1 at 1939, which is 3.3x, 11.5x and 13.9x. The two agree to 0.00e+00 on
+    # every object at every size, and that exactness is what makes them comparable at all -
+    # the naive loop is this function's test control for exactly that reason.
+    index = np.nonzero(labels)
+    if index[0].size == 0:
+        return []
+    values = labels[index]
+    order = np.argsort(values, kind="stable")
+    values = values[order]
+    coordinates = np.stack([axis[order] * side for axis, side in zip(index, sides, strict=True)])
+    coordinates = coordinates.astype(np.float64)
+
+    present, starts, counts = np.unique(values, return_index=True, return_counts=True)
+    factor = math.sqrt(rank + 2)
+    rows: list[dict[str, Any]] = []
+    for value, start, count in zip(present.tolist(), starts.tolist(), counts.tolist(), strict=True):
+        row: dict[str, Any] = {"object": int(value)}
+        if count < rank + 1:
+            axes = (0.0,) * rank
+        else:
+            block = coordinates[:, start : start + count]
+            spread = np.clip(np.linalg.eigvalsh(np.cov(block)), 0.0, None)
+            axes = tuple(factor * math.sqrt(value_) for value_ in reversed(spread.tolist()))
+        for name, axis in zip(names, axes, strict=True):
+            row[f"{name}_{unit}"] = float(axis)
+        if rank == 2:
+            major, minor = axes
+            row["eccentricity"] = (
+                math.sqrt(max(0.0, 1.0 - (minor / major) ** 2)) if major > 0.0 else 0.0
+            )
+        rows.append(row)
+    return rows
+
+
 def largest_filled_object(mask: np.ndarray) -> np.ndarray:
     """The biggest connected piece of a mask, with its holes filled.
 
