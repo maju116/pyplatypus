@@ -13,10 +13,14 @@ Science Bowl ships one mask per nucleus, and `data_science_bowl.yaml` unites the
 keep their identity, which turns the question from *where are the nuclei* into *how many are
 there, and which pixels belong to which one*.
 
-**Where the numbers come from.** The two object counts below were produced by running the
-code shown, on this machine, against the published weights - no training. Everything else
-is cited where it is used: the weights' three scores are the registry's own description,
-the ceilings are `pyplatypus#159` and `#212`, and the trained rows are
+**Where the numbers come from.** The two object counts below, and every shape figure in
+*What shape, which needs no scale at all*, were produced by running the code shown, on this
+machine, against the published weights - no training. They are **one run** rather than a
+property of the task: inference on fixed weights is near enough deterministic that the
+counts should reproduce, and the last digit of a median over 5,378 objects is not something
+this page asks anybody to match. Everything else is cited where it is used: the weights'
+three scores are the registry's own description, the ceilings are `pyplatypus#159` and
+`#212`, and the trained rows are
 `examples/publish_dsbowl_instance_weights.py`'s. That division is deliberate - an article
 that re-trains a published recipe with fewer epochs adds a number nobody will compare.
 
@@ -261,29 +265,70 @@ that were found and then run together with a neighbour.
 
 ## What it was for: a count and a size distribution
 
-One label map in, one row per object out - and this is the one place where the R package has
-a function and this one deliberately does not:
+One label map in, one row per object out, and `instance_sizes()` is that row:
 
 ```python
 labels = engine.predict_instances("rim", split="validation", decode="nearest_seed")[0]
-objects, voxels = np.unique(labels[labels > 0], return_counts=True)
+rows = pp.instance_sizes(labels)
 ```
 
-`numpy.unique` with `return_counts` *is* the operation, so a wrapper here would be a name to
-learn in place of one a reader already has. The R package carries an `instance_sizes` for
-this, because R's idiom for the same two lines is clumsier; it is pure R and calls nothing
-in this package, which is why there is nothing here to point at instead.
+**This paragraph said the opposite for two days and the correction is worth more than the
+sentence.** It read *"this is the one place where the R package has a function and this one
+deliberately does not"*, argued that `numpy.unique` with `return_counts` *is* the operation
+so a wrapper would be a name to learn, and pointed a reader at the R package instead. That
+was true when it was written on 2026-10-23 and false on 2026-10-25, when `0.8.0a39` put
+`mask_volume()`, `instance_sizes()` and three more into `pyplatypus.measure` - because every
+route from a mask to a physical unit was reachable from R and from nowhere else, which is the
+same defect this paragraph was describing as a decision.
 
-Written without parentheses on purpose, and the test is the reason: `tests/test_articles.py`
-reads a backticked name followed by parentheses as something offered to a reader to call, and
-resolves it against this package. A name belonging to the other package is not that, so it
-is named rather than offered - which is the same distinction `test_schema_prose_names.py`
-was written for after the schema's prose sent a Python reader to R's `training_history`.
+**And the instrument had been taught to look away from exactly this name.**
+`tests/test_articles.py` resolves a backticked name followed by parentheses against this
+package, and the old text wrote `instance_sizes` *without* them on purpose, with a paragraph
+explaining that a name belonging to the other package is named rather than offered. The
+reasoning was right and it bought a blind spot: the one name whose claim could go stale was
+the one name the test could not see. It carries parentheses now, so the test holds it.
 
 **In pixels, because this dataset has no physical scale.** A CT scan carries its spacing in
 its header and `target_spacing` is where that enters a run; these are microscopy images with
 no calibration recorded, so a number in micrometres here would be invented. A count is still
 a count.
+
+### What shape, which needs no scale at all
+
+`instance_shapes()` answers the other half - not how big an object is but how stretched -
+and it is the one measurement this uncalibrated dataset can report honestly, because
+`eccentricity` is a **ratio**. One row per object, out of one pass over the label map:
+
+```python
+shapes = pp.instance_shapes(labels)
+```
+
+Measured on all 134 validation images through the published weights, 5,378 objects:
+
+    eccentricity   median 0.7422   q10 0.4396   q90 0.9097   12.09% above 0.9
+    semi-axes      major 7.68 px   minor 4.85 px, both medians
+    axis ratio     median 0.6580
+
+So a nucleus here is typically half again as long as it is wide, and an eighth of them are
+strongly elongated. **125 of the 5,378 have no shape at all** - fewer than three pixels is no
+second moment - and they come back as zeros rather than as an error, which is the right
+answer for a speck and would be the wrong answer to hide.
+
+**"Needs no scale" is true because the pixels are square, and that is measured rather than
+assumed.** `eccentricity` is unitless and it is *not* spacing-free: it describes whichever
+space it was computed in. On the busiest of these images, the same 245 objects:
+
+    no spacing, the grid        median eccentricity 0.7622
+    spacing (0.5, 0.5)          median eccentricity 0.7622
+    spacing (1.0, 0.5)          median eccentricity 0.9169
+
+An isotropic spacing changes nothing and an anisotropic one moves the median by 0.15, so the
+grid's answer is the object's answer **only** while a pixel is as tall as it is wide. That is
+what the `_px` suffix on the axes is for: with a spacing the columns are `major_mm` and
+`minor_mm`, without one they are `major_px` and `minor_px`, and the suffix on the neighbours
+is what says which space the row is in.
+
+A volume gets three axes and no eccentricity, since an ellipsoid has no single one.
 
 ## The same thing from a file
 
