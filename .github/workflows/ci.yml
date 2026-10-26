@@ -149,8 +149,17 @@ jobs:
       - name: Install the lowest torch and torchvision the floors permit, CPU build
         run: uv pip install --resolution lowest-direct torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
+      # `[hub,encoders]` but NOT `dev`, and the first run of this job is why. The claim being
+      # tested is about what the package NEEDS - `huggingface_hub` and `timm` are part of that,
+      # the test tooling is not. `dev` holds `pytest-cov`, `build` and `twine` with no floors
+      # at all, so `lowest-direct` took them to 0.6, 0.0.1 and 1.0.1: versions nobody has
+      # claimed anything about, in a job whose whole subject is claims.
       - name: Install the package at its declared floors
-        run: uv pip install --resolution lowest-direct -e ".[dev,hub,encoders]"
+        run: uv pip install --resolution lowest-direct -e ".[hub,encoders]"
+
+      # After, and at the ordinary resolution, so the tooling is not part of the measurement.
+      - name: Install the test tooling, which is not what this job is about
+        run: uv pip install pytest pytest-cov
 
       # BEFORE the tests, not after. When this job goes red the first question is which
       # versions it was red about, and a failed test run does not answer that. The list is

@@ -1,6 +1,50 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a45] - 2026-10-26
+
+A floor is a claim, and the first one tested was false.
+
+### Added
+
+ - **`floors (lowest-direct)` in CI: the declared floors resolved and the suite run against
+   them.** Every `>=` in `pyproject.toml` says a version somebody can install, and nothing
+   checked whether the package works on one. `0.8.0a43` is why: the pillow floor sat at
+   `>=10.0` while the fixes it answers arrived in 13.0.0, and the lock said 12.3.0 - so the
+   suite, CI and every scanner here were all looking at the lock, and **the thing a user
+   resolves was unexamined**. Dependabot cannot see it either, and that is not a
+   misconfiguration: `increase-if-necessary` leaves a requirement alone when it already
+   allows the new release, which is the right strategy for a library.
+
+   Python 3.11, the lowest `requires-python` admits, so the job is the worst case a user can
+   assemble rather than one more cell of the ordinary matrix. **Not a required status check**
+   and not `continue-on-error`: it goes red when it is wrong, and it stays out of protection
+   because it can also go red for news - `lowest-direct` resolves against whatever PyPI
+   serves today, so a yanked old release reddens it with nothing here having moved.
+
+### Fixed
+
+ - **`albumentations>=1.4` was fiction, and the floor is `>=1.4.23`.** The job's first run
+   gave **50 failures, 2266 passed**, and 28 of the 50 were one line:
+   `Compose.__init__() got an unexpected keyword argument 'seed'`. `seed=` is what
+   `deterministic = True` is built on, so the floor had been permitting a version that cannot
+   honour this package's own determinism promise - a promise whose help page says the refusal
+   without a seed is deliberate.
+
+   **Bisected rather than rounded up**, because `>=2.0` was the easy answer and it narrows
+   what a user may install by 24 releases for nothing:
+
+        1.4.0    no seed=, no D4, no CenterCrop3D     (the floor as it stood)
+        1.4.18   D4 only
+        1.4.21   seed= and D4, no 3D transforms
+        1.4.23   all three - the first version this package can run on
+
+ - **The job installs `[hub,encoders]` and not `dev`**, fixed in the same pull request after
+   its first run showed why. The claim is about what the package needs; `dev` holds
+   `pytest-cov`, `build` and `twine` with no floors at all, so `lowest-direct` took them to
+   0.6, 0.0.1 and 1.0.1 - versions nobody has claimed anything about, in a job whose whole
+   subject is claims.
+
 ## [0.8.0a44] - 2026-10-26
 
 Python 3.10 is dropped. It reached end of life on 2026-10-01.
