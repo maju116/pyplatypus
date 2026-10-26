@@ -22,6 +22,7 @@ from pyplatypus.instance_engine import InstanceEngine
 from pyplatypus.measure import (
     ellipse_axes,
     ellipse_circumference,
+    instance_shapes,
     instance_sizes,
     largest_filled_object,
     mask_volume,
@@ -67,7 +68,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a45"
+__version__ = "0.8.0a46"
 __all__ = [
     "ConfigError",
     "DetectionEngine",
@@ -102,6 +103,7 @@ __all__ = [
     "flow_to_colours",
     "from_dict",
     "from_yaml",
+    "instance_shapes",
     "instance_sizes",
     "largest_filled_object",
     "mask_volume",
