@@ -131,7 +131,7 @@ encoders = ["timm>=1.0"]
 #     uv run --only-group lint ruff check pyplatypus tests
 #
 [dependency-groups]
-lint = ["ruff==0.16.10"]
+lint = ["ruff==0.17.2"]
 
 [project.scripts]
 platypus-schema = "pyplatypus.spec.schema:main"
