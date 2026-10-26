@@ -935,6 +935,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#change-log" id="toc-change-log" class="nav-link active" data-scroll-target="#change-log">Change Log</a>
   <ul class="collapse">
+  <li><a href="#a43---2026-10-26" id="toc-a43---2026-10-26" class="nav-link" data-scroll-target="#a43---2026-10-26">[0.8.0a43] - 2026-10-26</a>
+  <ul class="collapse">
+  <li><a href="#security" id="toc-security" class="nav-link" data-scroll-target="#security">Security</a></li>
+  </ul></li>
   <li><a href="#a42---2026-10-25" id="toc-a42---2026-10-25" class="nav-link" data-scroll-target="#a42---2026-10-25">[0.8.0a42] - 2026-10-25</a>
   <ul class="collapse">
   <li><a href="#fixed" id="toc-fixed" class="nav-link" data-scroll-target="#fixed">Fixed</a></li>
@@ -1353,6 +1357,25 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="change-log" class="level1">
 <h1>Change Log</h1>
 <p>All notable changes to this project will be documented in this file.</p>
+<section id="a43---2026-10-26" class="level2">
+<h2 class="anchored" data-anchor-id="a43---2026-10-26">[0.8.0a43] - 2026-10-26</h2>
+<p>What <code>Image.open</code> is allowed to dispatch to, and a pillow floor that is about the user rather than about this repository’s lock file.</p>
+<section id="security" class="level3">
+<h3 class="anchored" data-anchor-id="security">Security</h3>
+<ul>
+<li><p><strong><code>Image.open</code> identified every picture by its CONTENT and was handed nothing but a path, so every decoder PIL ships was reachable from any path a specification named.</strong> One of them, the EPS plugin, hands the file to Ghostscript; FlashPix, JPEG 2000, MSP, WMF and XBM are formats no reader here has ever been pointed at. The three reading sites</p>
+<ul>
+<li><code>read_image</code>, <code>spatial_shape</code> and the per-object instance reader - now pass <code>formats</code>.</li>
+</ul>
+<p><strong>The glob was never the guard it looked like.</strong> <code>read_instance_masks</code> selects files by the name <code>*.png</code> and <code>Image.open</code> decides by the bytes, so a file called <code>00.png</code> carrying another format went to whichever decoder its contents asked for. There the allowed list is the one item the glob already implied.</p>
+<p><code>READABLE_FORMATS</code> is <code>PNG, JPEG, TIFF, BMP, GIF</code>: PNG and JPEG are what every example and test here reads, and the other three are the mainstream raster formats a 2D set travels in, so refusing them would be a narrowing nobody measured. Counted off the open advisories against the locked pillow, restricting the dispatch takes six of them out of reach including two rated critical - and unlike a version bump it does not expire, being a statement about what this package reads rather than about which decoder bugs are open today. Volumes, DICOM and DICOM series never reach PIL and are unaffected.</p>
+<p>The refusal is worded once for both PIL readers and says that <strong>the name was not what decided</strong>, because the first thing anybody does with “could not read” is check the extension, and here the extension was already right.</p></li>
+<li><p><strong>The pillow floor is 13, which is the only half of this that reaches a user.</strong> A lock file governs this repository’s environment; what somebody installing resolves is the dependency line, and <code>pillow&gt;=10.0</code> was satisfied by a 10.x holding every advisory that 13.0.0 fixes.</p>
+<p>It carries a marker rather than being a plain <code>&gt;=13</code>, and the marker is a finding and not hedging: <strong>pillow 13 requires Python &gt;= 3.11, so a plain floor is unsatisfiable on the 3.10 this package still supports</strong> - <code>uv</code> refuses to resolve at all. Python 3.10 reached end of life on 2026-10-01, so the repair is to drop it and collapse the two lines into one; until that is decided, every interpreter that can take the fix gets it. <strong>A 3.10 install is not protected</strong>, which is an argument for dropping 3.10 rather than for pretending otherwise.</p>
+<p>One break travels with pillow 13 and it is somebody else’s rather than ours: <code>mode=</code> is no longer a data-type converter in <code>fromarray</code>. All seven call sites in this repository pass a mode matching its dtype, checked including the one arithmetic expression (<code>mask * 255</code> stays <code>uint8</code>), and the suite is green on 13.0.0.</p></li>
+</ul>
+</section>
+</section>
 <section id="a42---2026-10-25" class="level2">
 <h2 class="anchored" data-anchor-id="a42---2026-10-25">[0.8.0a42] - 2026-10-25</h2>
 <p>A detection epoch is pooled by what the loss divided by. <code>maju116/rplatypus#218</code>.</p>
