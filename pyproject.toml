@@ -120,10 +120,23 @@ hub = ["huggingface_hub>=0.30"]
 # torchvision 0.22.1. Verified, not assumed.
 encoders = ["timm>=1.0"]
 
-# The linter's version is declared here and nowhere else. It used to be pinned in the CI
-# workflow while the dev extra said `ruff>=0.6`, so a contributor could run `ruff check`
-# clean locally and still be told off by CI - ruff adds and changes rules between minor
-# releases, and 0.6 to 0.16 is a lot of them.
+# The linter's version is pinned here because ruff adds and changes rules between minor
+# releases: it used to be pinned in the CI workflow while the dev extra said `ruff>=0.6`, so
+# a contributor could run `ruff check` clean locally and still be told off by CI, and 0.6 to
+# 0.16 is a lot of rules.
+#
+# THIS IS NOT THE ONLY COPY, and the comment here said it was until 2026-10-26. The R package
+# has no pyproject to read this number from, so `.github/workflows/R-CMD-check.yaml` writes it
+# twice as `uvx ruff@<version>` over `inst/python`, the one Python file that package ships -
+# and nothing holds the two together. Moving this line and not that one leaves the two
+# repositories linting the same language by different rules, silently, until a rule that
+# changed between the versions fires on one side. That is what the pin exists to prevent, and
+# the cross-repository half of it is a gap rather than a guard: it is listed as such in the
+# workbench's §3F table, with what a test would be.
+#
+# So a bump here travels with `rplatypus`'s workflow in the same sitting. 0.16.10 to 0.17.2 on
+# 2026-10-26 was the first one to land and it cost nothing - the shim is clean under both - but
+# the next one will not announce itself either.
 #
 # A dependency group rather than an extra, because `uv run --only-group lint` installs
 # ruff and nothing else: the linter has no business pulling torch down to look at text.
