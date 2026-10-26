@@ -280,9 +280,10 @@ millilitres = [
 **Dice 0.914 to 0.948, and volumes 9% to 24% too large.** That is not a contradiction. Dice
 is dominated by the interior of an object and forgiving about its boundary, and for a small
 lesion the boundary *is* most of it: a model that draws every lesion one voxel too wide
-scores well and reports a volume that is wrong by a quarter. If the question is *is there a
-lesion*, the Dice is the relevant number. If it is *has it grown since March*, this table is,
-and neither follows from the other.
+scores well and reports a volume that is wrong by between a quarter and twice over, because
+the error **cubes** - +27% on the 12 mm sphere at 1 mm slices and +95% on the 4 mm one. If
+the question is *is there a lesion*, the Dice is the relevant number. If it is *has it grown
+since March*, this table is, and neither follows from the other.
 
 **Which grid the counting happens on is not a detail, and getting it wrong is easy.** The
 line above counts on the model's grid, where `target_spacing` has made every voxel one cubic
