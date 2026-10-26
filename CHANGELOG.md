@@ -3,61 +3,49 @@ All notable changes to this project will be documented in this file.
 
 ## [0.8.0a45] - 2026-10-26
 
-A floor is a claim, and the first one tested was false.
-
-### Added
-
- - **`floors (lowest-direct)` in CI: the declared floors resolved and the suite run against
-   them.** Every `>=` in `pyproject.toml` says a version somebody can install, and nothing
-   checked whether the package works on one. `0.8.0a43` is why: the pillow floor sat at
-   `>=10.0` while the fixes it answers arrived in 13.0.0, and the lock said 12.3.0 - so the
-   suite, CI and every scanner here were all looking at the lock, and **the thing a user
-   resolves was unexamined**. Dependabot cannot see it either, and that is not a
-   misconfiguration: `increase-if-necessary` leaves a requirement alone when it already
-   allows the new release, which is the right strategy for a library.
-
-   Python 3.11, the lowest `requires-python` admits, so the job is the worst case a user can
-   assemble rather than one more cell of the ordinary matrix. **Not a required status check**
-   and not `continue-on-error`: it goes red when it is wrong, and it stays out of protection
-   because it can also go red for news - `lowest-direct` resolves against whatever PyPI
-   serves today, so a yanked old release reddens it with nothing here having moved.
+`albumentations>=1.4` was a floor this package could not run on.
 
 ### Fixed
 
- - **`albumentations>=1.4` was fiction, and the floor is `>=2.0` - reached in two measured
-   steps, which is the whole argument for the job.** Its first run gave **50 failures, 2266
-   passed**, and 28 of the 50 were one line:
+ - **The floor is `>=1.4.23`, and every digit of it was measured.** Resolved at `>=1.4`, the
+   suite gives **50 failures against 2266 passed**, and 28 of the 50 are one line:
    `Compose.__init__() got an unexpected keyword argument 'seed'`. `seed=` is what
-   `deterministic = True` is built on, so the floor had been permitting a version that cannot
-   honour this package's own determinism promise - a promise whose help page says the refusal
-   without a seed is deliberate.
+   `deterministic = True` is built on - the promise whose help page says the refusal without a
+   seed is deliberate - so the floor had been permitting a version that cannot honour it.
+   Nothing here could see that, because every gate and every scanner was reading `uv.lock`,
+   which has held 2.0.8 throughout. A lock is not a floor.
 
-   The API boundary is **1.4.23**, bisected rather than rounded up because `>=2.0` was the
-   easy answer:
+   Bisected rather than rounded up, because `>=2.0` is the easy answer and narrows what a user
+   may install by 24 releases:
 
-        1.4.0    no seed=, no D4, no CenterCrop3D     (the floor as it stood)
+        1.4.0    no seed=, no D4, no CenterCrop3D     the floor as it stood
         1.4.18   D4 only
-        1.4.21   seed= and D4, no 3D transforms
-        1.4.23   all three
+        1.4.21   seed= and D4, still no 3D transforms
+        1.4.23   all three - the first version this package's code can run on
 
-   **And 1.4.23 was the floor for one run of this job, which then said why it is not
-   enough** - 4 failures left, none of them about a missing name:
+   **`>=2.0` was tried for one commit and bought nothing**, which is recorded rather than
+   quietly dropped: the same four tests fail at 2.0.0 as at 1.4.23, one of them to the digit -
+   `1.5301895141601562` of warp slack either way - so albumentations is not that test's
+   variable. The lock does not move for any of this, which is the whole distinction being
+   drawn.
 
-        the transform inventory   the docstring says 118 and 1.4.23 offers 113
-        GridDistortion           1.53 px of slack against a 1.5 px tolerance
+### Known, measured, and deliberately not fixed here
 
-   Both are claims this package publishes and both were measured on 2.x, so the floor is the
-   range in which its own documentation is true. **The 0.03 px is the sharper half**: that
-   tolerance is calibrated against one albumentations version's noise, and loosening it to
-   admit 1.4.23 would spend a bound whose job is to catch a box failing to contain its
-   object. Raising a floor on evidence is not the same move as the guess rejected a paragraph
-   above, and the difference between them is this job.
+ - **Three tests pin albumentations' transform inventory through a number in a docstring.**
+   118, against 113 at 1.4.23, 114 at 2.0.0 and 118 at 2.0.8 - so making them pass would make
+   the floor `==2.0.8`, a pin rather than a floor, in a library that has no business pinning.
+   §3C is explicit about a number that is not portable: it must not be written down, only
+   explained. That is a defect in those tests and not in this floor.
 
- - **The job installs `[hub,encoders]` and not `dev`**, fixed in the same pull request after
-   its first run showed why. The claim is about what the package needs; `dev` holds
-   `pytest-cov`, `build` and `twine` with no floors at all, so `lowest-direct` took them to
-   0.6, 0.0.1 and 1.0.1 - versions nobody has claimed anything about, in a job whose whole
-   subject is claims.
+ - **`GridDistortion` leaves 1.53 px of slack against a 1.5 px tolerance** at the floors, by
+   0.03 px, identically at 1.4.23 and 2.0.0. So the variable is elsewhere - opencv or numpy,
+   both of which `lowest-direct` also moves - and the bound needs measuring at both ends
+   rather than loosening, which is the one repair §4 names as not being a repair.
+
+ - **The `floors (lowest-direct)` job that found all of this is on a branch, not here.** It is
+   the instrument, it is correct, and it is red until the four above are settled - and a red
+   job on every pull request becomes the step nobody reads, which this repository's own
+   workflow comments say about `continue-on-error`. It lands when it is believable.
 
 ## [0.8.0a44] - 2026-10-26
 
