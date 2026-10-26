@@ -23,7 +23,7 @@ the same file read by the same models whichever language asked.
 
 ## Installing
 
-Python ≥ 3.10, and torch ≥ 2.7.
+Python ≥ 3.11, and torch ≥ 2.7.
 
 **To fetch published weights by name**, install the `hub` extra:
 

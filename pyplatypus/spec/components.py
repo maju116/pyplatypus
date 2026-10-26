@@ -1601,6 +1601,7 @@ def available_transforms(rank: int = 2) -> frozenset[str]:
 
     **The old count moved between runs, and the reason was the probe, not the platform.** One
     CI matrix answered 87 on four Linux builds, both macOS builds and Windows with Python 3.10
+    - 2026-10-11, on a matrix that still had a 3.10 cell -
     and 88 on Windows with Python 3.13, which was recorded as that combination with no mechanism
     claimed. There is no platform axis: `Superpixels` samples `n_segments`, and at 8x8 whether
     the segmentation divides by zero depends on the draw - 4 of 60 attempts succeed. Eight

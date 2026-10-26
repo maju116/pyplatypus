@@ -1,9 +1,9 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a43"
+version = "0.8.0a44"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Michal Maj", email = "michalmaj116@gmail.com" }]
@@ -21,7 +21,6 @@ classifiers = [
     "Intended Audience :: Healthcare Industry",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -41,15 +40,11 @@ dependencies = [
     # `fromarray`, which every call site here already avoids by passing a mode matching its
     # dtype.
     #
-    # The marker is not hedging and it is the reason there are two lines: pillow 13 requires
-    # Python >= 3.11, so a plain `pillow>=13` is UNSATISFIABLE on the 3.10 this package still
-    # supports - `uv` refuses to resolve at all, which is how this was found. Python 3.10
-    # reached end of life on 2026-10-01, so the honest repair is to drop it and collapse these
-    # two lines into one; until that decision is taken, every interpreter that CAN take the
-    # fix gets it and 3.10 keeps resolving. A 3.10 install is therefore NOT protected from any
-    # of those advisories, which is a reason to drop 3.10 rather than a reason to pretend.
-    "pillow>=13; python_version >= '3.11'",
-    "pillow>=10.0; python_version < '3.11'",
+    # This was two lines with a marker for one release, because pillow 13 requires Python
+    # >= 3.11 and `uv` refuses to resolve a plain `>=13` against `requires-python = ">=3.10"`
+    # at all. That is what `requires-python` above answered: the floor is one line again, and
+    # the thing that made it two is gone rather than worked around.
+    "pillow>=13",
     "pydicom>=3.0",
     # NIfTI is how research volumes travel - the Decathlon, BraTS, most of TCIA's derived
     # sets. Small and pure Python, so it is a hard dependency rather than an extra: a

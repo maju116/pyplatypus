@@ -48,12 +48,19 @@ jobs:
         # The R package tested on three operating systems across three R versions, and
         # that discipline is part of the product here too. Trimmed to the ends of the
         # supported Python range off Linux, because torch is a slow download.
+        #
+        # The low end moved from 3.10 to 3.11 with `requires-python`, and the thing to know
+        # before editing these numbers again is that **a job's name is what branch protection
+        # matches**: three required contexts were called `test (<os>, 3.10)`, so dropping the
+        # cells without renaming the contexts leaves every pull request waiting forever on a
+        # check that is never coming - which looks exactly like a run that has not registered
+        # yet. The contexts were renamed in the same breath as this list.
         os: [ubuntu-latest]
-        python: ["3.10", "3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13"]
         include:
-          - { os: macos-latest, python: "3.10" }
+          - { os: macos-latest, python: "3.11" }
           - { os: macos-latest, python: "3.13" }
-          - { os: windows-latest, python: "3.10" }
+          - { os: windows-latest, python: "3.11" }
           - { os: windows-latest, python: "3.13" }
 
     steps:

@@ -1,6 +1,63 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a44] - 2026-10-26
+
+Python 3.10 is dropped. It reached end of life on 2026-10-01.
+
+### Changed
+
+ - **`requires-python` is `>=3.11`.** The immediate reason is that `0.8.0a43`'s pillow floor
+   had to be written with an environment marker: pillow 13 requires Python >= 3.11, so a
+   plain `pillow>=13` is unsatisfiable against `>=3.10` and `uv` refuses to resolve at all.
+   A 3.10 install therefore got none of the decoder fixes that floor exists for. The marker
+   was the honest thing to ship for one release and the wrong thing to keep, so the floor is
+   one line again.
+
+   **Nothing in the dependency tree moves forward, which is the measurement worth having.**
+   Resolved before and after, 13 locked entries differ and **every one of them is the removal
+   of an old-Python branch**: `exceptiongroup` goes entirely, being a 3.10 backport, and
+   `scipy` loses 1.15.3, `scikit-image` 0.25.2, `tifffile` 2025.5.10, `numpy` 2.2.6,
+   `matplotlib` 3.10.9 and five more. Nothing is added and nothing is upgraded, so what a
+   3.11 install receives is unchanged - and the lock holds **one** pillow instead of two,
+   which is what lets the advisory count against it reach zero.
+
+ - **Somebody on 3.10 is not broken, they are stopped.** `requires-python` is metadata every
+   installer reads, so pip and uv serve them the newest release that supports their
+   interpreter - `0.8.0a43` - rather than failing. That is the whole migration path and it
+   needs nothing from them.
+
+ - **The CI matrix tests 3.11, 3.12 and 3.13, with 3.11 and 3.13 off Linux**, keeping the
+   rule the matrix already had: the ends of the supported range on macOS and Windows,
+   everything in between on Linux only, because torch is a slow download.
+
+   **Three required status checks were named `test (<os>, 3.10)`, and a job's name is what
+   branch protection matches.** Dropping the cells without renaming the contexts leaves every
+   pull request waiting forever on a check that is never coming, and the symptom is
+   indistinguishable from a run that has not registered yet - the fourth mode in this
+   project's own list of ways a CI reading lies, except permanent. The contexts were renamed
+   to 3.11 in the same breath as the matrix.
+
+ - **The linter gained a rule by itself, which is the one change here nobody asked for.**
+   `ruff` reads `requires-python` as its target version, so `UP017` - `datetime.UTC` over
+   `timezone.utc` - was suppressed while 3.10 was supported and fires now. One site,
+   `runs.py`, where the run record's timestamp is written. Worth naming because it is the
+   shape of what a floor does beyond the floor: the rules a tool applies are a function of
+   the range the manifest declares, so raising it is not only a subtraction.
+
+ - **Three comments that record a measurement taken on a 3.10 job carry its date now**
+   (`spec/components.py`, two in `tests/spec/test_components.py`, all 2026-10-11). They stay
+   true - a measurement does not stop having happened - but they name a job that no longer
+   exists, and a reader who goes looking for it should find out when rather than find
+   nothing.
+
+### Owed, and not in this release
+
+ - **`rplatypus`'s `DESCRIPTION` says `SystemRequirements: Python (>= 3.10)`.** That is a
+   second copy of this number with nothing holding the two together, and it becomes false the
+   moment R's pin moves to this version. The tarball in CRAN's queue is consistent, because
+   it pins `0.8.0a42`; the line travels with the next pin move.
+
 ## [0.8.0a43] - 2026-10-26
 
 What `Image.open` is allowed to dispatch to, and a pillow floor that is about the user

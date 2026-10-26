@@ -18,7 +18,7 @@ than a summary. A summary is for reading; a specification is for running again.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -61,7 +61,7 @@ def write_record(
     directory.mkdir(parents=True, exist_ok=True)
 
     record = {
-        "written": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "written": datetime.now(UTC).isoformat(timespec="seconds"),
         "pyplatypus": __version__,
         "model": name,
         # The whole thing, so the record is a thing you can run rather than read. A
