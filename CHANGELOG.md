@@ -24,20 +24,34 @@ A floor is a claim, and the first one tested was false.
 
 ### Fixed
 
- - **`albumentations>=1.4` was fiction, and the floor is `>=1.4.23`.** The job's first run
-   gave **50 failures, 2266 passed**, and 28 of the 50 were one line:
+ - **`albumentations>=1.4` was fiction, and the floor is `>=2.0` - reached in two measured
+   steps, which is the whole argument for the job.** Its first run gave **50 failures, 2266
+   passed**, and 28 of the 50 were one line:
    `Compose.__init__() got an unexpected keyword argument 'seed'`. `seed=` is what
    `deterministic = True` is built on, so the floor had been permitting a version that cannot
    honour this package's own determinism promise - a promise whose help page says the refusal
    without a seed is deliberate.
 
-   **Bisected rather than rounded up**, because `>=2.0` was the easy answer and it narrows
-   what a user may install by 24 releases for nothing:
+   The API boundary is **1.4.23**, bisected rather than rounded up because `>=2.0` was the
+   easy answer:
 
         1.4.0    no seed=, no D4, no CenterCrop3D     (the floor as it stood)
         1.4.18   D4 only
         1.4.21   seed= and D4, no 3D transforms
-        1.4.23   all three - the first version this package can run on
+        1.4.23   all three
+
+   **And 1.4.23 was the floor for one run of this job, which then said why it is not
+   enough** - 4 failures left, none of them about a missing name:
+
+        the transform inventory   the docstring says 118 and 1.4.23 offers 113
+        GridDistortion           1.53 px of slack against a 1.5 px tolerance
+
+   Both are claims this package publishes and both were measured on 2.x, so the floor is the
+   range in which its own documentation is true. **The 0.03 px is the sharper half**: that
+   tolerance is calibrated against one albumentations version's noise, and loosening it to
+   admit 1.4.23 would spend a bound whose job is to catch a box failing to contain its
+   object. Raising a floor on evidence is not the same move as the guess rejected a paragraph
+   above, and the difference between them is this job.
 
  - **The job installs `[hub,encoders]` and not `dev`**, fixed in the same pull request after
    its first run showed why. The claim is about what the package needs; `dev` holds

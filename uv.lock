@@ -2004,7 +2004,7 @@ lint = [
 
 [package.metadata]
 requires-dist = [
-    { name = "albumentations", specifier = ">=1.4.23" },
+    { name = "albumentations", specifier = ">=2.0" },
     { name = "build", marker = "extra == 'dev'" },
     { name = "huggingface-hub", marker = "extra == 'hub'", specifier = ">=0.30" },
     { name = "matplotlib", specifier = ">=3.7" },
