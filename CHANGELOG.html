@@ -939,6 +939,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#fixed" id="toc-fixed" class="nav-link" data-scroll-target="#fixed">Fixed</a></li>
   <li><a href="#known-measured-and-deliberately-not-fixed-here" id="toc-known-measured-and-deliberately-not-fixed-here" class="nav-link" data-scroll-target="#known-measured-and-deliberately-not-fixed-here">Known, measured, and deliberately not fixed here</a></li>
+  <li><a href="#the-r-half" id="toc-the-r-half" class="nav-link" data-scroll-target="#the-r-half">The R half</a></li>
   </ul></li>
   <li><a href="#a44---2026-10-26" id="toc-a44---2026-10-26" class="nav-link" data-scroll-target="#a44---2026-10-26">[0.8.0a44] - 2026-10-26</a>
   <ul class="collapse">
@@ -1067,7 +1068,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#added-15" id="toc-added-15" class="nav-link" data-scroll-target="#added-15">Added</a></li>
   <li><a href="#fixed-13" id="toc-fixed-13" class="nav-link" data-scroll-target="#fixed-13">Fixed</a></li>
   <li><a href="#documentation-2" id="toc-documentation-2" class="nav-link" data-scroll-target="#documentation-2">Documentation</a></li>
-  <li><a href="#the-r-half" id="toc-the-r-half" class="nav-link" data-scroll-target="#the-r-half">The R half</a></li>
+  <li><a href="#the-r-half-1" id="toc-the-r-half-1" class="nav-link" data-scroll-target="#the-r-half-1">The R half</a></li>
   </ul></li>
   <li><a href="#a21---2026-10-14" id="toc-a21---2026-10-14" class="nav-link" data-scroll-target="#a21---2026-10-14">[0.8.0a21] - 2026-10-14</a>
   <ul class="collapse">
@@ -1389,6 +1390,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p><strong><code>GridDistortion</code> leaves 1.53 px of slack against a 1.5 px tolerance</strong> at the floors, by 0.03 px, identically at 1.4.23 and 2.0.0. So the variable is elsewhere - opencv or numpy, both of which <code>lowest-direct</code> also moves - and the bound needs measuring at both ends rather than loosening, which is the one repair §4 names as not being a repair.</p></li>
 <li><p><strong>The <code>floors (lowest-direct)</code> job that found all of this is on a branch, not here.</strong> It is the instrument, it is correct, and it is red until the four above are settled - and a red job on every pull request becomes the step nobody reads, which this repository’s own workflow comments say about <code>continue-on-error</code>. It lands when it is believable.</p></li>
 </ul>
+</section>
+<section id="the-r-half" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half">The R half</h3>
+<p><strong>None, and the pin stays at <code>0.8.0a44</code> - measured rather than assumed, because the obvious reading says the opposite.</strong> R declares the engine through <code>py_require()</code> and uv resolves the dependency tree fresh on every environment it builds, with no lockfile anywhere in the route. That is exactly the shape this release is about, and a floor is exactly the thing a fresh resolution reads - so the first guess was that an R user pinned to a44 can be handed an <code>albumentations</code> without <code>seed=</code>, which is what <code>deterministic = TRUE</code> is built on.</p>
+<p>Resolved rather than reasoned about, <code>pyplatypus==&lt;pin&gt;</code> as the only requirement:</p>
+<pre><code>a44, default (highest)        albumentations 2.0.8
+a44, --resolution lowest-direct  albumentations 2.0.8
+a45, default (highest)        albumentations 2.0.8
+a45, --resolution lowest-direct  albumentations 2.0.8</code></pre>
+<p><strong>All four agree, and the reason is structural rather than lucky: from R’s route <code>albumentations</code> is a TRANSITIVE dependency.</strong> <code>lowest-direct</code> lowers direct requirements, and the only direct requirement R states is the engine itself - at an exact version, so there is nothing to lower. A transitive dependency is resolved to the newest compatible release under every strategy reachable here, and 2.0.8 clears both floors.</p>
+<p>The control, which is what makes that a finding instead of a shrug - the floor is asked to bind, by naming <code>albumentations</code> beside the engine the way a caller with their own requirements would:</p>
+<pre><code>a45 + albumentations==1.4.0   REFUSED, by name: "depends on albumentations&gt;=1.4.23"
+a44 + albumentations==1.4.0   ACCEPTED</code></pre>
+<p>So the floor does precisely what it claims, and the pin not moving is <code>§3E</code> rather than an oversight. The entry above says <strong>a lock is not a floor</strong>; the R-side counterpart is that <strong>a transitive dependency is not a floor either</strong> - the floor reaches a caller who names the package, and R names only the engine.</p>
+<p><strong>Which leaves one route, and it is a door this project has already met.</strong> A user who brings their own interpreter through <code>RETICULATE_PYTHON</code> brings whatever <code>albumentations</code> that environment holds, and the resolution above never runs. <code>rplatypus#214</code> closed that door for the engine’s own version by warning when the running interpreter’s <code>pyplatypus</code> is not the pinned one; it says nothing about the engine’s dependencies, and this is the first release where that distinction has a consequence worth writing down. Not fixed here, and not filed as a defect either - it is the same door, and whether a warning should read the dependency tree as well as the version is a question for <code>rplatypus#214</code>’s successor rather than for a floor.</p>
 </section>
 </section>
 <section id="a44---2026-10-26" class="level2">
@@ -2051,8 +2067,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>The guide says which mask column to read across models</strong>, in the section the third task got in <code>0.8.0a21</code>’s cycle. The engine’s copy ships here because it describes what this release returns; R’s copy is written at the same time and ships with the pin move, because a vignette cannot describe a column its pinned engine does not return.</li>
 </ul>
 </section>
-<section id="the-r-half" class="level3">
-<h3 class="anchored" data-anchor-id="the-r-half">The R half</h3>
+<section id="the-r-half-1" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half-1">The R half</h3>
 <p>Almost nothing, and structurally rather than by decision: R’s score table <em>is</em> the engine’s rows, so the column appears on the R side the moment the pin moves - §3E’s shape, the same one <code>0.8.0a12</code> had, where a release R needs nothing from is still a release whose whole value to an R user arrives through the pin. What R owes beyond the pin is one assertion, because a column that arrives untested is the next thing to drift: <code>test-instances.R</code> now names <code>foreground_dice</code> and holds it to one value per model.</p>
 </section>
 </section>
@@ -2817,10 +2833,10 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 <h3 class="anchored" data-anchor-id="added-35">Added</h3>
 <ul>
 <li><p><strong><code>swa</code>: average the weights over the last part of the run.</strong> Closes maju116/pyplatypus#25.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">callbacks</span><span class="kw">:</span></span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> swa</span></span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">start</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.75</span><span class="co">          # the fraction of the run after which averaging begins</span></span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1e-3</span><span class="co">  # held while it averages</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">callbacks</span><span class="kw">:</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> swa</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">start</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.75</span><span class="co">          # the fraction of the run after which averaging begins</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1e-3</span><span class="co">  # held while it averages</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>What it is worth, and it is not what a table of scores shows.</strong> Three seeds, 60 epochs, lesions with ambiguous edges:</p>
 <pre><code>             Dice             volume bias        |volume error|
 plain        0.9639 ±0.0100   +1.71% ±12.18%     12.60% ±4.19%
@@ -2853,9 +2869,9 @@ DetectionEngine   28 -&gt; 27 methods      the discovery block: ~25 lines -&gt; 
 <h3 class="anchored" data-anchor-id="added-36">Added</h3>
 <ul>
 <li><p><strong><code>validation: false</code>: train on everything and measure nothing, said out loud.</strong> The third and last way of answering the question <code>validation_path</code> and <code>split</code> answer.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
-<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. Closes maju116/pyplatypus#44, whose third case was exactly this.</p>
 <p><strong>Silence is still an error.</strong> A specification with neither a path nor a split is refused as before, and the message now names this option: “I have no validation set” and “I forgot” look identical, and only one of them is a decision. Giving <code>validation: false</code> <em>and</em> a path or a split is refused too - they say where the validation set comes from and this says there is not one.</p>
 <p>The validation split is then <strong>absent rather than empty</strong>. An empty one makes every count read zero and every average read nan, which is a number for something nobody asked for; a missing split makes <code>evaluate</code> say so.</p></li>
@@ -2876,10 +2892,10 @@ DetectionEngine   28 -&gt; 27 methods      the discovery block: ~25 lines -&gt; 
 <h3 class="anchored" data-anchor-id="added-37">Added</h3>
 <ul>
 <li><p><strong><code>boundary</code>: a loss that knows how far a wrong voxel is from the truth.</strong> Dice and IoU count a voxel the same wherever it sits, which is why a model can reach 0.88 on Dice while its volumes run a fifth too large - the overshoot is all at the boundary, and for a small lesion the boundary is most of the object.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loss</span><span class="kw">:</span></span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> boundary</span></span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">region</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> focal</span><span class="kw">,</span><span class="at"> </span><span class="fu">gamma</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="kw">}</span><span class="co">    # or dice, iou, tversky, ...</span></span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">alpha</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.9</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loss</span><span class="kw">:</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> boundary</span></span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">region</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> focal</span><span class="kw">,</span><span class="at"> </span><span class="fu">gamma</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="kw">}</span><span class="co">    # or dice, iou, tversky, ...</span></span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">alpha</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.9</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>mean(phi * p)</code> added to a region loss, where <code>phi</code> is the signed distance to the truth’s boundary - negative inside, positive outside. Closes maju116/platypus#37, which asked for focal combined with a distance metric; <code>region</code> is how any of the nine is combined with it rather than one hard-coded pair.</p>
 <p><strong>What it buys and costs, measured.</strong> Three seeds, 60 epochs, lesions with ambiguous edges, against Dice alone:</p>
 <pre><code>                 Dice             volume bias       volume |error|
@@ -2905,8 +2921,8 @@ boundary a=0.9   0.9411 ±0.0093   -0.06% ±4.15%     22.17% ±2.88%</code></pre
 <h3 class="anchored" data-anchor-id="added-38">Added</h3>
 <ul>
 <li><p><strong><code>crop_boxes()</code> and <code>DetectionEngine.crops()</code>: every detection cut out of the image it was found in.</strong> The pipeline is a detector followed by a classifier it does not contain - find objects with three classes, crop them, hand the crops to something that knows eighty. <code>predict</code> returns boxes in each image’s own pixels precisely so they can be used on the photograph they came from; this is what uses them.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> found <span class="kw">in</span> engine.crops(<span class="st">"bccd"</span>, <span class="st">"test"</span>, size<span class="op">=</span>(<span class="dv">224</span>, <span class="dv">224</span>)):</span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>    batch <span class="op">=</span> np.stack(found[<span class="st">"crops"</span>])      <span class="co"># one shape, ready for a classifier</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> found <span class="kw">in</span> engine.crops(<span class="st">"bccd"</span>, <span class="st">"test"</span>, size<span class="op">=</span>(<span class="dv">224</span>, <span class="dv">224</span>)):</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>    batch <span class="op">=</span> np.stack(found[<span class="st">"crops"</span>])      <span class="co"># one shape, ready for a classifier</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Five decisions, each of which taken the other way quietly changes what a downstream model sees:</p>
 <ul>
 <li><strong>Cut from the source image, not the network input.</strong> <code>DetectionDataset.source_image</code> re-reads at native size through the same reader and the same options as <code>read()</code>, so a crop and a prediction cannot disagree about channels or the DICOM window. Cropping from the letterboxed frame would cut a downscaled object and then scale it back up.</li>
@@ -2960,11 +2976,11 @@ AnchorFit.flat / a list of N pairs         refused, naming `.anchors` not `.flat
 <h3 class="anchored" data-anchor-id="added-40">Added</h3>
 <ul>
 <li><p><strong><code>split</code>: divide the training folder instead of naming three paths.</strong> A researcher with one directory had to run a splitting tool, point three paths at its output, and remember to switch mode - and when they did not, the refusal said only <code>validation_path: Field required</code>, which is true and names nothing they could do about it.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb39"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
-<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">split</span><span class="kw">:</span></span>
-<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fractions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="fl">0.8</span><span class="kw">,</span><span class="at"> </span><span class="fl">0.2</span><span class="kw">]</span><span class="co">          # two, or three to cut a test set as well</span></span>
-<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">group_by</span><span class="kw">:</span><span class="at"> </span><span class="st">"^(patient</span><span class="sc">\\</span><span class="st">d+)_"</span><span class="co">     # required key, may be null</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">split</span><span class="kw">:</span></span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fractions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="fl">0.8</span><span class="kw">,</span><span class="at"> </span><span class="fl">0.2</span><span class="kw">]</span><span class="co">          # two, or three to cut a test set as well</span></span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">group_by</span><span class="kw">:</span><span class="at"> </span><span class="st">"^(patient</span><span class="sc">\\</span><span class="st">d+)_"</span><span class="co">     # required key, may be null</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Exactly one of <code>split</code> and <code>validation_path</code>, for the reason <code>colormap</code> and <code>labels</code> are exactly one: two sources for one thing are two places to change it.</p>
 <p><strong><code>group_by</code> is required and may be <code>null</code>.</strong> Everything sharing a group lands in a single split - usually a patient. It is required rather than optional because the mistake it prevents leaves no trace: slices of one patient in training and validation at once make validation measure memory rather than generalisation, and the score comes out several points too high with nothing in the output to say so. An omitted key would be that choice made silently; <code>null</code> is the same choice made on purpose. <code>splits.py</code> has refused a pattern that <em>matches</em> nothing since it was written, for the same reason; this extends it to never having asked.</p>
 <p><strong>Nothing is written.</strong> <code>split_samples</code> partitions what was already discovered. <code>split_dataset()</code> is still the tool when the CSV files are the point - to keep, to hand to a colleague, to cite - but being read should not leave files behind.</p>
@@ -3032,7 +3048,7 @@ task: detection     -&gt;  "`task: detection` was renamed to `object_detection`.
 <section id="migrating-1" class="level3">
 <h3 class="anchored" data-anchor-id="migrating-1">Migrating</h3>
 <p>Add one line to every configuration, and change it if it was already there:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span><span class="co">     # or object_detection</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb43"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span><span class="co">     # or object_detection</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Nothing else moves. The R package builds <code>task</code> from its own constructors and sends it, so R code needs no change beyond pinning an engine of this version or later.</p>
 </section>
 </section>
