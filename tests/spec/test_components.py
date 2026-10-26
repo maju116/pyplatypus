@@ -315,7 +315,8 @@ class TestAvailableTransforms:
         count too and was right to fail.** One CI job of twelve said "the docstring says
         118/87/31; measured 118/88/30": the volume list is found by running each transform
         against a probe, and most of what it rejects fails for the probe's reasons rather than
-        albumentations'. That job was Windows with Python 3.13, while Windows with 3.10 and
+        albumentations'. That job was Windows with Python 3.13, while Windows with 3.10 - the
+        matrix had a 3.10 cell until 0.8.0a44, and this was measured 2026-10-11 - and
         macOS with 3.13 both answered 87, so neither axis explains it. There is no portable
         number there to pin, and the docstring says so rather than claiming one.
 
@@ -377,7 +378,8 @@ class TestAvailableTransforms:
         nothing.
 
         **`Crop` rather than all four, and the first version of this test asserting all four
-        was right to fail.** `ubuntu-latest` with Python 3.10 reported a three-name difference,
+        was right to fail.** `ubuntu-latest` with Python 3.10 - 2026-10-11, while the matrix
+        still had that cell - reported a three-name difference,
         because `Superpixels` at 8x8 is **not deterministic**: measured here, 4 of 60 attempts
         succeed, since it samples `n_segments` and whether the segmentation divides by zero
         depends on the draw. So which names the escalation adds is a random variable at the
