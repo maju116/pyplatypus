@@ -47,6 +47,49 @@ All notable changes to this project will be documented in this file.
    job on every pull request becomes the step nobody reads, which this repository's own
    workflow comments say about `continue-on-error`. It lands when it is believable.
 
+### The R half
+
+**None, and the pin stays at `0.8.0a44` - measured rather than assumed, because the obvious
+reading says the opposite.** R declares the engine through `py_require()` and uv resolves the
+dependency tree fresh on every environment it builds, with no lockfile anywhere in the route.
+That is exactly the shape this release is about, and a floor is exactly the thing a fresh
+resolution reads - so the first guess was that an R user pinned to a44 can be handed an
+`albumentations` without `seed=`, which is what `deterministic = TRUE` is built on.
+
+Resolved rather than reasoned about, `pyplatypus==<pin>` as the only requirement:
+
+    a44, default (highest)        albumentations 2.0.8
+    a44, --resolution lowest-direct  albumentations 2.0.8
+    a45, default (highest)        albumentations 2.0.8
+    a45, --resolution lowest-direct  albumentations 2.0.8
+
+**All four agree, and the reason is structural rather than lucky: from R's route
+`albumentations` is a TRANSITIVE dependency.** `lowest-direct` lowers direct requirements, and
+the only direct requirement R states is the engine itself - at an exact version, so there is
+nothing to lower. A transitive dependency is resolved to the newest compatible release under
+every strategy reachable here, and 2.0.8 clears both floors.
+
+The control, which is what makes that a finding instead of a shrug - the floor is asked to
+bind, by naming `albumentations` beside the engine the way a caller with their own
+requirements would:
+
+    a45 + albumentations==1.4.0   REFUSED, by name: "depends on albumentations>=1.4.23"
+    a44 + albumentations==1.4.0   ACCEPTED
+
+So the floor does precisely what it claims, and the pin not moving is `§3E` rather than an
+oversight. The entry above says **a lock is not a floor**; the R-side counterpart is that **a
+transitive dependency is not a floor either** - the floor reaches a caller who names the
+package, and R names only the engine.
+
+**Which leaves one route, and it is a door this project has already met.** A user who brings
+their own interpreter through `RETICULATE_PYTHON` brings whatever `albumentations` that
+environment holds, and the resolution above never runs. `rplatypus#214` closed that door for
+the engine's own version by warning when the running interpreter's `pyplatypus` is not the
+pinned one; it says nothing about the engine's dependencies, and this is the first release
+where that distinction has a consequence worth writing down. Not fixed here, and not filed as
+a defect either - it is the same door, and whether a warning should read the dependency tree
+as well as the version is a question for `rplatypus#214`'s successor rather than for a floor.
+
 ## [0.8.0a44] - 2026-10-26
 
 Python 3.10 is dropped. It reached end of life on 2026-10-01.
