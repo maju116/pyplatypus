@@ -13,13 +13,26 @@ import math
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from pyplatypus.errors import PlatypusError
 
 # PIL talks in (width, height); every shape in this package is (height, width). Mixing
 # them is the classic silent bug, so the conversion happens in exactly one place.
 _PIL_MODE = {1: "L", 3: "RGB", 4: "RGBA"}
+
+#: The formats `Image.open` is allowed to dispatch to, and the reason there is a list at all:
+#: PIL identifies a file by its CONTENT and not by its name, so without this every decoder it
+#: ships is reachable from any path a specification names. One of them, the EPS plugin, hands
+#: the file to Ghostscript; others - FlashPix, JPEG 2000, MSP, WMF, XBM - are formats no
+#: reader in this package has ever been pointed at. Naming the five that datasets actually
+#: arrive in is the only repair for that which does not expire with a version: it is a
+#: statement about what this package reads, rather than about which decoder bugs are open
+#: today. PNG and JPEG are what every example and test here reads; TIFF, BMP and GIF are the
+#: other mainstream raster formats a 2D set travels in, and refusing them would be a
+#: narrowing nobody measured. Volumes, DICOM and DICOM series never reach PIL - they are
+#: dispatched away above - so this list is about pictures only.
+READABLE_FORMATS = ["PNG", "JPEG", "TIFF", "BMP", "GIF"]
 
 
 class ImageError(PlatypusError):
@@ -101,7 +114,7 @@ def read_image(
         raise ImageError(f"channels must be 1, 3 or 4 for ordinary images, got {channels}")
 
     try:
-        with Image.open(path) as handle:
+        with Image.open(path, formats=READABLE_FORMATS) as handle:
             picture = handle.convert(mode)
             if size is not None:
                 if len(size) != 2:
@@ -109,6 +122,8 @@ def read_image(
                 resample = Image.Resampling.NEAREST if nearest else Image.Resampling.BILINEAR
                 picture = picture.resize((size[1], size[0]), resample=resample)
             array = np.asarray(picture, dtype=np.uint8)
+    except UnidentifiedImageError:
+        raise _not_a_readable_picture(path) from None
     except OSError as error:
         raise ImageError(f"could not read '{path}': {error}") from None
 
@@ -146,11 +161,30 @@ def spatial_shape(path: str | Path) -> tuple[int, ...]:
             raise ImageError(f"could not read '{path}': {error}") from None
 
     try:
-        with Image.open(path) as handle:
+        with Image.open(path, formats=READABLE_FORMATS) as handle:
             width, height = handle.size
+    except UnidentifiedImageError:
+        raise _not_a_readable_picture(path) from None
     except OSError as error:
         raise ImageError(f"could not read '{path}': {error}") from None
     return (height, width)
+
+
+def _not_a_readable_picture(path: str | Path) -> ImageError:
+    """The refusal both PIL readers raise, worded once.
+
+    `Image.open` identifies a file by its content, so this fires on a file whose *bytes* are
+    not one of `READABLE_FORMATS` however it is named - a TIFF called `.png` reads fine and a
+    PostScript file called `.png` does not. The message says so, because the first thing
+    anybody does with "could not read" is look at the extension, and here the extension was
+    never what decided.
+    """
+    return ImageError(
+        f"could not read '{path}': its contents are not one of {', '.join(READABLE_FORMATS)}. "
+        "The name is not what decides - PIL identifies a picture by its bytes - so a file "
+        "carrying another format under a picture's extension is refused here rather than "
+        "handed to whichever decoder its contents ask for"
+    )
 
 
 def resize_image(array: np.ndarray, size: tuple[int, ...], *, nearest: bool = False) -> np.ndarray:

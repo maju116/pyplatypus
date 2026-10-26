@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from pyplatypus.instances.metrics import InstanceError, label_map
 
@@ -41,7 +41,18 @@ def read_instance_masks(case: Path, directory: str = MASKS_DIRECTORY) -> list[np
 
     masks = []
     for path in paths:
-        with Image.open(path) as handle:
+        # `formats` rather than the glob above, and the two are not the same guard: the glob
+        # picks files by NAME and `Image.open` identifies them by their CONTENT, so without
+        # this a file called `00.png` holding another format is handed to whichever decoder
+        # its bytes ask for. Here the answer is the one-item list the glob already implies.
+        try:
+            handle = Image.open(path, formats=["PNG"])
+        except UnidentifiedImageError:
+            raise InstanceError(
+                f"{path.name} is named as a PNG and its contents are not one. The per-object "
+                "files are read as PNG only, because that is what the glob selected them by"
+            ) from None
+        with handle:
             mask = np.asarray(handle.convert("L")) > 0
         if not mask.any():
             raise InstanceError(

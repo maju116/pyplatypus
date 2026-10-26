@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a42"
+version = "0.8.0a43"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,23 @@ dependencies = [
     "pydantic>=2.7",
     "pyyaml>=6.0",
     "numpy>=1.24",
-    "pillow>=10.0",
+    # The floor is 13 rather than 10 because of what a floor is FOR: the lock file governs
+    # this repository's own environment, and what a USER resolves is this line. Pillow 13.0.0
+    # is where a batch of decoder advisories against every earlier release is fixed, and a
+    # user holding 10.x satisfied `>=10.0` and got all of them. One break comes with it and it
+    # is somebody else's rather than ours: 13 removed `mode=` as a data-type converter in
+    # `fromarray`, which every call site here already avoids by passing a mode matching its
+    # dtype.
+    #
+    # The marker is not hedging and it is the reason there are two lines: pillow 13 requires
+    # Python >= 3.11, so a plain `pillow>=13` is UNSATISFIABLE on the 3.10 this package still
+    # supports - `uv` refuses to resolve at all, which is how this was found. Python 3.10
+    # reached end of life on 2026-10-01, so the honest repair is to drop it and collapse these
+    # two lines into one; until that decision is taken, every interpreter that CAN take the
+    # fix gets it and 3.10 keeps resolving. A 3.10 install is therefore NOT protected from any
+    # of those advisories, which is a reason to drop 3.10 rather than a reason to pretend.
+    "pillow>=13; python_version >= '3.11'",
+    "pillow>=10.0; python_version < '3.11'",
     "pydicom>=3.0",
     # NIfTI is how research volumes travel - the Decathlon, BraTS, most of TCIA's derived
     # sets. Small and pure Python, so it is a hard dependency rather than an extra: a

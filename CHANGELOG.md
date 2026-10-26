@@ -1,6 +1,54 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a43] - 2026-10-26
+
+What `Image.open` is allowed to dispatch to, and a pillow floor that is about the user
+rather than about this repository's lock file.
+
+### Security
+
+ - **`Image.open` identified every picture by its CONTENT and was handed nothing but a
+   path, so every decoder PIL ships was reachable from any path a specification named.**
+   One of them, the EPS plugin, hands the file to Ghostscript; FlashPix, JPEG 2000, MSP,
+   WMF and XBM are formats no reader here has ever been pointed at. The three reading sites
+   - `read_image`, `spatial_shape` and the per-object instance reader - now pass `formats`.
+
+   **The glob was never the guard it looked like.** `read_instance_masks` selects files by
+   the name `*.png` and `Image.open` decides by the bytes, so a file called `00.png`
+   carrying another format went to whichever decoder its contents asked for. There the
+   allowed list is the one item the glob already implied.
+
+   `READABLE_FORMATS` is `PNG, JPEG, TIFF, BMP, GIF`: PNG and JPEG are what every example
+   and test here reads, and the other three are the mainstream raster formats a 2D set
+   travels in, so refusing them would be a narrowing nobody measured. Counted off the open
+   advisories against the locked pillow, restricting the dispatch takes six of them out of
+   reach including two rated critical - and unlike a version bump it does not expire, being
+   a statement about what this package reads rather than about which decoder bugs are open
+   today. Volumes, DICOM and DICOM series never reach PIL and are unaffected.
+
+   The refusal is worded once for both PIL readers and says that **the name was not what
+   decided**, because the first thing anybody does with "could not read" is check the
+   extension, and here the extension was already right.
+
+ - **The pillow floor is 13, which is the only half of this that reaches a user.** A lock
+   file governs this repository's environment; what somebody installing resolves is the
+   dependency line, and `pillow>=10.0` was satisfied by a 10.x holding every advisory that
+   13.0.0 fixes.
+
+   It carries a marker rather than being a plain `>=13`, and the marker is a finding and not
+   hedging: **pillow 13 requires Python >= 3.11, so a plain floor is unsatisfiable on the
+   3.10 this package still supports** - `uv` refuses to resolve at all. Python 3.10 reached
+   end of life on 2026-10-01, so the repair is to drop it and collapse the two lines into
+   one; until that is decided, every interpreter that can take the fix gets it. **A 3.10
+   install is not protected**, which is an argument for dropping 3.10 rather than for
+   pretending otherwise.
+
+   One break travels with pillow 13 and it is somebody else's rather than ours: `mode=` is
+   no longer a data-type converter in `fromarray`. All seven call sites in this repository
+   pass a mode matching its dtype, checked including the one arithmetic expression
+   (`mask * 255` stays `uint8`), and the suite is green on 13.0.0.
+
 ## [0.8.0a42] - 2026-10-25
 
 A detection epoch is pooled by what the loss divided by. `maju116/rplatypus#218`.
