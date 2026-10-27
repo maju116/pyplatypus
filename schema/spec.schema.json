@@ -1799,7 +1799,7 @@
             }
           ],
           "default": null,
-          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. The full-resolution stage added in front of them is ours and starts random, so it trains at the optimizer's own rate. Unset means one rate for the whole network.",
+          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. Whatever is ours trains at the optimizer's own rate instead - the decoder and the full-resolution stage in front of the backbone for a segmentation model, the pooled head for a classifier - because those start random. Unset means one rate for the whole network.",
           "title": "Encoder Learning Rate"
         },
         "epochs": {
@@ -1824,7 +1824,7 @@
         },
         "freeze_encoder": {
           "default": 0,
-          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random decoder settle before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
+          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random part of the network settle - the decoder, or a classifier's head - before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
           "minimum": 0,
           "title": "Freeze Encoder",
           "type": "integer"
@@ -2972,7 +2972,7 @@
             }
           ],
           "default": null,
-          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. The full-resolution stage added in front of them is ours and starts random, so it trains at the optimizer's own rate. Unset means one rate for the whole network.",
+          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. Whatever is ours trains at the optimizer's own rate instead - the decoder and the full-resolution stage in front of the backbone for a segmentation model, the pooled head for a classifier - because those start random. Unset means one rate for the whole network.",
           "title": "Encoder Learning Rate"
         },
         "epochs": {
@@ -2997,7 +2997,7 @@
         },
         "freeze_encoder": {
           "default": 0,
-          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random decoder settle before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
+          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random part of the network settle - the decoder, or a classifier's head - before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
           "minimum": 0,
           "title": "Freeze Encoder",
           "type": "integer"

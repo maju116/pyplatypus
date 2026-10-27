@@ -1337,26 +1337,6 @@ Registry name (e.g.&nbsp;‘dsbowl-unet’) or a path to a local checkpoint.
 <code>true</code> or <code>false</code> — <code>true</code>
 Set false to load weights and skip training.
 </dd>
-<dt><code>architecture</code></dt>
-<dd>
-<code>u_net</code> or <code>u_net_plus_plus</code> or <code>res_u_net</code> or <code>linknet</code> — <code>u_net</code>
-Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 between images within any one of them, and 0.0012 from re-running one of them with another seed. On that problem the architecture is not where the result comes from. Adopted from the weights file when <code>weights</code> names one.
-</dd>
-<dt><code>blocks</code></dt>
-<dd>
-a whole number — <code>4</code>
-How many times the resolution is halved, so how much context the deepest layer sees. <code>input_shape</code> must divide by 2^blocks. Adopted from the weights file when <code>weights</code> is given and this is not; with an <code>encoder</code>, the backbone’s own depth is the ceiling.
-</dd>
-<dt><code>filters</code></dt>
-<dd>
-a whole number — <code>16</code>
-Filters in the first block, doubled at every level, so this sets the model’s size more than anything else does. Adopted from the weights file when <code>weights</code> is given and this is not.
-</dd>
-<dt><code>block_width</code></dt>
-<dd>
-a whole number — <code>2</code>
-Convolutions per block, at every level. 2 is what every U-Net paper uses and what the published weights were trained with; raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them.
-</dd>
 <dt><code>dropout</code></dt>
 <dd>
 a number — <code>0.0</code>
@@ -1377,16 +1357,6 @@ Depthwise-separable convolutions: far fewer parameters for the same shape, and a
 <code>true</code> or <code>false</code> — <code>true</code>
 Drop whole feature maps rather than individual activations. The right kind for images, because neighbouring pixels in one map are correlated and dropping them one at a time removes less than it appears to. Has no effect unless <code>dropout</code> is above 0.
 </dd>
-<dt><code>upsample</code></dt>
-<dd>
-<code>true</code> or <code>false</code> — <code>false</code>
-Upsample+conv instead of transposed convolution.
-</dd>
-<dt><code>deep_supervision</code></dt>
-<dd>
-<code>true</code> or <code>false</code> — <code>false</code>
-Train every decoder depth rather than only the last, each at input resolution. <code>u_net_plus_plus</code> only, since it is the architecture with intermediate outputs to supervise.
-</dd>
 <dt><code>activation</code></dt>
 <dd>
 <code>relu</code> or <code>leaky_relu</code> or <code>elu</code> or <code>selu</code> or <code>gelu</code> or <code>silu</code> or <code>tanh</code> — <code>relu</code>
@@ -1396,6 +1366,56 @@ The non-linearity between convolutions, the same one throughout.
 <dd>
 <code>he_normal</code> or <code>he_uniform</code> or <code>glorot_normal</code> or <code>glorot_uniform</code> — <code>he_normal</code>
 How the weights start. The <code>he_*</code> family is scaled for ReLU-like activations and <code>glorot_*</code> for symmetric ones, so this and <code>activation</code> are a pair.
+</dd>
+<dt><code>encoder</code></dt>
+<dd>
+text — unset
+A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave unset for the built-in encoder, which is the only one that works in 3D.
+</dd>
+<dt><code>pretrained</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
+</dd>
+<dt><code>encoder_learning_rate</code></dt>
+<dd>
+a number — unset
+A separate, usually smaller learning rate for the layers that arrived pretrained. Whatever is ours trains at the optimizer’s own rate instead - the decoder and the full-resolution stage in front of the backbone for a segmentation model, the pooled head for a classifier - because those start random. Unset means one rate for the whole network.
+</dd>
+<dt><code>freeze_encoder</code></dt>
+<dd>
+a whole number — <code>0</code>
+Keep the pretrained layers fixed for this many epochs, then train them. Lets the random part of the network settle - the decoder, or a classifier’s head - before its gradients reach weights worth keeping. A number at or above <code>epochs</code> freezes them for the whole run.
+</dd>
+<dt><code>architecture</code></dt>
+<dd>
+<code>u_net</code> or <code>u_net_plus_plus</code> or <code>res_u_net</code> or <code>linknet</code> — <code>u_net</code>
+Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 between images within any one of them, and 0.0012 from re-running one of them with another seed. On that problem the architecture is not where the result comes from. Adopted from the weights file when <code>weights</code> names one.
+</dd>
+<dt><code>blocks</code></dt>
+<dd>
+a whole number — <code>4</code>
+How many times the resolution is halved, so how much context the deepest layer sees. <code>input_shape</code> must divide by 2^blocks. Adopted from the weights file when <code>weights</code> is given and this is not; with an <code>encoder</code>, the backbone’s own depth is the ceiling.
+</dd>
+<dt><code>filters</code></dt>
+<dd>
+a whole number — <code>16</code>
+Filters in the first block, doubled at every level, so this sets the model’s size more than anything else does. Adopted from the weights file when <code>weights</code> is given and this is not.
+</dd>
+<dt><code>block_width</code></dt>
+<dd>
+a whole number — <code>2</code>
+Convolutions per block, at every level. 2 is what every U-Net paper uses and what the published weights were trained with; raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them.
+</dd>
+<dt><code>upsample</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Upsample+conv instead of transposed convolution.
+</dd>
+<dt><code>deep_supervision</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Train every decoder depth rather than only the last, each at input resolution. <code>u_net_plus_plus</code> only, since it is the architecture with intermediate outputs to supervise.
 </dd>
 <dt><code>loss</code></dt>
 <dd>
@@ -1411,26 +1431,6 @@ What to report beside the loss, computed on the mask rather than on the objectiv
 <dd>
 a list of whole numbers — unset
 Cut each image into a grid of tiles instead of shrinking it. One entry per spatial dimension, e.g.&nbsp;[2, 3] cuts into 2 rows by 3 columns. The source is read at splits * input_shape and divided; every tile is input_shape. Leave unset to resize the whole image instead. Training then shuffles in windows rather than over every tile, so one decode serves all of a sample’s tiles: measured on 2048-pixel retinas cut sixteen ways, the loader costs 254 ms a tile shuffled wholesale against 49 ms this way, and a batch still draws from several sources.
-</dd>
-<dt><code>encoder</code></dt>
-<dd>
-text — unset
-A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave unset for the built-in encoder, which is the only one that works in 3D.
-</dd>
-<dt><code>pretrained</code></dt>
-<dd>
-<code>true</code> or <code>false</code> — <code>false</code>
-Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
-</dd>
-<dt><code>encoder_learning_rate</code></dt>
-<dd>
-a number — unset
-A separate, usually smaller learning rate for the layers that arrived pretrained. The full-resolution stage added in front of them is ours and starts random, so it trains at the optimizer’s own rate. Unset means one rate for the whole network.
-</dd>
-<dt><code>freeze_encoder</code></dt>
-<dd>
-a whole number — <code>0</code>
-Keep the pretrained layers fixed for this many epochs, then train them. Lets the random decoder settle before its gradients reach weights worth keeping. A number at or above <code>epochs</code> freezes them for the whole run.
 </dd>
 </dl>
 <section id="augmentation-inside-semantic-segmentation-models" class="level4">
@@ -1621,26 +1621,6 @@ Registry name (e.g.&nbsp;‘dsbowl-unet’) or a path to a local checkpoint.
 <code>true</code> or <code>false</code> — <code>true</code>
 Set false to load weights and skip training.
 </dd>
-<dt><code>architecture</code></dt>
-<dd>
-<code>u_net</code> or <code>u_net_plus_plus</code> or <code>res_u_net</code> or <code>linknet</code> — <code>u_net</code>
-Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 between images within any one of them, and 0.0012 from re-running one of them with another seed. On that problem the architecture is not where the result comes from. Adopted from the weights file when <code>weights</code> names one.
-</dd>
-<dt><code>blocks</code></dt>
-<dd>
-a whole number — <code>4</code>
-How many times the resolution is halved, so how much context the deepest layer sees. <code>input_shape</code> must divide by 2^blocks. Adopted from the weights file when <code>weights</code> is given and this is not; with an <code>encoder</code>, the backbone’s own depth is the ceiling.
-</dd>
-<dt><code>filters</code></dt>
-<dd>
-a whole number — <code>16</code>
-Filters in the first block, doubled at every level, so this sets the model’s size more than anything else does. Adopted from the weights file when <code>weights</code> is given and this is not.
-</dd>
-<dt><code>block_width</code></dt>
-<dd>
-a whole number — <code>2</code>
-Convolutions per block, at every level. 2 is what every U-Net paper uses and what the published weights were trained with; raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them.
-</dd>
 <dt><code>dropout</code></dt>
 <dd>
 a number — <code>0.0</code>
@@ -1661,16 +1641,6 @@ Depthwise-separable convolutions: far fewer parameters for the same shape, and a
 <code>true</code> or <code>false</code> — <code>true</code>
 Drop whole feature maps rather than individual activations. The right kind for images, because neighbouring pixels in one map are correlated and dropping them one at a time removes less than it appears to. Has no effect unless <code>dropout</code> is above 0.
 </dd>
-<dt><code>upsample</code></dt>
-<dd>
-<code>true</code> or <code>false</code> — <code>false</code>
-Upsample+conv instead of transposed convolution.
-</dd>
-<dt><code>deep_supervision</code></dt>
-<dd>
-<code>true</code> or <code>false</code> — <code>false</code>
-Train every decoder depth rather than only the last, each at input resolution. <code>u_net_plus_plus</code> only, since it is the architecture with intermediate outputs to supervise.
-</dd>
 <dt><code>activation</code></dt>
 <dd>
 <code>relu</code> or <code>leaky_relu</code> or <code>elu</code> or <code>selu</code> or <code>gelu</code> or <code>silu</code> or <code>tanh</code> — <code>relu</code>
@@ -1680,6 +1650,56 @@ The non-linearity between convolutions, the same one throughout.
 <dd>
 <code>he_normal</code> or <code>he_uniform</code> or <code>glorot_normal</code> or <code>glorot_uniform</code> — <code>he_normal</code>
 How the weights start. The <code>he_*</code> family is scaled for ReLU-like activations and <code>glorot_*</code> for symmetric ones, so this and <code>activation</code> are a pair.
+</dd>
+<dt><code>encoder</code></dt>
+<dd>
+text — unset
+A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave unset for the built-in encoder, which is the only one that works in 3D.
+</dd>
+<dt><code>pretrained</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
+</dd>
+<dt><code>encoder_learning_rate</code></dt>
+<dd>
+a number — unset
+A separate, usually smaller learning rate for the layers that arrived pretrained. Whatever is ours trains at the optimizer’s own rate instead - the decoder and the full-resolution stage in front of the backbone for a segmentation model, the pooled head for a classifier - because those start random. Unset means one rate for the whole network.
+</dd>
+<dt><code>freeze_encoder</code></dt>
+<dd>
+a whole number — <code>0</code>
+Keep the pretrained layers fixed for this many epochs, then train them. Lets the random part of the network settle - the decoder, or a classifier’s head - before its gradients reach weights worth keeping. A number at or above <code>epochs</code> freezes them for the whole run.
+</dd>
+<dt><code>architecture</code></dt>
+<dd>
+<code>u_net</code> or <code>u_net_plus_plus</code> or <code>res_u_net</code> or <code>linknet</code> — <code>u_net</code>
+Which U-shaped network. Measured on Data Science Bowl, one split, 60 epochs, the four span 0.9187 to 0.9217 of Dice - a spread of 0.0030, against 0.054 between images within any one of them, and 0.0012 from re-running one of them with another seed. On that problem the architecture is not where the result comes from. Adopted from the weights file when <code>weights</code> names one.
+</dd>
+<dt><code>blocks</code></dt>
+<dd>
+a whole number — <code>4</code>
+How many times the resolution is halved, so how much context the deepest layer sees. <code>input_shape</code> must divide by 2^blocks. Adopted from the weights file when <code>weights</code> is given and this is not; with an <code>encoder</code>, the backbone’s own depth is the ceiling.
+</dd>
+<dt><code>filters</code></dt>
+<dd>
+a whole number — <code>16</code>
+Filters in the first block, doubled at every level, so this sets the model’s size more than anything else does. Adopted from the weights file when <code>weights</code> is given and this is not.
+</dd>
+<dt><code>block_width</code></dt>
+<dd>
+a whole number — <code>2</code>
+Convolutions per block, at every level. 2 is what every U-Net paper uses and what the published weights were trained with; raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them.
+</dd>
+<dt><code>upsample</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Upsample+conv instead of transposed convolution.
+</dd>
+<dt><code>deep_supervision</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Train every decoder depth rather than only the last, each at input resolution. <code>u_net_plus_plus</code> only, since it is the architecture with intermediate outputs to supervise.
 </dd>
 <dt><code>loss</code></dt>
 <dd>
@@ -1695,26 +1715,6 @@ What to report beside the loss, computed on the mask rather than on the objectiv
 <dd>
 a list of whole numbers — unset
 Cut each image into a grid of tiles instead of shrinking it. One entry per spatial dimension, e.g.&nbsp;[2, 3] cuts into 2 rows by 3 columns. The source is read at splits * input_shape and divided; every tile is input_shape. Leave unset to resize the whole image instead. Training then shuffles in windows rather than over every tile, so one decode serves all of a sample’s tiles: measured on 2048-pixel retinas cut sixteen ways, the loader costs 254 ms a tile shuffled wholesale against 49 ms this way, and a batch still draws from several sources.
-</dd>
-<dt><code>encoder</code></dt>
-<dd>
-text — unset
-A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave unset for the built-in encoder, which is the only one that works in 3D.
-</dd>
-<dt><code>pretrained</code></dt>
-<dd>
-<code>true</code> or <code>false</code> — <code>false</code>
-Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
-</dd>
-<dt><code>encoder_learning_rate</code></dt>
-<dd>
-a number — unset
-A separate, usually smaller learning rate for the layers that arrived pretrained. The full-resolution stage added in front of them is ours and starts random, so it trains at the optimizer’s own rate. Unset means one rate for the whole network.
-</dd>
-<dt><code>freeze_encoder</code></dt>
-<dd>
-a whole number — <code>0</code>
-Keep the pretrained layers fixed for this many epochs, then train them. Lets the random decoder settle before its gradients reach weights worth keeping. A number at or above <code>epochs</code> freezes them for the whole run.
 </dd>
 <dt><code>separation</code></dt>
 <dd>
