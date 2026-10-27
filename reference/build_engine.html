@@ -289,6 +289,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/ClassificationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusSpec</span></a>
   </div>
@@ -1074,9 +1080,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 8%">
-<col style="width: 8%">
-<col style="width: 83%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 84%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1094,17 +1100,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="even">
 <td></td>
 <td></td>
-<td>instance one, a <code>DetectionEngine</code> for a detection one. All three discover their</td>
+<td>instance one, a <code>DetectionEngine</code> for a detection one and a <code>ClassificationEngine</code></td>
 </tr>
 <tr class="odd">
 <td></td>
 <td></td>
-<td>splits and refuse a missing or unlabelled one by name, because that half is</td>
+<td>for a classification. All four discover their splits and refuse a missing or</td>
 </tr>
 <tr class="even">
 <td></td>
 <td></td>
-<td>shared.</td>
+<td>unlabelled one by name, because that half is shared - and the classification one</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td></td>
+<td>stratifies the split it cuts, which is the only part of that walk a task overrides.</td>
 </tr>
 </tbody>
 </table>

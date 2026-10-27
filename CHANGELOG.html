@@ -289,6 +289,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusSpec</span></a>
   </div>
@@ -1019,20 +1025,26 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#change-log" id="toc-change-log" class="nav-link active" data-scroll-target="#change-log">Change Log</a>
   <ul class="collapse">
+  <li><a href="#a49---2026-10-27" id="toc-a49---2026-10-27" class="nav-link" data-scroll-target="#a49---2026-10-27">[0.8.0a49] - 2026-10-27</a>
+  <ul class="collapse">
+  <li><a href="#added" id="toc-added" class="nav-link" data-scroll-target="#added">Added</a></li>
+  <li><a href="#fixed-on-the-way" id="toc-fixed-on-the-way" class="nav-link" data-scroll-target="#fixed-on-the-way">Fixed, on the way</a></li>
+  <li><a href="#the-r-half" id="toc-the-r-half" class="nav-link" data-scroll-target="#the-r-half">The R half</a></li>
+  </ul></li>
   <li><a href="#a48---2026-10-27" id="toc-a48---2026-10-27" class="nav-link" data-scroll-target="#a48---2026-10-27">[0.8.0a48] - 2026-10-27</a>
   <ul class="collapse">
   <li><a href="#fixed" id="toc-fixed" class="nav-link" data-scroll-target="#fixed">Fixed</a></li>
   <li><a href="#the-instrument-rather-than-the-fix" id="toc-the-instrument-rather-than-the-fix" class="nav-link" data-scroll-target="#the-instrument-rather-than-the-fix">The instrument rather than the fix</a></li>
-  <li><a href="#the-r-half" id="toc-the-r-half" class="nav-link" data-scroll-target="#the-r-half">The R half</a></li>
+  <li><a href="#the-r-half-1" id="toc-the-r-half-1" class="nav-link" data-scroll-target="#the-r-half-1">The R half</a></li>
   </ul></li>
   <li><a href="#a47---2026-10-27" id="toc-a47---2026-10-27" class="nav-link" data-scroll-target="#a47---2026-10-27">[0.8.0a47] - 2026-10-27</a>
   <ul class="collapse">
   <li><a href="#fixed-1" id="toc-fixed-1" class="nav-link" data-scroll-target="#fixed-1">Fixed</a></li>
-  <li><a href="#the-r-half-1" id="toc-the-r-half-1" class="nav-link" data-scroll-target="#the-r-half-1">The R half</a></li>
+  <li><a href="#the-r-half-2" id="toc-the-r-half-2" class="nav-link" data-scroll-target="#the-r-half-2">The R half</a></li>
   </ul></li>
   <li><a href="#a46---2026-10-26" id="toc-a46---2026-10-26" class="nav-link" data-scroll-target="#a46---2026-10-26">[0.8.0a46] - 2026-10-26</a>
   <ul class="collapse">
-  <li><a href="#added" id="toc-added" class="nav-link" data-scroll-target="#added">Added</a></li>
+  <li><a href="#added-1" id="toc-added-1" class="nav-link" data-scroll-target="#added-1">Added</a></li>
   <li><a href="#fixed-in-the-design-rather-than-in-code" id="toc-fixed-in-the-design-rather-than-in-code" class="nav-link" data-scroll-target="#fixed-in-the-design-rather-than-in-code">Fixed in the design rather than in code</a></li>
   <li><a href="#known-and-deliberately-not-here" id="toc-known-and-deliberately-not-here" class="nav-link" data-scroll-target="#known-and-deliberately-not-here">Known, and deliberately not here</a></li>
   </ul></li>
@@ -1040,7 +1052,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#fixed-2" id="toc-fixed-2" class="nav-link" data-scroll-target="#fixed-2">Fixed</a></li>
   <li><a href="#known-measured-and-deliberately-not-fixed-here" id="toc-known-measured-and-deliberately-not-fixed-here" class="nav-link" data-scroll-target="#known-measured-and-deliberately-not-fixed-here">Known, measured, and deliberately not fixed here</a></li>
-  <li><a href="#the-r-half-2" id="toc-the-r-half-2" class="nav-link" data-scroll-target="#the-r-half-2">The R half</a></li>
+  <li><a href="#the-r-half-3" id="toc-the-r-half-3" class="nav-link" data-scroll-target="#the-r-half-3">The R half</a></li>
   </ul></li>
   <li><a href="#a44---2026-10-26" id="toc-a44---2026-10-26" class="nav-link" data-scroll-target="#a44---2026-10-26">[0.8.0a44] - 2026-10-26</a>
   <ul class="collapse">
@@ -1058,7 +1070,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a41---2026-10-25" id="toc-a41---2026-10-25" class="nav-link" data-scroll-target="#a41---2026-10-25">[0.8.0a41] - 2026-10-25</a>
   <ul class="collapse">
-  <li><a href="#added-1" id="toc-added-1" class="nav-link" data-scroll-target="#added-1">Added</a></li>
+  <li><a href="#added-2" id="toc-added-2" class="nav-link" data-scroll-target="#added-2">Added</a></li>
   <li><a href="#fixed-4" id="toc-fixed-4" class="nav-link" data-scroll-target="#fixed-4">Fixed</a></li>
   </ul></li>
   <li><a href="#a40---2026-10-25" id="toc-a40---2026-10-25" class="nav-link" data-scroll-target="#a40---2026-10-25">[0.8.0a40] - 2026-10-25</a>
@@ -1069,47 +1081,47 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a39---2026-10-25" id="toc-a39---2026-10-25" class="nav-link" data-scroll-target="#a39---2026-10-25">[0.8.0a39] - 2026-10-25</a>
   <ul class="collapse">
-  <li><a href="#added-2" id="toc-added-2" class="nav-link" data-scroll-target="#added-2">Added</a></li>
+  <li><a href="#added-3" id="toc-added-3" class="nav-link" data-scroll-target="#added-3">Added</a></li>
   <li><a href="#changed-2" id="toc-changed-2" class="nav-link" data-scroll-target="#changed-2">Changed</a></li>
   </ul></li>
   <li><a href="#a38---2026-10-24" id="toc-a38---2026-10-24" class="nav-link" data-scroll-target="#a38---2026-10-24">[0.8.0a38] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-3" id="toc-added-3" class="nav-link" data-scroll-target="#added-3">Added</a></li>
+  <li><a href="#added-4" id="toc-added-4" class="nav-link" data-scroll-target="#added-4">Added</a></li>
   <li><a href="#fixed-6" id="toc-fixed-6" class="nav-link" data-scroll-target="#fixed-6">Fixed</a></li>
   <li><a href="#changed-3" id="toc-changed-3" class="nav-link" data-scroll-target="#changed-3">Changed</a></li>
   <li><a href="#measured" id="toc-measured" class="nav-link" data-scroll-target="#measured">Measured</a></li>
   </ul></li>
   <li><a href="#a37---2026-10-24" id="toc-a37---2026-10-24" class="nav-link" data-scroll-target="#a37---2026-10-24">[0.8.0a37] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-4" id="toc-added-4" class="nav-link" data-scroll-target="#added-4">Added</a></li>
+  <li><a href="#added-5" id="toc-added-5" class="nav-link" data-scroll-target="#added-5">Added</a></li>
   <li><a href="#measured-1" id="toc-measured-1" class="nav-link" data-scroll-target="#measured-1">Measured</a></li>
   </ul></li>
   <li><a href="#a36---2026-10-24" id="toc-a36---2026-10-24" class="nav-link" data-scroll-target="#a36---2026-10-24">[0.8.0a36] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-5" id="toc-added-5" class="nav-link" data-scroll-target="#added-5">Added</a></li>
+  <li><a href="#added-6" id="toc-added-6" class="nav-link" data-scroll-target="#added-6">Added</a></li>
   <li><a href="#changed-4" id="toc-changed-4" class="nav-link" data-scroll-target="#changed-4">Changed</a></li>
   <li><a href="#measured-2" id="toc-measured-2" class="nav-link" data-scroll-target="#measured-2">Measured</a></li>
   </ul></li>
   <li><a href="#a35---2026-10-24" id="toc-a35---2026-10-24" class="nav-link" data-scroll-target="#a35---2026-10-24">[0.8.0a35] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-6" id="toc-added-6" class="nav-link" data-scroll-target="#added-6">Added</a></li>
+  <li><a href="#added-7" id="toc-added-7" class="nav-link" data-scroll-target="#added-7">Added</a></li>
   <li><a href="#changed-5" id="toc-changed-5" class="nav-link" data-scroll-target="#changed-5">Changed</a></li>
   <li><a href="#measured-while-building-it" id="toc-measured-while-building-it" class="nav-link" data-scroll-target="#measured-while-building-it">Measured while building it</a></li>
   </ul></li>
   <li><a href="#a34---2026-10-24" id="toc-a34---2026-10-24" class="nav-link" data-scroll-target="#a34---2026-10-24">[0.8.0a34] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-7" id="toc-added-7" class="nav-link" data-scroll-target="#added-7">Added</a></li>
+  <li><a href="#added-8" id="toc-added-8" class="nav-link" data-scroll-target="#added-8">Added</a></li>
   <li><a href="#notes" id="toc-notes" class="nav-link" data-scroll-target="#notes">Notes</a></li>
   </ul></li>
   <li><a href="#a33---2026-10-24" id="toc-a33---2026-10-24" class="nav-link" data-scroll-target="#a33---2026-10-24">[0.8.0a33] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-8" id="toc-added-8" class="nav-link" data-scroll-target="#added-8">Added</a></li>
+  <li><a href="#added-9" id="toc-added-9" class="nav-link" data-scroll-target="#added-9">Added</a></li>
   <li><a href="#fixed-7" id="toc-fixed-7" class="nav-link" data-scroll-target="#fixed-7">Fixed</a></li>
   <li><a href="#changed-6" id="toc-changed-6" class="nav-link" data-scroll-target="#changed-6">Changed</a></li>
   </ul></li>
   <li><a href="#a32---2026-10-24" id="toc-a32---2026-10-24" class="nav-link" data-scroll-target="#a32---2026-10-24">[0.8.0a32] - 2026-10-24</a>
   <ul class="collapse">
-  <li><a href="#added-9" id="toc-added-9" class="nav-link" data-scroll-target="#added-9">Added</a></li>
+  <li><a href="#added-10" id="toc-added-10" class="nav-link" data-scroll-target="#added-10">Added</a></li>
   <li><a href="#changed-7" id="toc-changed-7" class="nav-link" data-scroll-target="#changed-7">Changed</a></li>
   <li><a href="#measured-while-building-it-1" id="toc-measured-while-building-it-1" class="nav-link" data-scroll-target="#measured-while-building-it-1">Measured while building it</a></li>
   </ul></li>
@@ -1120,17 +1132,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a30---2026-10-23" id="toc-a30---2026-10-23" class="nav-link" data-scroll-target="#a30---2026-10-23">[0.8.0a30] - 2026-10-23</a>
   <ul class="collapse">
-  <li><a href="#added-10" id="toc-added-10" class="nav-link" data-scroll-target="#added-10">Added</a></li>
+  <li><a href="#added-11" id="toc-added-11" class="nav-link" data-scroll-target="#added-11">Added</a></li>
   </ul></li>
   <li><a href="#a29---2026-10-23" id="toc-a29---2026-10-23" class="nav-link" data-scroll-target="#a29---2026-10-23">[0.8.0a29] - 2026-10-23</a>
   <ul class="collapse">
-  <li><a href="#added-11" id="toc-added-11" class="nav-link" data-scroll-target="#added-11">Added</a></li>
+  <li><a href="#added-12" id="toc-added-12" class="nav-link" data-scroll-target="#added-12">Added</a></li>
   <li><a href="#fixed-9" id="toc-fixed-9" class="nav-link" data-scroll-target="#fixed-9">Fixed</a></li>
   <li><a href="#where-this-code-came-from" id="toc-where-this-code-came-from" class="nav-link" data-scroll-target="#where-this-code-came-from">Where this code came from</a></li>
   </ul></li>
   <li><a href="#a28---2026-10-16" id="toc-a28---2026-10-16" class="nav-link" data-scroll-target="#a28---2026-10-16">[0.8.0a28] - 2026-10-16</a>
   <ul class="collapse">
-  <li><a href="#added-12" id="toc-added-12" class="nav-link" data-scroll-target="#added-12">Added</a></li>
+  <li><a href="#added-13" id="toc-added-13" class="nav-link" data-scroll-target="#added-13">Added</a></li>
   <li><a href="#fixed-10" id="toc-fixed-10" class="nav-link" data-scroll-target="#fixed-10">Fixed</a></li>
   <li><a href="#changed-9" id="toc-changed-9" class="nav-link" data-scroll-target="#changed-9">Changed</a></li>
   <li><a href="#still-open" id="toc-still-open" class="nav-link" data-scroll-target="#still-open">Still open</a></li>
@@ -1141,13 +1153,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a26---2026-10-15" id="toc-a26---2026-10-15" class="nav-link" data-scroll-target="#a26---2026-10-15">[0.8.0a26] - 2026-10-15</a>
   <ul class="collapse">
-  <li><a href="#added-13" id="toc-added-13" class="nav-link" data-scroll-target="#added-13">Added</a></li>
+  <li><a href="#added-14" id="toc-added-14" class="nav-link" data-scroll-target="#added-14">Added</a></li>
   <li><a href="#changed-10" id="toc-changed-10" class="nav-link" data-scroll-target="#changed-10">Changed</a></li>
   <li><a href="#not-built-and-why---the-other-half-of-the-milestone" id="toc-not-built-and-why---the-other-half-of-the-milestone" class="nav-link" data-scroll-target="#not-built-and-why---the-other-half-of-the-milestone">Not built, and why - the other half of the milestone</a></li>
   </ul></li>
   <li><a href="#a25---2026-10-15" id="toc-a25---2026-10-15" class="nav-link" data-scroll-target="#a25---2026-10-15">[0.8.0a25] - 2026-10-15</a>
   <ul class="collapse">
-  <li><a href="#added-14" id="toc-added-14" class="nav-link" data-scroll-target="#added-14">Added</a></li>
+  <li><a href="#added-15" id="toc-added-15" class="nav-link" data-scroll-target="#added-15">Added</a></li>
   </ul></li>
   <li><a href="#a24---2026-10-15" id="toc-a24---2026-10-15" class="nav-link" data-scroll-target="#a24---2026-10-15">[0.8.0a24] - 2026-10-15</a>
   <ul class="collapse">
@@ -1156,7 +1168,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a23---2026-10-14" id="toc-a23---2026-10-14" class="nav-link" data-scroll-target="#a23---2026-10-14">[0.8.0a23] - 2026-10-14</a>
   <ul class="collapse">
-  <li><a href="#added-15" id="toc-added-15" class="nav-link" data-scroll-target="#added-15">Added</a></li>
+  <li><a href="#added-16" id="toc-added-16" class="nav-link" data-scroll-target="#added-16">Added</a></li>
   <li><a href="#fixed-13" id="toc-fixed-13" class="nav-link" data-scroll-target="#fixed-13">Fixed</a></li>
   <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">Documentation</a></li>
   <li><a href="#changed-12" id="toc-changed-12" class="nav-link" data-scroll-target="#changed-12">Changed</a></li>
@@ -1166,10 +1178,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a22---2026-10-14" id="toc-a22---2026-10-14" class="nav-link" data-scroll-target="#a22---2026-10-14">[0.8.0a22] - 2026-10-14</a>
   <ul class="collapse">
-  <li><a href="#added-16" id="toc-added-16" class="nav-link" data-scroll-target="#added-16">Added</a></li>
+  <li><a href="#added-17" id="toc-added-17" class="nav-link" data-scroll-target="#added-17">Added</a></li>
   <li><a href="#fixed-15" id="toc-fixed-15" class="nav-link" data-scroll-target="#fixed-15">Fixed</a></li>
   <li><a href="#documentation-2" id="toc-documentation-2" class="nav-link" data-scroll-target="#documentation-2">Documentation</a></li>
-  <li><a href="#the-r-half-3" id="toc-the-r-half-3" class="nav-link" data-scroll-target="#the-r-half-3">The R half</a></li>
+  <li><a href="#the-r-half-4" id="toc-the-r-half-4" class="nav-link" data-scroll-target="#the-r-half-4">The R half</a></li>
   </ul></li>
   <li><a href="#a21---2026-10-14" id="toc-a21---2026-10-14" class="nav-link" data-scroll-target="#a21---2026-10-14">[0.8.0a21] - 2026-10-14</a>
   <ul class="collapse">
@@ -1178,45 +1190,45 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a20---2026-10-13" id="toc-a20---2026-10-13" class="nav-link" data-scroll-target="#a20---2026-10-13">[0.8.0a20] - 2026-10-13</a>
   <ul class="collapse">
-  <li><a href="#added-17" id="toc-added-17" class="nav-link" data-scroll-target="#added-17">Added</a></li>
+  <li><a href="#added-18" id="toc-added-18" class="nav-link" data-scroll-target="#added-18">Added</a></li>
   <li><a href="#changed-14" id="toc-changed-14" class="nav-link" data-scroll-target="#changed-14">Changed</a></li>
   <li><a href="#fixed-17" id="toc-fixed-17" class="nav-link" data-scroll-target="#fixed-17">Fixed</a></li>
   </ul></li>
   <li><a href="#a19---2026-10-12" id="toc-a19---2026-10-12" class="nav-link" data-scroll-target="#a19---2026-10-12">[0.8.0a19] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-18" id="toc-added-18" class="nav-link" data-scroll-target="#added-18">Added</a></li>
+  <li><a href="#added-19" id="toc-added-19" class="nav-link" data-scroll-target="#added-19">Added</a></li>
   <li><a href="#fixed-18" id="toc-fixed-18" class="nav-link" data-scroll-target="#fixed-18">Fixed</a></li>
   </ul></li>
   <li><a href="#a18---2026-10-12" id="toc-a18---2026-10-12" class="nav-link" data-scroll-target="#a18---2026-10-12">[0.8.0a18] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-19" id="toc-added-19" class="nav-link" data-scroll-target="#added-19">Added</a></li>
+  <li><a href="#added-20" id="toc-added-20" class="nav-link" data-scroll-target="#added-20">Added</a></li>
   <li><a href="#measured-and-it-changed-the-design" id="toc-measured-and-it-changed-the-design" class="nav-link" data-scroll-target="#measured-and-it-changed-the-design">Measured, and it changed the design</a></li>
   <li><a href="#fixed-19" id="toc-fixed-19" class="nav-link" data-scroll-target="#fixed-19">Fixed</a></li>
   <li><a href="#measured-and-unresolved" id="toc-measured-and-unresolved" class="nav-link" data-scroll-target="#measured-and-unresolved">Measured and unresolved</a></li>
   </ul></li>
   <li><a href="#a17---2026-10-12" id="toc-a17---2026-10-12" class="nav-link" data-scroll-target="#a17---2026-10-12">[0.8.0a17] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-20" id="toc-added-20" class="nav-link" data-scroll-target="#added-20">Added</a></li>
+  <li><a href="#added-21" id="toc-added-21" class="nav-link" data-scroll-target="#added-21">Added</a></li>
   <li><a href="#decided" id="toc-decided" class="nav-link" data-scroll-target="#decided">Decided</a></li>
   </ul></li>
   <li><a href="#a16---2026-10-12" id="toc-a16---2026-10-12" class="nav-link" data-scroll-target="#a16---2026-10-12">[0.8.0a16] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-21" id="toc-added-21" class="nav-link" data-scroll-target="#added-21">Added</a></li>
+  <li><a href="#added-22" id="toc-added-22" class="nav-link" data-scroll-target="#added-22">Added</a></li>
   <li><a href="#measured-and-no" id="toc-measured-and-no" class="nav-link" data-scroll-target="#measured-and-no">Measured and no</a></li>
   <li><a href="#changed-15" id="toc-changed-15" class="nav-link" data-scroll-target="#changed-15">Changed</a></li>
   <li><a href="#measured-and-no-from-0.8.0a15s-work" id="toc-measured-and-no-from-0.8.0a15s-work" class="nav-link" data-scroll-target="#measured-and-no-from-0.8.0a15s-work">Measured and no, from 0.8.0a15’s work</a></li>
-  <li><a href="#added-22" id="toc-added-22" class="nav-link" data-scroll-target="#added-22">Added</a></li>
+  <li><a href="#added-23" id="toc-added-23" class="nav-link" data-scroll-target="#added-23">Added</a></li>
   </ul></li>
   <li><a href="#a15---2026-10-12" id="toc-a15---2026-10-12" class="nav-link" data-scroll-target="#a15---2026-10-12">[0.8.0a15] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-23" id="toc-added-23" class="nav-link" data-scroll-target="#added-23">Added</a></li>
+  <li><a href="#added-24" id="toc-added-24" class="nav-link" data-scroll-target="#added-24">Added</a></li>
   <li><a href="#fixed-20" id="toc-fixed-20" class="nav-link" data-scroll-target="#fixed-20">Fixed</a></li>
   <li><a href="#notes-1" id="toc-notes-1" class="nav-link" data-scroll-target="#notes-1">Notes</a></li>
   <li><a href="#for-the-r-package" id="toc-for-the-r-package" class="nav-link" data-scroll-target="#for-the-r-package">For the R package</a></li>
   </ul></li>
   <li><a href="#a14---2026-10-12" id="toc-a14---2026-10-12" class="nav-link" data-scroll-target="#a14---2026-10-12">[0.8.0a14] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-24" id="toc-added-24" class="nav-link" data-scroll-target="#added-24">Added</a></li>
+  <li><a href="#added-25" id="toc-added-25" class="nav-link" data-scroll-target="#added-25">Added</a></li>
   <li><a href="#changed-16" id="toc-changed-16" class="nav-link" data-scroll-target="#changed-16">Changed</a></li>
   <li><a href="#refused-rather-than-served" id="toc-refused-rather-than-served" class="nav-link" data-scroll-target="#refused-rather-than-served">Refused rather than served</a></li>
   <li><a href="#not-done-so-it-is-not-looked-for" id="toc-not-done-so-it-is-not-looked-for" class="nav-link" data-scroll-target="#not-done-so-it-is-not-looked-for">Not done, so it is not looked for</a></li>
@@ -1224,17 +1236,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a13---2026-10-12" id="toc-a13---2026-10-12" class="nav-link" data-scroll-target="#a13---2026-10-12">[0.8.0a13] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-25" id="toc-added-25" class="nav-link" data-scroll-target="#added-25">Added</a></li>
+  <li><a href="#added-26" id="toc-added-26" class="nav-link" data-scroll-target="#added-26">Added</a></li>
   <li><a href="#for-the-r-package-2" id="toc-for-the-r-package-2" class="nav-link" data-scroll-target="#for-the-r-package-2">For the R package</a></li>
   </ul></li>
   <li><a href="#a12---2026-10-12" id="toc-a12---2026-10-12" class="nav-link" data-scroll-target="#a12---2026-10-12">[0.8.0a12] - 2026-10-12</a>
   <ul class="collapse">
-  <li><a href="#added-26" id="toc-added-26" class="nav-link" data-scroll-target="#added-26">Added</a></li>
+  <li><a href="#added-27" id="toc-added-27" class="nav-link" data-scroll-target="#added-27">Added</a></li>
   <li><a href="#for-the-r-package-3" id="toc-for-the-r-package-3" class="nav-link" data-scroll-target="#for-the-r-package-3">For the R package</a></li>
   </ul></li>
   <li><a href="#a11---2026-10-11" id="toc-a11---2026-10-11" class="nav-link" data-scroll-target="#a11---2026-10-11">[0.8.0a11] - 2026-10-11</a>
   <ul class="collapse">
-  <li><a href="#added-27" id="toc-added-27" class="nav-link" data-scroll-target="#added-27">Added</a></li>
+  <li><a href="#added-28" id="toc-added-28" class="nav-link" data-scroll-target="#added-28">Added</a></li>
   </ul></li>
   <li><a href="#a10---2026-10-11" id="toc-a10---2026-10-11" class="nav-link" data-scroll-target="#a10---2026-10-11">[0.8.0a10] - 2026-10-11</a>
   <ul class="collapse">
@@ -1244,7 +1256,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a9---2026-10-10" id="toc-a9---2026-10-10" class="nav-link" data-scroll-target="#a9---2026-10-10">[0.8.0a9] - 2026-10-10</a>
   <ul class="collapse">
-  <li><a href="#added-28" id="toc-added-28" class="nav-link" data-scroll-target="#added-28">Added</a></li>
+  <li><a href="#added-29" id="toc-added-29" class="nav-link" data-scroll-target="#added-29">Added</a></li>
   </ul></li>
   <li><a href="#a8---2026-10-10" id="toc-a8---2026-10-10" class="nav-link" data-scroll-target="#a8---2026-10-10">[0.8.0a8] - 2026-10-10</a>
   <ul class="collapse">
@@ -1259,19 +1271,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a6---2026-10-09" id="toc-a6---2026-10-09" class="nav-link" data-scroll-target="#a6---2026-10-09">[0.8.0a6] - 2026-10-09</a>
   <ul class="collapse">
   <li><a href="#changed-19" id="toc-changed-19" class="nav-link" data-scroll-target="#changed-19">Changed</a></li>
-  <li><a href="#added-29" id="toc-added-29" class="nav-link" data-scroll-target="#added-29">Added</a></li>
+  <li><a href="#added-30" id="toc-added-30" class="nav-link" data-scroll-target="#added-30">Added</a></li>
   <li><a href="#note-2" id="toc-note-2" class="nav-link" data-scroll-target="#note-2">Note</a></li>
   </ul></li>
   <li><a href="#a5---2026-10-09" id="toc-a5---2026-10-09" class="nav-link" data-scroll-target="#a5---2026-10-09">[0.8.0a5] - 2026-10-09</a>
   <ul class="collapse">
-  <li><a href="#added-30" id="toc-added-30" class="nav-link" data-scroll-target="#added-30">Added</a></li>
+  <li><a href="#added-31" id="toc-added-31" class="nav-link" data-scroll-target="#added-31">Added</a></li>
   <li><a href="#changed-20" id="toc-changed-20" class="nav-link" data-scroll-target="#changed-20">Changed</a></li>
   <li><a href="#fixed-23" id="toc-fixed-23" class="nav-link" data-scroll-target="#fixed-23">Fixed</a></li>
   <li><a href="#note-3" id="toc-note-3" class="nav-link" data-scroll-target="#note-3">Note</a></li>
   </ul></li>
   <li><a href="#a4---2026-10-09" id="toc-a4---2026-10-09" class="nav-link" data-scroll-target="#a4---2026-10-09">[0.8.0a4] - 2026-10-09</a>
   <ul class="collapse">
-  <li><a href="#added-31" id="toc-added-31" class="nav-link" data-scroll-target="#added-31">Added</a></li>
+  <li><a href="#added-32" id="toc-added-32" class="nav-link" data-scroll-target="#added-32">Added</a></li>
   </ul></li>
   <li><a href="#a3---2026-10-08" id="toc-a3---2026-10-08" class="nav-link" data-scroll-target="#a3---2026-10-08">[0.8.0a3] - 2026-10-08</a>
   <ul class="collapse">
@@ -1279,18 +1291,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a2---2026-10-08" id="toc-a2---2026-10-08" class="nav-link" data-scroll-target="#a2---2026-10-08">[0.8.0a2] - 2026-10-08</a>
   <ul class="collapse">
-  <li><a href="#added-32" id="toc-added-32" class="nav-link" data-scroll-target="#added-32">Added</a></li>
+  <li><a href="#added-33" id="toc-added-33" class="nav-link" data-scroll-target="#added-33">Added</a></li>
   <li><a href="#changed-22" id="toc-changed-22" class="nav-link" data-scroll-target="#changed-22">Changed</a></li>
   </ul></li>
   <li><a href="#a1---2026-10-08" id="toc-a1---2026-10-08" class="nav-link" data-scroll-target="#a1---2026-10-08">[0.8.0a1] - 2026-10-08</a>
   <ul class="collapse">
-  <li><a href="#added-33" id="toc-added-33" class="nav-link" data-scroll-target="#added-33">Added</a></li>
+  <li><a href="#added-34" id="toc-added-34" class="nav-link" data-scroll-target="#added-34">Added</a></li>
   <li><a href="#changed-23" id="toc-changed-23" class="nav-link" data-scroll-target="#changed-23">Changed</a></li>
   <li><a href="#fixed-24" id="toc-fixed-24" class="nav-link" data-scroll-target="#fixed-24">Fixed</a></li>
   </ul></li>
   <li><a href="#a3---2026-10-07" id="toc-a3---2026-10-07" class="nav-link" data-scroll-target="#a3---2026-10-07">[0.7.0a3] - 2026-10-07</a>
   <ul class="collapse">
-  <li><a href="#added-34" id="toc-added-34" class="nav-link" data-scroll-target="#added-34">Added</a></li>
+  <li><a href="#added-35" id="toc-added-35" class="nav-link" data-scroll-target="#added-35">Added</a></li>
   <li><a href="#fixed-25" id="toc-fixed-25" class="nav-link" data-scroll-target="#fixed-25">Fixed</a></li>
   <li><a href="#notes-on-how-the-page-is-built-because-three-choices-were-measured-rather-than-picked" id="toc-notes-on-how-the-page-is-built-because-three-choices-were-measured-rather-than-picked" class="nav-link" data-scroll-target="#notes-on-how-the-page-is-built-because-three-choices-were-measured-rather-than-picked">Notes on how the page is built, because three choices were measured rather than picked</a></li>
   </ul></li>
@@ -1302,12 +1314,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a1---2026-10-07" id="toc-a1---2026-10-07" class="nav-link" data-scroll-target="#a1---2026-10-07">[0.7.0a1] - 2026-10-07</a>
   <ul class="collapse">
   <li><a href="#changed-24" id="toc-changed-24" class="nav-link" data-scroll-target="#changed-24">Changed</a></li>
-  <li><a href="#added-35" id="toc-added-35" class="nav-link" data-scroll-target="#added-35">Added</a></li>
+  <li><a href="#added-36" id="toc-added-36" class="nav-link" data-scroll-target="#added-36">Added</a></li>
   <li><a href="#not-changed-and-deliberately" id="toc-not-changed-and-deliberately" class="nav-link" data-scroll-target="#not-changed-and-deliberately">Not changed, and deliberately</a></li>
   </ul></li>
   <li><a href="#a4---2026-10-07" id="toc-a4---2026-10-07" class="nav-link" data-scroll-target="#a4---2026-10-07">[0.6.0a4] - 2026-10-07</a>
   <ul class="collapse">
-  <li><a href="#added-36" id="toc-added-36" class="nav-link" data-scroll-target="#added-36">Added</a></li>
+  <li><a href="#added-37" id="toc-added-37" class="nav-link" data-scroll-target="#added-37">Added</a></li>
   </ul></li>
   <li><a href="#a3---2026-10-07-1" id="toc-a3---2026-10-07-1" class="nav-link" data-scroll-target="#a3---2026-10-07-1">[0.6.0a3] - 2026-10-07</a>
   <ul class="collapse">
@@ -1315,21 +1327,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a2---2026-10-07-1" id="toc-a2---2026-10-07-1" class="nav-link" data-scroll-target="#a2---2026-10-07-1">[0.6.0a2] - 2026-10-07</a>
   <ul class="collapse">
-  <li><a href="#added-37" id="toc-added-37" class="nav-link" data-scroll-target="#added-37">Added</a></li>
+  <li><a href="#added-38" id="toc-added-38" class="nav-link" data-scroll-target="#added-38">Added</a></li>
   <li><a href="#fixed-27" id="toc-fixed-27" class="nav-link" data-scroll-target="#fixed-27">Fixed</a></li>
   </ul></li>
   <li><a href="#a1---2026-10-06" id="toc-a1---2026-10-06" class="nav-link" data-scroll-target="#a1---2026-10-06">[0.6.0a1] - 2026-10-06</a>
   <ul class="collapse">
-  <li><a href="#added-38" id="toc-added-38" class="nav-link" data-scroll-target="#added-38">Added</a></li>
+  <li><a href="#added-39" id="toc-added-39" class="nav-link" data-scroll-target="#added-39">Added</a></li>
   <li><a href="#changed-26" id="toc-changed-26" class="nav-link" data-scroll-target="#changed-26">Changed</a></li>
   </ul></li>
   <li><a href="#a6---2026-10-06" id="toc-a6---2026-10-06" class="nav-link" data-scroll-target="#a6---2026-10-06">[0.5.0a6] - 2026-10-06</a>
   <ul class="collapse">
-  <li><a href="#added-39" id="toc-added-39" class="nav-link" data-scroll-target="#added-39">Added</a></li>
+  <li><a href="#added-40" id="toc-added-40" class="nav-link" data-scroll-target="#added-40">Added</a></li>
   </ul></li>
   <li><a href="#a5---2026-10-06" id="toc-a5---2026-10-06" class="nav-link" data-scroll-target="#a5---2026-10-06">[0.5.0a5] - 2026-10-06</a>
   <ul class="collapse">
-  <li><a href="#added-40" id="toc-added-40" class="nav-link" data-scroll-target="#added-40">Added</a></li>
+  <li><a href="#added-41" id="toc-added-41" class="nav-link" data-scroll-target="#added-41">Added</a></li>
   </ul></li>
   <li><a href="#a4---2026-10-06" id="toc-a4---2026-10-06" class="nav-link" data-scroll-target="#a4---2026-10-06">[0.5.0a4] - 2026-10-06</a>
   <ul class="collapse">
@@ -1337,7 +1349,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a3---2026-10-06" id="toc-a3---2026-10-06" class="nav-link" data-scroll-target="#a3---2026-10-06">[0.5.0a3] - 2026-10-06</a>
   <ul class="collapse">
-  <li><a href="#added-41" id="toc-added-41" class="nav-link" data-scroll-target="#added-41">Added</a></li>
+  <li><a href="#added-42" id="toc-added-42" class="nav-link" data-scroll-target="#added-42">Added</a></li>
   </ul></li>
   <li><a href="#a2---2026-10-06" id="toc-a2---2026-10-06" class="nav-link" data-scroll-target="#a2---2026-10-06">[0.5.0a2] - 2026-10-06</a>
   <ul class="collapse">
@@ -1360,17 +1372,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a14---2026-10-05" id="toc-a14---2026-10-05" class="nav-link" data-scroll-target="#a14---2026-10-05">[0.3.0a14] - 2026-10-05</a>
   <ul class="collapse">
-  <li><a href="#added-42" id="toc-added-42" class="nav-link" data-scroll-target="#added-42">Added</a></li>
+  <li><a href="#added-43" id="toc-added-43" class="nav-link" data-scroll-target="#added-43">Added</a></li>
   </ul></li>
   <li><a href="#a13---2026-10-04" id="toc-a13---2026-10-04" class="nav-link" data-scroll-target="#a13---2026-10-04">[0.3.0a13] - 2026-10-04</a>
   <ul class="collapse">
   <li><a href="#fixed-31" id="toc-fixed-31" class="nav-link" data-scroll-target="#fixed-31">Fixed</a></li>
-  <li><a href="#added-43" id="toc-added-43" class="nav-link" data-scroll-target="#added-43">Added</a></li>
+  <li><a href="#added-44" id="toc-added-44" class="nav-link" data-scroll-target="#added-44">Added</a></li>
   <li><a href="#fixed-32" id="toc-fixed-32" class="nav-link" data-scroll-target="#fixed-32">Fixed</a></li>
   </ul></li>
   <li><a href="#a12---2026-10-04" id="toc-a12---2026-10-04" class="nav-link" data-scroll-target="#a12---2026-10-04">[0.3.0a12] - 2026-10-04</a>
   <ul class="collapse">
-  <li><a href="#added-44" id="toc-added-44" class="nav-link" data-scroll-target="#added-44">Added</a></li>
+  <li><a href="#added-45" id="toc-added-45" class="nav-link" data-scroll-target="#added-45">Added</a></li>
   <li><a href="#added-detection-in-the-specification" id="toc-added-detection-in-the-specification" class="nav-link" data-scroll-target="#added-detection-in-the-specification">Added — detection in the specification</a></li>
   <li><a href="#added-detection-in-the-engine" id="toc-added-detection-in-the-engine" class="nav-link" data-scroll-target="#added-detection-in-the-engine">Added — detection in the engine</a></li>
   <li><a href="#added-a-learning-rate-schedule-the-specification-can-state" id="toc-added-a-learning-rate-schedule-the-specification-can-state" class="nav-link" data-scroll-target="#added-a-learning-rate-schedule-the-specification-can-state">Added — a learning-rate schedule the specification can state</a></li>
@@ -1386,75 +1398,75 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a11" id="toc-a11" class="nav-link" data-scroll-target="#a11">[0.3.0a11]</a>
   <ul class="collapse">
-  <li><a href="#added-45" id="toc-added-45" class="nav-link" data-scroll-target="#added-45">Added</a></li>
+  <li><a href="#added-46" id="toc-added-46" class="nav-link" data-scroll-target="#added-46">Added</a></li>
   <li><a href="#changed-30" id="toc-changed-30" class="nav-link" data-scroll-target="#changed-30">Changed</a></li>
   </ul></li>
   <li><a href="#a10" id="toc-a10" class="nav-link" data-scroll-target="#a10">[0.3.0a10]</a>
   <ul class="collapse">
-  <li><a href="#added-46" id="toc-added-46" class="nav-link" data-scroll-target="#added-46">Added</a></li>
+  <li><a href="#added-47" id="toc-added-47" class="nav-link" data-scroll-target="#added-47">Added</a></li>
   <li><a href="#changed-31" id="toc-changed-31" class="nav-link" data-scroll-target="#changed-31">Changed</a></li>
   <li><a href="#refused" id="toc-refused" class="nav-link" data-scroll-target="#refused">Refused</a></li>
   </ul></li>
   <li><a href="#a9" id="toc-a9" class="nav-link" data-scroll-target="#a9">[0.3.0a9]</a>
   <ul class="collapse">
-  <li><a href="#added-47" id="toc-added-47" class="nav-link" data-scroll-target="#added-47">Added</a></li>
+  <li><a href="#added-48" id="toc-added-48" class="nav-link" data-scroll-target="#added-48">Added</a></li>
   </ul></li>
   <li><a href="#a8" id="toc-a8" class="nav-link" data-scroll-target="#a8">[0.3.0a8]</a>
   <ul class="collapse">
-  <li><a href="#added-48" id="toc-added-48" class="nav-link" data-scroll-target="#added-48">Added</a></li>
+  <li><a href="#added-49" id="toc-added-49" class="nav-link" data-scroll-target="#added-49">Added</a></li>
   </ul></li>
   <li><a href="#a7" id="toc-a7" class="nav-link" data-scroll-target="#a7">[0.3.0a7]</a>
   <ul class="collapse">
-  <li><a href="#added-49" id="toc-added-49" class="nav-link" data-scroll-target="#added-49">Added</a></li>
+  <li><a href="#added-50" id="toc-added-50" class="nav-link" data-scroll-target="#added-50">Added</a></li>
   <li><a href="#notes-2" id="toc-notes-2" class="nav-link" data-scroll-target="#notes-2">Notes</a></li>
   </ul></li>
   <li><a href="#a6" id="toc-a6" class="nav-link" data-scroll-target="#a6">[0.3.0a6]</a>
   <ul class="collapse">
-  <li><a href="#added-50" id="toc-added-50" class="nav-link" data-scroll-target="#added-50">Added</a></li>
+  <li><a href="#added-51" id="toc-added-51" class="nav-link" data-scroll-target="#added-51">Added</a></li>
   <li><a href="#known-losses-documented-rather-than-hidden" id="toc-known-losses-documented-rather-than-hidden" class="nav-link" data-scroll-target="#known-losses-documented-rather-than-hidden">Known losses, documented rather than hidden</a></li>
   </ul></li>
   <li><a href="#a5" id="toc-a5" class="nav-link" data-scroll-target="#a5">[0.3.0a5]</a>
   <ul class="collapse">
-  <li><a href="#added-51" id="toc-added-51" class="nav-link" data-scroll-target="#added-51">Added</a></li>
+  <li><a href="#added-52" id="toc-added-52" class="nav-link" data-scroll-target="#added-52">Added</a></li>
   <li><a href="#fixed-34" id="toc-fixed-34" class="nav-link" data-scroll-target="#fixed-34">Fixed</a></li>
   </ul></li>
   <li><a href="#a4" id="toc-a4" class="nav-link" data-scroll-target="#a4">[0.3.0a4]</a>
   <ul class="collapse">
-  <li><a href="#added-52" id="toc-added-52" class="nav-link" data-scroll-target="#added-52">Added</a></li>
+  <li><a href="#added-53" id="toc-added-53" class="nav-link" data-scroll-target="#added-53">Added</a></li>
   </ul></li>
   <li><a href="#a3" id="toc-a3" class="nav-link" data-scroll-target="#a3">[0.3.0a3]</a>
   <ul class="collapse">
-  <li><a href="#added-53" id="toc-added-53" class="nav-link" data-scroll-target="#added-53">Added</a></li>
+  <li><a href="#added-54" id="toc-added-54" class="nav-link" data-scroll-target="#added-54">Added</a></li>
   <li><a href="#fixed-35" id="toc-fixed-35" class="nav-link" data-scroll-target="#fixed-35">Fixed</a></li>
   </ul></li>
   <li><a href="#a2" id="toc-a2" class="nav-link" data-scroll-target="#a2">[0.3.0a2]</a>
   <ul class="collapse">
-  <li><a href="#added-54" id="toc-added-54" class="nav-link" data-scroll-target="#added-54">Added</a></li>
+  <li><a href="#added-55" id="toc-added-55" class="nav-link" data-scroll-target="#added-55">Added</a></li>
   <li><a href="#changed-32" id="toc-changed-32" class="nav-link" data-scroll-target="#changed-32">Changed</a></li>
   </ul></li>
   <li><a href="#a1" id="toc-a1" class="nav-link" data-scroll-target="#a1">[0.3.0a1]</a>
   <ul class="collapse">
-  <li><a href="#added-55" id="toc-added-55" class="nav-link" data-scroll-target="#added-55">Added</a></li>
+  <li><a href="#added-56" id="toc-added-56" class="nav-link" data-scroll-target="#added-56">Added</a></li>
   <li><a href="#changed-33" id="toc-changed-33" class="nav-link" data-scroll-target="#changed-33">Changed</a></li>
   <li><a href="#not-done-on-purpose" id="toc-not-done-on-purpose" class="nav-link" data-scroll-target="#not-done-on-purpose">Not done, on purpose</a></li>
   </ul></li>
   <li><a href="#a3-1" id="toc-a3-1" class="nav-link" data-scroll-target="#a3-1">[0.2.0a3]</a>
   <ul class="collapse">
-  <li><a href="#added-56" id="toc-added-56" class="nav-link" data-scroll-target="#added-56">Added</a></li>
+  <li><a href="#added-57" id="toc-added-57" class="nav-link" data-scroll-target="#added-57">Added</a></li>
   <li><a href="#changed-34" id="toc-changed-34" class="nav-link" data-scroll-target="#changed-34">Changed</a></li>
   </ul></li>
   <li><a href="#a2-1" id="toc-a2-1" class="nav-link" data-scroll-target="#a2-1">[0.2.0a2]</a>
   <ul class="collapse">
-  <li><a href="#added-57" id="toc-added-57" class="nav-link" data-scroll-target="#added-57">Added</a></li>
+  <li><a href="#added-58" id="toc-added-58" class="nav-link" data-scroll-target="#added-58">Added</a></li>
   </ul></li>
   <li><a href="#a1-1" id="toc-a1-1" class="nav-link" data-scroll-target="#a1-1">[0.2.0a1]</a>
   <ul class="collapse">
-  <li><a href="#added-58" id="toc-added-58" class="nav-link" data-scroll-target="#added-58">Added</a></li>
+  <li><a href="#added-59" id="toc-added-59" class="nav-link" data-scroll-target="#added-59">Added</a></li>
   <li><a href="#removed-1" id="toc-removed-1" class="nav-link" data-scroll-target="#removed-1">Removed</a></li>
   </ul></li>
   <li><a href="#rc2" id="toc-rc2" class="nav-link" data-scroll-target="#rc2">[0.1.0rc2]</a>
   <ul class="collapse">
-  <li><a href="#added-59" id="toc-added-59" class="nav-link" data-scroll-target="#added-59">Added</a></li>
+  <li><a href="#added-60" id="toc-added-60" class="nav-link" data-scroll-target="#added-60">Added</a></li>
   </ul></li>
   </ul></li>
   </ul>
@@ -1469,6 +1481,41 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="change-log" class="level1">
 <h1>Change Log</h1>
 <p>All notable changes to this project will be documented in this file.</p>
+<section id="a49---2026-10-27" class="level2">
+<h2 class="anchored" data-anchor-id="a49---2026-10-27">[0.8.0a49] - 2026-10-27</h2>
+<p><code>task: classification</code> - one label per image, and the fourth task this package can be asked to do.</p>
+<section id="added" class="level3">
+<h3 class="anchored" data-anchor-id="added">Added</h3>
+<ul>
+<li><p><strong><code>task: classification</code></strong>, <code>maju116/pyplatypus#206</code>. <code>crops()</code> has been cutting objects out and handing them to “a classifier it does not contain” since detection shipped, and explaining a model needs a per-image answer to explain. Both now have one.</p>
+<p>The tag is what this release is, and it lands <strong>last</strong> on purpose: everything behind it - the specification, the head, the metrics, the reader, the trainer and the engine - was built and tested over the preceding slices, so the tag never named a task the package could not train. <code>0.8.0a20</code> built the instance task the same way, and <code>tests/spec/test_task_coverage.py</code> is what makes that order safe: it fired on the first edit of this release, when <code>Task</code> gained a member and <code>AnySpec</code> had not, which is exactly the window it was added to guard.</p></li>
+<li><p><strong>No <code>architecture</code> field, and that is the task’s one structural difference.</strong> The network is a contracting path, pooled, with one dense layer on top, and <code>encoder</code> decides whose contracting path it is - ours when unset, any of timm’s when it names a backbone. So <code>available_models("classification")</code> <strong>refuses</strong> rather than returning a row: a row would invite <code>architecture: plain_cnn</code>, which the model refuses as an unknown key. <code>ClassificationModel.architecture</code> is a derived property reading <code>plain_cnn</code> or the backbone’s name.</p></li>
+<li><p><strong><code>auc</code> is the default metric and <code>accuracy</code> is not.</strong> Measured on 40000 images at a prevalence of 3%, calibrated by construction so that only the discrimination varies:</p>
+<pre><code> discrimination   accuracy   balanced   macro f1      auc
+ none               0.9720     0.5000     0.4929   0.5132
+ a = 0.5            0.9702     0.5000     0.4924   0.6393
+ a = 1.0            0.9704     0.5004     0.4933   0.7516
+ a = 2.0            0.9728     0.5609     0.5972   0.9088
+ a = 4.0            0.9802     0.7443     0.7923   0.9763</code></pre>
+<p>Accuracy spans 0.0100 where the AUC spans 0.4631 and is <strong>not monotone</strong> - the model with no signal at all scores above two that have one. The sharper half is that balanced accuracy, the obvious fix, is no better here: it and macro F1 are +0.0000 and -0.0005 between a real signal and a collapse, because a calibrated model at that prevalence never crosses the threshold. Being threshold-free is the property that separates them, not being balanced.</p></li>
+<li><p><strong>The split is stratified, and that is the same arithmetic.</strong> A random 70/15/15 of 100 images at 3% prevalence leaves some part with none of the rare class <strong>91%</strong> of the time - 64% at 200, 20% at 500 - and the closed form <code>(1-f)^r</code> agrees with the simulation to three digits. Every per-class metric refuses to average over a class its pass never held, so the run would die at the end of the first epoch with the epoch already paid for. <code>stratified_split</code> calls <code>split_samples</code> once per label; the cost is one image of drift at 100 images and nothing at 500. <code>group_by</code> is refused where a group holds more than one label, because stratifying would cut such a group across both sides - measured, and the control is that the same data without stratifying leaks nothing.</p></li>
+<li><p><strong>A metric is accumulated over a pass rather than averaged over batches</strong>, which is a protocol and not a flag. Measured at a prevalence of 3%: accuracy agrees with the pooled figure to every digit, while balanced accuracy is out by up to +0.0123, macro F1 by -0.0734 and the AUC by up to 0.0371 and not monotone in the batch size - because 398 of 500 batches of 8 hold no positive at all, so three of the four are means over whichever batches happened to contain the minority class.</p></li>
+</ul>
+</section>
+<section id="fixed-on-the-way" class="level3">
+<h3 class="anchored" data-anchor-id="fixed-on-the-way">Fixed, on the way</h3>
+<ul>
+<li><p><strong><code>f.overlaps</code> on a <code>(batch, class)</code> tensor returned one number for the whole batch</strong> instead of a count per class: <code>spatial_dims</code> answers with an empty tuple and <code>sum(dim=())</code> sums over every axis rather than none - <code>torch.ones(4, 3).sum(())</code> is 12.0. Refused now. Nothing in the package called it that way; the guard exists because the wrong answer is silent and plausible.</p></li>
+<li><p><strong>A frozen transfer stayed frozen only in two of the three trainers.</strong> <code>model.train(True)</code> reaches every submodule, so a transfer put in <code>eval()</code> at the top of an epoch is switched straight back unless the trainer re-applies it after that call. Removing the three lines that do it in the segmentation trainer broke <strong>no test</strong>, in released code, with the reasoning written out beside them. <code>tests/training/test_trainer_contract.py</code> holds both trainers to it now, beside the callback-hook contract <code>0.8.0a48</code> added.</p></li>
+</ul>
+</section>
+<section id="the-r-half" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half">The R half</h3>
+<ul>
+<li><strong>Substantial, and none of it travels with the pin alone.</strong> An R user reaches a task through a constructor - <code>segmentation_data()</code>, <code>instance_data()</code>, <code>detection_data()</code> - and there is no <code>classification_data()</code>, so a classification run cannot be written from R at all until R gains its own surface for it. A <code>platypus_spec()</code> built from a bare list or a YAML file <em>does</em> reach the engine’s validator, so after a pin move that route would accept what the constructors refuse - which is the three-way divergence <code>rplatypus#152</code> recorded for <code>regions</code>, one task across. Filed on R’s side rather than described here.</li>
+</ul>
+</section>
+</section>
 <section id="a48---2026-10-27" class="level2">
 <h2 class="anchored" data-anchor-id="a48---2026-10-27">[0.8.0a48] - 2026-10-27</h2>
 <p>A detection run could be configured with <code>ema</code> and take no average at all.</p>
@@ -1489,8 +1536,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Measured while asking whether classification needs a third trainer rather than by reading: <code>DetectionTrainer.fit</code> is <strong>77% identical</strong> to <code>Trainer.fit</code>, 34 of 44 code lines, and 16 of the 17 callbacks mention nothing task-specific.</p></li>
 </ul>
 </section>
-<section id="the-r-half" class="level3">
-<h3 class="anchored" data-anchor-id="the-r-half">The R half</h3>
+<section id="the-r-half-1" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half-1">The R half</h3>
 <ul>
 <li>None beyond the pin. <code>callback_ema()</code> forwards unchanged and an R user reaches the same defect through it, so the fix arrives by the pin moving and by nothing else.</li>
 </ul>
@@ -1511,8 +1558,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p><strong>The test file said the missing test existed.</strong> <code>tests/models/test_pretrained.py</code>’s own first paragraph claimed <code>pretrained=True</code> was exercised by a test skipped without a network; there was no such test, no skip marker and no network use in the file. The claim also split the question wrongly: whether the weights <em>arrive</em> needs a network, whether they <strong>survive</strong> needs nothing, and only the first is still untested. §4’s <em>an instruction addressed to a human is code nothing runs</em>, in a test file’s claim about itself.</p></li>
 </ul>
 </section>
-<section id="the-r-half-1" class="level3">
-<h3 class="anchored" data-anchor-id="the-r-half-1">The R half</h3>
+<section id="the-r-half-2" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half-2">The R half</h3>
 <ul>
 <li>None beyond the pin. <code>encoder</code> and <code>pretrained</code> are forwarded unchanged; the defect was entirely in how the engine builds the network, so an R user gets the fix by the pin moving and by nothing else.</li>
 </ul>
@@ -1521,8 +1568,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a46---2026-10-26" class="level2">
 <h2 class="anchored" data-anchor-id="a46---2026-10-26">[0.8.0a46] - 2026-10-26</h2>
 <p><code>0.8.0a39</code> fitted an ellipse to a whole mask. This measures every object in one.</p>
-<section id="added" class="level3">
-<h3 class="anchored" data-anchor-id="added">Added</h3>
+<section id="added-1" class="level3">
+<h3 class="anchored" data-anchor-id="added-1">Added</h3>
 <ul>
 <li><p><strong><code>instance_shapes(labels, spacing=None)</code>, one row per object beside <code>instance_sizes</code>’s.</strong> <code>maju116/pyplatypus#272</code>. The same second moments <code>ellipse_axes</code> takes for a whole mask, taken per object in <strong>one pass</strong>: the foreground coordinates are sorted by label once and each object is a contiguous block, against one full-array scan per object for the <code>ellipse_axes(labels == k)</code> loop a caller writes instead. Measured on 512 x 512 maps of synthetic ellipses:</p>
 <pre><code> objects    the loop     one pass
@@ -1582,8 +1629,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><p><strong>The <code>floors (lowest-direct)</code> job that found all of this is on a branch, not here.</strong> It is the instrument, it is correct, and it is red until the four above are settled - and a red job on every pull request becomes the step nobody reads, which this repository’s own workflow comments say about <code>continue-on-error</code>. It lands when it is believable.</p></li>
 </ul>
 </section>
-<section id="the-r-half-2" class="level3">
-<h3 class="anchored" data-anchor-id="the-r-half-2">The R half</h3>
+<section id="the-r-half-3" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half-3">The R half</h3>
 <p><strong>None, and the pin stays at <code>0.8.0a44</code> - measured rather than assumed, because the obvious reading says the opposite.</strong> R declares the engine through <code>py_require()</code> and uv resolves the dependency tree fresh on every environment it builds, with no lockfile anywhere in the route. That is exactly the shape this release is about, and a floor is exactly the thing a fresh resolution reads - so the first guess was that an R user pinned to a44 can be handed an <code>albumentations</code> without <code>seed=</code>, which is what <code>deterministic = TRUE</code> is built on.</p>
 <p>Resolved rather than reasoned about, <code>pyplatypus==&lt;pin&gt;</code> as the only requirement:</p>
 <pre><code>a44, default (highest)        albumentations 2.0.8
@@ -1663,8 +1710,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a41---2026-10-25" class="level2">
 <h2 class="anchored" data-anchor-id="a41---2026-10-25">[0.8.0a41] - 2026-10-25</h2>
 <p><code>hc18-unet</code>, the fifth published name and the first whose headline figure is not an overlap score. <code>maju116/rplatypus#205</code>.</p>
-<section id="added-1" class="level3">
-<h3 class="anchored" data-anchor-id="added-1">Added</h3>
+<section id="added-2" class="level3">
+<h3 class="anchored" data-anchor-id="added-2">Added</h3>
 <ul>
 <li><p><strong><code>hc18-unet</code> in the weights registry</strong>, pinned to Hub commit <code>9c6d8599</code>: a U-Net at 544x800 for the fetal skull in 2D ultrasound, trained on HC18 and published for measuring <strong>head circumference in millimetres</strong>. CC BY 4.0 rather than MIT, because HC18 is - the same bracket as <code>fives-unet</code> and not a new one, read from the dataset’s own Zenodo record (<code>10.5281/zenodo.1327317</code>).</p>
 <p>Median absolute error <strong>2.44 mm</strong> against the sonographer’s measurement over 199 held-out images, mean 3.84 mm, worst 48.07 mm; 3.41 mm against the circumference of the truth mask, which is the model’s own contribution rather than the dataset’s drawing convention. The median and the mean are both published because they disagree: half the cases are inside 2.44 mm and a tenth outside 7.23 mm, so the mean describes the tail.</p></li>
@@ -1713,8 +1760,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a39---2026-10-25" class="level2">
 <h2 class="anchored" data-anchor-id="a39---2026-10-25">[0.8.0a39] - 2026-10-25</h2>
 <p>Millilitres, square millimetres and millimetres, in the engine rather than in the R package. <code>maju116/pyplatypus#270</code>.</p>
-<section id="added-2" class="level3">
-<h3 class="anchored" data-anchor-id="added-2">Added</h3>
+<section id="added-3" class="level3">
+<h3 class="anchored" data-anchor-id="added-3">Added</h3>
 <ul>
 <li><p><strong><code>pyplatypus.measure</code></strong>, and five exported names: <code>mask_volume</code>, <code>instance_sizes</code>, <code>largest_filled_object</code>, <code>ellipse_axes</code> and <code>ellipse_circumference</code>. A voxel count is not a measurement - the same lesion is 4,000 voxels on one scanner and 12,000 on another - and until now this package had no way to turn one into the number a report is written in.</p>
 <p><strong>None of this arithmetic is new and none of it was reachable.</strong> <code>mask_volume</code> and <code>instance_sizes</code> were implemented in the R package, in R; <code>voxel_ml</code> was computed in <code>inst/python/platypus_shim.py</code>, which is Python shipped by the <em>R</em> package; and the head circumference was in <code>examples/</code>, which the wheel does not contain (<code>include = ["pyplatypus*"]</code>). So a <code>pip install pyplatypus</code> user asking how big a finding is got a voxel count. The third release in a row to move a mechanism off the wrong side of the bridge, after <code>0.8.0a29</code>’s volume writer and <code>0.8.0a38</code>’s <code>device_report()</code> - and the second to come out of that same file.</p>
@@ -1735,8 +1782,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a38---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a38---2026-10-24">[0.8.0a38] - 2026-10-24</h2>
 <p>What the work will run on, decided and reported in one place. <code>maju116/pyplatypus#265</code>, <code>#266</code>.</p>
-<section id="added-3" class="level3">
-<h3 class="anchored" data-anchor-id="added-3">Added</h3>
+<section id="added-4" class="level3">
+<h3 class="anchored" data-anchor-id="added-4">Added</h3>
 <ul>
 <li><p><strong><code>device_report()</code></strong>, exported: the torch version, the CUDA build, which accelerator will be used, what to call it, the architectures a CUDA build carries, and <code>gpu_present_but_unusable</code> - the one field worth acting on.</p>
 <p><strong>It is not new code.</strong> It has existed since the R package was written, in <code>inst/python/platypus_shim.py</code> - a file of Python shipped by the <em>R</em> package, where no user of this one could reach it. So a Python user whose card the build cannot use was told nothing, while an R user was told twice. The same move as <code>0.8.0a29</code>’s volume writer: a mechanism that had been living on the wrong side of the bridge.</p>
@@ -1767,8 +1814,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a37---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a37---2026-10-24">[0.8.0a37] - 2026-10-24</h2>
 <p>A fourth callback hook, and the averager that needed it. <code>maju116/rplatypus#203</code>.</p>
-<section id="added-4" class="level3">
-<h3 class="anchored" data-anchor-id="added-4">Added</h3>
+<section id="added-5" class="level3">
+<h3 class="anchored" data-anchor-id="added-5">Added</h3>
 <ul>
 <li><p><strong><code>Callback.on_batch_end</code></strong>, fired after every optimiser step on the training pass, with <code>state.step</code> counting steps since training began. The protocol had three moments and none of them was a step.</p>
 <p><strong>It cannot stop the run</strong>, and returns nothing to say so. A run that stopped mid epoch would leave a record with training numbers and no validation ones, and every reader of the history - <code>best()</code>, the callbacks that watch it, R’s <code>training_history()</code> - would have to learn that a row may be half a row. <code>stop_after</code>’s budget is therefore still the budget plus one epoch, which its own description says.</p></li>
@@ -1788,8 +1835,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a36---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a36---2026-10-24">[0.8.0a36] - 2026-10-24</h2>
 <p>The number this package tells everybody to read becomes one a callback can watch. <code>maju116/rplatypus#205</code>.</p>
-<section id="added-5" class="level3">
-<h3 class="anchored" data-anchor-id="added-5">Added</h3>
+<section id="added-6" class="level3">
+<h3 class="anchored" data-anchor-id="added-6">Added</h3>
 <ul>
 <li><p><strong><code>val_&lt;metric&gt;_worst</code> in every epoch</strong>, for the metrics whose counts pool into one score: the lowest any single case scored. <code>summarise_cases</code> has said since it was written that <em>“the minimum is the one nobody publishes and everybody should - a model averaging 0.86 that scores 0.11 on some patient has a failure mode, and the mean is where it hides”</em>, and then every callback in this package watched a mean. A declaration beside a mechanism that did not describe it.</p>
 <p><code>monitor: val_dice_worst</code> works now, and so does a <code>when</code> condition on it.</p>
@@ -1814,8 +1861,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a35---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a35---2026-10-24">[0.8.0a35] - 2026-10-24</h2>
 <p>The quiet failure of segmentation becomes a number, and then a refusal. <code>maju116/rplatypus#206</code>.</p>
-<section id="added-6" class="level3">
-<h3 class="anchored" data-anchor-id="added-6">Added</h3>
+<section id="added-7" class="level3">
+<h3 class="anchored" data-anchor-id="added-7">Added</h3>
 <ul>
 <li><p><strong>Every epoch reports <code>foreground</code></strong>, for both passes: the share of the prediction that is not background. Beside the loss rather than among the metrics, and the distinction is the point - nothing is compared against the truth, so this is not a measure of quality. It answers <em>is this still a segmentation</em> rather than <em>is it a good one</em>.</p>
 <p>Reported unconditionally rather than offered as a metric to opt into, because <strong>a collapse you have to opt into noticing is one you will not notice.</strong> A model predicting background everywhere is not visible in the numbers it already produced: with <code>include_background</code> the Dice is a mean over class channels and the background channel is nearly perfect, so a collapsed model reports around 0.5 while its loss falls.</p></li>
@@ -1839,8 +1886,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a34---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a34---2026-10-24">[0.8.0a34] - 2026-10-24</h2>
 <p>Three answers to one question - <em>when may this callback act, and on what evidence</em> - shipped together because they are one vocabulary rather than three features. <code>maju116/rplatypus#199</code>, <code>#201</code>, <code>#207</code>.</p>
-<section id="added-7" class="level3">
-<h3 class="anchored" data-anchor-id="added-7">Added</h3>
+<section id="added-8" class="level3">
+<h3 class="anchored" data-anchor-id="added-8">Added</h3>
 <ul>
 <li><p><strong><code>early_stopping</code> takes a warm-up</strong>: <code>start</code> as a fraction of the run or <code>start_epoch</code> as an epoch, exactly one of the two. <code>patience</code> alone could not express it, because it is in force for the whole run: a model that needs fifteen epochs before its validation curve means anything forced <code>patience &gt; 15</code> permanently, paying the same slack at the end where the point was to cut quickly.</p>
 <p><strong>It delays the stopping and nothing else.</strong> An epoch inside the warm-up can still be the best one and <code>restore_best</code> can still return to it - those are the best weights the run has if it ends for another reason, and discarding them to tidy the bookkeeping would lose a real answer.</p></li>
@@ -1861,8 +1908,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a33---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a33---2026-10-24">[0.8.0a33] - 2026-10-24</h2>
 <p>Two learning-rate schedules, and the discovery that the one we had could not be combined with the thing its own docstring said it combined with. <code>maju116/rplatypus#200</code>.</p>
-<section id="added-8" class="level3">
-<h3 class="anchored" data-anchor-id="added-8">Added</h3>
+<section id="added-9" class="level3">
+<h3 class="anchored" data-anchor-id="added-9">Added</h3>
 <ul>
 <li><strong><code>linear_annealing</code></strong> - the same shape as <code>cosine_annealing</code> with a straight line instead of a curve: <code>min_lr</code>, an optional <code>epochs</code>, each parameter group descending from its own initial rate.</li>
 <li><strong><code>step_decay</code></strong> - multiply by <code>factor</code> at fixed points, which is how published recipes are written: <em>divide by ten at epochs 30 and 60</em>. <code>every</code> for a period or <code>milestones</code> for the epochs a paper names, <strong>exactly one of the two</strong>, because <code>every: 30</code> and <code>milestones: [30]</code> are different schedules and one field holding either would be read as whichever the author happened to type. The rate is computed as <code>initial * factor ** drops</code> rather than by multiplying what is there, so replaying an epoch cannot double a drop.</li>
@@ -1894,8 +1941,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a32---2026-10-24" class="level2">
 <h2 class="anchored" data-anchor-id="a32---2026-10-24">[0.8.0a32] - 2026-10-24</h2>
 <p>The honest comparison becomes a thing to ask for rather than a thing to write yourself. <code>maju116/rplatypus#187</code>.</p>
-<section id="added-9" class="level3">
-<h3 class="anchored" data-anchor-id="added-9">Added</h3>
+<section id="added-10" class="level3">
+<h3 class="anchored" data-anchor-id="added-10">Added</h3>
 <ul>
 <li><p><strong><code>evaluate(at="source")</code> and <code>evaluate_cases(at="source")</code></strong>: every prediction goes back onto the grid of the file it came from and is scored against the truth <strong>as stored</strong>. <code>at="model"</code> is the default and is unchanged, because changing it would silently restate every number anybody has written down.</p>
 <p>What it is for: scored each through its own loader, a model at <code>input_shape: [512, 512]</code> is measured against a truth reduced to 512 while a model that tiles 2048 is measured against the truth as stored. Both are a real Dice of a real prediction against a real mask and they answer different questions. Measured on retinal vessels, that difference <strong>reported a resized model at +0.0187 where the honest figure was +0.0033</strong> - 5.7 times</p>
@@ -1952,8 +1999,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a30---2026-10-23" class="level2">
 <h2 class="anchored" data-anchor-id="a30---2026-10-23">[0.8.0a30] - 2026-10-23</h2>
 <p>Two things a table and a writer could not say, and the second one is <code>0.8.0a29</code>’s own half finished. <code>pyplatypus#251</code>, <code>maju116/rplatypus#187</code>.</p>
-<section id="added-10" class="level3">
-<h3 class="anchored" data-anchor-id="added-10">Added</h3>
+<section id="added-11" class="level3">
+<h3 class="anchored" data-anchor-id="added-11">Added</h3>
 <ul>
 <li><p><strong><code>evaluate()</code> says which grid each row was scored on, and warns when the rows do not share one.</strong> Each model is scored through its own loader, so a model at <code>input_shape: [512, 512]</code> is measured against a truth reduced to 512 while a model that tiles 2048 is measured against the truth as stored. Both numbers are a real Dice of a real prediction against a real mask, and they are not answers to the same question.</p>
 <p>Measured on retinal vessels: that difference reported a resized model at <strong>+0.0187 where the honest figure was +0.0033</strong> - the reported figure 5.7 times the real one - and the bias has the <em>opposite sign</em> on clDice, because upsampling a prediction smooths it and a smoothed vessel agrees better with a skeleton and worse with a boundary. So a comparison reporting one of the two metrics is wrong in a direction set by which one it picked.</p>
@@ -1968,8 +2015,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a29---2026-10-23" class="level2">
 <h2 class="anchored" data-anchor-id="a29---2026-10-23">[0.8.0a29] - 2026-10-23</h2>
 <p>One writer, and it is the one this package’s own refusal has been telling people to use since <code>0.8.0a23</code>. <code>pyplatypus#249</code>.</p>
-<section id="added-11" class="level3">
-<h3 class="anchored" data-anchor-id="added-11">Added</h3>
+<section id="added-12" class="level3">
+<h3 class="anchored" data-anchor-id="added-12">Added</h3>
 <ul>
 <li><p><strong><code>save_volumes</code> and <code>save_class_volumes</code></strong>: a predicted volume written as NIfTI onto the geometry of the scan it came from. Integer labels, <code>int16</code>, with <code>reference</code> required rather than optional because there is no sensible affine to invent.</p>
 <p><strong>The affine is the point.</strong> A mask array on its own cannot be laid over its scan: every viewer, every registration tool and every volume in millilitres reads position and spacing out of it, and a file carrying the wrong one is either silently misplaced or rejected. The reference is read through <code>_load_canonical</code>, the same function <code>read_volume</code> uses, because the reader reorients every volume to the closest canonical axes - so a prediction is in canonical space, and writing it with the file’s <strong>stored</strong> affine would produce a mask reflected or transposed with respect to its scan, opening in any viewer without complaint. The test that earns its keep writes a scan stored the other way round and demands the mask read back equal; mutated to use the stored affine, it fails along with the affine test beside it.</p>
@@ -1992,8 +2039,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <h2 class="anchored" data-anchor-id="a28---2026-10-16">[0.8.0a28] - 2026-10-16</h2>
 <p>Two features and one lesson they share: a mechanism that existed twice, and a mechanism that existed once and was reached through a list somebody had to remember.</p>
 <p><code>pyplatypus#236</code> - what a published file of instance weights may fill in for a reader, and the sentence that explained why it could not. <code>pyplatypus#91</code> - one binary mask file per class, which is the half of multilabel segmentation that 2026-10-12’s decision deferred.</p>
-<section id="added-12" class="level3">
-<h3 class="anchored" data-anchor-id="added-12">Added</h3>
+<section id="added-13" class="level3">
+<h3 class="anchored" data-anchor-id="added-13">Added</h3>
 <ul>
 <li><p><strong>An instance model adopts <code>architecture</code>, <code>blocks</code>, <code>filters</code> and <code>separation</code> from the weights it names</strong>, where the specification stayed silent - the mechanism the semantic engine has had since <code>0.8.0a13</code> and the detection engine since <code>0.3.0a12</code>, now with the one entry this task cannot be read without.</p>
 <p><code>separation</code> is that entry and it is the first adopted value that is not a shape: <code>dsbowl-instances</code> is a rim at <strong>width 2</strong>, which is a training decision rather than a geometry, and no reader can guess it. It is adopted as a block built from the sidecar’s <code>separation_settings</code> and then re-validated with the rest of the model, so an adopted value faces every check a written one does. The engine <strong>prints what it took</strong> - the argument for adopting a training decision at all is that the reader still sees it, and the run record carries it as if written.</p>
@@ -2052,8 +2099,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a26---2026-10-15" class="level2">
 <h2 class="anchored" data-anchor-id="a26---2026-10-15">[0.8.0a26] - 2026-10-15</h2>
 <p>Two of the four issues in the “Losses and metrics” milestone, and <strong>the other two are answered rather than built</strong> - both of them were filed with the measurement that says not to. <code>maju116/rplatypus#113</code> and <code>#114</code>.</p>
-<section id="added-13" class="level3">
-<h3 class="anchored" data-anchor-id="added-13">Added</h3>
+<section id="added-14" class="level3">
+<h3 class="anchored" data-anchor-id="added-14">Added</h3>
 <ul>
 <li><p><strong><code>surface_dice</code>, a metric: how much of each boundary lies within a tolerance of the other.</strong> <code>rplatypus#113</code>. The third question this package can ask of a mask, after volume (<code>dice</code>) and connectedness (<code>cldice</code>): <strong>how far wrong</strong> is the edge. The volume vignette ended on a model at Dice 0.88 whose volumes were 12% to 23% too large, and this is the number that says so directly rather than being inferred from two columns that disagree - and it is what <code>boundary</code> optimises while nothing here reported it, so that loss was being judged by the metric it exists to improve on.</p>
 <p>Normalised surface Dice as published (Nikolov et al., 2018), symmetric: the truth’s surface near the prediction is the boundary’s recall, the prediction’s near the truth is its precision, and one ratio weights them by surface size.</p>
@@ -2092,8 +2139,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a25---2026-10-15" class="level2">
 <h2 class="anchored" data-anchor-id="a25---2026-10-15">[0.8.0a25] - 2026-10-15</h2>
-<section id="added-14" class="level3">
-<h3 class="anchored" data-anchor-id="added-14">Added</h3>
+<section id="added-15" class="level3">
+<h3 class="anchored" data-anchor-id="added-15">Added</h3>
 <ul>
 <li><p><strong><code>dsbowl-instances</code>, the fourth published weights, and the first whose score is not one number.</strong> A U-Net trained to tell touching nuclei apart on BBBC038v1 - interior, rim and background, <code>separation: rim</code> at width 2 - pinned in the registry at <code>fd7bdc86</code>. <code>weights: dsbowl-instances</code> fetches it, the sidecar refuses a model it does not belong to, and nothing about the numbers can change under the name.</p>
 <p>Measured on the same 134 held-out images <code>dsbowl-unet</code> reports, seed 0, 120 epochs, 102 minutes on one GTX 1070. Instance average precision, one score per image, and the mask all three rows share:</p>
@@ -2148,8 +2195,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a23---2026-10-14" class="level2">
 <h2 class="anchored" data-anchor-id="a23---2026-10-14">[0.8.0a23] - 2026-10-14</h2>
 <p>A writer the package had promised twice and never had, and the test that finds the next promise of that kind. <code>onehot_to_colours</code> has refused an overlapping prediction since <code>regions</code> shipped in <code>0.8.0a14</code>, and its refusal ends <em>“overlapping classes are written one file per class, not as a colour map”</em> - nine releases in which nothing wrote that file.</p>
-<section id="added-15" class="level3">
-<h3 class="anchored" data-anchor-id="added-15">Added</h3>
+<section id="added-16" class="level3">
+<h3 class="anchored" data-anchor-id="added-16">Added</h3>
 <ul>
 <li><p><strong><code>save_class_masks()</code> writes one binary picture per class</strong>, which is what that refusal points at and what <code>Region.name</code>’s own <code>description=</code> has been naming since <code>0.8.0a14</code>. <code>&lt;case&gt;&lt;suffix&gt;_&lt;region&gt;.png</code>, mode <code>L</code>, 0 or 255, in channel order - which is the order the regions were written in and the order every per-class score is reported in.</p>
 <p>Four decisions in it, each one a failure this project has already made once in another shape:</p>
@@ -2232,8 +2279,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a22---2026-10-14" class="level2">
 <h2 class="anchored" data-anchor-id="a22---2026-10-14">[0.8.0a22] - 2026-10-14</h2>
 <p>One column, and it is the one an instance table is read across. <code>#222</code> came out of <code>#215</code> and was deliberately left out of the instance milestone: the methods were delivered and the measurement taken, and this is a defect in how a result is <strong>reported</strong>.</p>
-<section id="added-16" class="level3">
-<h3 class="anchored" data-anchor-id="added-16">Added</h3>
+<section id="added-17" class="level3">
+<h3 class="anchored" data-anchor-id="added-17">Added</h3>
 <ul>
 <li><p><strong><code>evaluate()</code> carries <code>foreground_dice</code> on every instance row</strong> - the binary overlap of anything the model called an object against anything that is one, computed identically whatever the separation signal is. The table already had a mask column and it was not one quantity: <code>dice</code> reduces over the class channels a head has, three for <code>rim</code> (background, interior, rim band) against two for <code>flows</code>, so on the Data Science Bowl’s 134 validation cases it showed the two masks <strong>0.09 apart where they are 0.0062 apart, and with the sign reversed</strong>. <code>class dice</code> is the honest name for that one and it stays, beside the new column rather than instead of it, because a rim model’s three class numbers are where a thin band that never learned shows up at all.</p>
 <p>Three decisions, each written into the function’s docstring because each is worth more than some of the effects this table is read for:</p>
@@ -2258,8 +2305,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><strong>The guide says which mask column to read across models</strong>, in the section the third task got in <code>0.8.0a21</code>’s cycle. The engine’s copy ships here because it describes what this release returns; R’s copy is written at the same time and ships with the pin move, because a vignette cannot describe a column its pinned engine does not return.</li>
 </ul>
 </section>
-<section id="the-r-half-3" class="level3">
-<h3 class="anchored" data-anchor-id="the-r-half-3">The R half</h3>
+<section id="the-r-half-4" class="level3">
+<h3 class="anchored" data-anchor-id="the-r-half-4">The R half</h3>
 <p>Almost nothing, and structurally rather than by decision: R’s score table <em>is</em> the engine’s rows, so the column appears on the R side the moment the pin moves - §3E’s shape, the same one <code>0.8.0a12</code> had, where a release R needs nothing from is still a release whose whole value to an R user arrives through the pin. What R owes beyond the pin is one assertion, because a column that arrives untested is the next thing to drift: <code>test-instances.R</code> now names <code>foreground_dice</code> and holds it to one value per model.</p>
 </section>
 </section>
@@ -2294,8 +2341,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <h2 class="anchored" data-anchor-id="a20---2026-10-13">[0.8.0a20] - 2026-10-13</h2>
 <p><code>task: instance_segmentation</code>: the third task, and the last engine piece of the instance work (#160). Two axes on a model - <code>separation</code>, one per model, and <code>decode</code>, a list - a head whose width is derived rather than stated, and a score computed after a post-process rather than from <code>(logits, target)</code>.</p>
 <p><strong>What the tag is honestly worth is in its own documentation and it is not flattering.</strong> On the Data Science Bowl the separation signal is worth +0.068 of instance average precision at best while a perfect mask is worth +0.2398, so the mask is the limit by a factor of 3.6. <code>connected_components</code> - which ignores the signal entirely - is in the pair <code>decode</code> derives to when a model stayed silent, because it is the row the signal’s row has to be read against, and a <em>perfect</em> semantic mask scores 0.7655 through it. (This sentence read “in every model’s decodings whether it was asked for or not” until the Unreleased entry above corrected it: that was never true of a model which wrote its own <code>decode</code> list.) The capability is real, the ceiling is measured, and both are in the configuration reference rather than in a footnote.</p>
-<section id="added-17" class="level3">
-<h3 class="anchored" data-anchor-id="added-17">Added</h3>
+<section id="added-18" class="level3">
+<h3 class="anchored" data-anchor-id="added-18">Added</h3>
 <ul>
 <li><code>task: instance_segmentation</code>, with <code>InstanceData</code>, <code>InstanceModel</code> and <code>InstanceSpec</code>. Two new fields and everything else inherited: <code>input_shape</code>, <code>channels</code>, <code>blocks</code>, <code>filters</code>, <code>batch_size</code>, <code>epochs</code>, <code>splits</code>, the pretrained encoders, the callbacks and the augmentation all mean what they mean for a semantic model.</li>
 <li><code>separation:</code>, <strong>a block named <code>rim</code> or <code>flows</code></strong> carrying that mechanism’s own settings, which sets the head’s width and which losses are admissible. <strong><code>hv</code> is deliberately not a name</strong>: its markers lose to a one-pixel erosion on perfect inputs (0.9382 against 0.9807), so naming it would promise a mechanism #213 measured as absent.</li>
@@ -2329,8 +2376,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a19---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a19---2026-10-12">[0.8.0a19] - 2026-10-12</h2>
 <p>Looking at instance results instead of reading their arrays (#214), the trained half of <code>flows</code> (#212), and <code>#213</code>’s cheap test answered before anything was trained for it. All three end in the same place, which is the entry’s finding rather than three coincidences: the separation signal is not what limits instance segmentation on this data. The mask is.</p>
-<section id="added-18" class="level3">
-<h3 class="anchored" data-anchor-id="added-18">Added</h3>
+<section id="added-19" class="level3">
+<h3 class="anchored" data-anchor-id="added-19">Added</h3>
 <ul>
 <li><p><strong><code>overlay_instances()</code>, <code>overlay_instance_agreement()</code> and <code>flow_to_colours()</code></strong> in <code>pyplatypus.plots</code>. An instance result has no figure today - <code>overlay_mask</code> paints every object one colour, which is the one thing an instance map must not do - and <code>#159</code>’s four training runs were read entirely off tables.</p>
 <p><strong><code>overlay_instances</code> colours an exact graph colouring and that was an open question on <code>#214</code>, settled by measurement rather than by preference.</strong> What a reader needs from an instance map is <em>where one object ends and the next begins</em>, which is <strong>adjacency, not identity</strong>, so a colour may repeat as long as it never repeats between neighbours. Measured over all 670 Data Science Bowl cases, 524 of which hold touching objects and <strong>5436 adjacent pairs</strong> between them: an exact colouring (Welsh-Powell) needs <strong>at most 3 of the 8 colours <code>CLASS_COLOURS</code> already has</strong> - 146 cases need one, 412 two, 112 three - against at most 6 neighbours for any one object. The cheap alternative the issue offered, cycling the palette by object value, <strong>paints 550 of those 5436 pairs in one colour: 10.12%</strong>. One touching pair in ten drawn as one object, in a figure whose whole subject is whether two objects are two.</p>
@@ -2374,8 +2421,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a18---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a18---2026-10-12">[0.8.0a18] - 2026-10-12</h2>
 <p>The first half of <code>flows</code> (#212): the target, its decoding, and their ceiling measured on the ground truth <strong>before anything is trained</strong> - the order <code>#159</code> was done in, now the pattern rather than a one-off. <code>#212</code> stays open; what is here is everything that can be settled without a training run, and it settled more than expected.</p>
-<section id="added-19" class="level3">
-<h3 class="anchored" data-anchor-id="added-19">Added</h3>
+<section id="added-20" class="level3">
+<h3 class="anchored" data-anchor-id="added-20">Added</h3>
 <ul>
 <li><p><strong><code>flows_from_instances()</code> and <code>instances_by_flows()</code>, with <code>FLOW_MODES</code> as the question they exist to answer.</strong> A unit vector per foreground pixel pointing at its own object’s sink, decoded by following the field until the pixels that arrive together are one object. No interior, no rim, nothing eroded - which is the premise of <code>#212</code>, because <code>#159</code> closed measured-and-no for a structural reason: an interior and a rim are two classes competing for the same pixels, so a rim wide enough to learn hollows the object out. A flow field spends no pixel on being a boundary, and an object one pixel wide is an ordinary object with a sink in it rather than a case for <code>parts_from_instances</code>’s fallback.</p>
 <p><strong>The ceilings, one run over 134 held-out Data Science Bowl cases and 6000 objects:</strong></p>
@@ -2413,8 +2460,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a17---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a17---2026-10-12">[0.8.0a17] - 2026-10-12</h2>
 <p>The two gates in front of <code>flows</code> and <code>hv</code> (#212, #213), and neither is about either of them: a continuous target has nothing in the ten overlap-and-cross-entropy losses to be trained against (#209), and augmented as a mask it comes back geometrically consistent and physically wrong (#210). Both were to be settled before any number produced with them could be believed.</p>
-<section id="added-20" class="level3">
-<h3 class="anchored" data-anchor-id="added-20">Added</h3>
+<section id="added-21" class="level3">
+<h3 class="anchored" data-anchor-id="added-21">Added</h3>
 <ul>
 <li><p><strong><code>mse</code>, <code>l1</code> and <code>smooth_l1</code>, and the question they exist to force: where is the target defined?</strong> (#209) A continuous instance target - a flow field, or horizontal and vertical distances - is defined on the objects and undefined off them, so a builder writes zero on the background. Measured on the 536 Data Science Bowl cases: the foreground is <strong>13.97% of the pixels at 256x256</strong> (13.48% at native size, 0.03% to 59.2% per case, 167 cases under 5%), so an unmasked mean spends 86% of the objective on a value a single output bias satisfies exactly.</p>
 <p>So <code>where:</code> is a field rather than a convention. <code>foreground</code> divides by the mask’s own total, which makes the number mean <em>average error per object voxel</em>; <code>everywhere</code> is the other defensible answer and is what CellPose and HoVer-Net’s plain regression terms do - their background zero is a real value rather than a missing one. <code>foreground</code> is the default because it is the reading whose number means something, and because the trap is otherwise on by default.</p>
@@ -2439,8 +2486,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a16---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a16---2026-10-12">[0.8.0a16] - 2026-10-12</h2>
-<section id="added-21" class="level3">
-<h3 class="anchored" data-anchor-id="added-21">Added</h3>
+<section id="added-22" class="level3">
+<h3 class="anchored" data-anchor-id="added-22">Added</h3>
 <ul>
 <li><p><strong><code>instances_by_watershed()</code>: a second decoding of the <code>rim</code> target, and <code>scikit-image</code> as a hard dependency.</strong> One trained model serves both decodings, because they share a target and differ only in how its channels become objects - which is why <code>decode</code> will be a <em>list</em> on an instance model and <code>separation</code> will not (#160). A decoding costs <strong>11 ms per image</strong> against 15.5 s per training epoch, so it is a row in a table rather than a run.</p>
 <p><code>scipy.ndimage.watershed_ift</code> is not a substitute: it wants integer markers and implements the image-foresting-transform watershed, a different algorithm from the one this literature means. <code>scikit-image</code> is hard rather than an extra for the reason <code>scipy</code> is, plus one more: every published comparison on this problem uses <code>skimage.segmentation.watershed</code>, so writing our own would make a difference from the literature indistinguishable from a defect in ours.</p>
@@ -2481,8 +2528,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p><strong>This entry is here because the <code>0.8.0a15</code> notes below would otherwise read as an open recommendation.</strong> They end with the bar and the ceiling and no outcome, and a changelog entry about work in flight goes stale the moment the flight lands.</p></li>
 </ul>
 </section>
-<section id="added-22" class="level3">
-<h3 class="anchored" data-anchor-id="added-22">Added</h3>
+<section id="added-23" class="level3">
+<h3 class="anchored" data-anchor-id="added-23">Added</h3>
 <ul>
 <li><code>examples/train_instance_separation.py</code> - the script every row above came from, kept because a negative result nobody can reproduce is an opinion. Not packaged in the wheel, like the rest of <code>examples/</code>, which is why this is not a release.</li>
 </ul>
@@ -2490,8 +2537,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a15---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a15---2026-10-12">[0.8.0a15] - 2026-10-12</h2>
-<section id="added-23" class="level3">
-<h3 class="anchored" data-anchor-id="added-23">Added</h3>
+<section id="added-24" class="level3">
+<h3 class="anchored" data-anchor-id="added-24">Added</h3>
 <ul>
 <li><p><strong>Instance separation, and the measurement that says it is worth training</strong> (#159). The proposal was a semantic mask plus a separation signal; of the two signals on the table this takes the boundary, because it turns the problem into <strong>three mutually exclusive classes</strong> - background, object interior, object rim - which is ordinary semantic segmentation on the softmax path this package already has. Nothing new in the model, the loss or the metrics.</p>
 <p><code>parts_from_instances()</code> decomposes an instance label map into those parts and <code>instances_from_parts()</code> grows them back: the interiors become seeds and every other foreground pixel joins <strong>the nearest seed</strong>, which <code>distance_transform_edt(return_indices= True)</code> answers in one call. No new dependency - <code>scikit-image</code> is not here and is not worth adding for one function.</p>
@@ -2525,8 +2572,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a14---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a14---2026-10-12">[0.8.0a14] - 2026-10-12</h2>
-<section id="added-24" class="level3">
-<h3 class="anchored" data-anchor-id="added-24">Added</h3>
+<section id="added-25" class="level3">
+<h3 class="anchored" data-anchor-id="added-25">Added</h3>
 <ul>
 <li><p><strong><code>regions</code>: overlapping classes, named as unions of a label map’s values.</strong> The first half of multilabel segmentation (#91), and the decision in front of it was the author’s: nested regions first, one binary file per class deferred.</p>
 <p>The case is BraTS and the lesion-inside-an-organ family - liver and tumour, kidney and cyst, lung and nodule. The ground truth gives every voxel one of <code>{0, 1, 2, 4}</code> and the three scored classes are unions of those values:</p>
@@ -2582,8 +2629,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a13---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a13---2026-10-12">[0.8.0a13] - 2026-10-12</h2>
-<section id="added-25" class="level3">
-<h3 class="anchored" data-anchor-id="added-25">Added</h3>
+<section id="added-26" class="level3">
+<h3 class="anchored" data-anchor-id="added-26">Added</h3>
 <ul>
 <li><p><strong><code>pyplatypus.instances</code>: the Data Science Bowl’s own metric, and the number the published weights score under it.</strong> First piece of instance segmentation, and it deliberately builds no model. Detection worked here because it was built metrics-first - every piece checked against something outside itself - and a model chosen before there is a way to score it is a model chosen on nothing.</p>
 <p><strong>The baseline, measured on the exact 134 cases <code>dsbowl-unet</code>’s card reports:</strong></p>
@@ -2611,8 +2658,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a12---2026-10-12" class="level2">
 <h2 class="anchored" data-anchor-id="a12---2026-10-12">[0.8.0a12] - 2026-10-12</h2>
-<section id="added-26" class="level3">
-<h3 class="anchored" data-anchor-id="added-26">Added</h3>
+<section id="added-27" class="level3">
+<h3 class="anchored" data-anchor-id="added-27">Added</h3>
 <ul>
 <li><p><strong><code>fives-unet</code>, the third published weights, and the first that are not MIT.</strong> A U-Net on 512x512 tiles over FIVES’ 2048x2048 fundus photographs, trained on the dataset’s own split and pinned in the registry at <code>c4492f7a</code>. <code>weights: fives-unet</code> fetches it, the sidecar refuses a model it does not belong to, and nothing about the numbers can change under the name.</p>
 <p>Measured on the 200 held-out images, seed 1, one score per image on masks reassembled from the tiles:</p>
@@ -2643,8 +2690,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </section>
 <section id="a11---2026-10-11" class="level2">
 <h2 class="anchored" data-anchor-id="a11---2026-10-11">[0.8.0a11] - 2026-10-11</h2>
-<section id="added-27" class="level3">
-<h3 class="anchored" data-anchor-id="added-27">Added</h3>
+<section id="added-28" class="level3">
+<h3 class="anchored" data-anchor-id="added-28">Added</h3>
 <ul>
 <li><p><strong><code>deterministic</code>, the opt-in that makes a seed mean something on a card.</strong> <code>seed</code> has said where it stops since <code>0.8.0a8</code>: measured on a GTX 1070, two runs of one configuration at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on CUDA, because cuDNN picks algorithms nothing constrained. This constrains them - <code>torch.use_deterministic_algorithms(True)</code>, <code>cudnn.deterministic</code>, and <code>cudnn.benchmark</code> off, which is the one that was choosing per shape.</p>
 <p><strong>An opt-in rather than the default, because the cost arrives at a time nothing else here does.</strong> Some convolutions become much slower, and an operation with no deterministic implementation raises <em>when it is reached</em>, so a run can stop ten minutes in. Every other refusal in this package happens before anything is read, and this one cannot: whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration. The field says so.</p>
@@ -2721,8 +2768,8 @@ eight listings, now     91, eight times</code></pre>
 </section>
 <section id="a9---2026-10-10" class="level2">
 <h2 class="anchored" data-anchor-id="a9---2026-10-10">[0.8.0a9] - 2026-10-10</h2>
-<section id="added-28" class="level3">
-<h3 class="anchored" data-anchor-id="added-28">Added</h3>
+<section id="added-29" class="level3">
+<h3 class="anchored" data-anchor-id="added-29">Added</h3>
 <ul>
 <li><p><strong>An “About the author” section in the README</strong>, which is also this package’s page on PyPI. It carries a photograph, the fact that both halves of the project are by one person, and links out. The same section, in the same place, went into <code>platypus</code>’s README - the paired tests on both sides hold the section order, so adding it to one would have failed the other.</p>
 <p>It reaches different numbers of readers on the two sides, which was not noticed until the release was confirmed. <code>platypus</code>’s site renders its README as the home page, so the section is there; this site’s home page is a hand-written <code>index.qmd</code>, so it is not. The asymmetry is left standing rather than papered over, and nothing tests it: §3F’s About pair holds the navbar’s order, not what the home page is built from.</p>
@@ -2798,8 +2845,8 @@ scoring          1.8 min      200 reassembled images, inside the same walk that
 <li><p><strong>A measured number in the configuration reference was the wrong one.</strong> <code>iterations</code> said five peels is “well past a retinal vessel at one to five”. A FIVES vessel is about <strong>nine</strong> pixels wide, measured as mask area over skeleton length; one to five is what a naive resize leaves behind. Five is therefore enough for vessels and not much more than enough, which is a different thing to tell a reader. The field also now says where <code>cldice</code> is reported on a tiled run and where it is not - on both sites, since the page is generated from the schema.</p></li>
 </ul>
 </section>
-<section id="added-29" class="level3">
-<h3 class="anchored" data-anchor-id="added-29">Added</h3>
+<section id="added-30" class="level3">
+<h3 class="anchored" data-anchor-id="added-30">Added</h3>
 <ul>
 <li><strong><code>Trainer._stitch_channels_first</code></strong>, the device-side counterpart of <code>data.images.stitch</code>, with a test holding the two to each other over a non-square grid and non-square tiles. Scoring would otherwise copy a four-megapixel mask to the host and back twice an image.</li>
 </ul>
@@ -2813,8 +2860,8 @@ scoring          1.8 min      200 reassembled images, inside the same walk that
 </section>
 <section id="a5---2026-10-09" class="level2">
 <h2 class="anchored" data-anchor-id="a5---2026-10-09">[0.8.0a5] - 2026-10-09</h2>
-<section id="added-30" class="level3">
-<h3 class="anchored" data-anchor-id="added-30">Added</h3>
+<section id="added-31" class="level3">
+<h3 class="anchored" data-anchor-id="added-31">Added</h3>
 <ul>
 <li><p><strong><code>Engine.predict_stream</code>, because <code>predict</code> cannot do a large tiled split at all.</strong> <code>predict</code> returns one stacked array, so the whole split has to be resident: 200 FIVES retinas at 2048 is 6.7 GB for the result alone, and the old implementation held <strong>three</strong> copies on the way - every tile’s probabilities, their concatenation, and the stack of stitched images. That killed a run which had finished training (#178).</p>
 <p>The shape of the problem is worth stating, because it is the opposite of what tiling is for: <code>splits</code> exists for images too large to resize, and the stacked form is least usable exactly where <code>splits</code> is most needed.</p>
@@ -2845,8 +2892,8 @@ scoring          1.8 min      200 reassembled images, inside the same walk that
 </section>
 <section id="a4---2026-10-09" class="level2">
 <h2 class="anchored" data-anchor-id="a4---2026-10-09">[0.8.0a4] - 2026-10-09</h2>
-<section id="added-31" class="level3">
-<h3 class="anchored" data-anchor-id="added-31">Added</h3>
+<section id="added-32" class="level3">
+<h3 class="anchored" data-anchor-id="added-32">Added</h3>
 <ul>
 <li><p><strong><code>examples/segment_retinal_vessels.py</code></strong> - FIVES retinal vessels, and the first example that sets <code>splits</code>. It exists because three things had no worked demonstration: tiling, a whole-mask metric, and scores reported per group rather than as one mean.</p>
 <p>A FIVES fundus is 2048 x 2048 and its vessels are about <strong>nine pixels</strong> wide, measured as mask area over skeleton length. Resized to 256 they are 1.2, and clDice reads 0 for a one-pixel structure displaced by one pixel - so the usual resize lands the data where no overlap metric can tell a near miss from a total one. That is the argument for <code>splits</code>, end to end.</p>
@@ -2887,8 +2934,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 </section>
 <section id="a2---2026-10-08" class="level2">
 <h2 class="anchored" data-anchor-id="a2---2026-10-08">[0.8.0a2] - 2026-10-08</h2>
-<section id="added-32" class="level3">
-<h3 class="anchored" data-anchor-id="added-32">Added</h3>
+<section id="added-33" class="level3">
+<h3 class="anchored" data-anchor-id="added-33">Added</h3>
 <ul>
 <li><p><strong><code>cldice</code>, a metric for structures where Dice asks the wrong question.</strong> Centerline Dice (Shit et al., CVPR 2021): each mask is scored against the other’s skeleton, so it measures whether a structure is <em>connected</em> rather than whether its pixels coincide. Vessels, airways, neurons, cracks, roads, catheters.</p>
 <p>The argument, measured here rather than quoted: a nine-pixel vessel drawn two pixels thin scores Dice <strong>0.875</strong>, and the same vessel severed in the middle scores Dice <strong>0.947</strong> - Dice prefers the severed one. clDice gives them 1.000 and 0.943, which is the other way round. Its limit is measured too: at one pixel wide, a one-pixel displacement leaves no overlap at all and every overlap-based metric reads 0, this one included.</p>
@@ -2909,8 +2956,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 </section>
 <section id="a1---2026-10-08" class="level2">
 <h2 class="anchored" data-anchor-id="a1---2026-10-08">[0.8.0a1] - 2026-10-08</h2>
-<section id="added-33" class="level3">
-<h3 class="anchored" data-anchor-id="added-33">Added</h3>
+<section id="added-34" class="level3">
+<h3 class="anchored" data-anchor-id="added-34">Added</h3>
 <ul>
 <li><p><strong>The engine draws.</strong> <code>plot_masks</code>, <code>plot_boxes</code>, <code>plot_anchors</code>, <code>overlay_mask</code> and <code>overlay_agreement</code>, under the names the R package gave them, returning a matplotlib <code>Figure</code> or an RGB array and never showing or saving anything - the caller decides. matplotlib is a <strong>hard dependency</strong>: a plotting function behind an extra is a documented feature that fails for whoever did not know to ask for it, which has happened here before.</p>
 <p>The decisions a drawing makes - which colours mean found, missed and invented, how much of the image an overlay lets through, how a box is labelled, which boxes are worth drawing - live in <code>pyplatypus.style</code> and are reachable in one call as <code>drawing_style()</code>. Two packages that each chose their own would come to disagree about what red means.</p></li>
@@ -2938,8 +2985,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 </section>
 <section id="a3---2026-10-07" class="level2">
 <h2 class="anchored" data-anchor-id="a3---2026-10-07">[0.7.0a3] - 2026-10-07</h2>
-<section id="added-34" class="level3">
-<h3 class="anchored" data-anchor-id="added-34">Added</h3>
+<section id="added-35" class="level3">
+<h3 class="anchored" data-anchor-id="added-35">Added</h3>
 <ul>
 <li><p><strong>A guide to writing a configuration</strong>, by hand, from one model to several - and a <strong>page that explains every field</strong>, generated from <code>spec_schema()</code> at docs-build time: every block, every field, its type, its default and the description the pydantic model carries. 206 descriptions were written for 0.7.0a1 and <strong>until now the only way to read one was to call <code>spec_schema()</code> in Python</strong> - the site’s own “see every field a configuration accepts” pointed at that function, which is documentation that requires an interpreter. An R user could reach them not at all.</p>
 <p>It is the engine’s page and there will not be a second one. The configuration is the one thing that is <em>identical</em> between the two packages - the same YAML, read by the same models</p>
@@ -3000,8 +3047,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 <li><strong><code>known_weights()</code> is now <code>available_weights()</code>.</strong> The R package already called it that, <code>available_transforms()</code> is the same verb, and “known” said nothing the other two did not say better. A breaking rename rather than an alias: two names for one thing is the thing this release removes.</li>
 </ul>
 </section>
-<section id="added-35" class="level3">
-<h3 class="anchored" data-anchor-id="added-35">Added</h3>
+<section id="added-36" class="level3">
+<h3 class="anchored" data-anchor-id="added-36">Added</h3>
 <ul>
 <li><p><strong><code>available_transforms()</code> is exported from the package root.</strong> It was reachable only as <code>pyplatypus.spec.components.available_transforms</code>, while the refusal a user meets when a 3D augmentation is unsupported tells them to “see <code>available_transforms(rank=3)</code>” and does not say where it lives. <code>from pyplatypus import available_transforms</code> raised <code>ImportError</code>.</p></li>
 <li><p><strong><code>tests/test_public_api.py</code>.</strong> Four checks on the front door, none of which existed: every name in <code>__all__</code> resolves, <code>__all__</code> is sorted, both listings are reachable, and</p>
@@ -3020,14 +3067,14 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 </section>
 <section id="a4---2026-10-07" class="level2">
 <h2 class="anchored" data-anchor-id="a4---2026-10-07">[0.6.0a4] - 2026-10-07</h2>
-<section id="added-36" class="level3">
-<h3 class="anchored" data-anchor-id="added-36">Added</h3>
+<section id="added-37" class="level3">
+<h3 class="anchored" data-anchor-id="added-37">Added</h3>
 <ul>
 <li><p><strong><code>swa</code>: average the weights over the last part of the run.</strong> Closes maju116/pyplatypus#25.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">callbacks</span><span class="kw">:</span></span>
-<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> swa</span></span>
-<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">start</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.75</span><span class="co">          # the fraction of the run after which averaging begins</span></span>
-<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1e-3</span><span class="co">  # held while it averages</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">callbacks</span><span class="kw">:</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> swa</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">start</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.75</span><span class="co">          # the fraction of the run after which averaging begins</span></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1e-3</span><span class="co">  # held while it averages</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>What it is worth, and it is not what a table of scores shows.</strong> Three seeds, 60 epochs, lesions with ambiguous edges:</p>
 <pre><code>             Dice             volume bias        |volume error|
 plain        0.9639 ±0.0100   +1.71% ±12.18%     12.60% ±4.19%
@@ -3056,13 +3103,13 @@ DetectionEngine   28 -&gt; 27 methods      the discovery block: ~25 lines -&gt; 
 </section>
 <section id="a2---2026-10-07-1" class="level2">
 <h2 class="anchored" data-anchor-id="a2---2026-10-07-1">[0.6.0a2] - 2026-10-07</h2>
-<section id="added-37" class="level3">
-<h3 class="anchored" data-anchor-id="added-37">Added</h3>
+<section id="added-38" class="level3">
+<h3 class="anchored" data-anchor-id="added-38">Added</h3>
 <ul>
 <li><p><strong><code>validation: false</code>: train on everything and measure nothing, said out loud.</strong> The third and last way of answering the question <code>validation_path</code> and <code>split</code> answer.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb40"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. Closes maju116/pyplatypus#44, whose third case was exactly this.</p>
 <p><strong>Silence is still an error.</strong> A specification with neither a path nor a split is refused as before, and the message now names this option: “I have no validation set” and “I forgot” look identical, and only one of them is a decision. Giving <code>validation: false</code> <em>and</em> a path or a split is refused too - they say where the validation set comes from and this says there is not one.</p>
 <p>The validation split is then <strong>absent rather than empty</strong>. An empty one makes every count read zero and every average read nan, which is a number for something nobody asked for; a missing split makes <code>evaluate</code> say so.</p></li>
@@ -3079,14 +3126,14 @@ DetectionEngine   28 -&gt; 27 methods      the discovery block: ~25 lines -&gt; 
 <section id="a1---2026-10-06" class="level2">
 <h2 class="anchored" data-anchor-id="a1---2026-10-06">[0.6.0a1] - 2026-10-06</h2>
 <p>A minor bump rather than another alpha letter: the data path grew a third item and the loss interface grew a flag, both of which a custom loss or loader would notice.</p>
-<section id="added-38" class="level3">
-<h3 class="anchored" data-anchor-id="added-38">Added</h3>
+<section id="added-39" class="level3">
+<h3 class="anchored" data-anchor-id="added-39">Added</h3>
 <ul>
 <li><p><strong><code>boundary</code>: a loss that knows how far a wrong voxel is from the truth.</strong> Dice and IoU count a voxel the same wherever it sits, which is why a model can reach 0.88 on Dice while its volumes run a fifth too large - the overshoot is all at the boundary, and for a small lesion the boundary is most of the object.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb41"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loss</span><span class="kw">:</span></span>
-<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> boundary</span></span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">region</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> focal</span><span class="kw">,</span><span class="at"> </span><span class="fu">gamma</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="kw">}</span><span class="co">    # or dice, iou, tversky, ...</span></span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">alpha</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.9</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb42"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loss</span><span class="kw">:</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> boundary</span></span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">region</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> focal</span><span class="kw">,</span><span class="at"> </span><span class="fu">gamma</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="kw">}</span><span class="co">    # or dice, iou, tversky, ...</span></span>
+<span id="cb42-4"><a href="#cb42-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">alpha</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.9</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>mean(phi * p)</code> added to a region loss, where <code>phi</code> is the signed distance to the truth’s boundary - negative inside, positive outside. Closes maju116/platypus#37, which asked for focal combined with a distance metric; <code>region</code> is how any of the nine is combined with it rather than one hard-coded pair.</p>
 <p><strong>What it buys and costs, measured.</strong> Three seeds, 60 epochs, lesions with ambiguous edges, against Dice alone:</p>
 <pre><code>                 Dice             volume bias       volume |error|
@@ -3108,12 +3155,12 @@ boundary a=0.9   0.9411 ±0.0093   -0.06% ±4.15%     22.17% ±2.88%</code></pre
 </section>
 <section id="a6---2026-10-06" class="level2">
 <h2 class="anchored" data-anchor-id="a6---2026-10-06">[0.5.0a6] - 2026-10-06</h2>
-<section id="added-39" class="level3">
-<h3 class="anchored" data-anchor-id="added-39">Added</h3>
+<section id="added-40" class="level3">
+<h3 class="anchored" data-anchor-id="added-40">Added</h3>
 <ul>
 <li><p><strong><code>crop_boxes()</code> and <code>DetectionEngine.crops()</code>: every detection cut out of the image it was found in.</strong> The pipeline is a detector followed by a classifier it does not contain - find objects with three classes, crop them, hand the crops to something that knows eighty. <code>predict</code> returns boxes in each image’s own pixels precisely so they can be used on the photograph they came from; this is what uses them.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb43"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> found <span class="kw">in</span> engine.crops(<span class="st">"bccd"</span>, <span class="st">"test"</span>, size<span class="op">=</span>(<span class="dv">224</span>, <span class="dv">224</span>)):</span>
-<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>    batch <span class="op">=</span> np.stack(found[<span class="st">"crops"</span>])      <span class="co"># one shape, ready for a classifier</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb44"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> found <span class="kw">in</span> engine.crops(<span class="st">"bccd"</span>, <span class="st">"test"</span>, size<span class="op">=</span>(<span class="dv">224</span>, <span class="dv">224</span>)):</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>    batch <span class="op">=</span> np.stack(found[<span class="st">"crops"</span>])      <span class="co"># one shape, ready for a classifier</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Five decisions, each of which taken the other way quietly changes what a downstream model sees:</p>
 <ul>
 <li><strong>Cut from the source image, not the network input.</strong> <code>DetectionDataset.source_image</code> re-reads at native size through the same reader and the same options as <code>read()</code>, so a crop and a prediction cannot disagree about channels or the DICOM window. Cropping from the letterboxed frame would cut a downscaled object and then scale it back up.</li>
@@ -3130,8 +3177,8 @@ boundary a=0.9   0.9411 ±0.0093   -0.06% ±4.15%     22.17% ±2.88%</code></pre
 </section>
 <section id="a5---2026-10-06" class="level2">
 <h2 class="anchored" data-anchor-id="a5---2026-10-06">[0.5.0a5] - 2026-10-06</h2>
-<section id="added-40" class="level3">
-<h3 class="anchored" data-anchor-id="added-40">Added</h3>
+<section id="added-41" class="level3">
+<h3 class="anchored" data-anchor-id="added-41">Added</h3>
 <ul>
 <li><p><strong><code>box_loss</code>: score the boxes as <code>1 - GIoU</code> instead of as YOLOv3’s offsets.</strong> Default <code>offsets</code>, which is what the published <code>bccd-yolo3</code> weights were trained with, so nothing changes unless asked.</p>
 <p><strong>It is not the better objective, and that is measured.</strong> BCCD’s own test split, three seeds each, 150 epochs:</p>
@@ -3163,15 +3210,15 @@ AnchorFit.flat / a list of N pairs         refused, naming `.anchors` not `.flat
 </section>
 <section id="a3---2026-10-06" class="level2">
 <h2 class="anchored" data-anchor-id="a3---2026-10-06">[0.5.0a3] - 2026-10-06</h2>
-<section id="added-41" class="level3">
-<h3 class="anchored" data-anchor-id="added-41">Added</h3>
+<section id="added-42" class="level3">
+<h3 class="anchored" data-anchor-id="added-42">Added</h3>
 <ul>
 <li><p><strong><code>split</code>: divide the training folder instead of naming three paths.</strong> A researcher with one directory had to run a splitting tool, point three paths at its output, and remember to switch mode - and when they did not, the refusal said only <code>validation_path: Field required</code>, which is true and names nothing they could do about it.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb46"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
-<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">split</span><span class="kw">:</span></span>
-<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fractions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="fl">0.8</span><span class="kw">,</span><span class="at"> </span><span class="fl">0.2</span><span class="kw">]</span><span class="co">          # two, or three to cut a test set as well</span></span>
-<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">group_by</span><span class="kw">:</span><span class="at"> </span><span class="st">"^(patient</span><span class="sc">\\</span><span class="st">d+)_"</span><span class="co">     # required key, may be null</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb47"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> images/</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">split</span><span class="kw">:</span></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fractions</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="fl">0.8</span><span class="kw">,</span><span class="at"> </span><span class="fl">0.2</span><span class="kw">]</span><span class="co">          # two, or three to cut a test set as well</span></span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">group_by</span><span class="kw">:</span><span class="at"> </span><span class="st">"^(patient</span><span class="sc">\\</span><span class="st">d+)_"</span><span class="co">     # required key, may be null</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Exactly one of <code>split</code> and <code>validation_path</code>, for the reason <code>colormap</code> and <code>labels</code> are exactly one: two sources for one thing are two places to change it.</p>
 <p><strong><code>group_by</code> is required and may be <code>null</code>.</strong> Everything sharing a group lands in a single split - usually a patient. It is required rather than optional because the mistake it prevents leaves no trace: slices of one patient in training and validation at once make validation measure memory rather than generalisation, and the score comes out several points too high with nothing in the output to say so. An omitted key would be that choice made silently; <code>null</code> is the same choice made on purpose. <code>splits.py</code> has refused a pattern that <em>matches</em> nothing since it was written, for the same reason; this extends it to never having asked.</p>
 <p><strong>Nothing is written.</strong> <code>split_samples</code> partitions what was already discovered. <code>split_dataset()</code> is still the tool when the CSV files are the point - to keep, to hand to a colleague, to cite - but being read should not leave files behind.</p>
@@ -3239,7 +3286,7 @@ task: detection     -&gt;  "`task: detection` was renamed to `object_detection`.
 <section id="migrating-1" class="level3">
 <h3 class="anchored" data-anchor-id="migrating-1">Migrating</h3>
 <p>Add one line to every configuration, and change it if it was already there:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb48"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span><span class="co">     # or object_detection</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb49"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span><span class="co">     # or object_detection</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Nothing else moves. The R package builds <code>task</code> from its own constructors and sends it, so R code needs no change beyond pinning an engine of this version or later.</p>
 </section>
 </section>
@@ -3257,8 +3304,8 @@ task: detection     -&gt;  "`task: detection` was renamed to `object_detection`.
 </section>
 <section id="a14---2026-10-05" class="level2">
 <h2 class="anchored" data-anchor-id="a14---2026-10-05">[0.3.0a14] - 2026-10-05</h2>
-<section id="added-42" class="level3">
-<h3 class="anchored" data-anchor-id="added-42">Added</h3>
+<section id="added-43" class="level3">
+<h3 class="anchored" data-anchor-id="added-43">Added</h3>
 <ul>
 <li><p><strong><code>evaluate_images()</code>: one row per image for detection.</strong> The counterpart of the segmentation engine’s per-case scores, and the question a table of averages cannot reach - not how well on average, but <em>which</em> images it fails on. A mean over a split says 0.86; it does not say the misses are concentrated in four frames where the stain is dark, and that difference is usually about the data rather than the model.</p>
 <p>Columns are <code>key</code>, <code>n_truth</code>, <code>n_predicted</code>, <code>matched</code>, <code>missed</code>, <code>spurious</code> and <code>mean_matched_iou</code>. Sort by <code>missed</code> for the frames it cannot see, by <code>mean_matched_iou</code> for the ones where it sees everything and places it badly - different problems, usually the data and the anchors respectively.</p>
@@ -3278,8 +3325,8 @@ task: detection     -&gt;  "`task: detection` was renamed to `object_detection`.
 <p>Weights published before this keep working, by construction rather than by a version check: the comparison skips a field the sidecar does not carry, and <code>dsbowl-unet</code> carries none. Pinned by a test rather than reasoned about.</p></li>
 </ul>
 </section>
-<section id="added-43" class="level3">
-<h3 class="anchored" data-anchor-id="added-43">Added</h3>
+<section id="added-44" class="level3">
+<h3 class="anchored" data-anchor-id="added-44">Added</h3>
 <ul>
 <li><p><strong>A run leaves a record.</strong> The weights are not the whole of a trained model: a segmentation model is meaningless without the colormap, and a detector without the anchors its boxes are relative to - which, when they were fitted rather than named, existed only in memory and in a weights sidecar somebody had to remember to export.</p>
 <p><code>fit()</code> now writes <code>&lt;output_dir&gt;/&lt;model&gt;/run.json</code>, <strong>only when <code>output_dir</code> was given</strong>. <code>model_fields_set</code> answers that honestly: a field with a default cannot otherwise be told apart from one the user set to that default, and writing files into somebody’s working directory because a default exists is not a thing to do by surprise.</p>
@@ -3302,8 +3349,8 @@ task: detection     -&gt;  "`task: detection` was renamed to `object_detection`.
 <h2 class="anchored" data-anchor-id="a12---2026-10-04">[0.3.0a12] - 2026-10-04</h2>
 <p>Object detection, end to end: a specification with <code>task: detection</code> trains a YOLOv3 through the same engine as a segmentation one, scores it per class against <code>pycocotools</code>-agreeing average precision, and hands the boxes back in each image’s own pixels. On BCCD over five seeds: <code>mAP@0.5</code> 0.8660 +/- 0.0159, <code>mAP@[.50:.95]</code> 0.5159 +/- 0.0199, mean overlap of matched boxes 0.8041 +/- 0.0026 - which brackets and exceeds what a hand-rolled version of the same recipe scored before any of this existed.</p>
 <p><strong>Still unreleased, and for the same reason as before rather than a new one.</strong> The §4f loop exists so the R package can reach a feature; R has no detection surface yet, so a release would serve nothing but the ceremony. It happens when the R side needs it.</p>
-<section id="added-44" class="level3">
-<h3 class="anchored" data-anchor-id="added-44">Added</h3>
+<section id="added-45" class="level3">
+<h3 class="anchored" data-anchor-id="added-45">Added</h3>
 <ul>
 <li><code>pyplatypus.detection</code>, starting with <strong>metrics</strong>. The package this replaces had a YOLOv3 that trained and drew pictures and reported no precision, no recall and no average precision - its only number was mean IoU per grid, computed inside the loss, which measures agreement with the model’s own training target. So there was no way to say whether it detected anything, and no number to put beside published weights. Everything else is unmeasurable until this exists, which is why it is first</li>
 <li><code>iou_matrix</code>, <code>match_detections</code>, <code>average_precision</code>, <code>detection_report</code>. Pure numpy and no torch: they work on boxes, so they are testable without a model</li>
@@ -3452,8 +3499,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a11" class="level2">
 <h2 class="anchored" data-anchor-id="a11">[0.3.0a11]</h2>
 <p><em>2026-10-03</em></p>
-<section id="added-45" class="level3">
-<h3 class="anchored" data-anchor-id="added-45">Added</h3>
+<section id="added-46" class="level3">
+<h3 class="anchored" data-anchor-id="added-46">Added</h3>
 <ul>
 <li><strong><code>fit()</code> refuses to train on masks the colormap does not describe.</strong> A colormap matching none of the labelled tissue is the quietest failure in segmentation: every mask reads as background, the loss falls because background is most of a medical image, the metrics look plausible, and the model learns to answer “nothing here”. Nothing in a training log says so</li>
 <li>The refusal is on <strong>class presence, not on the unmatched fraction</strong>, and that choice is the substance of this change. The unmatched fraction scales with the size of the thing being segmented, so on a small lesion - the ordinary medical case - the most dangerous mistake makes the quietest signal. Measured on synthetic masks with a colormap asking for VOC red where the masks are white: a foreground covering 20% of the image gives 19.8% unmatched, 5% gives 4.96%, and <strong>0.6% gives 0.61% - indistinguishable from the 0.72% that JPEG compression leaves around the edge of a correct mask.</strong> A declared class that appears in no mask does not scale: the same measurement gave per-class pixel counts of [15984, 400] for the correct colormap and [16384, 0] for the wrong one, at any lesion size</li>
@@ -3474,8 +3521,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a10" class="level2">
 <h2 class="anchored" data-anchor-id="a10">[0.3.0a10]</h2>
 <p><em>2026-10-02</em></p>
-<section id="added-46" class="level3">
-<h3 class="anchored" data-anchor-id="added-46">Added</h3>
+<section id="added-47" class="level3">
+<h3 class="anchored" data-anchor-id="added-47">Added</h3>
 <ul>
 <li><strong>Pretrained encoders.</strong> <code>encoder: resnet34</code> builds a timm backbone as the contracting path and <code>pretrained: true</code> is a separate flag that loads its ImageNet weights - separate on purpose, so naming a backbone never reaches the network on a machine that has none. <code>timm</code> is the optional <code>encoders</code> extra</li>
 <li><code>freeze_encoder: 5</code> holds the transferred layers still for that many epochs, and <code>encoder_learning_rate</code> gives them a rate of their own. Both act on the layers that actually arrived pretrained and not on the full-resolution stage added in front of them, which starts random and is the one part that must keep learning. Parameter groups are split by object identity, so no rename can misfile one</li>
@@ -3503,8 +3550,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a9" class="level2">
 <h2 class="anchored" data-anchor-id="a9">[0.3.0a9]</h2>
 <p><em>2026-09-27</em></p>
-<section id="added-47" class="level3">
-<h3 class="anchored" data-anchor-id="added-47">Added</h3>
+<section id="added-48" class="level3">
+<h3 class="anchored" data-anchor-id="added-48">Added</h3>
 <ul>
 <li><code>examples/compare_dsbowl_architectures.py</code>: all four architectures in one specification, on one split, reported with the size and the cost beside the score. Dice alone cannot decide which weights are worth publishing - a model scoring 0.001 higher for twice the epoch time is a different trade, not a better choice</li>
 <li>The comparison itself, in the README and the model card, because the result is the useful part: <strong>the spread across the four architectures is 0.0030 while the spread across images within one of them is 0.054.</strong> Re-running the same U-Net with another seed moves the mean by 0.0012, 40% of the whole between-architecture spread. On this problem the architecture is not where the result comes from, and that is worth an hour of somebody’s compute to learn rather than a fortnight of swapping decoders</li>
@@ -3515,8 +3562,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a8" class="level2">
 <h2 class="anchored" data-anchor-id="a8">[0.3.0a8]</h2>
 <p><em>2026-09-27</em></p>
-<section id="added-48" class="level3">
-<h3 class="anchored" data-anchor-id="added-48">Added</h3>
+<section id="added-49" class="level3">
+<h3 class="anchored" data-anchor-id="added-49">Added</h3>
 <ul>
 <li>The first published weights: <strong><code>dsbowl-unet</code></strong>, a U-Net at 256x256 that separates cell nuclei from background in light microscopy. Trained on BBBC038v1 - the 2018 Data Science Bowl images, CC0, taken from the Broad Bioimage Benchmark Collection rather than the Kaggle mirror. Dice 0.9205 mean over 134 held-out images, sd 0.053, median 0.9314, <strong>worst case 0.7240</strong>; the five worst images are named in the sidecar</li>
 <li>It is <strong>semantic, not instance</strong>: touching nuclei come back as one region, so the numbers are not comparable to the challenge’s own leaderboard, which scored instances. The registry description and the model card both say so, because someone counting nuclei with these weights would otherwise get a wrong answer with no warning</li>
@@ -3527,8 +3574,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a7" class="level2">
 <h2 class="anchored" data-anchor-id="a7">[0.3.0a7]</h2>
 <p><em>2026-09-27</em></p>
-<section id="added-49" class="level3">
-<h3 class="anchored" data-anchor-id="added-49">Added</h3>
+<section id="added-50" class="level3">
+<h3 class="anchored" data-anchor-id="added-50">Added</h3>
 <ul>
 <li>Published weights by name. Three forms, in the order they will be used: <code>dsbowl-unet</code> from the registry, <code>hf://owner/repo/file.safetensors@commit</code> for anything else on the Hub, and a local path. A registry name carries the <strong>commit</strong> it was published at, and the <code>hf://</code> form requires one - weights that change under a stable name are the worst kind of irreproducibility, since the code is identical and the result is not</li>
 <li>A <strong>sidecar</strong> beside every published file, recording the architecture, input shape, channels, classes, blocks and filters the weights were trained with, plus provenance. Loading refuses a model they do not belong to <em>before</em> touching torch: a shape mismatch torch would catch anyway, but weights trained on a different colormap with the same class count load cleanly and predict nonsense</li>
@@ -3547,8 +3594,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a6" class="level2">
 <h2 class="anchored" data-anchor-id="a6">[0.3.0a6]</h2>
 <p><em>2026-09-27</em></p>
-<section id="added-50" class="level3">
-<h3 class="anchored" data-anchor-id="added-50">Added</h3>
+<section id="added-51" class="level3">
+<h3 class="anchored" data-anchor-id="added-51">Added</h3>
 <ul>
 <li><code>predict(space="source")</code>: each prediction mapped back onto the grid of the file it was computed from, undoing the resampling and the crop. Until now a prediction came back on the model’s grid only, which meant a mask that could be scored but not laid over the patient’s scan - <code>save_volumes()</code> refused to write it, correctly, since a mask with the wrong geometry lands in the wrong place</li>
 <li>It returns a <strong>list</strong>, not an array, and that is the honest type: sources differ in size, a stack needs one shape, and resizing them to match would produce a mask describing anatomy it was not computed from. <code>space="model"</code> keeps the stacked array and remains the default</li>
@@ -3567,8 +3614,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a5" class="level2">
 <h2 class="anchored" data-anchor-id="a5">[0.3.0a5]</h2>
 <p><em>2026-09-26</em></p>
-<section id="added-51" class="level3">
-<h3 class="anchored" data-anchor-id="added-51">Added</h3>
+<section id="added-52" class="level3">
+<h3 class="anchored" data-anchor-id="added-52">Added</h3>
 <ul>
 <li>Augmentation in 3D. Volumes go to albumentations through <code>volume</code> and <code>mask3d</code> rather than <code>image</code> and <code>mask</code>, and one set of parameters applies to the whole volume - a per-slice augmentation would tear the anatomy apart, and there is a test that every slice gets the same geometry</li>
 <li>Support is uneven and that is handled rather than hidden. Of the transforms in albumentations 2.0.8, 97 can take a volume - <code>Affine</code>, <code>ElasticTransform</code>, <code>D4</code>, <code>CubicSymmetry</code>, the flips, the blurs, the 3D-native crops - while others raise from inside the library, <code>GaussNoise</code> and <code>ChannelDropout</code> as <code>KeyError: 'images'</code>, which is not a sentence anyone can act on. Each transform in a 3D spec is tried against a small probe volume while the pipeline is built, and an unsupported one is named then rather than forty minutes into training</li>
@@ -3586,8 +3633,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a4" class="level2">
 <h2 class="anchored" data-anchor-id="a4">[0.3.0a4]</h2>
 <p><em>2026-09-26</em></p>
-<section id="added-52" class="level3">
-<h3 class="anchored" data-anchor-id="added-52">Added</h3>
+<section id="added-53" class="level3">
+<h3 class="anchored" data-anchor-id="added-53">Added</h3>
 <ul>
 <li><code>channels_from</code>: one pattern per channel, in channel order, for datasets that keep one channel per file. BraTS ships four MRI sequences per patient - T1, T1 after contrast, T2, FLAIR - because different tumour structures are visible in different sequences; the 38-Cloud satellite set keeps its bands the same way. Works at both ranks</li>
 <li>The order is <strong>stated, never inferred.</strong> Sorted, BraTS gives flair, t1, t1ce, t2: perfectly reproducible and anatomically meaningless. A model trained with FLAIR in channel one and then used on data whose channel one is T1 returns a plausible answer, with the right shape and the right range, and nothing downstream can detect it</li>
@@ -3600,8 +3647,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a3" class="level2">
 <h2 class="anchored" data-anchor-id="a3">[0.3.0a3]</h2>
 <p><em>2026-09-26</em></p>
-<section id="added-53" class="level3">
-<h3 class="anchored" data-anchor-id="added-53">Added</h3>
+<section id="added-54" class="level3">
+<h3 class="anchored" data-anchor-id="added-54">Added</h3>
 <ul>
 <li><code>target_spacing</code> on the data section: resample every volume to a common voxel size, then centre-crop or pad to the model’s <code>input_shape</code>. Without it a volume is resized into the box, and that is only harmless when two scans cover the same extent. Clinical scans do not: 40 slices of 1 mm is 40 mm of patient and 40 slices of 2.5 mm is 100 mm, so resizing makes the same organ a different size in each and nothing in the data says so. Resampling fixes the millimetres per voxel - the quantity anatomy is measured in - and cropping or padding afterwards is what turns the varying shape into the one shape a network needs without stretching away what the resampling established</li>
 <li><code>resample_to_spacing()</code> and <code>crop_or_pad()</code>, centred, usable on their own</li>
@@ -3618,8 +3665,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a2" class="level2">
 <h2 class="anchored" data-anchor-id="a2">[0.3.0a2]</h2>
 <p><em>2026-09-26</em></p>
-<section id="added-54" class="level3">
-<h3 class="anchored" data-anchor-id="added-54">Added</h3>
+<section id="added-55" class="level3">
+<h3 class="anchored" data-anchor-id="added-55">Added</h3>
 <ul>
 <li>Reading a DICOM series: a folder of slices becomes one volume, which is how data leaves a hospital. Four decisions, each of which produces a volume that trains without complaint when taken wrongly:
 <ul>
@@ -3645,8 +3692,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <h2 class="anchored" data-anchor-id="a1">[0.3.0a1]</h2>
 <p><em>2026-09-26</em></p>
 <p>Volumes. The spec, the model builder, the losses, the metrics and the tiling were already rank-generic - <code>input_shape = [64, 64, 32]</code> has validated and built a 3D U-Net since 0.2.0a1 - so what was missing was reading volumes, naming classes the way volumes do, and two refusals that existed to stop a half-working 3D run.</p>
-<section id="added-55" class="level3">
-<h3 class="anchored" data-anchor-id="added-55">Added</h3>
+<section id="added-56" class="level3">
+<h3 class="anchored" data-anchor-id="added-56">Added</h3>
 <ul>
 <li>NIfTI reading (<code>read_volume</code>, <code>volume_spacing</code>), dispatched from <code>read_image</code> so everything reads “whatever is at this path, the way training would”. Two corrections happen before anything looks at the array:
 <ul>
@@ -3679,8 +3726,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a3-1" class="level2">
 <h2 class="anchored" data-anchor-id="a3-1">[0.2.0a3]</h2>
 <p><em>2026-09-26</em></p>
-<section id="added-56" class="level3">
-<h3 class="anchored" data-anchor-id="added-56">Added</h3>
+<section id="added-57" class="level3">
+<h3 class="anchored" data-anchor-id="added-57">Added</h3>
 <ul>
 <li><code>split_dataset()</code> - split one directory into train/validation/test CSVs, keeping every group whole. <code>group_by</code> is a regular expression read against the sample key, and a group is whatever must not straddle the split: usually a patient, sometimes a study, a scanner or a site. Slices of one patient on both sides of a split is the most common way to report a segmentation score that means nothing, and it leaves no trace in the output. Deterministic given the same samples, fractions, pattern and seed, in any order; groups are handed to whichever split is furthest below its target share in samples, so patients of wildly different sizes do not skew the fractions</li>
 <li><code>evaluate_cases()</code> - one row per case rather than one number per split, optionally grouped by patient, and <code>summarise_cases()</code> for the distribution: mean, sd, median, range, and the name of the worst case. A model averaging Dice 0.855 on the Data Science Bowl scored 0.006 on three images; nothing in the mean could say so</li>
@@ -3698,8 +3745,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <section id="a2-1" class="level2">
 <h2 class="anchored" data-anchor-id="a2-1">[0.2.0a2]</h2>
 <p><em>2026-09-26</em></p>
-<section id="added-57" class="level3">
-<h3 class="anchored" data-anchor-id="added-57">Added</h3>
+<section id="added-58" class="level3">
+<h3 class="anchored" data-anchor-id="added-58">Added</h3>
 <ul>
 <li>DICOM reading, done the way the modality requires rather than the way the file allows: stored values passed through the modality LUT so they are real units (Hounsfield units for CT), a <strong>fixed</strong> window rather than one derived from the image itself, and MONOCHROME1 inverted. A window taken per image lets one bright pixel - an implant, a marker, an artefact - rescale everything else, and makes two scans incomparable</li>
 <li><code>dicom_window</code> on the data section: a named window such as <code>lung</code> or <code>soft_tissue</code>, an explicit <code>(centre, width)</code> pair, <code>auto</code> to use the window recorded in the file, or <code>full</code> for the whole range present</li>
@@ -3711,8 +3758,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <h2 class="anchored" data-anchor-id="a1-1">[0.2.0a1]</h2>
 <p><em>2026-09-25</em></p>
 <p>The 2022 TensorFlow package replaced by a PyTorch one. Not a port - a rewrite, sharing the earlier version’s shape (a specification, many models from one file) and almost none of its code. Everything below is 2D semantic segmentation; the spec and the model builder already handle volumes, the data pipeline is where 3D stops.</p>
-<section id="added-58" class="level3">
-<h3 class="anchored" data-anchor-id="added-58">Added</h3>
+<section id="added-59" class="level3">
+<h3 class="anchored" data-anchor-id="added-59">Added</h3>
 <ul>
 <li>A specification with two constructors and one result: built from arguments or loaded from YAML, producing the same validated object, so nothing downstream can tell which was used. pydantic v2, <code>extra="forbid"</code>, exportable as JSON Schema</li>
 <li>Four architectures from one builder: U-Net, U-Net++, Res-U-Net, LinkNet, each composable with separable convolutions, spatial dropout, learned or interpolated upsampling, deep supervision and configurable block width</li>
@@ -3736,8 +3783,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <h2 class="anchored" data-anchor-id="rc2">[0.1.0rc2]</h2>
 <p><em>2022-10-07</em></p>
 <p>The TensorFlow package. Still installable as <code>pyplatypus==0.1.0rc2</code>, and unrelated to everything above in implementation.</p>
-<section id="added-59" class="level3">
-<h3 class="anchored" data-anchor-id="added-59">Added</h3>
+<section id="added-60" class="level3">
+<h3 class="anchored" data-anchor-id="added-60">Added</h3>
 <ul>
 <li>Platypus engine - allows to train and evaluate multiple CV models with YAML config</li>
 <li>Generalized multiclass semantic segmentation models: U-Net, U-Net++, Res-U-Net, LinkNet</li>

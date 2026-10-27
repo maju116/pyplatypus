@@ -1,5 +1,20 @@
 {
   "$defs": {
+    "AccuracyMetric": {
+      "additionalProperties": false,
+      "description": "The share of images whose label was right - offered, and not the default.\n\nAt a low prevalence it is blind rather than merely flattering. Measured on 40000 images\nat a prevalence of 3%, with the model's own probabilities as the truth so that only its\ndiscrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631 - and it is not\nmonotone: a model with no signal at all scores 0.9720, above two models that have one.\nIt is here because it is the number people ask for, and its own docstring in\n`objectives.classification` carries the table.",
+      "properties": {
+        "name": {
+          "const": "accuracy",
+          "default": "accuracy",
+          "description": "Which metric. These are computed over the whole pass rather than per batch and averaged, because a per-class recall, an F1 and a rank statistic are each undefined on a batch that holds none of a class - at a prevalence of 3%, 398 of 500 batches of 8.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "AccuracyMetric",
+      "type": "object"
+    },
     "Activation": {
       "enum": [
         "relu",
@@ -273,6 +288,21 @@
       "title": "Architecture",
       "type": "string"
     },
+    "AucMetric": {
+      "additionalProperties": false,
+      "description": "The area under the ROC curve, one class against the rest, averaged - the default.\n\nThe only one of the four that orders models by their discrimination monotonically, and\nthe only one that tells a real signal from a collapse at a low prevalence, because it\nreads the probabilities rather than the hard prediction. Over two classes the macro\none-vs-rest value is the binary AUC exactly. It is also the only metric here whose pass\nretains every example's probability rather than a confusion matrix.",
+      "properties": {
+        "name": {
+          "const": "auc",
+          "default": "auc",
+          "description": "Which metric. These are computed over the whole pass rather than per batch and averaged, because a per-class recall, an F1 and a rank statistic are each undefined on a batch that holds none of a class - at a prevalence of 3%, 398 of 500 batches of 8.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "AucMetric",
+      "type": "object"
+    },
     "AugmentationStep": {
       "additionalProperties": false,
       "properties": {
@@ -292,6 +322,21 @@
         "name"
       ],
       "title": "AugmentationStep",
+      "type": "object"
+    },
+    "BalancedAccuracyMetric": {
+      "additionalProperties": false,
+      "description": "Recall per class, averaged, so a rare class weighs as much as a common one.\n\nIt answers the complaint accuracy usually gets and not the one the measurement makes:\na calibrated model at 3% prevalence never crosses the threshold, so this reports 0.5000\nfor a model with a real signal and 0.5000 for one with none. Threshold-free is the\nproperty that separates them, which is why `auc` is the default and this is not.",
+      "properties": {
+        "name": {
+          "const": "balanced_accuracy",
+          "default": "balanced_accuracy",
+          "description": "Which metric. These are computed over the whole pass rather than per batch and averaged, because a per-class recall, an F1 and a rank statistic are each undefined on a batch that holds none of a class - at a prevalence of 3%, 398 of 500 batches of 8.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "BalancedAccuracyMetric",
       "type": "object"
     },
     "BoundaryLoss": {
@@ -455,6 +500,605 @@
         }
       },
       "title": "ClDiceMetric",
+      "type": "object"
+    },
+    "ClassificationData": {
+      "additionalProperties": false,
+      "description": "Where the images are, and what their labels are called.\n\n`classes` is this task's answer to the colormap and it is stated for the same reason\ndetection states its own: **the position of a name in this list is the class index the\nmodel learns.** Read off the directories instead, the order would come out alphabetical\n- reproducible, and unrelated to anything - so a model trained where index 0 meant\n`benign` and used where it means `malignant` reports plausible probabilities and nothing\ndownstream can tell.\n\nTwo classes at a minimum, where detection allows one. A detector with one class answers\n*where are the cells*, which is a question; a classifier with one class answers *is this\na cell* with the only answer it has, which is not. The refusal is cheap and the mistake\nit catches - a `classes` list that lost its second entry in an edit - is not visible in\nany number a run produces.",
+      "properties": {
+        "classes": {
+          "description": "Class names in class order. Position is the class index, and in `nested_dirs` mode these are the directory names under `train_path`. No background entry: an image is one of these, and a picture of nothing in particular is a class you have to name.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Classes",
+          "type": "array"
+        },
+        "column_sep": {
+          "default": ";",
+          "description": "For `config_file`, what separates several paths inside one cell - a sample with one mask file per object, as Data Science Bowl has, or one file per channel.",
+          "title": "Column Sep",
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/DataMode",
+          "default": "nested_dirs",
+          "description": "How the files are arranged: `nested_dirs` for one directory per sample, `config_file` for a CSV whose columns name the files. The CSV form is what to use when the data cannot be moved or copied into a layout."
+        },
+        "shuffle": {
+          "default": true,
+          "description": "Shuffle the training data between epochs. Only the training data: validation is read in order so that two epochs measure the same thing in the same way.",
+          "title": "Shuffle",
+          "type": "boolean"
+        },
+        "split": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SplitSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Divide `train_path` instead of naming a second folder. Nothing is written: the samples that were already discovered are partitioned, so a specification stays a description and leaves no files behind. `split_dataset()` is the tool when the CSVs are the point - to keep, to hand to a colleague, or to cite."
+        },
+        "strict_labels": {
+          "default": true,
+          "description": "Refuse an image whose label is not in `classes`. False skips it instead, which is how you train on two of a dataset's three classes without moving any files. True by default, and it matters more here than it does for a box: a skipped object leaves the rest of its image in the training set, while a skipped image leaves nothing, so the same setting quietly changes how much data there is.",
+          "title": "Strict Labels",
+          "type": "boolean"
+        },
+        "subdirs": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Refused here, and it is the field that keeps `nested_dirs` from meaning two things at once. For segmentation and detection a sample is a directory with the image in one subdirectory and what labels it in the other; a classification sample is one image whose label is the directory it sits in, so there is no second subdirectory to name. Leave it unset: in `nested_dirs` mode the classes are the directories under `train_path`, and in `config_file` mode the `label` column holds the name.",
+          "title": "Subdirs"
+        },
+        "test_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A third set, scored only when asked. Whether it can be scored at all depends on whether it carries labels: a folder of images alone is accepted and `predict` works on it, while `evaluate` refuses it by name rather than failing two layers down on the first missing mask.",
+          "title": "Test Path"
+        },
+        "train_path": {
+          "description": "Where the training data is. For `nested_dirs`, a directory of sample directories; for `config_file`, a CSV naming the files. With a `split`, this is the only path given and the divisions are cut from it.",
+          "title": "Train Path",
+          "type": "string"
+        },
+        "validation": {
+          "default": true,
+          "description": "Whether this run validates at all. `false` is the third and last way of answering the question `validation_path` and `split` answer, and it has to be written down.\n\nA final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. What is *not* legitimate is arriving here by omission: a specification with neither a path nor a split is still an error, because 'I have no validation set' and 'I forgot' look identical and only one of them is a decision.\n\nWith `false`, giving `validation_path` or `split` as well is refused: they say where the validation set comes from and this says there is not one.",
+          "title": "Validation",
+          "type": "boolean"
+        },
+        "validation_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional only in the sense that `split` is the other way to get one, and `validation: false` the third. Exactly one of them, because two sources for the validation set are two places to change it.",
+          "title": "Validation Path"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          ],
+          "default": "auto",
+          "description": "How values in real units are mapped to 0-1: a named window such as 'lung' or 'soft_tissue', an explicit (centre, width) pair, 'auto' for the window the file recorded - DICOM only, since NIfTI stores none - or 'full' for the whole range present. A fixed window is what makes two scans comparable: scaling each one by its own extremes lets a single bright voxel rescale everything else. Ignored for ordinary pictures, which are already 0-255. Accepted as `dicom_window` too, the name it had while DICOM was the only format that needed it.",
+          "title": "Window"
+        }
+      },
+      "required": [
+        "train_path",
+        "classes"
+      ],
+      "title": "ClassificationData",
+      "type": "object"
+    },
+    "ClassificationModel": {
+      "additionalProperties": false,
+      "description": "A contracting path, pooled, with one dense layer on top.\n\n**There is no `architecture` field, because for this task the architecture *is* the\ncontracting path.** A segmentation model chooses between four decoders that read the\nsame features, and that choice has a name; a classifier has nothing after the pooling\nbut a dense layer, so `encoder` is the whole answer and a second field naming the\nnetwork would be two places for one. `architecture` is a property here rather than a\nfield for that reason, and `weights_fingerprint` reads it the same way it reads the\nothers'.\n\n`blocks`, `filters` and `block_width` are declared here rather than inherited: the\ncontracting path is one mechanism and `EncoderModel` holds every knob whose prose is\nthe same for both tasks, but these three say things about segmentation that are false\nhere - a size that must divide by 2^blocks, and a published weights file that fills\nthem in - and a description that is true of one task and false of the other is worse\nthan two descriptions.",
+      "properties": {
+        "activation": {
+          "$ref": "#/$defs/Activation",
+          "default": "relu",
+          "description": "The non-linearity between convolutions, the same one throughout."
+        },
+        "augmentation": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/AugmentationStep"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "albumentations transforms, applied to the training data only - never to validation, where the point is to measure the same thing every epoch. Each step is probed at the model's own input size while the pipeline is built, because support for volumes is uneven and a transform that cannot take one raises from inside the library.",
+          "title": "Augmentation"
+        },
+        "batch_normalization": {
+          "default": true,
+          "description": "Normalise between convolutions. On by default, and worth knowing about when weights are averaged: `swa` has to recompute these statistics over the training data, because an averaged weight tensor inherits them from whichever epoch was last rather than averaging them.",
+          "title": "Batch Normalization",
+          "type": "boolean"
+        },
+        "batch_size": {
+          "default": 8,
+          "description": "How many samples go through the network at once. Limited by memory rather than by the problem, and it is the first thing to lower when a 3D run will not fit. It interacts with `batch_normalization`: statistics taken over very few samples are noisy.",
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "block_width": {
+          "default": 2,
+          "description": "Convolutions per block, at every level. Raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them - a crop of one cell is exactly that case. Ignored, and refused, when `encoder` names a backbone.",
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Block Width",
+          "type": "integer"
+        },
+        "blocks": {
+          "default": 4,
+          "description": "How many times the resolution is halved before the features are pooled, so how much context the answer is made from. Unlike a segmentation model nothing has to divide by 2^blocks - there is no decoder to line up with - but every side of `input_shape` must still be at least 2^blocks, or the deepest level has nothing left to pool. Ignored, and refused, when `encoder` names a backbone: the backbone's own depth is then the only one there is.",
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Blocks",
+          "type": "integer"
+        },
+        "callbacks": {
+          "description": "Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching `val_*` in a run with no validation set.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "cosine_annealing": "#/$defs/CosineAnnealing",
+                "csv_logger": "#/$defs/CsvLogger",
+                "early_stopping": "#/$defs/EarlyStopping",
+                "ema": "#/$defs/Ema",
+                "linear_annealing": "#/$defs/LinearAnnealing",
+                "model_checkpoint": "#/$defs/ModelCheckpoint",
+                "reduce_lr_on_plateau": "#/$defs/ReduceLrOnPlateau",
+                "step_decay": "#/$defs/StepDecay",
+                "stop_after": "#/$defs/StopAfter",
+                "swa": "#/$defs/Swa",
+                "terminate_on_collapse": "#/$defs/TerminateOnCollapse",
+                "terminate_on_nan": "#/$defs/TerminateOnNaN"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/EarlyStopping"
+              },
+              {
+                "$ref": "#/$defs/ModelCheckpoint"
+              },
+              {
+                "$ref": "#/$defs/ReduceLrOnPlateau"
+              },
+              {
+                "$ref": "#/$defs/CosineAnnealing"
+              },
+              {
+                "$ref": "#/$defs/Ema"
+              },
+              {
+                "$ref": "#/$defs/LinearAnnealing"
+              },
+              {
+                "$ref": "#/$defs/StepDecay"
+              },
+              {
+                "$ref": "#/$defs/StopAfter"
+              },
+              {
+                "$ref": "#/$defs/Swa"
+              },
+              {
+                "$ref": "#/$defs/TerminateOnCollapse"
+              },
+              {
+                "$ref": "#/$defs/CsvLogger"
+              },
+              {
+                "$ref": "#/$defs/TerminateOnNaN"
+              }
+            ]
+          },
+          "title": "Callbacks",
+          "type": "array"
+        },
+        "channels": {
+          "default": 3,
+          "description": "How many channels the network takes: 3 for colour, 1 for greyscale, and one per sequence for multi-modal data such as the four MRI sequences in BraTS. Derived rather than declared when `channels_from` names the files, because then the data decides. Not adopted from a weights file - the data pipeline needs it before a network exists, and a specification has to be checkable offline.",
+          "minimum": 1,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "dropout": {
+          "default": 0.0,
+          "description": "Drop this fraction during training. 0 switches it off, which is the default because these models are small enough that batch normalisation usually carries the regularisation on its own.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Dropout",
+          "type": "number"
+        },
+        "encoder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A timm backbone to use as the contracting path, e.g. 'resnet34'. Leave unset for the built-in encoder, which is the only one that works in 3D.",
+          "title": "Encoder"
+        },
+        "encoder_learning_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A separate, usually smaller learning rate for the layers that arrived pretrained. Whatever is ours trains at the optimizer's own rate instead - the decoder and the full-resolution stage in front of the backbone for a segmentation model, the pooled head for a classifier - because those start random. Unset means one rate for the whole network.",
+          "title": "Encoder Learning Rate"
+        },
+        "epochs": {
+          "default": 10,
+          "description": "How many passes over the training data. The default is deliberately small: it is enough to see that a run works and not enough to mistake for a result. With `cosine_annealing` this is also the length the schedule is spread over.",
+          "minimum": 1,
+          "title": "Epochs",
+          "type": "integer"
+        },
+        "filters": {
+          "default": 16,
+          "description": "Filters in the first block, doubled at every level, so this and `blocks` set how wide the pooled feature vector is: filters * 2^blocks. Ignored, and refused, when `encoder` names a backbone.",
+          "minimum": 1,
+          "title": "Filters",
+          "type": "integer"
+        },
+        "fit": {
+          "default": true,
+          "description": "Set false to load weights and skip training.",
+          "title": "Fit",
+          "type": "boolean"
+        },
+        "freeze_encoder": {
+          "default": 0,
+          "description": "Keep the pretrained layers fixed for this many epochs, then train them. Lets the random part of the network settle - the decoder, or a classifier's head - before its gradients reach weights worth keeping. A number at or above `epochs` freezes them for the whole run.",
+          "minimum": 0,
+          "title": "Freeze Encoder",
+          "type": "integer"
+        },
+        "head_dropout": {
+          "default": 0.0,
+          "description": "Drop this fraction of the pooled vector before the dense layer. Separate from `dropout`, which sits between convolutions and reaches nothing at all when the contracting path is a pretrained backbone with its own regularisation - this is then the only one left, which is why it is here rather than folded into the other.",
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "title": "Head Dropout",
+          "type": "number"
+        },
+        "initialiser": {
+          "$ref": "#/$defs/Initialiser",
+          "default": "he_normal",
+          "description": "How the weights start. The `he_*` family is scaled for ReLU-like activations and `glorot_*` for symmetric ones, so this and `activation` are a pair."
+        },
+        "input_shape": {
+          "description": "Spatial size: (height, width) in 2D, (depth, height, width) in 3D.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Input Shape",
+          "type": "array"
+        },
+        "loss": {
+          "description": "The objective trained against. Fewer are admissible here than anywhere else in this package, and the two that are - cross-entropy and its focal form - are the ones that score each answer on its own rather than scoring an overlap. The refusal names them rather than this description keeping a list.",
+          "discriminator": {
+            "mapping": {
+              "boundary": "#/$defs/BoundaryLoss",
+              "cce": "#/$defs/CceLoss",
+              "cce_dice": "#/$defs/CceDiceLoss",
+              "combo": "#/$defs/ComboLoss",
+              "dice": "#/$defs/DiceLoss",
+              "focal": "#/$defs/FocalLoss",
+              "focal_tversky": "#/$defs/FocalTverskyLoss",
+              "generalized_dice": "#/$defs/GeneralizedDiceLoss",
+              "iou": "#/$defs/IouLoss",
+              "l1": "#/$defs/L1Loss",
+              "lovasz": "#/$defs/LovaszLoss",
+              "mse": "#/$defs/MseLoss",
+              "smooth_l1": "#/$defs/SmoothL1Loss",
+              "tversky": "#/$defs/TverskyLoss"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/IouLoss"
+            },
+            {
+              "$ref": "#/$defs/DiceLoss"
+            },
+            {
+              "$ref": "#/$defs/GeneralizedDiceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceLoss"
+            },
+            {
+              "$ref": "#/$defs/CceDiceLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalLoss"
+            },
+            {
+              "$ref": "#/$defs/TverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/FocalTverskyLoss"
+            },
+            {
+              "$ref": "#/$defs/ComboLoss"
+            },
+            {
+              "$ref": "#/$defs/LovaszLoss"
+            },
+            {
+              "$ref": "#/$defs/BoundaryLoss"
+            },
+            {
+              "$ref": "#/$defs/MseLoss"
+            },
+            {
+              "$ref": "#/$defs/L1Loss"
+            },
+            {
+              "$ref": "#/$defs/SmoothL1Loss"
+            }
+          ],
+          "title": "Loss"
+        },
+        "metrics": {
+          "description": "What to report beside the loss. **`auc` rather than `accuracy`, and that is a measurement rather than a preference**: on 40000 images at a prevalence of 3%, with the model's own probabilities as the truth so that only its discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631 and is not even monotone - the model with no signal scores above two models that have one. Balanced accuracy and F1 do not rescue it either: a calibrated model at that prevalence never crosses the threshold, so every metric read off the hard prediction sees the same all-negative answer. Being threshold-free is what separates them. A callback watching `val_<metric>` is refused when nothing here will produce it.",
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "accuracy": "#/$defs/AccuracyMetric",
+                "auc": "#/$defs/AucMetric",
+                "balanced_accuracy": "#/$defs/BalancedAccuracyMetric",
+                "f1": "#/$defs/F1Metric"
+              },
+              "propertyName": "name"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/AccuracyMetric"
+              },
+              {
+                "$ref": "#/$defs/BalancedAccuracyMetric"
+              },
+              {
+                "$ref": "#/$defs/F1Metric"
+              },
+              {
+                "$ref": "#/$defs/AucMetric"
+              }
+            ]
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "name": {
+          "description": "Unique within a spec; names the outputs.",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "optimizer": {
+          "description": "How the weights are updated. `name` selects which one and decides which other keys this block accepts.",
+          "discriminator": {
+            "mapping": {
+              "adadelta": "#/$defs/Adadelta",
+              "adagrad": "#/$defs/Adagrad",
+              "adam": "#/$defs/Adam",
+              "adamax": "#/$defs/Adamax",
+              "adamw": "#/$defs/AdamW",
+              "nadam": "#/$defs/NAdam",
+              "rmsprop": "#/$defs/RmsProp",
+              "sgd": "#/$defs/Sgd"
+            },
+            "propertyName": "name"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Adam"
+            },
+            {
+              "$ref": "#/$defs/AdamW"
+            },
+            {
+              "$ref": "#/$defs/Sgd"
+            },
+            {
+              "$ref": "#/$defs/RmsProp"
+            },
+            {
+              "$ref": "#/$defs/Adagrad"
+            },
+            {
+              "$ref": "#/$defs/Adadelta"
+            },
+            {
+              "$ref": "#/$defs/Adamax"
+            },
+            {
+              "$ref": "#/$defs/NAdam"
+            }
+          ],
+          "title": "Optimizer"
+        },
+        "pooling": {
+          "default": "avg",
+          "description": "How the feature map becomes one vector per image. `avg` is what every classification head since the networks that replaced the flattened dense layer uses, and it averages evidence over the whole frame; `max` takes the strongest response anywhere, which is the one to reach for when the thing being looked for is small and somewhere in the picture rather than the picture itself.",
+          "enum": [
+            "avg",
+            "max"
+          ],
+          "title": "Pooling",
+          "type": "string"
+        },
+        "pretrained": {
+          "default": false,
+          "description": "Load the encoder's ImageNet weights. Separate from `encoder` on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.",
+          "title": "Pretrained",
+          "type": "boolean"
+        },
+        "separable_conv": {
+          "default": false,
+          "description": "Depthwise-separable convolutions: far fewer parameters for the same shape, and a little slower to converge.",
+          "title": "Separable Conv",
+          "type": "boolean"
+        },
+        "spatial_dropout": {
+          "default": true,
+          "description": "Drop whole feature maps rather than individual activations. The right kind for images, because neighbouring pixels in one map are correlated and dropping them one at a time removes less than it appears to. Has no effect unless `dropout` is above 0.",
+          "title": "Spatial Dropout",
+          "type": "boolean"
+        },
+        "weights": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Registry name (e.g. 'dsbowl-unet') or a path to a local checkpoint.",
+          "title": "Weights"
+        }
+      },
+      "required": [
+        "name",
+        "input_shape"
+      ],
+      "title": "ClassificationModel",
+      "type": "object"
+    },
+    "ClassificationSpec": {
+      "additionalProperties": false,
+      "description": "One label for a whole image, scored by how well the answers can be ranked.\n\nThe task `crops()` has been cutting objects out for and handing them to nothing, and the\none explaining a model needs: a saliency map explains *this answer*, and until now there\nwas no per-image answer to explain.\n\nA contracting path, pooled, with one dense layer on top - ours or any of timm's, chosen\nby `encoder`, which is why this is the one task with no `architecture` field: there is\nnothing after the pooling for a second name to describe.\n\n**What is worth knowing before writing one, because it decides what the numbers mean.**\nThe default metric is `auc` rather than `accuracy`, measured rather than preferred: on\n40000 images at a prevalence of 3%, with the model's own probabilities as the truth so\nthat only its discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631\nand is **not monotone** - a model with no signal at all scores above two models that\nhave one. Balanced accuracy and F1 do not rescue it either, because a calibrated model\nat that prevalence never crosses the threshold and everything read off the hard\nprediction sees the same all-negative answer.\n\nThe same arithmetic decides the split. A random 70/15/15 of 100 images at 3% prevalence\nleaves some part with none of the rare class 91% of the time, so `split` is stratified\nfor this task and a class with fewer examples than there are parts is refused by name.\n`ClassificationEngine.balance()` reports the prevalence rather than leaving it to be\ndiscovered from a score that looks fine.",
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/ClassificationData",
+          "description": "Where the images are and what their labels are called. The label is the directory an image sits in, or a `label` column naming the class."
+        },
+        "deterministic": {
+          "default": false,
+          "description": "Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - `seed` alone does not, and the field above says so.\n\n**It is an opt-in because the cost is real and arrives late.** Some convolutions become much slower, and an operation that has no deterministic implementation raises *when it is reached* - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.\n\nNeeds `seed`: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.",
+          "title": "Deterministic",
+          "type": "boolean"
+        },
+        "models": {
+          "description": "One or more models, trained in turn against the same data. Names must be unique, for the same reason as in a segmentation specification. Several entries differing only in `encoder` is the comparison this task makes easiest - ours against a pretrained backbone, on the same split.",
+          "items": {
+            "$ref": "#/$defs/ClassificationModel"
+          },
+          "minItems": 1,
+          "title": "Models",
+          "type": "array"
+        },
+        "output_dir": {
+          "default": "platypus_output",
+          "description": "Where a run record is written, and where `fit()` puts anything it is asked to save. Nothing is written unless something asks to write: naming this does not by itself create a directory.",
+          "title": "Output Dir",
+          "type": "string"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Makes a run repeatable as far as the arithmetic is deterministic, which goes further on some hardware than others - so it is worth knowing where it stops.\n\n**Repeatable:** the split (`split_dataset` gives the same partition on any machine), a detector's fitted anchors, the order the data arrives in and its augmentation - including inside the loader's worker processes - and, on the processor, every number to twelve decimal places.\n\n**Not repeatable:** a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and `0.8.0a3` did exactly that.\n\nSo it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.",
+          "title": "Seed"
+        },
+        "task": {
+          "const": "classification",
+          "default": "classification",
+          "description": "Fixed for this specification: `classification`.",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "models"
+      ],
+      "title": "ClassificationSpec",
       "type": "object"
     },
     "ComboLoss": {
@@ -1224,6 +1868,21 @@
         }
       },
       "title": "Ema",
+      "type": "object"
+    },
+    "F1Metric": {
+      "additionalProperties": false,
+      "description": "Per-class F1, averaged over classes.\n\nThe formula is Dice's - a one-hot label vector is a mask of one pixel - so it is\ncomputed by calling Dice's rather than by writing it again. Micro-averaging is not\noffered because for one label per image it **is** accuracy, measured to the digit, so\nit would put one number in the table twice.",
+      "properties": {
+        "name": {
+          "const": "f1",
+          "default": "f1",
+          "description": "Which metric. These are computed over the whole pass rather than per batch and averaged, because a per-class recall, an F1 and a rank statistic are each undefined on a batch that holds none of a class - at a prevalence of 3%, 398 of 500 batches of 8.",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "title": "F1Metric",
       "type": "object"
     },
     "Flows": {
@@ -3711,6 +4370,7 @@
   "$id": "https://maju116.github.io/pyplatypus/schema/spec.schema.json",
   "discriminator": {
     "mapping": {
+      "classification": "#/$defs/ClassificationSpec",
       "instance_segmentation": "#/$defs/InstanceSpec",
       "object_detection": "#/$defs/DetectionSpec",
       "semantic_segmentation": "#/$defs/SegmentationSpec"
@@ -3726,6 +4386,9 @@
     },
     {
       "$ref": "#/$defs/DetectionSpec"
+    },
+    {
+      "$ref": "#/$defs/ClassificationSpec"
     }
   ],
   "title": "platypus experiment specification"

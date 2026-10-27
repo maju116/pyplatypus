@@ -290,6 +290,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusSpec</span></a>
   </div>
@@ -1025,6 +1031,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#data-for-semantic-segmentation" id="toc-data-for-semantic-segmentation" class="nav-link" data-scroll-target="#data-for-semantic-segmentation"><code>data:</code> for semantic segmentation</a></li>
   <li><a href="#models-for-semantic-segmentation" id="toc-models-for-semantic-segmentation" class="nav-link" data-scroll-target="#models-for-semantic-segmentation"><code>models:</code> for semantic segmentation</a></li>
   </ul></li>
+  <li><a href="#task-classification" id="toc-task-classification" class="nav-link" data-scroll-target="#task-classification"><code>task: classification</code></a>
+  <ul class="collapse">
+  <li><a href="#data-for-classification" id="toc-data-for-classification" class="nav-link" data-scroll-target="#data-for-classification"><code>data:</code> for classification</a></li>
+  <li><a href="#models-for-classification" id="toc-models-for-classification" class="nav-link" data-scroll-target="#models-for-classification"><code>models:</code> for classification</a></li>
+  </ul></li>
   <li><a href="#task-instance_segmentation" id="toc-task-instance_segmentation" class="nav-link" data-scroll-target="#task-instance_segmentation"><code>task: instance_segmentation</code></a>
   <ul class="collapse">
   <li><a href="#data-for-instance-segmentation" id="toc-data-for-instance-segmentation" class="nav-link" data-scroll-target="#data-for-instance-segmentation"><code>data:</code> for instance segmentation</a></li>
@@ -1187,10 +1198,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td><a href="#task-semantic_segmentation">SegmentationSpec</a></td>
 </tr>
 <tr class="even">
+<td><code>classification</code></td>
+<td><a href="#task-classification">ClassificationSpec</a></td>
+</tr>
+<tr class="odd">
 <td><code>instance_segmentation</code></td>
 <td><a href="#task-instance_segmentation">InstanceSpec</a></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>object_detection</code></td>
 <td><a href="#task-object_detection">DetectionSpec</a></td>
 </tr>
@@ -1513,6 +1528,290 @@ Cut each image into a grid of tiles instead of shrinking it. One entry per spati
 </dl>
 <section id="augmentation-inside-semantic-segmentation-models" class="level4">
 <h4 class="anchored" data-anchor-id="augmentation-inside-semantic-segmentation-models"><code>augmentation:</code> inside semantic segmentation <code>models:</code></h4>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <strong>required</strong>
+An albumentations transform, by its own class name - <code>HorizontalFlip</code>, <code>RandomBrightnessContrast</code>. Checked against what the installed albumentations offers, and <code>available_transforms()</code> lists them; at rank 3 the list is shorter, because support for volumes is uneven.
+</dd>
+<dt><code>params</code></dt>
+<dd>
+a mapping — optional
+Arguments passed to that transform, exactly as albumentations names them - so <code>p</code> is the probability of applying it, defaulting to the transform’s own. Not validated here: they are albumentations’ to accept, and each step is probed at the model’s input size when the pipeline is built, so a bad argument is named there rather than guessed at here.
+</dd>
+</dl>
+</section>
+</section>
+</section>
+<section id="task-classification" class="level2">
+<h2 class="anchored" data-anchor-id="task-classification"><code>task: classification</code></h2>
+<p>The ClassificationSpec shape. Its top level:</p>
+<dl>
+<dt><code>task</code></dt>
+<dd>
+text — <code>classification</code>
+Fixed for this specification: <code>classification</code>.
+</dd>
+<dt><code>seed</code></dt>
+<dd>
+a whole number — unset
+Makes a run repeatable as far as the arithmetic is deterministic, which goes further on some hardware than others - so it is worth knowing where it stops.
+<strong>Repeatable:</strong> the split (<code>split_dataset</code> gives the same partition on any machine), a detector’s fitted anchors, the order the data arrives in and its augmentation - including inside the loader’s worker processes - and, on the processor, every number to twelve decimal places.
+<strong>Not repeatable:</strong> a run on a CUDA device. Measured on a GTX 1070: two runs at one seed agreed to twelve decimals on the processor and differed in the fourth after a single epoch on the card, because cuDNN chooses algorithms this does not constrain. Nor across versions of this package - anything that changes the order data is drawn in changes what one seed draws, and <code>0.8.0a3</code> did exactly that.
+So it is the field for comparing two of your own runs, and not for publishing a number somebody else can land on.
+</dd>
+<dt><code>deterministic</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Ask torch for deterministic algorithms as well, which is the only thing that makes a run on a card repeatable - <code>seed</code> alone does not, and the field above says so.
+<strong>It is an opt-in because the cost is real and arrives late.</strong> Some convolutions become much slower, and an operation that has no deterministic implementation raises <em>when it is reached</em> - so a run can stop ten minutes in rather than when the specification was checked. Every other refusal here happens before anything is read; this one cannot, because whether an operation has a deterministic algorithm is a fact about the installed torch and the device, not about the configuration.
+Needs <code>seed</code>: constraining the algorithms while the draw still varies produces a run that is no more repeatable and only slower, so asking for it without a seed is refused rather than quietly accepted.
+</dd>
+<dt><code>output_dir</code></dt>
+<dd>
+text — <code>platypus_output</code>
+Where a run record is written, and where <code>fit()</code> puts anything it is asked to save. Nothing is written unless something asks to write: naming this does not by itself create a directory.
+</dd>
+<dt><code>data</code></dt>
+<dd>
+a <code>ClassificationData</code> block — <strong>required</strong>
+Where the images are and what their labels are called. The label is the directory an image sits in, or a <code>label</code> column naming the class.
+</dd>
+<dt><code>models</code></dt>
+<dd>
+a list of <code>ClassificationModel</code> blocks — <strong>required</strong>
+One or more models, trained in turn against the same data. Names must be unique, for the same reason as in a segmentation specification. Several entries differing only in <code>encoder</code> is the comparison this task makes easiest - ours against a pretrained backbone, on the same split.
+</dd>
+</dl>
+<section id="data-for-classification" class="level3">
+<h3 class="anchored" data-anchor-id="data-for-classification"><code>data:</code> for classification</h3>
+<dl>
+<dt><code>train_path</code></dt>
+<dd>
+text — <strong>required</strong>
+Where the training data is. For <code>nested_dirs</code>, a directory of sample directories; for <code>config_file</code>, a CSV naming the files. With a <code>split</code>, this is the only path given and the divisions are cut from it.
+</dd>
+<dt><code>validation_path</code></dt>
+<dd>
+text — unset
+Optional only in the sense that <code>split</code> is the other way to get one, and <code>validation: false</code> the third. Exactly one of them, because two sources for the validation set are two places to change it.
+</dd>
+<dt><code>test_path</code></dt>
+<dd>
+text — unset
+A third set, scored only when asked. Whether it can be scored at all depends on whether it carries labels: a folder of images alone is accepted and <code>predict</code> works on it, while <code>evaluate</code> refuses it by name rather than failing two layers down on the first missing mask.
+</dd>
+<dt><code>validation</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>true</code>
+Whether this run validates at all. <code>false</code> is the third and last way of answering the question <code>validation_path</code> and <code>split</code> answer, and it has to be written down.
+A final fit on every case you have, once the hyperparameters are settled, is a legitimate thing to want - and until now it meant inventing a split and ignoring the number it produced. What is <em>not</em> legitimate is arriving here by omission: a specification with neither a path nor a split is still an error, because ‘I have no validation set’ and ‘I forgot’ look identical and only one of them is a decision.
+With <code>false</code>, giving <code>validation_path</code> or <code>split</code> as well is refused: they say where the validation set comes from and this says there is not one.
+</dd>
+<dt><code>split</code></dt>
+<dd>
+a <code>SplitSpec</code> block — unset
+Divide <code>train_path</code> instead of naming a second folder. Nothing is written: the samples that were already discovered are partitioned, so a specification stays a description and leaves no files behind. <code>split_dataset()</code> is the tool when the CSVs are the point - to keep, to hand to a colleague, or to cite.
+</dd>
+<dt><code>mode</code></dt>
+<dd>
+<code>nested_dirs</code> or <code>config_file</code> — <code>nested_dirs</code>
+How the files are arranged: <code>nested_dirs</code> for one directory per sample, <code>config_file</code> for a CSV whose columns name the files. The CSV form is what to use when the data cannot be moved or copied into a layout.
+</dd>
+<dt><code>subdirs</code></dt>
+<dd>
+a list — unset
+Refused here, and it is the field that keeps <code>nested_dirs</code> from meaning two things at once. For segmentation and detection a sample is a directory with the image in one subdirectory and what labels it in the other; a classification sample is one image whose label is the directory it sits in, so there is no second subdirectory to name. Leave it unset: in <code>nested_dirs</code> mode the classes are the directories under <code>train_path</code>, and in <code>config_file</code> mode the <code>label</code> column holds the name.
+</dd>
+<dt><code>column_sep</code></dt>
+<dd>
+text — <code>;</code>
+For <code>config_file</code>, what separates several paths inside one cell - a sample with one mask file per object, as Data Science Bowl has, or one file per channel.
+</dd>
+<dt><code>shuffle</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>true</code>
+Shuffle the training data between epochs. Only the training data: validation is read in order so that two epochs measure the same thing in the same way.
+</dd>
+<dt><code>window</code></dt>
+<dd>
+text or a list — <code>auto</code>
+How values in real units are mapped to 0-1: a named window such as ‘lung’ or ‘soft_tissue’, an explicit (centre, width) pair, ‘auto’ for the window the file recorded - DICOM only, since NIfTI stores none - or ‘full’ for the whole range present. A fixed window is what makes two scans comparable: scaling each one by its own extremes lets a single bright voxel rescale everything else. Ignored for ordinary pictures, which are already 0-255. Accepted as <code>dicom_window</code> too, the name it had while DICOM was the only format that needed it.
+</dd>
+<dt><code>classes</code></dt>
+<dd>
+a list of text values — <strong>required</strong>
+Class names in class order. Position is the class index, and in <code>nested_dirs</code> mode these are the directory names under <code>train_path</code>. No background entry: an image is one of these, and a picture of nothing in particular is a class you have to name.
+</dd>
+<dt><code>strict_labels</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>true</code>
+Refuse an image whose label is not in <code>classes</code>. False skips it instead, which is how you train on two of a dataset’s three classes without moving any files. True by default, and it matters more here than it does for a box: a skipped object leaves the rest of its image in the training set, while a skipped image leaves nothing, so the same setting quietly changes how much data there is.
+</dd>
+</dl>
+<section id="split-inside-classification-data" class="level4">
+<h4 class="anchored" data-anchor-id="split-inside-classification-data"><code>split:</code> inside classification <code>data:</code></h4>
+<dl>
+<dt><code>fractions</code></dt>
+<dd>
+a list of numbers — <strong>required</strong>
+Two or three: train, validation, and optionally test. The length rule is enforced by the splitting module rather than restated here - one rule, one place. A third fraction is scoreable, because it comes from annotated data.
+</dd>
+<dt><code>group_by</code></dt>
+<dd>
+text — <strong>required</strong>
+<strong>Required, and may be null.</strong> A regular expression read against the sample key; everything sharing a group lands in exactly one split. Usually a patient, sometimes a study, a scanner or a site - whatever must not straddle the division.
+Required rather than optional because the mistake it prevents is invisible. Slices of one patient in training and validation at once make validation measure memory instead of generalisation, and Dice comes out several points too high with nothing in the output to say so. An omitted field would be that choice made silently; <code>null</code> is the same choice made on purpose, which is all this asks for.
+</dd>
+<dt><code>seed</code></dt>
+<dd>
+a whole number — <code>0</code>
+The split is deterministic given the samples, the fractions, the pattern and this. A split that moves between runs makes two results incomparable and the reason for a difference impossible to find.
+</dd>
+</dl>
+</section>
+</section>
+<section id="models-for-classification" class="level3">
+<h3 class="anchored" data-anchor-id="models-for-classification"><code>models:</code> for classification</h3>
+<dl>
+<dt><code>name</code></dt>
+<dd>
+text — <strong>required</strong>
+Unique within a spec; names the outputs.
+</dd>
+<dt><code>input_shape</code></dt>
+<dd>
+a list of whole numbers — <strong>required</strong>
+Spatial size: (height, width) in 2D, (depth, height, width) in 3D.
+</dd>
+<dt><code>channels</code></dt>
+<dd>
+a whole number — <code>3</code>
+How many channels the network takes: 3 for colour, 1 for greyscale, and one per sequence for multi-modal data such as the four MRI sequences in BraTS. Derived rather than declared when <code>channels_from</code> names the files, because then the data decides. Not adopted from a weights file - the data pipeline needs it before a network exists, and a specification has to be checkable offline.
+</dd>
+<dt><code>optimizer</code></dt>
+<dd>
+one of <code>adadelta</code>, <code>adagrad</code>, <code>adam</code>, <code>adamax</code>, <code>adamw</code>, <code>nadam</code>, <code>rmsprop</code>, <code>sgd</code> — optional
+How the weights are updated. <code>name</code> selects which one and decides which other keys this block accepts.
+</dd>
+<dt><code>callbacks</code></dt>
+<dd>
+a list, each one of <code>cosine_annealing</code>, <code>csv_logger</code>, <code>early_stopping</code>, <code>ema</code>, <code>linear_annealing</code>, <code>model_checkpoint</code>, <code>reduce_lr_on_plateau</code>, <code>step_decay</code>, <code>stop_after</code>, <code>swa</code>, <code>terminate_on_collapse</code>, <code>terminate_on_nan</code> — optional
+Things that happen between epochs: stopping early, writing checkpoints, moving the learning rate, averaging the weights. A callback watching a number no metric will produce is refused when the specification is built rather than waited on forever, and so is one watching <code>val_*</code> in a run with no validation set.
+</dd>
+<dt><code>augmentation</code></dt>
+<dd>
+a list of <code>AugmentationStep</code> blocks — unset
+albumentations transforms, applied to the training data only - never to validation, where the point is to measure the same thing every epoch. Each step is probed at the model’s own input size while the pipeline is built, because support for volumes is uneven and a transform that cannot take one raises from inside the library.
+</dd>
+<dt><code>epochs</code></dt>
+<dd>
+a whole number — <code>10</code>
+How many passes over the training data. The default is deliberately small: it is enough to see that a run works and not enough to mistake for a result. With <code>cosine_annealing</code> this is also the length the schedule is spread over.
+</dd>
+<dt><code>batch_size</code></dt>
+<dd>
+a whole number — <code>8</code>
+How many samples go through the network at once. Limited by memory rather than by the problem, and it is the first thing to lower when a 3D run will not fit. It interacts with <code>batch_normalization</code>: statistics taken over very few samples are noisy.
+</dd>
+<dt><code>weights</code></dt>
+<dd>
+text — unset
+Registry name (e.g.&nbsp;‘dsbowl-unet’) or a path to a local checkpoint.
+</dd>
+<dt><code>fit</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>true</code>
+Set false to load weights and skip training.
+</dd>
+<dt><code>dropout</code></dt>
+<dd>
+a number — <code>0.0</code>
+Drop this fraction during training. 0 switches it off, which is the default because these models are small enough that batch normalisation usually carries the regularisation on its own.
+</dd>
+<dt><code>batch_normalization</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>true</code>
+Normalise between convolutions. On by default, and worth knowing about when weights are averaged: <code>swa</code> has to recompute these statistics over the training data, because an averaged weight tensor inherits them from whichever epoch was last rather than averaging them.
+</dd>
+<dt><code>separable_conv</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Depthwise-separable convolutions: far fewer parameters for the same shape, and a little slower to converge.
+</dd>
+<dt><code>spatial_dropout</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>true</code>
+Drop whole feature maps rather than individual activations. The right kind for images, because neighbouring pixels in one map are correlated and dropping them one at a time removes less than it appears to. Has no effect unless <code>dropout</code> is above 0.
+</dd>
+<dt><code>activation</code></dt>
+<dd>
+<code>relu</code> or <code>leaky_relu</code> or <code>elu</code> or <code>selu</code> or <code>gelu</code> or <code>silu</code> or <code>tanh</code> — <code>relu</code>
+The non-linearity between convolutions, the same one throughout.
+</dd>
+<dt><code>initialiser</code></dt>
+<dd>
+<code>he_normal</code> or <code>he_uniform</code> or <code>glorot_normal</code> or <code>glorot_uniform</code> — <code>he_normal</code>
+How the weights start. The <code>he_*</code> family is scaled for ReLU-like activations and <code>glorot_*</code> for symmetric ones, so this and <code>activation</code> are a pair.
+</dd>
+<dt><code>encoder</code></dt>
+<dd>
+text — unset
+A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave unset for the built-in encoder, which is the only one that works in 3D.
+</dd>
+<dt><code>pretrained</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — <code>false</code>
+Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
+</dd>
+<dt><code>encoder_learning_rate</code></dt>
+<dd>
+a number — unset
+A separate, usually smaller learning rate for the layers that arrived pretrained. Whatever is ours trains at the optimizer’s own rate instead - the decoder and the full-resolution stage in front of the backbone for a segmentation model, the pooled head for a classifier - because those start random. Unset means one rate for the whole network.
+</dd>
+<dt><code>freeze_encoder</code></dt>
+<dd>
+a whole number — <code>0</code>
+Keep the pretrained layers fixed for this many epochs, then train them. Lets the random part of the network settle - the decoder, or a classifier’s head - before its gradients reach weights worth keeping. A number at or above <code>epochs</code> freezes them for the whole run.
+</dd>
+<dt><code>blocks</code></dt>
+<dd>
+a whole number — <code>4</code>
+How many times the resolution is halved before the features are pooled, so how much context the answer is made from. Unlike a segmentation model nothing has to divide by 2^blocks - there is no decoder to line up with - but every side of <code>input_shape</code> must still be at least 2^blocks, or the deepest level has nothing left to pool. Ignored, and refused, when <code>encoder</code> names a backbone: the backbone’s own depth is then the only one there is.
+</dd>
+<dt><code>filters</code></dt>
+<dd>
+a whole number — <code>16</code>
+Filters in the first block, doubled at every level, so this and <code>blocks</code> set how wide the pooled feature vector is: filters * 2^blocks. Ignored, and refused, when <code>encoder</code> names a backbone.
+</dd>
+<dt><code>block_width</code></dt>
+<dd>
+a whole number — <code>2</code>
+Convolutions per block, at every level. Raising it adds depth without adding levels, which is the lever to reach for when the objects are small enough that halving the resolution again would lose them - a crop of one cell is exactly that case. Ignored, and refused, when <code>encoder</code> names a backbone.
+</dd>
+<dt><code>pooling</code></dt>
+<dd>
+<code>avg</code> or <code>max</code> — <code>avg</code>
+How the feature map becomes one vector per image. <code>avg</code> is what every classification head since the networks that replaced the flattened dense layer uses, and it averages evidence over the whole frame; <code>max</code> takes the strongest response anywhere, which is the one to reach for when the thing being looked for is small and somewhere in the picture rather than the picture itself.
+</dd>
+<dt><code>head_dropout</code></dt>
+<dd>
+a number — <code>0.0</code>
+Drop this fraction of the pooled vector before the dense layer. Separate from <code>dropout</code>, which sits between convolutions and reaches nothing at all when the contracting path is a pretrained backbone with its own regularisation - this is then the only one left, which is why it is here rather than folded into the other.
+</dd>
+<dt><code>loss</code></dt>
+<dd>
+one of <code>boundary</code>, <code>cce</code>, <code>cce_dice</code>, <code>combo</code>, <code>dice</code>, <code>focal</code>, <code>focal_tversky</code>, <code>generalized_dice</code>, <code>iou</code>, <code>l1</code>, <code>lovasz</code>, <code>mse</code>, <code>smooth_l1</code>, <code>tversky</code> — optional
+The objective trained against. Fewer are admissible here than anywhere else in this package, and the two that are - cross-entropy and its focal form - are the ones that score each answer on its own rather than scoring an overlap. The refusal names them rather than this description keeping a list.
+</dd>
+<dt><code>metrics</code></dt>
+<dd>
+a list, each one of <code>accuracy</code>, <code>auc</code>, <code>balanced_accuracy</code>, <code>f1</code> — optional
+What to report beside the loss. <strong><code>auc</code> rather than <code>accuracy</code>, and that is a measurement rather than a preference</strong>: on 40000 images at a prevalence of 3%, with the model’s own probabilities as the truth so that only its discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631 and is not even monotone - the model with no signal scores above two models that have one. Balanced accuracy and F1 do not rescue it either: a calibrated model at that prevalence never crosses the threshold, so every metric read off the hard prediction sees the same all-negative answer. Being threshold-free is what separates them. A callback watching <code>val_&lt;metric&gt;</code> is refused when nothing here will produce it.
+</dd>
+</dl>
+<section id="augmentation-inside-classification-models" class="level4">
+<h4 class="anchored" data-anchor-id="augmentation-inside-classification-models"><code>augmentation:</code> inside classification <code>models:</code></h4>
 <dl>
 <dt><code>name</code></dt>
 <dd>

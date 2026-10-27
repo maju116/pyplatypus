@@ -289,6 +289,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
           <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../reference/ClassificationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">PlatypusSpec</span></a>
   </div>
@@ -1034,7 +1040,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h1>available_tasks</h1>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>available_tasks()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>What this package can be asked to do at all.</p>
-<p>Three rows, and the weakest of this family as a list - it earns its place as the entry point, which is the question somebody asks before they have read anything.</p>
+<p>Four rows, and the weakest of this family as a list - it earns its place as the entry point, which is the question somebody asks before they have read anything.</p>
 <p><strong>These rows are written out where everything else in this module is derived</strong>, which contradicts this file’s own first paragraph and is deliberate: a row carries a <code>chooses</code> tuple and a summary that no model declares. So it is a second copy of one answer, and <code>tests/spec/test_task_coverage.py</code> holds it to <code>AnySpec</code>’s members rather than a comment claiming the two agree.</p>
 <section id="returns" class="level2 doc-section doc-section-returns">
 <h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
@@ -1067,7 +1073,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <blockquote class="blockquote">
 <blockquote class="blockquote">
 <blockquote class="blockquote">
-<p>[row[“name”] for row in available_tasks()] [‘instance_segmentation’, ‘object_detection’, ‘semantic_segmentation’] next(r for r in available_tasks() if r[“name”] == “instance_segmentation”)[“chooses”] (‘models’, ‘separation’, ‘decode’, ‘loss’, ‘metrics’, ‘optimizer’, ‘callbacks’, ‘augmentation’)</p>
+<p>[row[“name”] for row in available_tasks()] [‘classification’, ‘instance_segmentation’, ‘object_detection’, ‘semantic_segmentation’] next(r for r in available_tasks() if r[“name”] == “instance_segmentation”)[“chooses”] (‘models’, ‘separation’, ‘decode’, ‘loss’, ‘metrics’, ‘optimizer’, ‘callbacks’, ‘augmentation’)</p>
 </blockquote>
 </blockquote>
 </blockquote>
