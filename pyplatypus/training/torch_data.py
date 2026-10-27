@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Sampler
 
+from pyplatypus.data.classification import ClassificationDataset
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.detection import DetectionDataset
 from pyplatypus.data.instances import InstanceDataset
@@ -176,6 +177,56 @@ def make_loader(
         batch_size=batch_size,
         shuffle=shuffle if sampler is None else False,
         sampler=sampler,
+        num_workers=num_workers,
+        drop_last=drop_last,
+        pin_memory=torch.cuda.is_available(),
+        persistent_workers=num_workers > 0,
+    )
+
+
+class TorchClassificationDataset(Dataset):
+    """A thin adapter, like the one above. One image, one index.
+
+    **The target does not go through `to_channels_first`**, and it is the only target in
+    this package that does not: a class index is a scalar, so moving an axis that is not
+    there would either fail or - with the one-hot shape somebody might reach for instead -
+    silently transpose a batch. It is `long` because that is what a cross-entropy over
+    class indices takes, and keeping it an index rather than expanding it here is what lets
+    the loss choose: `CceLoss` reads indices, and the metrics accept either shape.
+    """
+
+    def __init__(self, base: ClassificationDataset):
+        self.base = base
+
+    def __len__(self) -> int:
+        return len(self.base)
+
+    def __getitem__(self, index: int):
+        image, label = self.base[index]
+        if label is None:
+            return to_channels_first(image)
+        return to_channels_first(image), torch.tensor(int(label), dtype=torch.long)
+
+
+def make_classification_loader(
+    base: ClassificationDataset,
+    *,
+    batch_size: int = 8,
+    shuffle: bool = False,
+    num_workers: int = 0,
+    drop_last: bool = False,
+) -> DataLoader:
+    """No sampler argument and no window: there is nothing to reuse.
+
+    `TileShuffle` exists because a tiled sample decodes once and serves sixteen examples.
+    A classification sample is one image and one example, so torch's own shuffling is both
+    correct and the whole of it - and `drop_last` matters more here than it does for a mask,
+    because a ragged last batch of one is a batch norm with nothing to normalise over.
+    """
+    return DataLoader(
+        TorchClassificationDataset(base),
+        batch_size=batch_size,
+        shuffle=shuffle,
         num_workers=num_workers,
         drop_last=drop_last,
         pin_memory=torch.cuda.is_available(),
