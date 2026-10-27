@@ -26,6 +26,12 @@ _CONV = {2: nn.Conv2d, 3: nn.Conv3d}
 _CONV_TRANSPOSE = {2: nn.ConvTranspose2d, 3: nn.ConvTranspose3d}
 _NORM = {2: nn.BatchNorm2d, 3: nn.BatchNorm3d}
 _POOL = {2: nn.MaxPool2d, 3: nn.MaxPool3d}
+_GLOBAL_POOL = {
+    ("avg", 2): nn.AdaptiveAvgPool2d,
+    ("avg", 3): nn.AdaptiveAvgPool3d,
+    ("max", 2): nn.AdaptiveMaxPool2d,
+    ("max", 3): nn.AdaptiveMaxPool3d,
+}
 _DROPOUT = {2: nn.Dropout2d, 3: nn.Dropout3d}
 _UPSAMPLE_MODE = {2: "bilinear", 3: "trilinear"}
 
@@ -64,7 +70,15 @@ def activation(kind: Activation) -> nn.Module:
 def initialise(
     module: nn.Module, how: Initialiser, kind: Activation, *, except_for: nn.Module | None = None
 ) -> None:
-    """He for ReLU-like activations, Glorot otherwise - applied to every convolution.
+    """He for ReLU-like activations, Glorot otherwise - applied to every convolution,
+    and to a linear layer where there is one.
+
+    **`nn.Linear` was added when the pooled classification head arrived**, and it
+    changes nothing that existed: a grep for it across the package returned nothing
+    before that head, so until then `initialiser` could only ever have meant the
+    convolutions. A head whose weights ignored the field a specification writes would
+    be a setting that does nothing, which is the failure this package refuses
+    everywhere else.
 
     **`except_for` is what arrived pretrained, and leaving it out is what `#294` was.**
     This walks every convolution under `module`, and a transferred backbone handed to a
@@ -94,7 +108,7 @@ def initialise(
     )
     for layer in module.modules():
         if id(layer) not in skip and isinstance(
-            layer, (*_CONV.values(), *_CONV_TRANSPOSE.values())
+            layer, (*_CONV.values(), *_CONV_TRANSPOSE.values(), nn.Linear)
         ):
             if how is Initialiser.HE_NORMAL:
                 nn.init.kaiming_normal_(layer.weight, nonlinearity=gain_nonlinearity)
@@ -139,6 +153,23 @@ def dropout(rank: int, rate: float, spatial: bool) -> nn.Module:
 
 def pooling(rank: int) -> nn.Module:
     return _POOL[rank](2)
+
+
+def global_pool(rank: int, how: str = "avg") -> nn.Module:
+    """One value per channel, whatever the input size.
+
+    Adaptive rather than a kernel, which is what makes a classifier indifferent to the
+    picture's size: a classification model has no decoder to line up with, so nothing in it
+    needs `input_shape` to divide by anything. `avg` averages the evidence over the frame
+    and `max` takes the strongest response anywhere, which is the one to reach for when the
+    thing being looked for is small and somewhere in the picture rather than the picture
+    itself.
+    """
+    check_rank(rank)
+    if (how, rank) not in _GLOBAL_POOL:
+        offered = ", ".join(sorted({kind for kind, _ in _GLOBAL_POOL}))
+        raise ModelError(f"unknown pooling '{how}'; this package does: {offered}")
+    return _GLOBAL_POOL[(how, rank)](1)
 
 
 def upsample(

@@ -52,24 +52,56 @@ class Encoder(Protocol):
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]: ...
 
 
-def verify_encoder(encoder: Encoder, rank: int, in_channels: int, levels: int) -> None:
-    """Push one tiny tensor through and check what comes back matches what was promised.
+def verify_encoder(
+    encoder: Encoder,
+    rank: int,
+    in_channels: int,
+    levels: int | None = None,
+    *,
+    for_a_decoder: bool = True,
+    probe_shape: tuple[int, ...] | None = None,
+) -> None:
+    """Push one tensor through and check what comes back matches what was promised.
 
     Measuring beats trusting `channels` and a docstring: an encoder that miscounts its
     own widths builds a decoder with the wrong convolutions, and one whose stem strides
     by 2 trains happily against a mask it cannot possibly match. Both surface far from
     their cause. The probe is the smallest input the level count allows, so it costs
     almost nothing even at rank 3.
+
+    **Two of these checks are the decoder's and not the encoder's**, which is what
+    `for_a_decoder` is: level 0 at input resolution and every later level halving are
+    requirements of the thing that upsamples back, because the head is a 1x1 convolution
+    on level 0. A classifier pools the deepest level and has no use for either, so with
+    `False` only the measured agreement between the declaration and reality is checked -
+    the part every consumer relies on, since each one sizes something from `channels`
+    before seeing a tensor. This is why `convnext_*` and `swin_*` are refused for a
+    U-shaped model and admissible for a classifier: the missing 1/2 level is the decoder's
+    loss alone.
+
+    `levels` is the count the **caller** requires, and `None` means it has no requirement
+    of its own - the classifier reads the deepest width and nothing else, so an encoder
+    with three levels or one serves it equally. With a number, a disagreement is refused
+    before anything is built from it.
+
+    `probe_shape` is the input to measure with, and a classifier passes its own
+    `input_shape` rather than the derived minimum. That is not caution: `swin_*` fixes its
+    window to the size it was trained at, so a backbone that cannot run at the size this
+    model will actually use says so here, while the specification is being turned into a
+    network, rather than on the first batch.
     """
     declared = tuple(encoder.channels)
-    if len(declared) != levels:
+    if levels is not None and len(declared) != levels:
         raise ModelError(
             f"encoder reports {len(declared)} levels but the spec asks for {levels} "
             f"(blocks + bottleneck)"
         )
 
-    size = 2 ** (levels - 1)
-    probe = torch.zeros(1, in_channels, *([size] * rank))
+    size = 2 ** (len(declared) - 1 if levels is None else levels - 1)
+    sides = tuple(probe_shape) if probe_shape is not None else tuple([size] * rank)
+    if len(sides) != rank:
+        raise ModelError(f"probe_shape has {len(sides)} sides but the model is {rank}D")
+    probe = torch.zeros(1, in_channels, *sides)
     call = encoder if isinstance(encoder, nn.Module) else encoder.forward
     was_training = getattr(encoder, "training", False)
     if isinstance(encoder, nn.Module):
@@ -77,13 +109,27 @@ def verify_encoder(encoder: Encoder, rank: int, in_channels: int, levels: int) -
     try:
         with torch.no_grad():
             features = call(probe)
+    except ModelError:
+        raise
+    except Exception as error:
+        # A backbone that cannot run at this size is the probe's own finding, and timm
+        # says so with a bare assertion: `swin_*` fixes the window to the size it was
+        # trained at and answers "Input height (64) doesn't match model (224)", which names
+        # neither the field to change nor the encoder that minds. Measured 2026-10-27.
+        raise ModelError(
+            f"the encoder could not run at {sides}: {type(error).__name__}: {error}. Some "
+            f"backbones fix the input size they were trained at, so this is refused while "
+            f"the network is being built rather than on the first batch - change "
+            f"`input_shape` to the size the backbone expects, or name one that does not "
+            f"mind."
+        ) from error
     finally:
         if isinstance(encoder, nn.Module) and was_training:
             encoder.train()
 
-    if len(features) != levels:
+    if len(features) != len(declared):
         raise ModelError(
-            f"encoder declares {levels} levels in `channels` but returned "
+            f"encoder declares {len(declared)} levels in `channels` but returned "
             f"{len(features)} feature maps; the two must agree"
         )
 
@@ -94,8 +140,11 @@ def verify_encoder(encoder: Encoder, rank: int, in_channels: int, levels: int) -
             f"built from the declaration, so the two must agree"
         )
 
+    if not for_a_decoder:
+        return
+
     spatial = [tuple(int(n) for n in f.shape[2:]) for f in features]
-    expected_first = tuple([size] * rank)
+    expected_first = sides
     if spatial[0] != expected_first:
         raise ModelError(
             f"encoder level 0 is {spatial[0]} for a {expected_first} input, so it "
@@ -105,7 +154,7 @@ def verify_encoder(encoder: Encoder, rank: int, in_channels: int, levels: int) -
             f"and needs a full-resolution level prepended."
         )
 
-    for level in range(1, levels):
+    for level in range(1, len(declared)):
         wanted = tuple(max(1, n // 2) for n in spatial[level - 1])
         if spatial[level] != wanted:
             raise ModelError(
@@ -190,6 +239,14 @@ class PretrainedEncoder(nn.Module):
     `filters` sizes the one stage we own; `blocks` says how many of the backbone's stages
     to use. Every other block option applies to our stage only, since the backbone's own
     layers are fixed by whoever trained it.
+
+    **`bottleneck_only` is the classifier's shape of this**, and it is the same seam with
+    one level instead of a pyramid: the deepest features the backbone offers, no stage of
+    ours in front, nothing made up. Then `blocks` and `filters` describe things that do not
+    exist here and are refused rather than ignored - there is no pyramid to size and no
+    stage of ours to widen - and the refusal above does not apply at all, because the 1/2
+    level a patch-based backbone cannot supply is the decoder's loss and a classifier has
+    no decoder. `convnext_*` and `swin_*` are admissible here for exactly that reason.
     """
 
     #: ImageNet statistics are applied only when the weights that expect them are loaded.
@@ -198,13 +255,36 @@ class PretrainedEncoder(nn.Module):
         name: str,
         *,
         in_channels: int,
-        blocks: int,
-        filters: int,
+        blocks: int | None = None,
+        filters: int | None = None,
         pretrained: bool = False,
         rank: int = 2,
+        bottleneck_only: bool = False,
         **stem_options,
     ):
         super().__init__()
+        self.bottleneck_only = bottleneck_only
+        if bottleneck_only:
+            named = [
+                field
+                for field, value in (("blocks", blocks), ("filters", filters))
+                if value is not None
+            ]
+            if named:
+                joined = " and ".join("`" + field + "`" for field in named)
+                raise ModelError(
+                    f"{joined} describe a pyramid and the full-resolution stage in front of "
+                    f"it, and `bottleneck_only` builds neither - it takes the deepest "
+                    f"features '{name}' offers and nothing else. Drop them, or drop "
+                    f"`bottleneck_only` to build the pyramid a decoder needs."
+                )
+        elif blocks is None or filters is None:
+            raise ModelError(
+                "a pyramid needs `blocks`, to say how many of the backbone's stages to "
+                "use, and `filters`, to size the full-resolution stage in front of them. "
+                "Pass `bottleneck_only=True` for the deepest level alone, which is what a "
+                "classifier pools."
+            )
         if rank != 2:
             raise ModelError(
                 f"pretrained encoders are 2D only; this model is {rank}D. ImageNet is "
@@ -229,22 +309,34 @@ class PretrainedEncoder(nn.Module):
             ) from error
 
         reductions = list(probe.feature_info.reduction())
-        wanted = [2**level for level in range(blocks + 1)]  # 1, 2, 4, ... 2**blocks
-        self.own_level_zero = reductions[0] != 1
-        needed_from_backbone = wanted[1:] if self.own_level_zero else wanted
+        if not reductions:
+            raise ModelError(f"'{name}' reports no features at all, so there is nothing to use")
 
-        missing = [r for r in needed_from_backbone if r not in reductions]
-        if missing:
-            raise ModelError(
-                f"'{name}' offers features at {reductions}, but this model needs "
-                f"{needed_from_backbone}; {missing} is not there. Backbones that pool in "
-                f"patches ('convnext_*', 'swin_*') start at 1/4 and cannot supply 1/2, "
-                f"which is where a U-shaped decoder recovers fine detail. Use a "
-                f"convolutional backbone - resnet*, efficientnet_*, mobilenetv3_* - or "
-                f"reduce `blocks` if the deepest level is the one missing."
-            )
+        if bottleneck_only:
+            # The deepest level, by reduction rather than by position: the two agree for
+            # every backbone seen here, and the question being asked is which features are
+            # the coarsest, which is what `max` says and what `[-1]` assumes.
+            self.own_level_zero = False
+            indices = (reductions.index(max(reductions)),)
+        else:
+            wanted = [2**level for level in range(blocks + 1)]  # 1, 2, 4, ... 2**blocks
+            self.own_level_zero = reductions[0] != 1
+            needed_from_backbone = wanted[1:] if self.own_level_zero else wanted
 
-        indices = tuple(reductions.index(r) for r in needed_from_backbone)
+            missing = [r for r in needed_from_backbone if r not in reductions]
+            if missing:
+                raise ModelError(
+                    f"'{name}' offers features at {reductions}, but a U-shaped decoder needs "
+                    f"{needed_from_backbone}; {missing} is not there. Backbones that pool in "
+                    f"patches ('convnext_*', 'swin_*') start at 1/4 and cannot supply 1/2, "
+                    f"which is where a U-shaped decoder recovers fine detail. Use a "
+                    f"convolutional backbone - resnet*, efficientnet_*, mobilenetv3_* - or "
+                    f"reduce `blocks` if the deepest level is the one missing. A classifier "
+                    f"pools the deepest level and needs none of this, so the same backbone "
+                    f"is admissible with `bottleneck_only`."
+                )
+
+            indices = tuple(reductions.index(r) for r in needed_from_backbone)
         self.backbone = timm.create_model(
             name,
             features_only=True,
@@ -253,6 +345,19 @@ class PretrainedEncoder(nn.Module):
             out_indices=indices,
         )
         backbone_widths = tuple(self.backbone.feature_info.channels())
+
+        # **Asked rather than guessed, and measured when it was written.** timm's
+        # transformer backbones return features channels-last: `swin_tiny` answers
+        # (1, 7, 7, 768) where `convnext_tiny`, `resnet34` and `vit_small` answer
+        # (1, 768, 7, 7). The seam here is channels-first, so the layout is read off
+        # the wrapper's own `output_fmt` - `Format.NHWC` against `Format.NCHW` - and
+        # not from the shapes, which cannot be told apart when the channel count
+        # happens to equal the grid. Passing `output_fmt='NCHW'` to `create_model` is
+        # not the fix: swin accepts it and returns channels-last anyway, and every
+        # convolutional backbone refuses the argument outright. A wrong answer here is
+        # caught loudly by `verify_encoder`, which compares the declared channels
+        # against the axis this class puts them on.
+        self.channels_last = "NHWC" in str(getattr(self.backbone, "output_fmt", "NCHW"))
 
         if self.own_level_zero:
             self.stem = ConvBlock(2, in_channels, filters, **stem_options)
@@ -298,11 +403,23 @@ class PretrainedEncoder(nn.Module):
         """
         return self.backbone
 
+    def _channels_first(self, feature: torch.Tensor) -> torch.Tensor:
+        """A channels-last feature map, transposed once at the seam.
+
+        Here rather than in every consumer: the decoder, the pooled head and
+        `verify_encoder` would otherwise each need to know which backbones timm reports
+        channels-last, which is three places for one fact.
+        """
+        if not self.channels_last:
+            return feature
+        axes = (0, feature.dim() - 1, *range(1, feature.dim() - 1))
+        return feature.permute(*axes).contiguous()
+
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         features = [self.stem(x)] if self.stem is not None else []
         if self.normalises:
             x = (x - self.mean) / self.std
-        features.extend(self.backbone(x))
+        features.extend(self._channels_first(f) for f in self.backbone(x))
         return features
 
 
