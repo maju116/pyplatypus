@@ -1,6 +1,50 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a47] - 2026-10-27
+
+`pretrained: true` has been loading a backbone and overwriting it ever since encoders
+shipped.
+
+### Fixed
+
+ - **A transferred backbone survives construction.** `maju116/pyplatypus#294`.
+   `UShapedNet.__init__` ended with `initialise(self, ...)`, which walks every convolution
+   under the network - and an encoder handed to it is a submodule, so timm's weights were
+   re-initialised immediately after being loaded. Measured on 2026-10-27, offline, because
+   the question is whether construction *keeps* what the backbone was given and random
+   weights answer it as well as ImageNet ones do:
+
+        resnet18          15 of 15 4D tensors in the backbone overwritten
+        efficientnet_b0   80 of 80
+        one tensor's norm  2.418 -> 11.618
+
+   **What survived made it worse than a no-op.** `initialise` touches convolutions only, so
+   the backbone kept its batch-norm affine parameters and running statistics - ImageNet
+   statistics in front of random convolutions - and the input was still normalised to what
+   ImageNet expected. `freeze_encoder` froze random weights and `encoder_learning_rate` gave
+   them the smaller rate meant to protect a transfer that was not there. The run trained,
+   the loss fell, and the only symptom was a score lower than transfer learning should give.
+
+   The fix is one answer to *what arrived pretrained* rather than a second one: `initialise`
+   takes `except_for`, and the model passes `encoder.transferred` - the same property
+   `Trainer` already reads for the freeze and the separate rate. Our own full-resolution
+   stage inside `PretrainedEncoder` is not under it and is still initialised, which is the
+   control the test carries.
+
+ - **The test file said the missing test existed.** `tests/models/test_pretrained.py`'s own
+   first paragraph claimed `pretrained=True` was exercised by a test skipped without a
+   network; there was no such test, no skip marker and no network use in the file. The claim
+   also split the question wrongly: whether the weights *arrive* needs a network, whether
+   they **survive** needs nothing, and only the first is still untested. §4's *an instruction
+   addressed to a human is code nothing runs*, in a test file's claim about itself.
+
+### The R half
+
+ - None beyond the pin. `encoder` and `pretrained` are forwarded unchanged; the defect was
+   entirely in how the engine builds the network, so an R user gets the fix by the pin
+   moving and by nothing else.
+
 ## [0.8.0a46] - 2026-10-26
 
 `0.8.0a39` fitted an ellipse to a whole mask. This measures every object in one.

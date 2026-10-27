@@ -1,9 +1,16 @@
 """Pretrained encoders: the seam, the refusals, and what is actually pretrained.
 
-Nothing here downloads weights. `pretrained=True` is exercised in one test that is skipped
-without a network, because the point being proven - that the weights really arrive and are
-not random - cannot be proven offline, and pretending otherwise with a mock would prove only
-that the mock works.
+Nothing here downloads weights, and until `#294` this file claimed that the one question
+needing a network was exercised by a test that is skipped without one. **There was no such
+test**, and the claim had split a question that is really two:
+
+* whether ImageNet weights *arrive* genuinely needs a network, and is still not tested here;
+* whether they **survive construction** needs nothing at all, and is
+  `test_a_transferred_backbone_survives_construction` below.
+
+The second is what `#294` was: `initialise` walked every convolution under the network and
+overwrote the backbone immediately after timm had loaded it. The test below would have
+failed the day that shipped, offline, in milliseconds.
 """
 
 import builtins
@@ -81,6 +88,59 @@ def test_blocks_selects_how_many_backbone_stages_to_use(blocks):
     built = encoder(blocks=blocks)
     assert len(built.channels) == blocks + 1
     verify_encoder(built, 2, 3, blocks + 1)
+
+
+def test_a_transferred_backbone_survives_construction():
+    """What arrived pretrained is still there after the model is built. `#294`.
+
+    `pretrained=False` on purpose: the question is whether construction *keeps* whatever
+    the backbone was given, and random weights answer it exactly as well as ImageNet ones
+    while needing no network. Measured when this was written: without the fix, 15 of 15
+    convolutions in `resnet18` moved and one tensor's norm went 2.418 to 11.618.
+
+    The second half is the control, and it is the one that makes this a test rather than an
+    assertion that `initialise` does nothing: the full-resolution stage inside
+    `PretrainedEncoder` is **ours**, starts random, and must still be initialised.
+    """
+    built = encoder(name="resnet18")
+    before = {name: p.detach().clone() for name, p in built.named_parameters() if p.dim() == 4}
+    assert any(name.startswith("backbone") for name in before), "no backbone convolutions found"
+    assert any(name.startswith("stem") for name in before), "no stage of our own found"
+
+    build_model(spec(encoder="resnet18"), n_class=2, encoder=built)
+
+    after = {name: p.detach() for name, p in built.named_parameters() if p.dim() == 4}
+    moved = {name for name in before if not torch.equal(before[name], after[name])}
+    theirs = {name for name in moved if name.startswith("backbone")}
+    assert not theirs, f"construction overwrote {len(theirs)} transferred convolutions"
+    assert {name for name in moved if name.startswith("stem")}, (
+        "our own stage was not initialised, so this test would pass on a model that "
+        "initialises nothing at all"
+    )
+
+
+def test_what_the_trainer_protects_is_exactly_what_construction_left_alone():
+    """One answer to *what arrived pretrained*, paired rather than asserted twice.
+
+    `Trainer` reads `model.encoder.transferred` for the freeze and for
+    `encoder_learning_rate`; `UShapedNet` reads the same property to decide what not to
+    initialise. The two could drift if either side grew its own idea - a name pattern, a
+    list of module types - so this compares the weights construction did not touch against
+    the parameters that property offers, by name.
+    """
+    built = encoder()
+    before = {name: p.detach().clone() for name, p in built.named_parameters() if p.dim() == 4}
+    model = build_model(spec(encoder="resnet34"), n_class=2, encoder=built)
+    after = {name: p.detach() for name, p in built.named_parameters() if p.dim() == 4}
+
+    untouched = {name for name in before if torch.equal(before[name], after[name])}
+    protected = {
+        f"backbone.{name}"
+        for name, p in model.encoder.transferred.named_parameters()
+        if p.dim() == 4
+    }
+    assert protected, "the property offered nothing; the comparison would be two empty sets"
+    assert untouched == protected
 
 
 # --- the refusals -----------------------------------------------------------------------

@@ -105,7 +105,14 @@ class UShapedNet(nn.Module):
             {str(j): convolution(self.rank, widths[0], n_class, kernel_size=1) for j in head_depths}
         )
 
-        initialise(self, spec.initialiser, spec.activation)
+        # Everything but the transfer: a backbone handed to this model arrived with
+        # weights, and `initialise` walks every convolution under `self`. `#294`.
+        initialise(
+            self,
+            spec.initialiser,
+            spec.activation,
+            except_for=getattr(self.encoder, "transferred", None),
+        )
 
     def _merge(self, upsampled: torch.Tensor, skips: list[torch.Tensor]) -> torch.Tensor:
         if self.additive:
