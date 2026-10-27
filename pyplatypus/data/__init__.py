@@ -5,6 +5,12 @@ from pyplatypus.data.augmentation import (
     build_box_augmenter,
 )
 from pyplatypus.data.channels import ChannelError, match_channels
+from pyplatypus.data.classification import (
+    ClassBalance,
+    ClassificationDataset,
+    LabelError,
+    discover_labelled,
+)
 from pyplatypus.data.dataset import SegmentationDataset
 from pyplatypus.data.detection import (
     DetectionDataset,
@@ -41,9 +47,12 @@ __all__ = [
     "Augmenter",
     "BoxAugmenter",
     "ChannelError",
+    "ClassBalance",
+    "ClassificationDataset",
     "DetectionDataset",
     "Discovery",
     "Example",
+    "LabelError",
     "Sample",
     "SegmentationDataset",
     "Series",
@@ -55,6 +64,7 @@ __all__ = [
     "colours_to_classes",
     "describe_series",
     "discover",
+    "discover_labelled",
     "discover_samples",
     "group_of",
     "labels_to_classes",

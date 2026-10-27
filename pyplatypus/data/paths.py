@@ -27,11 +27,19 @@ from pyplatypus.spec.data import DataSpec
 
 @dataclass(frozen=True)
 class Sample:
-    """One image and the mask files that belong to it."""
+    """One image, and whatever labels it - files for a mask or a name for a label.
+
+    `label` is the classification task's answer and is a **name rather than a path**, which
+    is why it is a field here instead of a one-entry `masks`: everything downstream that
+    touches `masks` treats its entries as files to read, and `("benign",)` would reach a
+    reader as a path that does not exist. It is `None` for every other task, so one
+    `Discovery` serves all of them and `split_samples` and `write_splits` need no branch.
+    """
 
     key: str
     images: tuple[Path, ...]
     masks: tuple[Path, ...] = ()
+    label: str | None = None
 
     @property
     def image(self) -> Path:
@@ -79,8 +87,22 @@ def _nested_dirs(
 
 
 def _config_file(
-    path: Path, column_sep: str, only_images: bool, label_column: str = "masks"
+    path: Path,
+    column_sep: str,
+    only_images: bool,
+    label_column: str = "masks",
+    *,
+    label_is_a_name: bool = False,
 ) -> tuple[list[Sample], list[tuple[str, str]]]:
+    """One CSV reader for every task, because the half that differs is one cell.
+
+    `label_is_a_name` is the classification path: its column holds a class name rather than
+    a file, so the cell is kept as text instead of being resolved against the CSV's
+    directory. A second reader would have been the alternative and it would have had to
+    repeat the two things this one gets right - that a relative image path resolves against
+    the CSV rather than the working directory, and that a `key` column beats a row number -
+    which is the duplication §3F of the workbench's notes is a list of.
+    """
     with path.open(newline="") as handle:
         rows = list(csv.DictReader(handle))
 
@@ -110,7 +132,13 @@ def _config_file(
     skipped: list[tuple[str, str]] = []
     for number, row in enumerate(rows, start=2):  # row 1 is the header
         images = resolve(row.get("images") or "")
-        masks = () if only_images else resolve(row.get(label_column) or "")
+        label = None
+        masks: tuple[Path, ...] = ()
+        if not only_images:
+            if label_is_a_name:
+                label = (row.get(label_column) or "").strip() or None
+            else:
+                masks = resolve(row.get(label_column) or "")
         # A `key` column wins over the row number, because the row number names nothing.
         # `write_splits` puts the original sample name there, so a case that scores badly
         # can be found on disk instead of being reported as 'row 55'.
@@ -118,11 +146,36 @@ def _config_file(
         if not images:
             skipped.append((key, "no image path"))
             continue
-        if not only_images and not masks:
-            skipped.append((key, f"no {label_column} path"))
+        if not only_images and not masks and label is None:
+            skipped.append((key, f"no {label_column} " + ("name" if label_is_a_name else "path")))
             continue
-        samples.append(Sample(key=key, images=images, masks=masks))
+        samples.append(Sample(key=key, images=images, masks=masks, label=label))
     return samples, skipped
+
+
+def finish(
+    root: Path, samples: list[Sample], skipped: list[tuple[str, str]], strict: bool
+) -> Discovery:
+    """The tail every walk shares: refuse an empty result, and refuse an incomplete one.
+
+    Extracted when the classification walk arrived, because that walk is genuinely
+    different - one directory per class rather than one per sample - while what to do about
+    what it could not use is not.
+    """
+    if not samples:
+        raise ConfigError(
+            f"'{root}' yielded no usable samples"
+            + (f"; {len(skipped)} were incomplete" if skipped else "")
+        )
+    if skipped and strict:
+        shown = "\n".join(f"  - {key}: {why}" for key, why in skipped[:10])
+        more = f"\n  ... and {len(skipped) - 10} more" if len(skipped) > 10 else ""
+        raise ConfigError(
+            f"{len(skipped)} of {len(samples) + len(skipped)} samples under '{root}' are "
+            f"incomplete:\n{shown}{more}\n"
+            "Pass strict=False to train on the rest instead."
+        )
+    return Discovery(samples=tuple(samples), skipped=tuple(skipped))
 
 
 def discover_samples(
@@ -134,6 +187,7 @@ def discover_samples(
     only_images: bool = False,
     strict: bool = True,
     label_column: str = "masks",
+    label_is_a_name: bool = False,
 ) -> Discovery:
     """List the samples under `root`, given only the layout.
 
@@ -152,22 +206,11 @@ def discover_samples(
     else:
         if not root.is_file():
             raise ConfigError(f"mode is config_file but '{root}' is not a file")
-        samples, skipped = _config_file(root, column_sep, only_images, label_column)
+        samples, skipped = _config_file(
+            root, column_sep, only_images, label_column, label_is_a_name=label_is_a_name
+        )
 
-    if not samples:
-        raise ConfigError(
-            f"'{root}' yielded no usable samples"
-            + (f"; {len(skipped)} were incomplete" if skipped else "")
-        )
-    if skipped and strict:
-        shown = "\n".join(f"  - {key}: {why}" for key, why in skipped[:10])
-        more = f"\n  ... and {len(skipped) - 10} more" if len(skipped) > 10 else ""
-        raise ConfigError(
-            f"{len(skipped)} of {len(samples) + len(skipped)} samples under '{root}' are "
-            f"incomplete:\n{shown}{more}\n"
-            "Pass strict=False to train on the rest instead."
-        )
-    return Discovery(samples=tuple(samples), skipped=tuple(skipped))
+    return finish(root, samples, skipped, strict)
 
 
 def discover(

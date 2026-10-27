@@ -2,8 +2,10 @@ from pyplatypus.training.callbacks import Callback, TrainingState, build_callbac
 from pyplatypus.training.detection_trainer import DetectionTrainer
 from pyplatypus.training.optimizers import build_optimizer
 from pyplatypus.training.torch_data import (
+    TorchClassificationDataset,
     TorchDetectionDataset,
     TorchSegmentationDataset,
+    make_classification_loader,
     make_detection_loader,
     make_loader,
     to_channels_first,
@@ -20,6 +22,7 @@ __all__ = [
     "Callback",
     "DetectionTrainer",
     "History",
+    "TorchClassificationDataset",
     "TorchDetectionDataset",
     "TorchSegmentationDataset",
     "Trainer",
@@ -27,6 +30,7 @@ __all__ = [
     "build_callbacks",
     "build_optimizer",
     "format_logs",
+    "make_classification_loader",
     "make_detection_loader",
     "make_loader",
     "pick_device",
