@@ -17,6 +17,13 @@ inventing rows. A detection spec chooses no loss component (it has `box_loss`, a
 the model, with two values) and chooses no metrics at all (mAP and matched IoU are an
 output of `report`). An empty table would be a third answer and the wrong one, so both
 raise with the message that says what detection actually offers.
+
+**There are now two kinds of refusal here and they must not read alike.** Detection's is on
+the merits - it genuinely chooses no loss and no metrics, and the message says what it offers
+instead. `_no_branch`'s is a gap: a `Task` member exists and the function has no branch for
+it, which happens in the window while a task is being built, because a task tag lands last.
+Both are `PlatypusError`, so the messages carry the difference and a test asserts that only
+one of them says *gap rather than an answer*.
 """
 
 from __future__ import annotations
@@ -120,11 +127,39 @@ def _task(task: str | Task) -> Task:
         raise PlatypusError(f"unknown task {task!r}. This package does: {offered}") from None
 
 
+def _no_branch(task: Task, what: str) -> PlatypusError:
+    """A task this function has no branch for, which is a gap and not an answer.
+
+    The three listing functions below used to end in a **fall-through**, so a `Task` member
+    added before the branches that read it was answered with semantic segmentation's rows.
+    Measured on 2026-10-27 by adding one member and nothing else: `available_models` returned
+    the four U-Nets, `available_losses` the same eleven, `available_metrics` the same five,
+    and `available_tasks()` did not list the task at all. The package denied the task existed
+    and described it anyway, in three functions out of four - which is why a task tag lands
+    last (`0.8.0a20` did it that way) and why this exists to speak in the window before it
+    does.
+
+    One function rather than three messages, because three copies of one sentence is the
+    drift this project keeps a table of.
+    """
+    return PlatypusError(
+        f"{task.value} has no {what} listed here. The value exists in `Task` and this "
+        f"function has no branch for it, which is a gap rather than an answer - the rows it "
+        f"would have fallen through to belong to another task."
+    )
+
+
 def available_tasks() -> list[dict[str, Any]]:
     """What this package can be asked to do at all.
 
     Three rows, and the weakest of this family as a list - it earns its place as the entry
     point, which is the question somebody asks before they have read anything.
+
+    **These rows are written out where everything else in this module is derived**, which
+    contradicts this file's own first paragraph and is deliberate: a row carries a `chooses`
+    tuple and a summary that no model declares. So it is a second copy of one answer, and
+    `tests/spec/test_task_coverage.py` holds it to `AnySpec`'s members rather than a comment
+    claiming the two agree.
 
     Returns:
         One row per task: the value you write under `task`, the components it lets you
@@ -185,7 +220,8 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     >>> "separation" in available_models("instance_segmentation")[0]["arguments"]
     True
     """
-    if _task(task) is Task.INSTANCE_SEGMENTATION:
+    resolved = _task(task)
+    if resolved is Task.INSTANCE_SEGMENTATION:
         # The same four architectures - an instance model is a U-shaped network with a
         # wider head, which is the argument `#160` settled the shape on: folding CellPose
         # and HoVer-Net into `architecture` would make "CellPose on a LinkNet backbone"
@@ -202,7 +238,7 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
             }
             for member in Architecture
         ]
-    if _task(task) is Task.OBJECT_DETECTION:
+    if resolved is Task.OBJECT_DETECTION:
         arguments = tuple(
             field for field in DetectionModel.model_fields if field not in ("name", "architecture")
         )
@@ -214,14 +250,21 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
             }
             for member in DetectionArchitecture
         ]
-
-    arguments = tuple(
-        field for field in SegmentationModel.model_fields if field not in ("name", "architecture")
-    )
-    return [
-        {"name": member.value, "arguments": arguments, "description": _ARCHITECTURE_NOTES[member]}
-        for member in Architecture
-    ]
+    if resolved is Task.SEMANTIC_SEGMENTATION:
+        arguments = tuple(
+            field
+            for field in SegmentationModel.model_fields
+            if field not in ("name", "architecture")
+        )
+        return [
+            {
+                "name": member.value,
+                "arguments": arguments,
+                "description": _ARCHITECTURE_NOTES[member],
+            }
+            for member in Architecture
+        ]
+    raise _no_branch(resolved, "architectures")
 
 
 def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict[str, Any]]:
@@ -257,7 +300,8 @@ def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     ...        - set(r["name"] for r in available_losses()))
     ['l1', 'mse', 'smooth_l1']
     """
-    if _task(task) is Task.OBJECT_DETECTION:
+    resolved = _task(task)
+    if resolved is Task.OBJECT_DETECTION:
         box_loss = spec_schema()["$defs"]["DetectionModel"]["properties"]["box_loss"]
         offered = ", ".join(str(value) for value in box_loss.get("enum", ()))
         raise PlatypusError(
@@ -268,8 +312,10 @@ def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
             "is why it is the default."
         )
     rows = _rows(LossSpec)
-    if _task(task) is Task.INSTANCE_SEGMENTATION:
+    if resolved is Task.INSTANCE_SEGMENTATION:
         return rows
+    if resolved is not Task.SEMANTIC_SEGMENTATION:
+        raise _no_branch(resolved, "losses")
     # Read off the loss's own flag, the same way the two refusals are, so a fourth
     # regression loss leaves this list alone. Naming them here would be a list to keep in
     # step with a validator - which is what `continuous` exists to avoid.
@@ -292,13 +338,18 @@ def available_metrics(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dic
     >>> [row["name"] for row in available_metrics()]
     ['cldice', 'dice', 'iou', 'surface_dice', 'tversky']
     """
-    if _task(task) is Task.OBJECT_DETECTION:
+    resolved = _task(task)
+    if resolved is Task.OBJECT_DETECTION:
         raise PlatypusError(
             "object_detection chooses no metrics: every detection run reports the same set, "
             "`map_50`, `map_50_95` and `mean_matched_iou`, with average precision per class "
             "beside them. They come out of `report` rather than going into the spec, which "
             "is why there is nothing here to list."
         )
+    # Both segmentation tasks offer the same set, which is why this is a membership test and
+    # not two branches returning one expression.
+    if resolved not in (Task.SEMANTIC_SEGMENTATION, Task.INSTANCE_SEGMENTATION):
+        raise _no_branch(resolved, "metrics")
     return _rows(MetricSpec)
 
 
