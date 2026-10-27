@@ -153,12 +153,12 @@ def test_the_architecture_is_the_contracting_path():
     """Derived rather than declared, which is the one place this task reads differently
     from its siblings - and the fingerprint has to follow it."""
     assert "architecture" not in ClassificationModel.model_fields
-    assert model().architecture == "built_in"
+    assert model().architecture == "plain_cnn"
     assert model(encoder="resnet34").architecture == "resnet34"
 
     ours = model().weights_fingerprint()
     theirs = model(encoder="resnet34").weights_fingerprint()
-    assert ours["architecture"] == "built_in"
+    assert ours["architecture"] == "plain_cnn"
     assert theirs["architecture"] == "resnet34"
     # `blocks` and `filters` identify one of ours and shape nothing of theirs.
     assert {"blocks", "filters"} <= set(ours)

@@ -244,8 +244,23 @@ class ClassificationModel(EncoderModel):
         `DetectionModel.architecture` are fields holding enums and carry `.value`. There is
         no enum to be a member of here - the set of backbones is timm's, and ours is the
         absence of one - so anything printing this prints the string.
+
+        **`plain_cnn` names the shape rather than the owner**, which is what every other
+        value this field can hold does: `u_net`, `linknet` and `res_u_net` on the
+        segmentation side, and timm's whole catalogue on this one. It was `built_in` first,
+        and that said *not somebody else's* where every neighbour says *what* - and it would
+        have had nothing left to say the day a second one of ours arrives, while `plain_cnn`
+        beside a `residual_cnn` is two shapes. It is also the line `_encoder_for` already
+        draws: ours is the plain convolution stack rather than the residual one, because
+        `encoder: resnet34` is the residual network in one word. Checked against timm's own
+        catalogue, since this field's values mix with theirs - nothing there is called it -
+        and checked by hand, which nothing holds.
+
+        **The rename is free exactly until it is not.** `weights_fingerprint` writes this
+        string into a published file's sidecar and compares it on load, so after the first
+        published classification weights a rename refuses every one of them by field name.
         """
-        return self.encoder or "built_in"
+        return self.encoder or "plain_cnn"
 
     @property
     def monitorable(self) -> set[str]:
@@ -302,7 +317,8 @@ class ClassificationModel(EncoderModel):
                 f"model '{self.name}' names `encoder: {self.encoder}` and {joined}. Those "
                 f"describe the built-in contracting path, and a backbone replaces it "
                 f"entirely - a classifier has nothing after the pooling for them to shape. "
-                f"Remove them to use the backbone, or remove `encoder` to build ours."
+                f"Remove them to use the backbone, or remove `encoder` to build ours - "
+                f"which is the path `plain_cnn` names."
             )
         return self
 
