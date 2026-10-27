@@ -157,12 +157,22 @@ class GeneralizedDiceLoss(_Loss):
 
 
 class CceLoss(_Loss):
-    """Per-pixel classification, with no notion of the object.
+    """Cross-entropy on the classes, scoring each element on its own.
+
+    **An element is a voxel for a mask and a whole image for a label**, which is what makes
+    this and `focal` the only two losses admissible at every task in this package: they need
+    no extent to score, where an overlap is a ratio of areas. The first line of this
+    docstring read *per-pixel classification, with no notion of the object* until
+    `task: classification` existed to contradict it - `available_losses("classification")`
+    publishes it, and it was describing a mask to somebody holding one label per image.
 
     Healthy gradients from the first epoch, which the overlap losses do not have while
-    everything is still wrong. The cost is that it optimises what is numerous: with a
-    background of 95% of the voxels, which in medical images is ordinary, it is mostly
-    learning the background. That is what `cce_dice` exists to fix.
+    everything is still wrong. For a mask the cost is that it optimises what is numerous:
+    with a background of 95% of the voxels, which in medical images is ordinary, it is
+    mostly learning the background, and that is what `cce_dice` exists to fix. For a label
+    there is no background class and nothing numerous in one image, so that cost is a
+    property of the target rather than of this loss - what takes its place is the class
+    balance of the split, which `ClassBalance` reports before a run.
     """
 
     needs_extent: ClassVar[bool] = False
@@ -204,12 +214,17 @@ class CceDiceLoss(_Loss):
 
 
 class FocalLoss(_Loss):
-    """Cross-entropy that loses interest in the voxels it already gets right.
+    """Cross-entropy that loses interest in the elements it already gets right.
+
+    An element is a voxel for a mask and a whole image for a label, and this reads the same
+    either way - which is the reason the noun changed: the sentence is published by
+    `available_losses("classification")` as well.
 
     `gamma` is the whole feature: at 0 this is exactly cross-entropy - measured, the two
-    agree to floating point - and raising it pushes the loss onto the hard voxels. Worth
-    having where the easy background dominates the gradient. The cost is that a model that
-    is right but unconfident everywhere is barely trained at all.
+    agree to floating point - and raising it pushes the loss onto the hard ones. Worth
+    having where the easy background dominates the gradient of a mask, and where a rare
+    class dominates the gradient of a label. The cost is that a model that is right but
+    unconfident everywhere is barely trained at all.
     """
 
     needs_extent: ClassVar[bool] = False
@@ -219,8 +234,9 @@ class FocalLoss(_Loss):
         2.0,
         ge=0,
         description=(
-            "How hard to discount the pixels already classified well, so the gradient comes "
-            "from the ones that are not. 0 is plain cross-entropy; 2 is the usual value."
+            "How hard to discount what is already classified well - a voxel for a mask, an "
+            "image for a label - so the gradient comes from what is not. 0 is plain "
+            "cross-entropy; 2 is the usual value."
         ),
     )
     alpha: float | None = Field(
