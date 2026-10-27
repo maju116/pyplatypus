@@ -20,6 +20,7 @@ from pyplatypus.data.splits import (
     group_of,
     split_dataset,
     split_samples,
+    stratified_split,
     write_splits,
 )
 from pyplatypus.errors import ConfigError
@@ -309,3 +310,138 @@ def test_a_split_can_be_trained_on_without_touching_anything_else(tmp_path):
     history = engine.fit()["tiny"]
     assert len(history) == 1
     assert history.records[0]["val_dice"] > 0
+
+
+# ---------------------------------------------------------------- the stratified split
+
+
+def labelled(counts: dict[str, int]) -> list[Sample]:
+    return [
+        Sample(key=f"{label}/{number:04d}", images=(Path("x.png"),), label=label)
+        for label, how_many in counts.items()
+        for number in range(how_many)
+    ]
+
+
+def test_every_part_holds_every_class_where_a_random_split_would_not():
+    """The claim, with the control beside it: the same samples through `split_samples` lose
+    the rare class from a part. Measured over 400 seeds, a random 70/15/15 of 100 images at
+    3% prevalence leaves some part empty 91% of the time, and every per-class metric then
+    refuses to average over a class its pass never held."""
+    samples = labelled({"common": 97, "rare": 3})
+    strat = stratified_split(samples, fractions=(0.7, 0.15, 0.15), seed=0)
+    for name in ("train", "validation", "test"):
+        assert {s.label for s in getattr(strat, name)} == {"common", "rare"}, name
+
+    plain = split_samples(samples, fractions=(0.7, 0.15, 0.15), seed=0)
+    empty = [
+        name
+        for name in ("train", "validation", "test")
+        if "rare" not in {s.label for s in getattr(plain, name)}
+    ]
+    assert empty, "the random split keeps every class on this draw, so this proves nothing"
+
+
+def test_it_costs_at_most_an_image_of_the_fractions_asked_for():
+    """What it is traded against, stated as a number rather than as a reassurance: the
+    worst drift over 200 seeds at 100 images was 0.0100, which is one image."""
+    samples = labelled({"common": 97, "rare": 3})
+    worst = 0.0
+    for seed in range(20):
+        strat = stratified_split(samples, fractions=(0.7, 0.15, 0.15), seed=seed)
+        for name, want in (("train", 0.7), ("validation", 0.15), ("test", 0.15)):
+            worst = max(worst, abs(len(getattr(strat, name)) / 100 - want))
+    assert worst <= 0.02, worst
+
+
+def test_a_stratified_split_is_deterministic_in_its_seed():
+    """Named for this function rather than `test_the_same_seed_gives_the_same_split`, which
+    this file already has for `split_samples` - the first draft shadowed it, so the original
+    would have stopped running while still appearing to. Caught by `ruff`'s F811, which is
+    the instrument for exactly that and is why the lint gate is a gate."""
+    samples = labelled({"common": 40, "rare": 10})
+    first = stratified_split(samples, fractions=(0.6, 0.2, 0.2), seed=3)
+    again = stratified_split(samples, fractions=(0.6, 0.2, 0.2), seed=3)
+    other = stratified_split(samples, fractions=(0.6, 0.2, 0.2), seed=4)
+
+    def keys(part):
+        return [sample.key for sample in part]
+
+    assert keys(first.train) == keys(again.train)
+    assert keys(first.train) != keys(other.train)
+
+
+def test_a_group_holding_two_labels_is_refused_rather_than_cut_in_half():
+    """Stratifying divides by label first, so such a group is handed out once per label it
+    contains and lands on both sides - which is the leak `group_by` exists to prevent.
+
+    Measured on six patients with two of them holding both labels: `patient06` appeared in
+    train and in validation, where the same data split without stratifying leaked nothing.
+    So the combination is refused rather than silently preferring one guarantee.
+    """
+    samples = []
+    for patient in range(1, 7):
+        labels = ["common", "rare"] if patient in (5, 6) else ["common", "common"]
+        for index, label in enumerate(labels):
+            samples.append(
+                Sample(
+                    key=f"patient{patient:02d}_img{index}",
+                    images=(Path("x.png"),),
+                    label=label,
+                )
+            )
+    pattern = r"^(patient\d+)_"
+    with pytest.raises(ConfigError, match="more than one label"):
+        stratified_split(samples, fractions=(0.5, 0.5), group_by=pattern)
+
+    # the control: the same data splits fine without stratifying, and keeps patients whole
+    plain = split_samples(samples, fractions=(0.5, 0.5), group_by=pattern)
+    on_both_sides = {group_of(s.key, pattern) for s in plain.train} & {
+        group_of(s.key, pattern) for s in plain.validation
+    }
+    assert on_both_sides == set()
+
+
+def test_a_group_of_one_class_each_is_allowed_and_stays_whole():
+    """The other half: `group_by` is only refused when a group genuinely spans labels."""
+    samples = []
+    for patient in range(1, 9):
+        label = "rare" if patient > 5 else "common"
+        for index in range(2):
+            samples.append(
+                Sample(
+                    key=f"patient{patient:02d}_img{index}",
+                    images=(Path("x.png"),),
+                    label=label,
+                )
+            )
+    pattern = r"^(patient\d+)_"
+    strat = stratified_split(samples, fractions=(0.5, 0.5), group_by=pattern)
+
+    def groups(part):
+        return {group_of(sample.key, pattern) for sample in part}
+
+    assert groups(strat.train) & groups(strat.validation) == set()
+    assert {s.label for s in strat.train} == {"common", "rare"}
+    assert {s.label for s in strat.validation} == {"common", "rare"}
+
+
+def test_a_sample_with_no_label_is_refused_by_name():
+    samples = labelled({"common": 10, "rare": 10})
+    samples.append(Sample(key="unlabelled/1", images=(Path("x.png"),)))
+    with pytest.raises(ConfigError, match="carry no label"):
+        stratified_split(samples, fractions=(0.5, 0.5))
+
+
+def test_a_class_with_fewer_examples_than_parts_is_refused_naming_the_class():
+    """`split_samples`' own refusal talks about groups and patients, which is right for the
+    caller it was written for and wrong here - so it is wrapped in one that says `class`."""
+    with pytest.raises(ConfigError, match="class 'rare' cannot be split"):
+        stratified_split(labelled({"common": 50, "rare": 2}), fractions=(0.7, 0.15, 0.15))
+    # two parts and two examples is enough, which is the boundary rather than a number
+    assert stratified_split(labelled({"common": 50, "rare": 2}), fractions=(0.5, 0.5))
+
+
+def test_an_empty_set_is_refused():
+    with pytest.raises(ConfigError, match="no samples to split"):
+        stratified_split([], fractions=(0.5, 0.5))

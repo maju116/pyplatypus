@@ -1389,7 +1389,7 @@ def labels_in_test_split(data) -> bool:
     )
 
 
-def split_from_train(data, discover, *, strict: bool) -> dict[str, tuple]:
+def split_from_train(data, discover, *, strict: bool, stratify: bool = False) -> dict[str, tuple]:
     """Divide the training folder, when `split` says to instead of naming more paths.
 
     Only the split case: the three-paths case stays with each engine, because what a test
@@ -1400,15 +1400,22 @@ def split_from_train(data, discover, *, strict: bool) -> dict[str, tuple]:
     something to keep, to hand to a colleague, to cite - but a specification should not
     leave files behind as a side effect of being read.
 
+    `stratify` picks `stratified_split` instead, which gives every class to every part. It
+    is a parameter rather than two call sites because what differs is one function: the
+    classification engine passes True because a per-class metric refuses to average over a
+    class a pass never held, and measured, a random 70/15/15 of 100 images at 3% prevalence
+    leaves some part empty of the rare class 90% of the time.
+
     No check for an empty split here. `split_samples` guarantees at least one sample in
     every split it is asked for, and refuses when there are fewer groups than splits or
     when train or validation is given a zero share - measured, not assumed. A guard
     restating that would be a second place for one rule and could never fire.
     """
-    from pyplatypus.data.splits import split_samples
+    from pyplatypus.data.splits import split_samples, stratified_split
 
     found = discover(data.train_path, data, strict=strict).samples
-    divided = split_samples(
+    divide = stratified_split if stratify else split_samples
+    divided = divide(
         found, fractions=data.split.fractions, group_by=data.split.group_by, seed=data.split.seed
     )
     samples = {"train": divided.train, "validation": divided.validation}

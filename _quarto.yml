@@ -109,6 +109,10 @@ website:
         - reference/InstanceEngine.loader.qmd
         - reference/DetectionEngine.dataset.qmd
         - reference/DetectionEngine.loader.qmd
+        - reference/stratified_split.qmd
+        - reference/ClassificationEngine.dataset.qmd
+        - reference/ClassificationEngine.loader.qmd
+        - reference/ClassificationEngine.balance.qmd
       - section: Training
         contents:
         - reference/device_report.qmd
@@ -120,6 +124,9 @@ website:
         - reference/DetectionEngine.qmd
         - reference/DetectionEngine.fit.qmd
         - reference/DetectionEngine.fit_anchors.qmd
+        - reference/ClassificationEngine.qmd
+        - reference/ClassificationEngine.fit.qmd
+        - reference/ClassificationRun.qmd
       - section: Predicting and scoring
         contents:
         - reference/Engine.predict.qmd
@@ -145,6 +152,12 @@ website:
         - reference/DetectionEngine.box_shapes.qmd
         - reference/DetectionEngine.split_sizes.qmd
         - reference/DetectionEngine.model_names.qmd
+        - reference/ClassificationEngine.predict.qmd
+        - reference/ClassificationEngine.predict_labels.qmd
+        - reference/ClassificationEngine.answers.qmd
+        - reference/ClassificationEngine.evaluate.qmd
+        - reference/ClassificationEngine.best_model.qmd
+        - reference/ClassificationEngine.write_history.qmd
       - section: Weights
         contents:
         - reference/available_weights.qmd
@@ -254,6 +267,10 @@ quartodoc:
     - InstanceEngine.loader
     - DetectionEngine.dataset
     - DetectionEngine.loader
+    - stratified_split
+    - ClassificationEngine.dataset
+    - ClassificationEngine.loader
+    - ClassificationEngine.balance
   - title: Training
     desc: The engine the task asks for, and the run itself.
     contents:
@@ -266,6 +283,9 @@ quartodoc:
     - DetectionEngine
     - DetectionEngine.fit
     - DetectionEngine.fit_anchors
+    - ClassificationEngine
+    - ClassificationEngine.fit
+    - ClassificationRun
   - title: Predicting and scoring
     desc: 'Per model, per case, per class, per image - and the distribution rather than a single
       number, because the minimum is what nobody publishes and everybody should.
@@ -295,6 +315,12 @@ quartodoc:
     - DetectionEngine.box_shapes
     - DetectionEngine.split_sizes
     - DetectionEngine.model_names
+    - ClassificationEngine.predict
+    - ClassificationEngine.predict_labels
+    - ClassificationEngine.answers
+    - ClassificationEngine.evaluate
+    - ClassificationEngine.best_model
+    - ClassificationEngine.write_history
   - title: Weights
     desc: 'Named rather than downloaded by hand, and a name is pinned to one commit - so a name
       means one set of numbers today and the same set next year.
