@@ -35,6 +35,7 @@ SECTIONS = [
     "Overlapping classes instead of one per voxel",
     "Instances instead of one mask",
     "Detection instead of segmentation",
+    "One label instead of a mask",
     "Not training at all",
     "What is checked, and when",
     "The same run from code",
