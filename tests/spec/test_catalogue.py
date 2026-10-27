@@ -115,13 +115,15 @@ def test_the_listings_are_not_trivially_short():
     §4's "two numbers that were both zero" in its usual costume."""
     assert len(available_losses()) == 11
     assert len(available_losses("instance_segmentation")) == 14
+    assert len(available_losses("classification")) == 2
     assert len(available_metrics()) == 5
+    assert len(available_metrics("classification")) == 4
     assert len(available_optimizers()) == 8
     assert len(available_callbacks()) == 12
     assert len(available_models()) == 4
     assert len(available_models("instance_segmentation")) == 4
     assert len(available_decodings()) == 4
-    assert len(available_tasks()) == 3
+    assert len(available_tasks()) == 4
 
 
 def test_architectures_come_from_the_enum_and_every_member_has_a_note():

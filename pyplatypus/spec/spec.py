@@ -20,6 +20,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, TypeAdapter, model_validator
 
+from pyplatypus.spec.classification import ClassificationData, ClassificationModel
 from pyplatypus.spec.common import SpecModel, Task
 from pyplatypus.spec.data import SegmentationData
 from pyplatypus.spec.detection import DetectionData, DetectionModel
@@ -383,6 +384,59 @@ class InstanceSpec(PlatypusSpec):
         return _refuse_watching_a_number_no_split_will_produce(self)
 
 
+class ClassificationSpec(PlatypusSpec):
+    """One label for a whole image, scored by how well the answers can be ranked.
+
+    The task `crops()` has been cutting objects out for and handing them to nothing, and the
+    one explaining a model needs: a saliency map explains *this answer*, and until now there
+    was no per-image answer to explain.
+
+    A contracting path, pooled, with one dense layer on top - ours or any of timm's, chosen
+    by `encoder`, which is why this is the one task with no `architecture` field: there is
+    nothing after the pooling for a second name to describe.
+
+    **What is worth knowing before writing one, because it decides what the numbers mean.**
+    The default metric is `auc` rather than `accuracy`, measured rather than preferred: on
+    40000 images at a prevalence of 3%, with the model's own probabilities as the truth so
+    that only its discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631
+    and is **not monotone** - a model with no signal at all scores above two models that
+    have one. Balanced accuracy and F1 do not rescue it either, because a calibrated model
+    at that prevalence never crosses the threshold and everything read off the hard
+    prediction sees the same all-negative answer.
+
+    The same arithmetic decides the split. A random 70/15/15 of 100 images at 3% prevalence
+    leaves some part with none of the rare class 91% of the time, so `split` is stratified
+    for this task and a class with fewer examples than there are parts is refused by name.
+    `ClassificationEngine.balance()` reports the prevalence rather than leaving it to be
+    discovered from a score that looks fine.
+    """
+
+    task: Literal[Task.CLASSIFICATION] = Field(
+        Task.CLASSIFICATION,
+        description="Fixed for this specification: `classification`.",
+    )
+    data: ClassificationData = Field(
+        description=(
+            "Where the images are and what their labels are called. The label is the "
+            "directory an image sits in, or a `label` column naming the class."
+        )
+    )
+    models: list[ClassificationModel] = Field(
+        min_length=1,
+        description=(
+            "One or more models, trained in turn against the same data. Names must be "
+            "unique, for the same reason as in a segmentation specification. Several "
+            "entries differing only in `encoder` is the comparison this task makes easiest "
+            "- ours against a pretrained backbone, on the same split."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def nothing_watches_a_validation_number_that_will_not_arrive(self):
+        """A callback cannot wait for `val_loss` in a run that has no validation set."""
+        return _refuse_watching_a_number_no_split_will_produce(self)
+
+
 class DetectionSpec(PlatypusSpec):
     task: Literal[Task.OBJECT_DETECTION] = Field(
         description="Fixed for this specification: `object_detection`.",
@@ -400,6 +454,11 @@ class DetectionSpec(PlatypusSpec):
 
 
 #: Validate through this, never through one class, so `task` picks the shape.
-AnySpec = Annotated[SegmentationSpec | InstanceSpec | DetectionSpec, Field(discriminator="task")]
+AnySpec = Annotated[
+    SegmentationSpec | InstanceSpec | DetectionSpec | ClassificationSpec,
+    Field(discriminator="task"),
+]
 
-SPEC_ADAPTER: TypeAdapter[SegmentationSpec | InstanceSpec | DetectionSpec] = TypeAdapter(AnySpec)
+SPEC_ADAPTER: TypeAdapter[SegmentationSpec | InstanceSpec | DetectionSpec | ClassificationSpec] = (
+    TypeAdapter(AnySpec)
+)

@@ -45,6 +45,7 @@ from pyplatypus.detection.yolo3 import build_yolo3
 from pyplatypus.engine import EngineBase, EngineError
 from pyplatypus.spec.detection import DetectionModel
 from pyplatypus.spec.spec import (
+    ClassificationSpec,
     DetectionSpec,
     InstanceSpec,
     PlatypusSpec,
@@ -1023,9 +1024,10 @@ def build_engine(spec: PlatypusSpec, **kwargs):
 
     Returns:
         An `Engine` for a semantic segmentation specification, an `InstanceEngine` for an
-        instance one, a `DetectionEngine` for a detection one. All three discover their
-        splits and refuse a missing or unlabelled one by name, because that half is
-        shared.
+        instance one, a `DetectionEngine` for a detection one and a `ClassificationEngine`
+        for a classification. All four discover their splits and refuse a missing or
+        unlabelled one by name, because that half is shared - and the classification one
+        stratifies the split it cuts, which is the only part of that walk a task overrides.
 
     Raises:
         EngineError: For a specification whose task has no engine - which today means
@@ -1044,4 +1046,8 @@ def build_engine(spec: PlatypusSpec, **kwargs):
         from pyplatypus.instance_engine import InstanceEngine
 
         return InstanceEngine(spec, **kwargs)
+    if isinstance(spec, ClassificationSpec):
+        from pyplatypus.classification_engine import ClassificationEngine
+
+        return ClassificationEngine(spec, **kwargs)
     raise EngineError(f"no engine for task '{getattr(spec, 'task', '?')}'")

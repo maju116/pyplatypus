@@ -44,7 +44,7 @@ def spec_schema() -> dict[str, Any]:
     >>> schema["title"]
     'platypus experiment specification'
     >>> sorted(schema["$defs"])[:3]
-    ['Activation', 'Adadelta', 'Adagrad']
+    ['AccuracyMetric', 'Activation', 'Adadelta']
     >>> "SegmentationModel" in schema["$defs"], "DetectionModel" in schema["$defs"]
     (True, True)
     >>> schema["$defs"]["SplitSpec"]["properties"]["group_by"]["description"][:24]

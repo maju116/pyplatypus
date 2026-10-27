@@ -45,6 +45,7 @@ from pyplatypus.spec.models import (
 from pyplatypus.spec.schema import spec_schema, write_schema
 from pyplatypus.spec.spec import (
     AnySpec,
+    ClassificationSpec,
     DetectionSpec,
     InstanceSpec,
     PlatypusSpec,
@@ -60,6 +61,7 @@ __all__ = [
     "ClassificationData",
     "ClassificationMetricSpec",
     "ClassificationModel",
+    "ClassificationSpec",
     "ConnectedComponents",
     "DataMode",
     "DataSpec",

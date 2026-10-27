@@ -239,6 +239,7 @@ def test_the_balance_is_reported_in_classes_order_and_names_the_rarest(tmp_path)
     assert balance.prevalence == pytest.approx(0.03)
     assert balance.to_dict()["prevalence"] == pytest.approx(0.03)
     assert "malignant" in str(balance) and "3.00%" in str(balance)
+    assert "below about 10%" in str(balance), "the sentence belongs on a set this lopsided"
 
 
 def test_the_balance_order_is_classes_and_not_arrival(tmp_path):
@@ -269,6 +270,17 @@ def test_a_set_with_nothing_usable_in_it_is_refused_rather_than_empty(tmp_path):
     csv = write_csv(base / "train.csv", ["a.png,", "b.png,"])
     with pytest.raises(ConfigError, match="no usable samples"):
         discover_labelled(csv, data(mode="config_file"), strict=False)
+
+
+def test_the_sentence_about_threshold_metrics_only_appears_where_it_is_true():
+    """A warning that fires on a balanced set is a warning people learn to skip, and then it
+    is not there on the set it was written for."""
+    lopsided = ClassBalance(counts={"benign": 97, "malignant": 3})
+    balanced = ClassBalance(counts={"benign": 12, "malignant": 12})
+    assert "below about 10%" in str(lopsided)
+    assert "below about 10%" not in str(balanced)
+    # and the figure itself is reported either way, because it is a fact rather than advice
+    assert "50.00%" in str(balanced)
 
 
 def test_the_rarest_class_is_the_one_reported_whichever_it_is():
