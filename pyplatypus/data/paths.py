@@ -178,7 +178,20 @@ def discover(
     `DataSpec` rather than `SegmentationData`: finding files needs the layout and nothing
     else, so this already works for a detection spec, whose second subdirectory holds
     annotation files instead of masks.
+
+    **It needs a sample to be a directory of two things, which is one layout and not the
+    only one.** A classification spec leaves `subdirs` unset on purpose - its sample is a
+    single image and its class is the directory that image sits in - so this refuses by
+    name rather than handing `None` to the walk and failing several frames down on
+    something that reads like a corrupt dataset.
     """
+    if data.subdirs is None:
+        raise ConfigError(
+            f"{type(data).__name__} names no `subdirs`, and this reads the layout where a "
+            f"sample is a directory holding the image in one subdirectory and its labels "
+            f"in the other. A classification dataset is one directory per class, which is "
+            f"a different walk and has its own reader."
+        )
     return discover_samples(
         root,
         mode=data.mode,

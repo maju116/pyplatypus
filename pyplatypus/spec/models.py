@@ -5,7 +5,9 @@ That is PLAN.md rule 1, and it is why there is no `net_h`/`net_w` pair here - a 
 cannot become a triple without an API break.
 
 `ModelSpec` is what every task's model has: a name, a size, how long to train, what to
-train with, and whether to train at all. What it deliberately does *not* have is `loss`
+train with, and whether to train at all. `EncoderModel` is the layer below that: what a
+model has if it reduces an image to features, which is segmentation and classification
+and not detection - YOLOv3 carries its own backbone and none of these knobs reach it. What it deliberately does *not* have is `loss`
 and `metrics`. Segmentation chooses both from a menu of ten and four - the ten being every
 loss that is defined over classes, which is what `the_mask_needs_a_loss_over_classes`
 below is for; YOLOv3 has one composite objective that is part of the architecture, and
@@ -257,7 +259,157 @@ class ModelSpec(SpecModel):
         return self
 
 
-class SegmentationModel(ModelSpec):
+class EncoderModel(ModelSpec):
+    """A model built on a contracting path, its own or somebody else's.
+
+    Every field here is about **the half of a network that reduces an image to
+    features**, which is the half two tasks share: a segmentation model hands those
+    features to a decoder, a classification model pools them and asks one question of
+    the result. Written once rather than twice, because a second copy of a published
+    `description=` is the shape §3F of the workbench keeps a table of - and a second
+    copy of `encoders_are_two_dimensional` would be a *mechanism* in two places, which
+    is worse than a sentence.
+
+    **What is deliberately not here: `blocks`, `filters` and `block_width`.** They are
+    the most contracting-path-shaped fields of all, and their prose is the one thing
+    about them that is task-specific - `blocks` says `input_shape` must divide by
+    2^blocks, which is the decoder's requirement and false where the features are
+    pooled instead of upsampled, and all three record what a published weights file
+    fills in, which is true of the task that has published weights. Generalising those
+    sentences would put a decoder's constraint on a classifier's page or drop the
+    adoption note from the page a reader checks it on, so each task declares those
+    three for itself. That is a second copy of a *declaration* with one copy of the
+    mechanism, which is the trade this file is willing to make.
+    """
+
+    dropout: float = Field(
+        0.0,
+        ge=0,
+        lt=1,
+        description=(
+            "Drop this fraction during training. 0 switches it off, which is the default "
+            "because these models are small enough that batch normalisation usually carries "
+            "the regularisation on its own."
+        ),
+    )
+
+    batch_normalization: bool = Field(
+        True,
+        description=(
+            "Normalise between convolutions. On by default, and worth knowing about when "
+            "weights are averaged: `swa` has to recompute these statistics over the training "
+            "data, because an averaged weight tensor inherits them from whichever epoch was "
+            "last rather than averaging them."
+        ),
+    )
+    separable_conv: bool = Field(
+        False,
+        description=(
+            "Depthwise-separable convolutions: far fewer parameters for the same shape, and "
+            "a little slower to converge."
+        ),
+    )
+    spatial_dropout: bool = Field(
+        True,
+        description=(
+            "Drop whole feature maps rather than individual activations. The right kind for "
+            "images, because neighbouring pixels in one map are correlated and dropping them "
+            "one at a time removes less than it appears to. Has no effect unless `dropout` is "
+            "above 0."
+        ),
+    )
+    activation: Activation = Field(
+        Activation.RELU,
+        description="The non-linearity between convolutions, the same one throughout.",
+    )
+    initialiser: Initialiser = Field(
+        Initialiser.HE_NORMAL,
+        description=(
+            "How the weights start. The `he_*` family is scaled for ReLU-like activations "
+            "and `glorot_*` for symmetric ones, so this and `activation` are a pair."
+        ),
+    )
+    encoder: str | None = Field(
+        None,
+        description=(
+            "A timm backbone to use as the contracting path, e.g. 'resnet34'. Leave "
+            "unset for the built-in encoder, which is the only one that works in 3D."
+        ),
+    )
+    pretrained: bool = Field(
+        False,
+        description=(
+            "Load the encoder's ImageNet weights. Separate from `encoder` on purpose: "
+            "naming a backbone builds that architecture, and this is the flag that "
+            "reaches the network, which matters where there is no network."
+        ),
+    )
+
+    encoder_learning_rate: float | None = Field(
+        None,
+        gt=0,
+        description=(
+            "A separate, usually smaller learning rate for the layers that arrived "
+            "pretrained. Whatever is ours trains at the optimizer's own rate instead - "
+            "the decoder and the full-resolution stage in front of the backbone for a "
+            "segmentation model, the pooled head for a classifier - because those start "
+            "random. Unset means one rate for the whole network."
+        ),
+    )
+    freeze_encoder: int = Field(
+        0,
+        ge=0,
+        description=(
+            "Keep the pretrained layers fixed for this many epochs, then train them. "
+            "Lets the random part of the network settle - the decoder, or a classifier's "
+            "head - before its gradients reach weights worth keeping. A number at or "
+            "above `epochs` freezes them for the whole run."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def pretrained_needs_an_encoder(self):
+        """`pretrained` on its own has nothing to load into: the built-in encoder is ours
+        and no one published weights for it. Silently ignoring the flag would leave
+        someone believing they had transfer learning when they had none."""
+        if self.pretrained and self.encoder is None:
+            raise ValueError(
+                "pretrained=true needs `encoder` to say which backbone to load, e.g. "
+                "encoder='resnet34'; the built-in encoder has no published weights"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def encoder_settings_need_an_encoder(self):
+        """Both of these address one problem - the gradients of whatever is ours and
+        started random arriving at transferred weights - so neither means anything
+        without transferred weights."""
+        for field, value in (
+            ("encoder_learning_rate", self.encoder_learning_rate),
+            ("freeze_encoder", self.freeze_encoder or None),
+        ):
+            if value is not None and self.encoder is None:
+                raise ValueError(
+                    f"{field} needs `encoder` to name a backbone; there is nothing "
+                    f"transferred for it to apply to"
+                )
+        return self
+
+    @model_validator(mode="after")
+    def encoders_are_two_dimensional(self):
+        """Refused here rather than at build time so a 3D spec fails while it is being
+        read, before anything is downloaded or a GPU is touched."""
+        if self.encoder is not None and self.rank != 2:
+            raise ValueError(
+                f"encoder='{self.encoder}' is a 2D backbone but input_shape is "
+                f"{self.rank}D ({tuple(self.input_shape)}); ImageNet is images, so there "
+                f"is nothing to transfer to a volume. Leave `encoder` unset - the "
+                f"built-in encoder works at both ranks."
+            )
+        return self
+
+
+class SegmentationModel(EncoderModel):
     #: Appended to the refusal of a continuous `loss`, by the subclass that has somewhere
     #: else to put one. Empty here, because a semantic model has one objective and no
     #: second place for it. `InstanceModel` overrides it so that refusal keeps naming both
@@ -306,42 +458,6 @@ class SegmentationModel(ModelSpec):
             "enough that halving the resolution again would lose them."
         ),
     )
-    dropout: float = Field(
-        0.0,
-        ge=0,
-        lt=1,
-        description=(
-            "Drop this fraction during training. 0 switches it off, which is the default "
-            "because these models are small enough that batch normalisation usually carries "
-            "the regularisation on its own."
-        ),
-    )
-
-    batch_normalization: bool = Field(
-        True,
-        description=(
-            "Normalise between convolutions. On by default, and worth knowing about when "
-            "weights are averaged: `swa` has to recompute these statistics over the training "
-            "data, because an averaged weight tensor inherits them from whichever epoch was "
-            "last rather than averaging them."
-        ),
-    )
-    separable_conv: bool = Field(
-        False,
-        description=(
-            "Depthwise-separable convolutions: far fewer parameters for the same shape, and "
-            "a little slower to converge."
-        ),
-    )
-    spatial_dropout: bool = Field(
-        True,
-        description=(
-            "Drop whole feature maps rather than individual activations. The right kind for "
-            "images, because neighbouring pixels in one map are correlated and dropping them "
-            "one at a time removes less than it appears to. Has no effect unless `dropout` is "
-            "above 0."
-        ),
-    )
     upsample: bool = Field(False, description="Upsample+conv instead of transposed convolution.")
     deep_supervision: bool = Field(
         False,
@@ -351,18 +467,6 @@ class SegmentationModel(ModelSpec):
             "to supervise."
         ),
     )
-    activation: Activation = Field(
-        Activation.RELU,
-        description="The non-linearity between convolutions, the same one throughout.",
-    )
-    initialiser: Initialiser = Field(
-        Initialiser.HE_NORMAL,
-        description=(
-            "How the weights start. The `he_*` family is scaled for ReLU-like activations "
-            "and `glorot_*` for symmetric ones, so this and `activation` are a pair."
-        ),
-    )
-
     loss: LossSpec = Field(
         default_factory=CceLoss,
         description=(
@@ -391,42 +495,6 @@ class SegmentationModel(ModelSpec):
             "measured on 2048-pixel retinas cut sixteen ways, the loader costs 254 ms a "
             "tile shuffled wholesale against 49 ms this way, and a batch still draws from "
             "several sources."
-        ),
-    )
-
-    encoder: str | None = Field(
-        None,
-        description=(
-            "A timm backbone to use as the contracting path, e.g. 'resnet34'. Leave "
-            "unset for the built-in encoder, which is the only one that works in 3D."
-        ),
-    )
-    pretrained: bool = Field(
-        False,
-        description=(
-            "Load the encoder's ImageNet weights. Separate from `encoder` on purpose: "
-            "naming a backbone builds that architecture, and this is the flag that "
-            "reaches the network, which matters where there is no network."
-        ),
-    )
-
-    encoder_learning_rate: float | None = Field(
-        None,
-        gt=0,
-        description=(
-            "A separate, usually smaller learning rate for the layers that arrived "
-            "pretrained. The full-resolution stage added in front of them is ours and "
-            "starts random, so it trains at the optimizer's own rate. Unset means one "
-            "rate for the whole network."
-        ),
-    )
-    freeze_encoder: int = Field(
-        0,
-        ge=0,
-        description=(
-            "Keep the pretrained layers fixed for this many epochs, then train them. "
-            "Lets the random decoder settle before its gradients reach weights worth "
-            "keeping. A number at or above `epochs` freezes them for the whole run."
         ),
     )
 
@@ -529,46 +597,6 @@ class SegmentationModel(ModelSpec):
             # look at, and until it was in the logs no callback could watch it.
             | {f"val_{m.name}_worst" for m in reported if not m.whole_mask}
         )
-
-    @model_validator(mode="after")
-    def pretrained_needs_an_encoder(self):
-        """`pretrained` on its own has nothing to load into: the built-in encoder is ours
-        and no one published weights for it. Silently ignoring the flag would leave
-        someone believing they had transfer learning when they had none."""
-        if self.pretrained and self.encoder is None:
-            raise ValueError(
-                "pretrained=true needs `encoder` to say which backbone to load, e.g. "
-                "encoder='resnet34'; the built-in encoder has no published weights"
-            )
-        return self
-
-    @model_validator(mode="after")
-    def encoder_settings_need_an_encoder(self):
-        """Both of these address one problem - a random decoder's gradients arriving at
-        transferred weights - so neither means anything without transferred weights."""
-        for field, value in (
-            ("encoder_learning_rate", self.encoder_learning_rate),
-            ("freeze_encoder", self.freeze_encoder or None),
-        ):
-            if value is not None and self.encoder is None:
-                raise ValueError(
-                    f"{field} needs `encoder` to name a backbone; there is nothing "
-                    f"transferred for it to apply to"
-                )
-        return self
-
-    @model_validator(mode="after")
-    def encoders_are_two_dimensional(self):
-        """Refused here rather than at build time so a 3D spec fails while it is being
-        read, before anything is downloaded or a GPU is touched."""
-        if self.encoder is not None and self.rank != 2:
-            raise ValueError(
-                f"encoder='{self.encoder}' is a 2D backbone but input_shape is "
-                f"{self.rank}D ({tuple(self.input_shape)}); ImageNet is images, so there "
-                f"is nothing to transfer to a volume. Leave `encoder` unset - the "
-                f"built-in encoder works at both ranks."
-            )
-        return self
 
     @model_validator(mode="after")
     def the_mask_needs_a_loss_over_classes(self):

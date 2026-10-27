@@ -69,6 +69,21 @@ class _Loss(SpecModel):
     #: kinds of channel at once.
     continuous: ClassVar[bool] = False
 
+    #: Whether this loss is defined over a *set* of elements rather than over each element
+    #: on its own. An overlap is a ratio of areas and a boundary term is an integral along
+    #: one, so both need something with extent; `lovasz` ranks the per-element errors, which
+    #: needs several of them to rank. One label for a whole image has none of that, which is
+    #: why `ClassificationModel` reads this flag rather than keeping a list of names - the
+    #: third claim of this shape in this class, after the two above.
+    #:
+    #: **Declared rather than measured, and the difference is itself measured.** A loss that
+    #: says `False` here must give the same number for one element as for four identical
+    #: ones, and `tests/objectives/test_extent.py` asserts exactly that. The converse does
+    #: not hold: `lovasz` is extent-invariant in value - 0.382946 either way - while its
+    #: mechanism is vacuous on one element, so the guard runs in one direction only and the
+    #: exception is pinned rather than left to be rediscovered.
+    needs_extent: ClassVar[bool] = True
+
 
 class IouLoss(_Loss):
     """Dice's harsher twin: the same ordering, a lower number.
@@ -150,6 +165,8 @@ class CceLoss(_Loss):
     learning the background. That is what `cce_dice` exists to fix.
     """
 
+    needs_extent: ClassVar[bool] = False
+
     name: Literal["cce"] = Field("cce", description=_LOSS_NAME)
     label_smoothing: float = Field(
         0.0,
@@ -194,6 +211,8 @@ class FocalLoss(_Loss):
     having where the easy background dominates the gradient. The cost is that a model that
     is right but unconfident everywhere is barely trained at all.
     """
+
+    needs_extent: ClassVar[bool] = False
 
     name: Literal["focal"] = Field("focal", description=_LOSS_NAME)
     gamma: float = Field(
@@ -463,6 +482,10 @@ _WHERE = (
 
 class _Regression(_Loss):
     continuous: ClassVar[bool] = True
+    #: A squared or absolute error is a mean over elements, so one element is a legitimate
+    #: case arithmetically. These are refused for a classification label by `continuous`
+    #: instead, which is the question that actually disqualifies them.
+    needs_extent: ClassVar[bool] = False
 
     where: Literal["foreground", "everywhere"] = Field("foreground", description=_WHERE)
 

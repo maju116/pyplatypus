@@ -8,6 +8,7 @@ from pyplatypus.spec.catalogue import (
     available_separations,
     available_tasks,
 )
+from pyplatypus.spec.classification import ClassificationData, ClassificationModel
 from pyplatypus.spec.common import Activation, Architecture, DataMode, Task
 from pyplatypus.spec.components import (
     AugmentationStep,
@@ -34,7 +35,12 @@ from pyplatypus.spec.instances import (
     Watershed,
 )
 from pyplatypus.spec.loader import from_dict, from_yaml, save_spec
-from pyplatypus.spec.models import Initialiser, ModelSpec, SegmentationModel
+from pyplatypus.spec.models import (
+    EncoderModel,
+    Initialiser,
+    ModelSpec,
+    SegmentationModel,
+)
 from pyplatypus.spec.schema import spec_schema, write_schema
 from pyplatypus.spec.spec import (
     AnySpec,
@@ -50,6 +56,8 @@ __all__ = [
     "Architecture",
     "AugmentationStep",
     "CallbackSpec",
+    "ClassificationData",
+    "ClassificationModel",
     "ConnectedComponents",
     "DataMode",
     "DataSpec",
@@ -58,6 +66,7 @@ __all__ = [
     "DetectionData",
     "DetectionModel",
     "DetectionSpec",
+    "EncoderModel",
     "FollowFlows",
     "Initialiser",
     "InstanceData",
