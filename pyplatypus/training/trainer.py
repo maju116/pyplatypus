@@ -397,6 +397,13 @@ class Trainer:
         every batch it sees. Pretrained weights were fitted alongside pretrained
         statistics, so letting the statistics drift while holding the weights fixed
         changes the thing being protected, quietly and from the first batch.
+
+        **The `eval()` is not in this method**, which is worth saying here because this is
+        where somebody looks for it: `_run_epoch` calls `model.train(train)` at the top of
+        every pass and that reaches every submodule, so an `eval()` set here would be undone
+        immediately. It is applied there, after that call, and nothing held the two together
+        until `tests/training/test_trainer_contract.py` - removing the re-application broke
+        no test in this suite, in released code, with the reason written out beside it.
         """
         if self.transferred is None or self._frozen == frozen:
             return

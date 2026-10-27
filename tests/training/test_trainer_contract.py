@@ -1,4 +1,9 @@
-"""Every trainer calls every hook. `maju116/pyplatypus#300`.
+"""What every trainer owes, in as many copies as there are trainers.
+
+Two contracts live here. One is the callback hooks - `maju116/pyplatypus#300` - and the
+other is that a frozen transfer stays frozen, which is this file's second entry because
+removing the mechanism that guarantees it broke **nothing** in the segmentation suite, in
+released code, with the reasoning written out in a three-line comment beside it.
 
 `on_batch_end` arrived in `0.8.0a37` as the fourth hook, with `ema` as the callback written
 for it, and the second trainer was not given either it or `state.step`. `ema` is the only
@@ -30,9 +35,11 @@ from torch import nn
 
 from pyplatypus import training
 from pyplatypus.detection.encode import encode
+from pyplatypus.spec.classification import ClassificationModel
 from pyplatypus.spec.detection import DetectionModel
 from pyplatypus.spec.models import SegmentationModel
 from pyplatypus.training.callbacks import Callback, TrainingState
+from pyplatypus.training.classification_trainer import ClassificationTrainer
 from pyplatypus.training.detection_trainer import DetectionTrainer
 from pyplatypus.training.trainer import Trainer
 
@@ -139,16 +146,169 @@ def build_detection(batches: int = 4, accumulate: int = 1):
     return trainer, loader
 
 
+class ClassificationStub(nn.Module):
+    def __init__(self, n_class: int = 2) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.zeros(1))
+        self.n_class = n_class
+
+    def forward(self, x):
+        return torch.arange(self.n_class, dtype=torch.float32).repeat(x.shape[0], 1) + self.weight
+
+
+def build_classification(batches: int = 4):
+    """Both classes in the pass, because the default metric is `auc` and a ranking needs
+    something to rank against - which is the engine's reason for stratifying a split and
+    is visible here as a two-line fixture."""
+    # `blocks=2` because the spec refuses a side below 2**blocks and the default is 4 -
+    # which is slice 2's validator catching this fixture rather than the fixture being odd.
+    spec = ClassificationModel(name="c", input_shape=(8, 8), blocks=2, filters=2, epochs=1)
+    trainer = ClassificationTrainer(
+        ClassificationStub(), spec, n_class=2, device="cpu", callbacks=[]
+    )
+    loader = [
+        (torch.zeros(2, 3, 8, 8), torch.tensor([0, 1], dtype=torch.long)) for _ in range(batches)
+    ]
+    return trainer, loader
+
+
 #: How to build each trainer for one cheap epoch. Keyed by class name so the completeness
 #: test below can compare it against what the package actually exports.
-BUILDERS = {"Trainer": build_segmentation, "DetectionTrainer": build_detection}
+BUILDERS = {
+    "Trainer": build_segmentation,
+    "DetectionTrainer": build_detection,
+    "ClassificationTrainer": build_classification,
+}
+
+
+# --------------------------------------------------------- the second contract: a freeze
+
+
+class WithTransfer(nn.Module):
+    """A model shaped like a pretrained one, without a network.
+
+    Every trainer that can hold a transfer reads `model.encoder.transferred`, which is what
+    `PretrainedEncoder` sets for the layers that arrived with somebody else's weights. A
+    stub with that attribute exercises the freeze offline, and whether the weights are
+    ImageNet's or random is irrelevant to whether they are held still.
+    """
+
+    def __init__(self, segmentation: bool) -> None:
+        super().__init__()
+        self.encoder = nn.Module()
+        self.encoder.transferred = nn.Sequential(nn.BatchNorm2d(3))
+        self.ours = nn.Parameter(torch.zeros(1))
+        self.segmentation = segmentation
+
+    def forward(self, x):
+        # run the batch norm, so its statistics would move if it were in training mode
+        self.encoder.transferred(x)
+        if self.segmentation:
+            return torch.zeros(x.shape[0], 2, 8, 8) + self.ours
+        value = x.mean(dim=(1, 2, 3))
+        return torch.stack([value, -value], dim=1) + 0.0 * self.ours
+
+
+def build_segmentation_transfer():
+    model = WithTransfer(segmentation=True)
+    spec = SegmentationModel(
+        name="s",
+        architecture="u_net",
+        input_shape=(8, 8),
+        blocks=1,
+        filters=2,
+        epochs=3,
+        encoder="resnet34",
+        freeze_encoder=2,
+        metrics=[],
+    )
+    trainer = Trainer(model, spec, device="cpu", callbacks=[])
+    loader = [(torch.rand(2, 3, 8, 8) + 5.0, torch.zeros(2, 2, 8, 8))] * 2
+    return trainer, model, loader
+
+
+def build_classification_transfer():
+    model = WithTransfer(segmentation=False)
+    spec = ClassificationModel(
+        name="c",
+        input_shape=(32, 32),
+        encoder="resnet34",
+        freeze_encoder=2,
+        epochs=3,
+        metrics=[],
+    )
+    trainer = ClassificationTrainer(model, spec, n_class=2, device="cpu", callbacks=[])
+    loader = [(torch.rand(2, 3, 32, 32) + 5.0, torch.tensor([0, 1], dtype=torch.long))] * 2
+    return trainer, model, loader
+
+
+#: The trainers that can hold a transfer. Detection is not one of them - YOLOv3 carries its
+#: own backbone and `parameter_groups(self.model, None, None)` says so - which is why this
+#: is a second mapping rather than the one above with a hole in it.
+TRANSFERS = {
+    "Trainer": build_segmentation_transfer,
+    "ClassificationTrainer": build_classification_transfer,
+}
+
+
+def test_the_transfer_builders_cover_every_trainer_that_reads_one():
+    """A trainer that reads `transferred` and is missing here is a trainer whose freeze
+    nothing checks, which is exactly the state the segmentation trainer was in."""
+    reads_a_transfer = {
+        name for name, builder in BUILDERS.items() if hasattr(builder()[0], "transferred")
+    }
+    assert set(TRANSFERS) <= reads_a_transfer
+    assert set(reads_a_transfer) - set(TRANSFERS) == {"DetectionTrainer"} or not (
+        set(reads_a_transfer) - set(TRANSFERS)
+    ), sorted(reads_a_transfer - set(TRANSFERS))
+
+
+@pytest.mark.parametrize("name", sorted(TRANSFERS))
+def test_a_frozen_transfer_stays_frozen_through_model_train(name):
+    """`model.train(True)` reaches every submodule, so a transfer put in `eval()` at the
+    top of the epoch is switched straight back unless the trainer re-applies it **after**
+    that call. Both halves are asserted, and the second is the one with a consequence a
+    reader can see: a frozen BatchNorm in training mode rewrites its running statistics
+    from every batch, so the thing being protected changes while the weights do not.
+
+    Measured: with the re-application in place the running mean stays at 0.000000 for the
+    frozen epochs and moves to 3.137033 the epoch the transfer is released.
+    """
+    trainer, model, loader = TRANSFERS[name]()
+    transferred = model.encoder.transferred
+    assert trainer.transferred is transferred, "the trainer found the transfer"
+    seen: list[tuple[int, bool, bool, float]] = []
+
+    class Watch(Callback):
+        def on_epoch_end(self, state) -> bool:
+            seen.append(
+                (
+                    state.epoch,
+                    all(not p.requires_grad for p in transferred.parameters()),
+                    transferred.training,
+                    round(transferred[0].running_mean.abs().sum().item(), 6),
+                )
+            )
+            return False
+
+    trainer.callbacks = [Watch()]
+    trainer.fit(loader, epochs=3)
+
+    frozen = [(epoch, grad_off, training) for epoch, grad_off, training, _ in seen]
+    assert frozen == [(1, True, False), (2, True, False), (3, False, True)]
+    # the statistics, which is what the eval() half is for
+    assert [mean for *_, mean in seen[:2]] == [0.0, 0.0]
+    assert seen[-1][-1] > 0.0
+
+
+# ------------------------------------------------------------ the first contract: hooks
 
 
 def test_the_discovery_found_the_trainers_and_the_hooks():
     """The instrument before the subject. Two empty sets compare equal, and a test that
     iterates over nothing passes - which is the form this whole file's failure takes."""
     found = trainer_classes()
-    assert set(found) == {"Trainer", "DetectionTrainer"}, found
+    assert set(found) == {"Trainer", "DetectionTrainer", "ClassificationTrainer"}, found
     assert hook_names() == ["on_batch_end", "on_epoch_end", "on_train_begin", "on_train_end"]
 
 

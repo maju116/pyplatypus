@@ -1,4 +1,5 @@
 from pyplatypus.training.callbacks import Callback, TrainingState, build_callbacks
+from pyplatypus.training.classification_trainer import ClassificationTrainer
 from pyplatypus.training.detection_trainer import DetectionTrainer
 from pyplatypus.training.optimizers import build_optimizer
 from pyplatypus.training.torch_data import (
@@ -20,6 +21,7 @@ from pyplatypus.training.trainer import (
 
 __all__ = [
     "Callback",
+    "ClassificationTrainer",
     "DetectionTrainer",
     "History",
     "TorchClassificationDataset",

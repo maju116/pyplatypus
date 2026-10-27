@@ -190,9 +190,18 @@ class TorchClassificationDataset(Dataset):
     **The target does not go through `to_channels_first`**, and it is the only target in
     this package that does not: a class index is a scalar, so moving an axis that is not
     there would either fail or - with the one-hot shape somebody might reach for instead -
-    silently transpose a batch. It is `long` because that is what a cross-entropy over
-    class indices takes, and keeping it an index rather than expanding it here is what lets
-    the loss choose: `CceLoss` reads indices, and the metrics accept either shape.
+    silently transpose a batch.
+
+    **It stays an index, and the loss is the thing that wants it otherwise.** This paragraph
+    said the index was `long` "because that is what a cross-entropy over class indices
+    takes", which is true of torch's own `F.cross_entropy` and false of this package's:
+    `objectives.functional.cross_entropy` is written for a one-hot target, because a mask's
+    target is one. Measured: handing it an index raises when the batch size differs from the
+    class count, and with a batch of 2 against 2 classes - a ragged last batch - it returns
+    **1.126928 where the loss is 0.126928**, nine times the value, silently. So
+    `ClassificationTrainer` expands it in the one place that needs it and the index is what
+    crosses here: one integer per image rather than `n_class` floats, and the metrics take
+    either shape.
     """
 
     def __init__(self, base: ClassificationDataset):
