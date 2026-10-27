@@ -1,6 +1,92 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a49] - 2026-10-27
+
+`task: classification` - one label per image, and the fourth task this package can be asked
+to do.
+
+### Added
+
+ - **`task: classification`**, `maju116/pyplatypus#206`. `crops()` has been cutting objects
+   out and handing them to "a classifier it does not contain" since detection shipped, and
+   explaining a model needs a per-image answer to explain. Both now have one.
+
+   The tag is what this release is, and it lands **last** on purpose: everything behind it -
+   the specification, the head, the metrics, the reader, the trainer and the engine - was
+   built and tested over the preceding slices, so the tag never named a task the package
+   could not train. `0.8.0a20` built the instance task the same way, and
+   `tests/spec/test_task_coverage.py` is what makes that order safe: it fired on the first
+   edit of this release, when `Task` gained a member and `AnySpec` had not, which is exactly
+   the window it was added to guard.
+
+ - **No `architecture` field, and that is the task's one structural difference.** The network
+   is a contracting path, pooled, with one dense layer on top, and `encoder` decides whose
+   contracting path it is - ours when unset, any of timm's when it names a backbone. So
+   `available_models("classification")` **refuses** rather than returning a row: a row would
+   invite `architecture: plain_cnn`, which the model refuses as an unknown key.
+   `ClassificationModel.architecture` is a derived property reading `plain_cnn` or the
+   backbone's name.
+
+ - **`auc` is the default metric and `accuracy` is not.** Measured on 40000 images at a
+   prevalence of 3%, calibrated by construction so that only the discrimination varies:
+
+        discrimination   accuracy   balanced   macro f1      auc
+        none               0.9720     0.5000     0.4929   0.5132
+        a = 0.5            0.9702     0.5000     0.4924   0.6393
+        a = 1.0            0.9704     0.5004     0.4933   0.7516
+        a = 2.0            0.9728     0.5609     0.5972   0.9088
+        a = 4.0            0.9802     0.7443     0.7923   0.9763
+
+   Accuracy spans 0.0100 where the AUC spans 0.4631 and is **not monotone** - the model with
+   no signal at all scores above two that have one. The sharper half is that balanced
+   accuracy, the obvious fix, is no better here: it and macro F1 are +0.0000 and -0.0005
+   between a real signal and a collapse, because a calibrated model at that prevalence never
+   crosses the threshold. Being threshold-free is the property that separates them, not being
+   balanced.
+
+ - **The split is stratified, and that is the same arithmetic.** A random 70/15/15 of 100
+   images at 3% prevalence leaves some part with none of the rare class **91%** of the time -
+   64% at 200, 20% at 500 - and the closed form `(1-f)^r` agrees with the simulation to three
+   digits. Every per-class metric refuses to average over a class its pass never held, so the
+   run would die at the end of the first epoch with the epoch already paid for.
+   `stratified_split` calls `split_samples` once per label; the cost is one image of drift at
+   100 images and nothing at 500. `group_by` is refused where a group holds more than one
+   label, because stratifying would cut such a group across both sides - measured, and the
+   control is that the same data without stratifying leaks nothing.
+
+ - **A metric is accumulated over a pass rather than averaged over batches**, which is a
+   protocol and not a flag. Measured at a prevalence of 3%: accuracy agrees with the pooled
+   figure to every digit, while balanced accuracy is out by up to +0.0123, macro F1 by
+   -0.0734 and the AUC by up to 0.0371 and not monotone in the batch size - because 398 of
+   500 batches of 8 hold no positive at all, so three of the four are means over whichever
+   batches happened to contain the minority class.
+
+### Fixed, on the way
+
+ - **`f.overlaps` on a `(batch, class)` tensor returned one number for the whole batch**
+   instead of a count per class: `spatial_dims` answers with an empty tuple and
+   `sum(dim=())` sums over every axis rather than none - `torch.ones(4, 3).sum(())` is 12.0.
+   Refused now. Nothing in the package called it that way; the guard exists because the wrong
+   answer is silent and plausible.
+
+ - **A frozen transfer stayed frozen only in two of the three trainers.** `model.train(True)`
+   reaches every submodule, so a transfer put in `eval()` at the top of an epoch is switched
+   straight back unless the trainer re-applies it after that call. Removing the three lines
+   that do it in the segmentation trainer broke **no test**, in released code, with the
+   reasoning written out beside them. `tests/training/test_trainer_contract.py` holds both
+   trainers to it now, beside the callback-hook contract `0.8.0a48` added.
+
+### The R half
+
+ - **Substantial, and none of it travels with the pin alone.** An R user reaches a task
+   through a constructor - `segmentation_data()`, `instance_data()`, `detection_data()` - and
+   there is no `classification_data()`, so a classification run cannot be written from R at
+   all until R gains its own surface for it. A `platypus_spec()` built from a bare list or a
+   YAML file *does* reach the engine's validator, so after a pin move that route would accept
+   what the constructors refuse - which is the three-way divergence `rplatypus#152` recorded
+   for `regions`, one task across. Filed on R's side rather than described here.
+
 ## [0.8.0a48] - 2026-10-27
 
 A detection run could be configured with `ema` and take no average at all.

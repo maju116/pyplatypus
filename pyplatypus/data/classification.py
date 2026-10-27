@@ -80,17 +80,36 @@ class ClassBalance:
             **{f"n_{key}": float(value) for key, value in self.counts.items()},
         }
 
+    #: The share below which a metric read off the hard prediction stops distinguishing a
+    #: model from a collapse. A **reference line rather than a cliff**: the measurement it
+    #: comes from is at 3%, where a calibrated model never crosses the threshold and
+    #: accuracy, balanced accuracy and F1 all report a real signal and a collapse as the
+    #: same figure. 10% is the round number above it, and the sentence it gates says
+    #: "about".
+    WORTH_SAYING_BELOW = 0.10
+
     def __str__(self) -> str:
         rows = "\n".join(
             f"  {name:<24s} {count:>7d}  {count / self.total:6.2%}"
             for name, count in self.counts.items()
         )
         name, _ = self.rarest
-        return (
-            f"{self.total} images in {len(self.counts)} classes\n{rows}\n"
-            f"  rarest: {name} at {self.prevalence:.2%} - below about 10% a metric read off "
-            f"the hard prediction stops telling a model from a collapse"
-        )
+        lines = [
+            f"{self.total} images in {len(self.counts)} classes",
+            rows,
+            f"  rarest: {name} at {self.prevalence:.2%}",
+        ]
+        # Only where it is true. A warning that fires on a balanced set is a warning people
+        # learn to skip, and then it is not there on the set it was written for - which is
+        # the same reasoning `terminate_on_collapse` is reported unconditionally for and
+        # this one is not: that number means something at every value, and this sentence
+        # does not.
+        if self.prevalence < self.WORTH_SAYING_BELOW:
+            lines.append(
+                "  below about 10% a metric read off the hard prediction stops telling a "
+                "model from a collapse, so `auc` is the one to watch"
+            )
+        return "\n".join(lines)
 
 
 def _class_dirs(

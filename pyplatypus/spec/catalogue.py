@@ -33,7 +33,13 @@ from typing import Any, get_args
 
 from pyplatypus.errors import PlatypusError
 from pyplatypus.spec.common import Architecture, Task
-from pyplatypus.spec.components import CallbackSpec, LossSpec, MetricSpec, OptimizerSpec
+from pyplatypus.spec.components import (
+    CallbackSpec,
+    ClassificationMetricSpec,
+    LossSpec,
+    MetricSpec,
+    OptimizerSpec,
+)
 from pyplatypus.spec.detection import DetectionArchitecture, DetectionModel
 from pyplatypus.spec.instances import DecodeSpec, InstanceModel, SeparationSpec
 from pyplatypus.spec.models import SegmentationModel
@@ -152,7 +158,7 @@ def _no_branch(task: Task, what: str) -> PlatypusError:
 def available_tasks() -> list[dict[str, Any]]:
     """What this package can be asked to do at all.
 
-    Three rows, and the weakest of this family as a list - it earns its place as the entry
+    Four rows, and the weakest of this family as a list - it earns its place as the entry
     point, which is the question somebody asks before they have read anything.
 
     **These rows are written out where everything else in this module is derived**, which
@@ -166,7 +172,7 @@ def available_tasks() -> list[dict[str, Any]]:
         choose, and what it is for.
 
     >>> [row["name"] for row in available_tasks()]
-    ['instance_segmentation', 'object_detection', 'semantic_segmentation']
+    ['classification', 'instance_segmentation', 'object_detection', 'semantic_segmentation']
     >>> next(r for r in available_tasks() if r["name"] == "instance_segmentation")["chooses"]
     ('models', 'separation', 'decode', 'loss', 'metrics', 'optimizer', 'callbacks', 'augmentation')
     """
@@ -202,6 +208,24 @@ def available_tasks() -> list[dict[str, Any]]:
             "description": _summary(descriptions.get("DetectionSpec", ""))
             or "Boxes with labels, scored by average precision.",
         },
+        {
+            "name": Task.CLASSIFICATION.value,
+            # `encoder` is listed beside the components every task chooses, the way
+            # instance segmentation lists `separation` and `decode`: for this task it is
+            # the architecture decision, and a reader scanning this table should not have
+            # to open the model spec to discover that there is no `architecture` field.
+            "chooses": (
+                "models",
+                "encoder",
+                "loss",
+                "metrics",
+                "optimizer",
+                "callbacks",
+                "augmentation",
+            ),
+            "description": _summary(descriptions.get("ClassificationSpec", ""))
+            or "One label per image, scored by how well the answers rank.",
+        },
     ]
     return sorted(rows, key=lambda row: row["name"])
 
@@ -221,6 +245,16 @@ def available_models(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     True
     """
     resolved = _task(task)
+    if resolved is Task.CLASSIFICATION:
+        raise PlatypusError(
+            "classification chooses no architecture: the network is a contracting path, "
+            "pooled, with one dense layer on top, and `encoder` decides whose contracting "
+            "path it is - ours when it is unset, any of timm's when it names a backbone. "
+            "There is no `architecture` field to write, so a row here would invite "
+            "`architecture: plain_cnn`, which the model refuses as an unknown key. "
+            "`available_models` for the other tasks lists what goes in that field; this "
+            "task's equivalent question is answered by timm's own catalogue."
+        )
     if resolved is Task.INSTANCE_SEGMENTATION:
         # The same four architectures - an instance model is a U-shaped network with a
         # wider head, which is the argument `#160` settled the shape on: folding CellPose
@@ -314,6 +348,17 @@ def available_losses(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dict
     rows = _rows(LossSpec)
     if resolved is Task.INSTANCE_SEGMENTATION:
         return rows
+    if resolved is Task.CLASSIFICATION:
+        # Read off the losses' own flags rather than listed, which is the same condition
+        # `ClassificationModel`'s two refusals read: an objective over a label scores each
+        # answer on its own, so anything that scores an overlap (`needs_extent`) or a number
+        # (`continuous`) is out. A fourth loss of either kind leaves this alone.
+        admissible = {
+            model.model_fields["name"].default
+            for model in _members(LossSpec)
+            if not model.needs_extent and not model.continuous
+        }
+        return [row for row in rows if row["name"] in admissible]
     if resolved is not Task.SEMANTIC_SEGMENTATION:
         raise _no_branch(resolved, "losses")
     # Read off the loss's own flag, the same way the two refusals are, so a fourth
@@ -346,6 +391,12 @@ def available_metrics(task: str | Task = Task.SEMANTIC_SEGMENTATION) -> list[dic
             "beside them. They come out of `report` rather than going into the spec, which "
             "is why there is nothing here to list."
         )
+    if resolved is Task.CLASSIFICATION:
+        # Its own union rather than a filter on the one above: every argument a mask metric
+        # takes is about which pixels count, and a label has one answer to that question.
+        # The two sets share no member, which is why the task dispatches rather than
+        # filtering.
+        return _rows(ClassificationMetricSpec)
     # Both segmentation tasks offer the same set, which is why this is a membership test and
     # not two branches returning one expression.
     if resolved not in (Task.SEMANTIC_SEGMENTATION, Task.INSTANCE_SEGMENTATION):

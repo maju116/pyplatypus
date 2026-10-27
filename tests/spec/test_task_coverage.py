@@ -140,20 +140,39 @@ def test_the_real_tasks_still_answer(monkeypatch):
     this file - the failure mode §4 of the workbench calls a check calibrated loosely enough
     to admit the failure it was written to prevent, in its opposite form.
     """
+    #: Where a listing refuses **on the merits** rather than for want of a branch. Each
+    #: entry is a task that genuinely does not choose that component, and the assertion
+    #: below is on the message: a refusal that says "gap rather than an answer" is
+    #: `_no_branch` and is the thing this file exists to catch.
+    on_the_merits = {
+        (available_losses, Task.OBJECT_DETECTION),
+        (available_metrics, Task.OBJECT_DETECTION),
+        (available_models, Task.CLASSIFICATION),
+    }
+
     for task in union_tasks():
+        if (available_models, task) in on_the_merits:
+            continue
         models = available_models(task)
         assert models, f"{task.value} lists no architectures"
 
     assert len(available_losses(Task.SEMANTIC_SEGMENTATION)) == 11
     assert len(available_losses(Task.INSTANCE_SEGMENTATION)) == 14
     assert available_metrics(Task.SEMANTIC_SEGMENTATION)
+    # Classification answers both of these and with its own sets, which is the half of
+    # "the real tasks still answer" that a new task makes worth asserting by name.
+    assert {row["name"] for row in available_losses(Task.CLASSIFICATION)} == {"cce", "focal"}
+    assert {row["name"] for row in available_metrics(Task.CLASSIFICATION)} == {
+        "accuracy",
+        "auc",
+        "balanced_accuracy",
+        "f1",
+    }
 
-    # Detection's two refusals are on the merits and must survive the exhaustiveness change,
-    # which routes through the same functions.
-    for function in (available_losses, available_metrics):
+    for function, task in sorted(on_the_merits, key=lambda pair: (pair[0].__name__, pair[1])):
         with pytest.raises(PlatypusError) as caught:
-            function(Task.OBJECT_DETECTION)
-        assert "gap rather than an answer" not in str(caught.value)
+            function(task)
+        assert "gap rather than an answer" not in str(caught.value), (function.__name__, task)
 
 
 def test_an_unknown_task_name_is_still_refused_by_name():

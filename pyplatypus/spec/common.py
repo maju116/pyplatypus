@@ -58,6 +58,12 @@ class Task(str, Enum):
     #: belongs to, which is a different question and a different pipeline - the masks
     #: arrive one file per object and keep their identity instead of being united.
     INSTANCE_SEGMENTATION = "instance_segmentation"
+    #: One answer for a whole image rather than one per pixel. Named plainly because
+    #: nothing it could be confused with is coming: the three above all answer *where*,
+    #: and this is the only one that answers *which*. It exists because `crops()` cuts
+    #: objects out and had nothing to hand them to, and because explaining a model needs a
+    #: per-image answer to explain.
+    CLASSIFICATION = "classification"
 
 
 class Architecture(str, Enum):

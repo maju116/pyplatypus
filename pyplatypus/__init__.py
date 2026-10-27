@@ -53,6 +53,7 @@ from pyplatypus.plots import (
 )
 from pyplatypus.runs import read_record, write_record
 from pyplatypus.spec import (
+    ClassificationSpec,
     DetectionSpec,
     InstanceSpec,
     PlatypusSpec,
@@ -82,10 +83,11 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a48"
+__version__ = "0.8.0a49"
 __all__ = [
     "ClassificationEngine",
     "ClassificationRun",
+    "ClassificationSpec",
     "ConfigError",
     "DetectionEngine",
     "DetectionReport",

@@ -82,6 +82,7 @@ website:
         - reference/SegmentationSpec.qmd
         - reference/InstanceSpec.qmd
         - reference/DetectionSpec.qmd
+        - reference/ClassificationSpec.qmd
         - reference/PlatypusSpec.qmd
         - reference/Task.qmd
         - reference/Separation.qmd
@@ -230,6 +231,7 @@ quartodoc:
     - SegmentationSpec
     - InstanceSpec
     - DetectionSpec
+    - ClassificationSpec
     - PlatypusSpec
     - Task
     - Separation

@@ -26,6 +26,7 @@ groups:
   - SegmentationSpec
   - InstanceSpec
   - DetectionSpec
+  - ClassificationSpec
   - PlatypusSpec
   - Task
   - Separation

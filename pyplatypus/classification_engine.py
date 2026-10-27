@@ -1,12 +1,9 @@
 """One label per image, from a specification to a trained model and an answer.
 
-**There is no top-level specification for this task yet**, which is why this engine takes
-the two halves rather than a `ClassificationSpec`: `task: classification` lands last, after
-everything behind it works, so that the tag never names a task the package cannot train.
-Detection has been in the same state and says so in its own engine's refusal - *a detector
-is assembled by hand from `pyplatypus.detection`* - so this is a state the package has had
-before rather than an omission. `_Pieces` is the stand-in and goes away in that slice, when
-`self.spec` becomes the real thing and `build_engine` learns the tag.
+This engine takes a `ClassificationSpec`, like its three siblings, and `build_engine(spec)`
+returns it for `task: classification`. It took the two halves and a `_Pieces` stand-in until
+the tag landed, which was deliberate: the tag goes last, after everything behind it works, so
+that it never names a task the package cannot train.
 
 What this engine does **not** do is weights, and that is said here rather than left to be
 noticed. `export_weights`, `_load_weights` and the registry adoption on `EngineBase` are a
@@ -28,25 +25,11 @@ from pyplatypus.data.augmentation import build_augmenter
 from pyplatypus.data.classification import ClassBalance, ClassificationDataset, discover_labelled
 from pyplatypus.engine import EngineBase, EngineError, split_from_train
 from pyplatypus.models.classifier import build_classifier
-from pyplatypus.spec.classification import ClassificationData, ClassificationModel
+from pyplatypus.spec.classification import ClassificationModel
+from pyplatypus.spec.spec import ClassificationSpec, PlatypusSpec
 from pyplatypus.training.classification_trainer import ClassificationTrainer
 from pyplatypus.training.torch_data import make_classification_loader
 from pyplatypus.training.trainer import History, seed_everything
-
-
-@dataclass(frozen=True)
-class _Pieces:
-    """What a top-level specification would carry, until this task has one.
-
-    `EngineBase` reads `self.spec.data` and nothing else, which is what makes standing in
-    for a spec this cheap - measured by reading it rather than assumed.
-    """
-
-    data: ClassificationData
-    models: list[ClassificationModel]
-    output_dir: str = "."
-    seed: int | None = None
-    deterministic: bool = False
 
 
 @dataclass
@@ -71,35 +54,38 @@ class ClassificationEngine(EngineBase):
 
     def __init__(
         self,
-        data: ClassificationData,
-        models: list[ClassificationModel],
+        spec: PlatypusSpec,
         *,
-        output_dir: str = ".",
-        seed: int | None = None,
-        deterministic: bool = False,
         device: str | None = None,
         num_workers: int = 0,
         strict_data: bool = True,
     ):
-        if not models:
-            raise EngineError("a run needs at least one model")
-        names = [model.name for model in models]
-        if len(set(names)) != len(names):
+        if not isinstance(spec, ClassificationSpec):
+            # Named per task rather than as one sentence about "not classification", which
+            # is the segmentation engine's reasoning: the other three are different
+            # mechanisms and a message that lumped them together would send a reader to the
+            # wrong engine.
+            elsewhere = {
+                "semantic_segmentation": "`Engine` trains that one.",
+                "instance_segmentation": "`InstanceEngine` trains that one.",
+                "object_detection": "`DetectionEngine` trains that one.",
+            }
             raise EngineError(
-                f"model names must be unique within a run and these are {', '.join(names)}; "
-                "the name is what every result is keyed by"
+                f"this engine trains classification; the specification's task is "
+                f"'{spec.task.value}'. "
+                + elsewhere.get(spec.task.value, "")
+                + " `build_engine(spec)` picks by the tag, so holding a specification is "
+                "enough."
             )
-        self.spec = _Pieces(
-            data=data,
-            models=list(models),
-            output_dir=output_dir,
-            seed=seed,
-            deterministic=deterministic,
-        )
+        # `models` is held to unique names by the specification itself, with `min_length=1`
+        # beside it - so there is no guard here, and that is the point rather than an
+        # omission: a second copy of a refusal is the thing §3F of the workbench's notes is
+        # a list of. It was a guard while this engine took its pieces loose.
+        self.spec = spec
         self.device = device
         self.num_workers = num_workers
         self.runs: dict[str, ClassificationRun] = {}
-        seed_everything(seed, deterministic=deterministic)
+        seed_everything(spec.seed, deterministic=spec.deterministic)
 
         self._samples: dict[str, tuple]
         self._discover_splits(self._discover, strict=strict_data)

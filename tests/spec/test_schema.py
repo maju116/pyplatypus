@@ -21,12 +21,14 @@ def test_the_top_level_is_a_choice_of_task():
             "semantic_segmentation": "#/$defs/SegmentationSpec",
             "instance_segmentation": "#/$defs/InstanceSpec",
             "object_detection": "#/$defs/DetectionSpec",
+            "classification": "#/$defs/ClassificationSpec",
         },
     }
     assert {ref["$ref"] for ref in schema["oneOf"]} == {
         "#/$defs/SegmentationSpec",
         "#/$defs/InstanceSpec",
         "#/$defs/DetectionSpec",
+        "#/$defs/ClassificationSpec",
     }
 
 
