@@ -108,3 +108,23 @@ def test_without_a_key_column_the_row_number_is_still_used(tmp_path):
 
     found = discover_samples(config, mode=DataMode.CONFIG_FILE)
     assert [s.key for s in found.samples] == ["row 2"]
+
+
+def test_a_spec_with_no_subdirs_is_refused_by_name(tmp_path):
+    """`discover` reads one layout: a sample is a directory with the image in one
+    subdirectory and what labels it in the other. A classification spec says there are no
+    subdirectories, because its sample is a single image and its class is the directory it
+    sits in - a different walk, with its own reader.
+
+    Without this the `None` reaches the walk and comes back as 'yielded no usable samples',
+    which reads like a dataset that is laid out wrongly rather than a reader that was asked
+    the wrong question. The control is the line below it: the same call on a spec that does
+    name its subdirectories still works.
+    """
+    from pyplatypus.spec import ClassificationData
+
+    data = ClassificationData(
+        train_path=str(tmp_path), validation=False, classes=["benign", "malignant"]
+    )
+    with pytest.raises(ConfigError, match="names no `subdirs`"):
+        discover(tmp_path, data)
