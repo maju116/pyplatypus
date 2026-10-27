@@ -1,6 +1,60 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a48] - 2026-10-27
+
+A detection run could be configured with `ema` and take no average at all.
+
+### Fixed
+
+ - **Every trainer calls every hook.** `maju116/pyplatypus#300`. `on_batch_end` arrived in
+   `0.8.0a37` as the fourth hook, with `ema` as the callback written for it, and
+   `DetectionTrainer` was given neither it nor `state.step`. `Ema` is the only callback that
+   implements it, so a detection run configured with `ema` took no exponential average -
+   accepted by the specification, costing what it costs, and doing nothing. Measured over
+   four batches and two epochs, with the same callback through the segmentation trainer as
+   the control:
+
+        detection      8 batches seen, 0 folds, no `ema_steps` in the history
+        segmentation   the same callback, same decay: 8 folds, `ema_steps` 8.0
+
+   **The only reason it was a no-op rather than a corruption is a guard written for
+   something else**: `Ema.on_train_end` returns early at zero folds, because a run that
+   stopped before taking a step has no average to substitute. Without that line a detection
+   run would have finished by loading an `AveragedModel` that had never been updated over
+   its trained weights.
+
+ - **The hook fires per optimiser step, not per batch**, which is only a distinction when
+   `accumulate` is above 1 - and there it decides what `decay` means. Measured on a weight
+   moving by 1.0 per step, decay 0.9, 32 batches: at `accumulate: 1` the two readings are
+   identical to the digit, 23.3434; at 4 they are 3.3047 per step against 5.4728 per batch,
+   with the true weight at 8.0. Folding per batch leaves 3.43e-02 of the initial value
+   whatever the accumulation, where per step leaves 4.30e-01 at 4 - so the horizon would
+   shrink by exactly the accumulation. The same objection this trainer already makes about
+   dividing the gradient by `accumulate`. The call lives inside `_step` rather than at
+   either of its two call sites, so a third could not forget it.
+
+### The instrument rather than the fix
+
+ - **A test pairs the trainers instead of merging them.** The epoch loops genuinely are not
+   one mechanism - each task pools its numbers by something different, which is why the
+   drift was in `_run_epoch` and not in `fit`, where the two are character for character the
+   same - but the hook contract is one mechanism in as many copies as there are trainers.
+   So every trainer the package exports is run for one epoch with a recording callback and
+   must call every hook the `Callback` protocol declares, with both lists read off the code.
+   A trainer this test cannot build **fails** rather than being left out, which is what
+   makes the discovery an instrument: the classification trainer will fail it on the day it
+   is exported.
+
+   Measured while asking whether classification needs a third trainer rather than by
+   reading: `DetectionTrainer.fit` is **77% identical** to `Trainer.fit`, 34 of 44 code
+   lines, and 16 of the 17 callbacks mention nothing task-specific.
+
+### The R half
+
+ - None beyond the pin. `callback_ema()` forwards unchanged and an R user reaches the same
+   defect through it, so the fix arrives by the pin moving and by nothing else.
+
 ## [0.8.0a47] - 2026-10-27
 
 `pretrained: true` has been loading a backbone and overwriting it ever since encoders
