@@ -61,8 +61,25 @@ def activation(kind: Activation) -> nn.Module:
     )
 
 
-def initialise(module: nn.Module, how: Initialiser, kind: Activation) -> None:
-    """He for ReLU-like activations, Glorot otherwise - applied to every convolution."""
+def initialise(
+    module: nn.Module, how: Initialiser, kind: Activation, *, except_for: nn.Module | None = None
+) -> None:
+    """He for ReLU-like activations, Glorot otherwise - applied to every convolution.
+
+    **`except_for` is what arrived pretrained, and leaving it out is what `#294` was.**
+    This walks every convolution under `module`, and a transferred backbone handed to a
+    network is a submodule of it - so initialising the whole network overwrites exactly
+    the weights somebody asked to transfer, immediately after timm loaded them. Measured
+    on 2026-10-27: 15 of 15 convolutions in a `resnet18` and 80 of 80 in an
+    `efficientnet_b0`, with one tensor's norm going 2.418 to 11.618.
+
+    A module rather than a list of names, and the same object the trainer already reads
+    for the freeze and the separate rate (`encoder.transferred`), so *what arrived
+    pretrained* has one answer. What is ours stays ours: the full-resolution stage inside
+    `PretrainedEncoder` is not under `transferred` and is still initialised here, which is
+    the control the test for this carries.
+    """
+    skip = {id(layer) for layer in except_for.modules()} if except_for is not None else set()
     gain_nonlinearity = (
         "relu"
         if kind
@@ -76,7 +93,9 @@ def initialise(module: nn.Module, how: Initialiser, kind: Activation) -> None:
         else "tanh"
     )
     for layer in module.modules():
-        if isinstance(layer, (*_CONV.values(), *_CONV_TRANSPOSE.values())):
+        if id(layer) not in skip and isinstance(
+            layer, (*_CONV.values(), *_CONV_TRANSPOSE.values())
+        ):
             if how is Initialiser.HE_NORMAL:
                 nn.init.kaiming_normal_(layer.weight, nonlinearity=gain_nonlinearity)
             elif how is Initialiser.HE_UNIFORM:
