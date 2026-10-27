@@ -8,10 +8,16 @@ cannot become a triple without an API break.
 train with, and whether to train at all. `EncoderModel` is the layer below that: what a
 model has if it reduces an image to features, which is segmentation and classification
 and not detection - YOLOv3 carries its own backbone and none of these knobs reach it. What it deliberately does *not* have is `loss`
-and `metrics`. Segmentation chooses both from a menu of ten and four - the ten being every
-loss that is defined over classes, which is what `the_mask_needs_a_loss_over_classes`
-below is for; YOLOv3 has one composite objective that is part of the architecture, and
-mean average precision is not one option among several. Offering a choice that does not exist is worse than offering
+and `metrics`. Each task that has a choice declares its own: segmentation picks a loss
+from every one defined over classes, which is what `the_mask_needs_a_loss_over_classes`
+below is for, and its metrics from the overlap menu; classification picks from a narrower
+set of each, because an overlap is not what a label is scored by. YOLOv3 has one composite
+objective that is part of the architecture, and mean average precision is not one option
+among several. This paragraph said *a menu of ten and four* until 2026-10-27 and both
+numbers were stale - the metrics had been four until `surface_dice` shipped and the losses
+ten until two more did - so it names the rule now rather than a count nothing holds.
+`available_losses()` and `available_metrics()` answer per task and are generated from
+these unions, which is where a reader should get a number from. Offering a choice that does not exist is worse than offering
 none - see the architecture comparison in the README for the same argument about weights.
 """
 

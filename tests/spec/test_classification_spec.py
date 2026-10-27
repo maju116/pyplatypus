@@ -18,12 +18,15 @@ import pytest
 from pydantic import ValidationError
 
 from pyplatypus.spec import ClassificationData, ClassificationModel, DataSpec
-from pyplatypus.spec.components import LossSpec
+from pyplatypus.spec.components import ClassificationMetricSpec, LossSpec
 
 #: The losses this package offers, read off the union rather than listed - the
 #: argument `conftest.metric_configs` makes about metrics, and what
 #: `tests/objectives/test_regression.py` already does with this same union.
 LOSSES = get_args(get_args(LossSpec)[0])
+
+#: The same, for the metrics this task offers, and for the same reason.
+METRICS = get_args(get_args(ClassificationMetricSpec)[0])
 
 
 def data(**over):
@@ -168,21 +171,19 @@ def test_the_architecture_is_the_contracting_path():
 def test_nothing_may_watch_a_number_this_task_does_not_report():
     """`foreground` is a segmentation epoch's number, and a callback watching it would
     otherwise be accepted and raise a `KeyError` after the first epoch - `0.8.0a27`'s
-    failure, one task across."""
-    assert model().monitorable == {"train_loss", "val_loss"}
+    failure, one task across.
+
+    This asserted `monitorable == {"train_loss", "val_loss"}` until the metrics arrived,
+    which is the sentence that had to move rather than a claim that was wrong: the set is
+    the loss **plus what this model reports**, and the default now reports something.
+    """
+    assert {"train_loss", "val_loss"} <= model().monitorable
+    assert not any("foreground" in name for name in model().monitorable)
     message = refusal(model, callbacks=[{"name": "early_stopping", "monitor": "val_foreground"}])
     assert "val_foreground" in message
 
     watching_the_loss = model(callbacks=[{"name": "early_stopping", "monitor": "val_loss"}])
     assert watching_the_loss.callbacks[0].monitor == "val_loss"
-
-
-def test_a_metric_cannot_be_asked_for_yet():
-    """The honest state rather than an oversight: `metrics` is the next slice, and
-    segmentation's overlap metrics are not a menu this task can be offered. `extra=forbid`
-    is what makes the absence a refusal instead of a silently ignored key."""
-    assert "metrics" not in ClassificationModel.model_fields
-    assert "Extra inputs are not permitted" in refusal(model, metrics=[{"name": "dice"}])
 
 
 def test_the_transfer_settings_come_from_the_shared_base():
@@ -196,3 +197,80 @@ def test_the_transfer_settings_come_from_the_shared_base():
     )
     # And the task's own rank is otherwise free: a volume classifier is ours, at rank 3.
     assert model(input_shape=(32, 64, 64)).rank == 3
+
+
+def test_the_default_metric_is_the_threshold_free_one():
+    """`auc` rather than `accuracy`, which is the measurement in
+    `tests/objectives/test_classification_metrics.py` arriving in the specification.
+
+    Asserted by name rather than by count, because the defect this guards is a default that
+    somebody made more conventional, and a list of one is as easy to change as to read.
+    """
+    assert [metric.name for metric in model().metrics] == ["auc"]
+
+
+def test_every_metric_this_task_offers_can_be_asked_for_and_watched():
+    """Read off the union, so a fifth metric is covered by arriving. The second assertion is
+    the one that matters: a metric that can be configured and not watched is `0.8.0a27`."""
+    for member in METRICS:
+        name = member.model_fields["name"].default
+        asked = model(metrics=[{"name": name}])
+        assert [m.name for m in asked.metrics] == [name]
+        assert {f"train_{name}", f"val_{name}"} <= asked.monitorable
+        model(
+            metrics=[{"name": name}],
+            callbacks=[{"name": "early_stopping", "monitor": f"val_{name}"}],
+        )
+
+
+def test_the_overlap_metrics_are_not_offered_here():
+    """A `dice` on one label is `f1` under a mask's name, and `smooth` and
+    `include_background` are words about pixels. The union is the refusal."""
+    with pytest.raises(ValidationError, match="dice"):
+        model(metrics=[{"name": "dice"}])
+    assert "cldice" not in {m.model_fields["name"].default for m in METRICS}
+
+
+def test_a_callback_may_not_watch_a_metric_nobody_asked_for():
+    """The epoch produces what the model reports and nothing else, so this is refused when
+    the configuration is read rather than with a `KeyError` after the first epoch."""
+    with pytest.raises(ValidationError, match="val_accuracy"):
+        model(callbacks=[{"name": "early_stopping", "monitor": "val_accuracy"}])
+    # and the same name is accepted the moment it is asked for
+    model(
+        metrics=[{"name": "accuracy"}],
+        callbacks=[{"name": "early_stopping", "monitor": "val_accuracy"}],
+    )
+
+
+def test_there_is_no_worst_case_and_no_foreground_to_watch():
+    """Both would be numbers this task's epochs do not produce.
+
+    A segmentation epoch reports `val_<metric>_worst` because a case there is an image with
+    its own score; one image's accuracy is 0 or 1, so a split's worst case is 0 for any
+    model that gets one image wrong. `foreground` is the share of a prediction that is not
+    background, and there is no background class here - which is what makes
+    `terminate_on_collapse` refusable by name rather than at the end of an epoch.
+    """
+    watchable = model(metrics=[{"name": "accuracy"}, {"name": "auc"}]).monitorable
+    assert watchable == {
+        "train_loss",
+        "val_loss",
+        "train_accuracy",
+        "val_accuracy",
+        "train_auc",
+        "val_auc",
+    }
+    assert not any(name.endswith("_worst") for name in watchable)
+    with pytest.raises(ValidationError, match="val_foreground"):
+        model(callbacks=[{"name": "terminate_on_collapse"}])
+
+
+def test_the_metrics_are_part_of_what_a_weights_file_is_not_asked_about():
+    """A fingerprint is what must match for a file of weights to belong to this model, and
+    what was reported while training it is not that - two runs differing only in `metrics`
+    produce interchangeable weights."""
+    assert (
+        model(metrics=[{"name": "auc"}]).weights_fingerprint()
+        == model(metrics=[{"name": "accuracy"}, {"name": "f1"}]).weights_fingerprint()
+    )

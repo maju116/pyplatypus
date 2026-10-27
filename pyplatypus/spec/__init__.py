@@ -13,6 +13,7 @@ from pyplatypus.spec.common import Activation, Architecture, DataMode, Task
 from pyplatypus.spec.components import (
     AugmentationStep,
     CallbackSpec,
+    ClassificationMetricSpec,
     LossSpec,
     MetricSpec,
     OptimizerSpec,
@@ -57,6 +58,7 @@ __all__ = [
     "AugmentationStep",
     "CallbackSpec",
     "ClassificationData",
+    "ClassificationMetricSpec",
     "ClassificationModel",
     "ConnectedComponents",
     "DataMode",
