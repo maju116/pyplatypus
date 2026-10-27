@@ -25,7 +25,6 @@ import pytest
 import yaml
 
 import pyplatypus
-from pyplatypus import DetectionEngine, Engine, InstanceEngine
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GROUPS = yaml.safe_load((ROOT / "tools" / "reference-groups.yml").read_text())["groups"]
@@ -36,10 +35,26 @@ CONFIG = yaml.safe_load(
 )
 
 
+def engine_classes() -> list[type]:
+    """Every exported class whose name ends in `Engine`, read off the package.
+
+    This was `(Engine, DetectionEngine, InstanceEngine)`, written out, until the fourth
+    engine arrived on 2026-10-27 and was simply not scanned - a list somebody has to
+    remember beside a check that does not read it, which is the shape §3F of the
+    workbench's notes is a list of and the shape `0.8.0a27` and `#300` both cost. The
+    fourth engine is covered by arriving now.
+    """
+    return [
+        getattr(pyplatypus, name)
+        for name in pyplatypus.__all__
+        if name.endswith("Engine") and inspect.isclass(getattr(pyplatypus, name))
+    ]
+
+
 def public_surface() -> set[str]:
     """What a reader can reach: `__all__`, and the engines' methods under their class."""
     names = {name for name in pyplatypus.__all__ if name != "__version__"}
-    for cls in (Engine, DetectionEngine, InstanceEngine):
+    for cls in engine_classes():
         for name, _ in inspect.getmembers(cls, predicate=inspect.isfunction):
             if not name.startswith("_"):
                 names.add(f"{cls.__name__}.{name}")
@@ -54,6 +69,11 @@ def test_the_scan_found_a_surface():
     more than once, including in a guard written to prevent it."""
     assert len(public_surface()) > 40
     assert len(GROUPS) >= 6
+    # and the engines, by name, because a derivation that finds none would make every
+    # engine method invisible to the check above while it still passed
+    found = {cls.__name__ for cls in engine_classes()}
+    assert {"Engine", "DetectionEngine", "InstanceEngine"} <= found, found
+    assert len(found) >= 4, found
 
 
 def test_every_public_symbol_is_in_exactly_one_group():

@@ -4,15 +4,29 @@ Specification, data pipeline, U-shaped models, losses and metrics, training, spl
 patient and scoring per case, in 2D and 3D. Volumes arrive as NIfTI, reoriented to canonical
 and windowed in real units; masks are colour pictures or label maps.
 
-Three tasks, chosen by `task` in the specification: semantic segmentation through `Engine`,
-object detection through `DetectionEngine`, and instance segmentation, whose specification
-validates while its engine is still being built (`pyplatypus#160`). `build_engine(spec)`
-returns the right one for the first two, so holding a spec is enough.
+Three tasks are chosen by `task` in the specification: semantic segmentation through
+`Engine`, object detection through `DetectionEngine` and instance segmentation through
+`InstanceEngine`. `build_engine(spec)` returns the right one for any of them, so holding a
+spec is enough.
+
+This paragraph said instance segmentation's engine was *still being built* until
+2026-10-27, naming `pyplatypus#160` - which closed on 2026-10-13 as the spec tag **and**
+the engine, and `build_engine` has returned an `InstanceEngine` ever since. Two weeks of
+rot in the one docstring that is a package's front door, which is §4 of the workbench's
+notes in its plainest form.
+
+A fourth is being built: **classification**, one label per image, through
+`ClassificationEngine`. It has no `task` tag yet and so no top-level specification - the tag
+lands last, after everything behind it works, so that it never names a task this package
+cannot train - which means the engine takes a `ClassificationData` and a list of
+`ClassificationModel` rather than a spec, and `build_engine` does not know it. The same
+state detection's own engine describes for a detector today.
 """
 
+from pyplatypus.classification_engine import ClassificationEngine, ClassificationRun
 from pyplatypus.data.images import read_image
 from pyplatypus.data.masks import save_class_masks
-from pyplatypus.data.splits import split_dataset, split_samples
+from pyplatypus.data.splits import split_dataset, split_samples, stratified_split
 from pyplatypus.data.volumes import save_class_volumes, save_volumes
 from pyplatypus.detection_engine import DetectionEngine, DetectionReport, build_engine
 from pyplatypus.device import device_report
@@ -70,6 +84,8 @@ from pyplatypus.weights import (
 
 __version__ = "0.8.0a48"
 __all__ = [
+    "ClassificationEngine",
+    "ClassificationRun",
     "ConfigError",
     "DetectionEngine",
     "DetectionReport",
@@ -124,6 +140,7 @@ __all__ = [
     "spec_schema",
     "split_dataset",
     "split_samples",
+    "stratified_split",
     "summarise_cases",
     "write_record",
     "write_schema",

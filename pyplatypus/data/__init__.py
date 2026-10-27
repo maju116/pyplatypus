@@ -40,6 +40,7 @@ from pyplatypus.data.splits import (
     group_of,
     split_dataset,
     split_samples,
+    stratified_split,
     write_splits,
 )
 
@@ -79,6 +80,7 @@ __all__ = [
     "split_dataset",
     "split_samples",
     "stitch",
+    "stratified_split",
     "tile",
     "to_float",
     "unite_masks",

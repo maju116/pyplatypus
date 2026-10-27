@@ -63,6 +63,10 @@ groups:
   - InstanceEngine.loader
   - DetectionEngine.dataset
   - DetectionEngine.loader
+  - stratified_split
+  - ClassificationEngine.dataset
+  - ClassificationEngine.loader
+  - ClassificationEngine.balance
 - title: Training
   desc: The engine the task asks for, and the run itself.
   contents:
@@ -75,6 +79,9 @@ groups:
   - DetectionEngine
   - DetectionEngine.fit
   - DetectionEngine.fit_anchors
+  - ClassificationEngine
+  - ClassificationEngine.fit
+  - ClassificationRun
 - title: Predicting and scoring
   desc: 'Per model, per case, per class, per image - and the distribution rather than a single
     number, because the minimum is what nobody publishes and everybody should.
@@ -104,6 +111,12 @@ groups:
   - DetectionEngine.box_shapes
   - DetectionEngine.split_sizes
   - DetectionEngine.model_names
+  - ClassificationEngine.predict
+  - ClassificationEngine.predict_labels
+  - ClassificationEngine.answers
+  - ClassificationEngine.evaluate
+  - ClassificationEngine.best_model
+  - ClassificationEngine.write_history
 - title: Weights
   desc: 'Named rather than downloaded by hand, and a name is pinned to one commit - so a name
     means one set of numbers today and the same set next year.
