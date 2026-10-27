@@ -299,6 +299,20 @@ def overlaps(
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """True positives, false positives and false negatives, per sample and class."""
     dims = spatial_dims(probs)
+    # A tensor with no spatial axes is refused rather than summed, because `sum(dim=())`
+    # sums over EVERY axis instead of none: measured, `torch.ones(4, 3).sum(())` is 12.0, a
+    # scalar. So a (batch, class) tensor - which is what a label arrives as - would return
+    # one number for the whole batch where every caller here is expecting one per class,
+    # and that number looks exactly like a count. Nothing in this package calls it that
+    # way; the guard exists because the failure is silent and the right answer is plausible.
+    if not dims:
+        raise ValueError(
+            f"overlaps needs at least one spatial axis and got {tuple(probs.shape)}: axis 0 "
+            "is batch and axis 1 is class, so there is nothing left to sum over, and "
+            "`sum(dim=())` would sum over all of them and hand back one number for the "
+            "whole batch. A label is counted over examples instead - see "
+            "`pyplatypus.objectives.classification`."
+        )
     tp = (probs * target).sum(dims)
     fp = (probs * (1 - target)).sum(dims)
     fn = ((1 - probs) * target).sum(dims)

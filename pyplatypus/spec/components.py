@@ -773,6 +773,87 @@ MetricSpec = Annotated[
     Field(discriminator="name"),
 ]
 
+
+# ------------------------------------------------------- metrics over a label
+
+# A separate base rather than `_Metric`, and a separate union rather than four more members
+# of the one above. Both for the same reason: everything the metrics above carry is about a
+# mask. `smooth` inflates a score over absent classes, `include_background` leaves out a
+# convention, and `whole_mask` answers whether a tiled image can report it - a label has no
+# tiles, no background class and no pixels to smooth. Offering `dice` for a classification
+# would also be offering a choice that does not exist, and `available_metrics` dispatches on
+# the task rather than filtering one list, so each task's menu is the union it names.
+#
+# These four take no arguments at all, which is worth noticing rather than apologising for:
+# what a mask metric spends its arguments on is which pixels count, and for one label per
+# image that question has one answer.
+_LABEL_METRIC_NAME = (
+    "Which metric. These are computed over the whole pass rather than per batch and "
+    "averaged, because a per-class recall, an F1 and a rank statistic are each undefined on "
+    "a batch that holds none of a class - at a prevalence of 3%, 398 of 500 batches of 8."
+)
+
+
+class _LabelMetric(SpecModel):
+    """One label per image, scored over a whole pass."""
+
+
+class AccuracyMetric(_LabelMetric):
+    """The share of images whose label was right - offered, and not the default.
+
+    At a low prevalence it is blind rather than merely flattering. Measured on 40000 images
+    at a prevalence of 3%, with the model's own probabilities as the truth so that only its
+    discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631 - and it is not
+    monotone: a model with no signal at all scores 0.9720, above two models that have one.
+    It is here because it is the number people ask for, and its own docstring in
+    `objectives.classification` carries the table.
+    """
+
+    name: Literal["accuracy"] = Field("accuracy", description=_LABEL_METRIC_NAME)
+
+
+class BalancedAccuracyMetric(_LabelMetric):
+    """Recall per class, averaged, so a rare class weighs as much as a common one.
+
+    It answers the complaint accuracy usually gets and not the one the measurement makes:
+    a calibrated model at 3% prevalence never crosses the threshold, so this reports 0.5000
+    for a model with a real signal and 0.5000 for one with none. Threshold-free is the
+    property that separates them, which is why `auc` is the default and this is not.
+    """
+
+    name: Literal["balanced_accuracy"] = Field("balanced_accuracy", description=_LABEL_METRIC_NAME)
+
+
+class F1Metric(_LabelMetric):
+    """Per-class F1, averaged over classes.
+
+    The formula is Dice's - a one-hot label vector is a mask of one pixel - so it is
+    computed by calling Dice's rather than by writing it again. Micro-averaging is not
+    offered because for one label per image it **is** accuracy, measured to the digit, so
+    it would put one number in the table twice.
+    """
+
+    name: Literal["f1"] = Field("f1", description=_LABEL_METRIC_NAME)
+
+
+class AucMetric(_LabelMetric):
+    """The area under the ROC curve, one class against the rest, averaged - the default.
+
+    The only one of the four that orders models by their discrimination monotonically, and
+    the only one that tells a real signal from a collapse at a low prevalence, because it
+    reads the probabilities rather than the hard prediction. Over two classes the macro
+    one-vs-rest value is the binary AUC exactly. It is also the only metric here whose pass
+    retains every example's probability rather than a confusion matrix.
+    """
+
+    name: Literal["auc"] = Field("auc", description=_LABEL_METRIC_NAME)
+
+
+ClassificationMetricSpec = Annotated[
+    AccuracyMetric | BalancedAccuracyMetric | F1Metric | AucMetric,
+    Field(discriminator="name"),
+]
+
 # ----------------------------------------------------------------------- optimisers
 # torch's set, not TensorFlow's. Ftrl is gone because torch has no Ftrl.
 

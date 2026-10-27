@@ -27,8 +27,8 @@ classifier. It exists because `crops()` cuts objects out and hands them to "a cl
 does not contain", and because explainability needs a per-image answer to explain.
 
 Nothing in this file is reachable from a specification yet: `task: classification` lands
-last, after the head and the metrics, which is the order `0.8.0a20` built the instance task
-in and the order `tests/spec/test_task_coverage.py` exists to make safe.
+last, now that the head and the metrics are built, which is the order `0.8.0a20` built the
+instance task in and the order `tests/spec/test_task_coverage.py` exists to make safe.
 """
 
 from __future__ import annotations
@@ -37,7 +37,12 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from pyplatypus.spec.components import CceLoss, LossSpec
+from pyplatypus.spec.components import (
+    AucMetric,
+    CceLoss,
+    ClassificationMetricSpec,
+    LossSpec,
+)
 from pyplatypus.spec.data import DataSpec
 from pyplatypus.spec.models import EncoderModel
 
@@ -235,6 +240,22 @@ class ClassificationModel(EncoderModel):
         ),
     )
 
+    metrics: list[ClassificationMetricSpec] = Field(
+        default_factory=lambda: [AucMetric()],
+        description=(
+            "What to report beside the loss. **`auc` rather than `accuracy`, and that is a "
+            "measurement rather than a preference**: on 40000 images at a prevalence of 3%, "
+            "with the model's own probabilities as the truth so that only its "
+            "discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631 and is "
+            "not even monotone - the model with no signal scores above two models that have "
+            "one. Balanced accuracy and F1 do not rescue it either: a calibrated model at "
+            "that prevalence never crosses the threshold, so every metric read off the hard "
+            "prediction sees the same all-negative answer. Being threshold-free is what "
+            "separates them. A callback watching `val_<metric>` is refused when nothing "
+            "here will produce it."
+        ),
+    )
+
     @property
     def architecture(self) -> str:
         """What kind of network this is, derived from `encoder` rather than declared.
@@ -273,12 +294,26 @@ class ClassificationModel(EncoderModel):
         failing at the end of the first epoch with a `KeyError` out of `state.logs` - which
         is exactly what `0.8.0a27` cost, one metric across.
 
-        The metrics are not here yet, deliberately: accuracy is the wrong default on medical
-        data - a classifier answering 'no finding' where 3% have one scores 0.97 - and
-        choosing what *is* the default is its own slice. Offering segmentation's overlap
-        metrics in the meantime would be offering a choice that does not exist.
+        **Every metric asked for, and no `_worst`.** A segmentation epoch also offers
+        `val_<metric>_worst`, the figure `summarise_cases` tells every reader to look at,
+        because a case there is an image with hundreds of thousands of voxels and its own
+        score. One image's accuracy is 0 or 1, so the worst case of a split is 0 for any
+        model that gets a single image wrong - a number that carries no information and
+        would read as one that does. The question it is asking - *which cases is this bad
+        at* - is a per-class figure here, which is what `balanced_accuracy` and `f1` are.
+
+        Nor is there a `foreground`: `ModelSpec` offers it because a segmentation epoch
+        reports the share of the prediction that is not background, which is what
+        `terminate_on_collapse` watches. Classification has no background class and no such
+        number, so a callback watching it is refused by name here rather than failing at the
+        end of the first epoch with a `KeyError` out of `state.logs` - which is exactly what
+        `0.8.0a27` cost, one metric across.
         """
-        return {"train_loss", "val_loss"}
+        return (
+            {"train_loss", "val_loss"}
+            | {f"train_{metric.name}" for metric in self.metrics}
+            | {f"val_{metric.name}" for metric in self.metrics}
+        )
 
     def weights_fingerprint(self) -> dict:
         """`blocks` and `filters` only when the contracting path is ours.
