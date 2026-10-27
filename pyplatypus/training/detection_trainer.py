@@ -75,7 +75,14 @@ class DetectionTrainer:
         self.callbacks = callbacks if callbacks is not None else build_callbacks(spec.callbacks)
 
     # ------------------------------------------------------------------ one epoch
-    def _run_epoch(self, loader: DataLoader, *, train: bool, prefix: str) -> dict[str, float]:
+    def _run_epoch(
+        self,
+        loader: DataLoader,
+        *,
+        train: bool,
+        prefix: str,
+        state: TrainingState | None = None,
+    ) -> dict[str, float]:
         self.model.train(train)
         # Per grid and per term: the un-normalised sum, and what it was divided by. An
         # epoch is then `sum_g (sum_g / count_g)` for each term - the arithmetic the loss
@@ -101,7 +108,7 @@ class DetectionTrainer:
                     (parts.total / self.accumulate).backward()
                     pending += 1
                     if pending == self.accumulate:
-                        self._step()
+                        self._step(state)
                         pending = 0
 
                 if not parts.grids:
@@ -122,7 +129,7 @@ class DetectionTrainer:
         if train and pending:
             # Whatever is left at the end of an epoch, rather than discarded: the last
             # group is usually partial.
-            self._step()
+            self._step(state)
         if batches == 0:
             raise ValueError(f"the {prefix} loader produced no batches")
 
@@ -150,10 +157,38 @@ class DetectionTrainer:
         )
         return epoch
 
-    def _step(self) -> None:
+    def _step(self, state: TrainingState | None = None) -> None:
+        """One optimiser step, and the fourth callback hook.
+
+        **The hook lives here rather than at either call site**, and there are two of them -
+        a full accumulation group inside the loop and whatever is left at the end of the
+        epoch - so a third one could not forget it. `maju116/pyplatypus#300`: this trainer
+        called three of the four hooks, `ema` is the only callback that implements the
+        fourth, and a detection run configured with `ema` therefore took no average at all.
+        Measured over four batches and two epochs, against the same callback through the
+        segmentation trainer: 0 folds here against 8 there.
+
+        **It fires per STEP and not per batch, which is only a distinction when
+        `accumulate` is above 1 - and there it is the difference between `decay` meaning
+        one thing and meaning a different thing at every setting.** Measured on a weight
+        that moves by 1.0 per step, decay 0.9, 32 batches: at `accumulate: 1` the two
+        readings are identical to the digit, 23.3434; at `accumulate: 4` folding per step
+        gives 3.3047 and per batch 5.4728, against a true weight of 8.0. Per batch leaves
+        3.43e-02 of the initial value whatever the accumulation, where per step leaves
+        4.30e-01 at 4 - so the horizon would shrink by exactly the accumulation. That is
+        the same objection this file already makes about dividing the gradient by
+        `accumulate`.
+
+        And after the step rather than before, so a callback reading the weights reads the
+        ones the step produced - the segmentation trainer's own words for the same hook.
+        """
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), GRADIENT_CLIP)
         self.optimizer.step()
         self.optimizer.zero_grad(set_to_none=True)
+        if state is not None:
+            state.step += 1
+            for callback in self.callbacks:
+                callback.on_batch_end(state)
 
     # ------------------------------------------------------------------ fit
     def fit(
@@ -178,7 +213,7 @@ class DetectionTrainer:
 
         for epoch in range(1, epochs + 1):
             started = time.perf_counter()
-            logs = self._run_epoch(train_loader, train=True, prefix="train")
+            logs = self._run_epoch(train_loader, train=True, prefix="train", state=state)
             if validation_loader is not None:
                 logs.update(self._run_epoch(validation_loader, train=False, prefix="val"))
             logs["seconds"] = time.perf_counter() - started
