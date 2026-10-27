@@ -30,6 +30,19 @@ which it is. It decides how much is held and nothing else - there is no configur
 refuses - so the specification layer deliberately carries no copy of it. A flag mirrored
 into a layer that asks nothing of it is the declaration beside a mechanism that §3F of the
 workbench's notes is a list of.
+
+**There are two families here and `multilabel` chooses between them rather than switching
+one.** A label that is a *set* - `labels_from`, where every class is an independent
+question - has no confusion matrix at all: an image with three findings is not a row of
+one. So the state is a two-by-two table per class, the hard prediction is per class rather
+than an `argmax`, and `accuracy` is **absent** rather than redefined, which is measured:
+a model answering no to every class scores above one holding half the available signal on
+both readings of accuracy, while `balanced_accuracy`, `f1` and `auc` all put it below every
+model with any signal. `MultiLabelMetric` carries the table and `#307` the working.
+
+What the two share is the protocol and not the state, which is why `_OverAPass` holds the
+first and neither holds the second. `_auc` is shared outright: one class against the rest
+is the same statistic whether the rest are alternatives or other questions.
 """
 
 from __future__ import annotations
@@ -71,24 +84,56 @@ def _probabilities_and_labels(
     return logits.softmax(dim=1), labels.long()
 
 
-class ClassificationMetric(nn.Module):
+class _OverAPass(nn.Module):
+    """Reset, update, compute - the protocol, with no state of its own.
+
+    Here because there are now two families that follow it and they do not share a *state*:
+    one label per image accumulates a confusion matrix, and a label that is a set
+    accumulates a two-by-two table per class. What they do share is that the number only
+    exists once the pass is over, and that asking for it in one call has to give the same
+    answer as adding batch by batch - which is the whole of what this class holds.
+    """
+
+    name = "metric"
+
+    #: Whether `update` has to keep every example's probability rather than only counts.
+    #: True for `auc` alone in both families. See this module's own first paragraphs for
+    #: what it costs and for why it is not also a field on the specification.
+    needs_scores = False
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.reset()
+
+    def reset(self) -> None:
+        raise NotImplementedError
+
+    @torch.no_grad()
+    def update(self, logits: torch.Tensor, target: torch.Tensor) -> None:
+        raise NotImplementedError
+
+    def compute(self) -> float:
+        raise NotImplementedError
+
+    @torch.no_grad()
+    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        self.reset()
+        self.update(logits, target)
+        # `float64` rather than the default dtype, which is what `torch.tensor(a_float)`
+        # would give: these are counts and ranks rather than activations, and wrapping the
+        # answer in a float32 rounded it enough to put 2.5e-08 between this one-shot form
+        # and the same pass added batch by batch. Two routes to one number must not differ
+        # because of the container the answer is handed back in.
+        return torch.tensor(self.compute(), dtype=torch.float64)
+
+
+class ClassificationMetric(_OverAPass):
     """Higher is better, always in 0..1.
 
     `forward` is the one-shot form - reset, update, compute - which is what scoring a whole
     split in one call looks like. A training pass calls the three separately, because an
     epoch arrives in batches and the number only exists once all of them have.
     """
-
-    name = "metric"
-
-    #: Whether `update` has to keep every example's probability rather than only counts.
-    #: True for `auc` alone. See this module's own first paragraphs for what it costs and
-    #: for why it is not also a field on the specification.
-    needs_scores = False
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.reset()
 
     def reset(self) -> None:
         self._confusion: torch.Tensor | None = None
@@ -117,20 +162,6 @@ class ClassificationMetric(nn.Module):
             self._confusion = counts.double()
         else:
             self._confusion += counts.double()
-
-    def compute(self) -> float:
-        raise NotImplementedError
-
-    @torch.no_grad()
-    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-        self.reset()
-        self.update(logits, target)
-        # `float64` rather than the default dtype, which is what `torch.tensor(a_float)`
-        # would give: these are counts and ranks rather than activations, and wrapping the
-        # answer in a float32 rounded it enough to put 2.5e-08 between this one-shot form
-        # and the same pass added batch by batch. Two routes to one number must not differ
-        # because of the container the answer is handed back in.
-        return torch.tensor(self.compute(), dtype=torch.float64)
 
     # ------------------------------------------------------------------ what compute reads
 
@@ -310,6 +341,203 @@ def _auc(scores: torch.Tensor, positive: torch.Tensor) -> float:
     return ((of_the_class - n_positive * (n_positive + 1) / 2) / (n_positive * n_negative)).item()
 
 
+def _checked_multilabel(logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """The target as a boolean `(examples, classes)`, or a refusal naming the shapes.
+
+    A multi-hot target has the shape of the logits, which is the one way it differs from a
+    single label's: there is no index form to accept, because a set of labels has no single
+    index. So this refuses rather than guessing - a `(examples,)` target here is a
+    single-label target handed to the wrong family, and reading it as one row of a multi-hot
+    would be a plausible answer to a question nobody asked.
+    """
+    if logits.ndim != 2:
+        raise ValueError(
+            f"a label's logits are (examples, classes) and these are {tuple(logits.shape)}; "
+            "a classifier pools its features before the head, so there is no spatial axis "
+            "left by the time a metric sees them"
+        )
+    if tuple(target.shape) != tuple(logits.shape):
+        raise ValueError(
+            f"a multi-label target is one column per class, so {tuple(logits.shape)} of "
+            f"logits needs a target of the same shape and this is {tuple(target.shape)}. A "
+            "target of class indices is the single-label shape: these metrics are built "
+            "from `labels_from`, where every class is an independent question."
+        )
+    return target > 0
+
+
+class MultiLabelMetric(_OverAPass):
+    """Higher is better, always in 0..1 - over a label that is a set.
+
+    **One two-by-two table per class rather than one confusion matrix, and that is the whole
+    reason this is a second family instead of a flag.** A confusion matrix answers *which
+    one of these was it*, and with independent questions there is no such quantity: an image
+    with three findings is not a row of that matrix. So the state here is `(4, classes)` -
+    true positives, false positives, false negatives and true negatives per class - and
+    every metric below reads it.
+
+    **The hard prediction is `logits > 0`, which is `sigmoid(logits) > 0.5` exactly without
+    computing the sigmoid**, and the point is that each class decides for itself. An
+    `argmax` here would hand back one class per image, which is the answer the model was
+    not asked for.
+
+    There is no `accuracy` in this family, and that is measured rather than stylistic.
+    Neither reading of it survives: on 4000 images at a prevalence of 10%, 5%, 3% and 2%,
+    with one draw of the truth and models whose ordering is degraded by noise rather than
+    shrunk,
+
+        quality        exact   per-class   balanced   macro f1   macro auc
+        1.00          0.8353      0.9570     0.5742     0.2339      0.9029
+        0.50          0.8023      0.9477     0.5433     0.1444      0.8041
+        0.00          0.7650      0.9370     0.4984     0.0184      0.4834
+        all-negative  0.8137      0.9507     0.5000     0.0000      0.5000
+
+    **a model that answers no to everything scores above the model holding half the
+    available signal** - 0.8137 against 0.8023 on exact match, and 0.9507 against 0.9477
+    per class - while the three metrics here all put it below every model with any signal
+    at all. A number that rewards giving up cannot be what a `monitor` watches. Note that
+    this is a *different* failure from the single-label one: there, accuracy is nearly flat
+    and non-monotone in the signal; here both readings are monotone, and what breaks them is
+    the comparison against a collapse, which is not a point on that curve.
+    """
+
+    def reset(self) -> None:
+        self._tables: torch.Tensor | None = None
+        self._scores: list[torch.Tensor] = []
+        self._present: list[torch.Tensor] = []
+
+    @torch.no_grad()
+    def update(self, logits: torch.Tensor, target: torch.Tensor) -> None:
+        present = _checked_multilabel(logits, target)
+        if self.needs_scores:
+            # Off the accelerator, for the reason the single-label family gives: this is the
+            # one piece of state whose size grows with the pass.
+            self._scores.append(logits.sigmoid().detach().cpu())
+            self._present.append(present.detach().cpu())
+            return
+        chosen = logits > 0
+        counts = torch.stack(
+            [
+                (chosen & present).sum(dim=0),
+                (chosen & ~present).sum(dim=0),
+                (~chosen & present).sum(dim=0),
+                (~chosen & ~present).sum(dim=0),
+            ]
+        ).double()
+        self._tables = counts if self._tables is None else self._tables + counts
+
+    def _counts(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """True positives, false positives, false negatives and true negatives per class.
+
+        Refused rather than defaulted when nothing was added, which is the single-label
+        family's reasoning: the comfortable answer is a zero that reads as a model getting
+        everything wrong.
+        """
+        if self._tables is None:
+            raise ValueError(
+                f"`{self.name}` was asked for a value before any batch was added to it"
+            )
+        return tuple(self._tables)  # type: ignore[return-value]
+
+    def _needs_both(self, positives: torch.Tensor, negatives: torch.Tensor) -> None:
+        """Refuse a class the pass holds only one side of.
+
+        A per-class recall needs an example of the class and a specificity needs one of
+        something else, so a finding that is absent from every image - or present in every
+        one - has no figure to contribute. Skipping it is the alternative and it is worse
+        for the reason it is worse in the other family: a mean over the classes that
+        happened to be answerable is a different quantity under the same name.
+        """
+        for label, counted in (("no positive", positives), ("no negative", negatives)):
+            empty = (counted == 0).nonzero().flatten().tolist()
+            if empty:
+                raise ValueError(
+                    f"`{self.name}` averages over classes and {empty} have {label} in this "
+                    "pass, so there is nothing to average for them. With independent "
+                    "questions this is a class nobody labelled either way rather than a "
+                    "split that lost one, and `class_balance` is where to look."
+                )
+
+
+class MultiLabelBalancedAccuracy(MultiLabelMetric):
+    """Sensitivity and specificity per class, averaged within a class and then across.
+
+    The within-class average is what makes a rare finding weigh as much as a common one at
+    all: on 4000 images at these prevalences a class's own accuracy is 0.95 whatever the
+    model did, and this reads 0.5000 for the all-negative answer by construction - which is
+    the control the measurement in `MultiLabelMetric` turns on.
+    """
+
+    name = "balanced_accuracy"
+
+    def compute(self) -> float:
+        true_positive, false_positive, false_negative, true_negative = self._counts()
+        self._needs_both(true_positive + false_negative, true_negative + false_positive)
+        sensitivity = true_positive / (true_positive + false_negative)
+        specificity = true_negative / (true_negative + false_positive)
+        return ((sensitivity + specificity) / 2).mean().item()
+
+
+class MultiLabelMacroF1(MultiLabelMetric):
+    """Per-class F1, averaged over classes - the same formula one task across.
+
+    Called through `dice_from_overlaps` for the reason the single-label one is: F1 is what
+    Dice is called when the pixel is an image, and a second copy of `2*tp/(2*tp+fp+fn)`
+    would be a second place for one formula to live. `smooth` is 0, so a class the pass
+    never held is refused rather than flattered to 1.0.
+
+    It needs a positive of each class and not a negative, which is the one place this family
+    asks for less than `balanced_accuracy` does: a finding present in every image has a
+    perfectly good F1 and no specificity.
+    """
+
+    name = "f1"
+
+    def compute(self) -> float:
+        true_positive, false_positive, false_negative, _ = self._counts()
+        positives = true_positive + false_negative
+        empty = (positives == 0).nonzero().flatten().tolist()
+        if empty:
+            raise ValueError(
+                f"`{self.name}` averages over classes and {empty} appear in no example of "
+                "this pass, so there is nothing to average for them."
+            )
+        return (
+            f.dice_from_overlaps(true_positive, false_positive, false_negative, smooth=0.0)
+            .mean()
+            .item()
+        )
+
+
+class MultiLabelAuc(MultiLabelMetric):
+    """The area under the ROC curve per class, averaged - and the default here too.
+
+    **The ranking is the same whether it is read off the probability or off the logit**,
+    which is the one thing that is simpler here than with a softmax: a sigmoid is monotone
+    in its own logit and in nothing else, so the two orderings are identical and the AUCs
+    agree to 0.00e+00. The single-label family's are 0.0866 apart over two classes, because
+    a softmax is not monotone in one logit on its own. The probability is still what is
+    stored, because it is what a caller is handed and what a calibration curve is drawn
+    from.
+
+    `_auc` is shared with the single-label family unchanged: one class against the rest is
+    the same statistic whether the rest are alternatives or other questions.
+    """
+
+    name = "auc"
+    needs_scores = True
+
+    def compute(self) -> float:
+        if not self._scores:
+            raise ValueError(f"`{self.name}` was asked for a value before any batch was added")
+        scores = torch.cat(self._scores).double()
+        present = torch.cat(self._present)
+        per_class = [
+            _auc(scores[:, klass], present[:, klass].long()) for klass in range(scores.shape[1])
+        ]
+        return sum(per_class) / len(per_class)
+
+
 _BUILDERS = {
     AccuracyMetric: Accuracy,
     BalancedAccuracyMetric: BalancedAccuracy,
@@ -318,21 +546,57 @@ _BUILDERS = {
 }
 
 
-def build_classification_metric(spec: ClassificationMetricSpec) -> ClassificationMetric:
-    """No `multilabel` and no `spacing`: neither means anything to a label.
+#: The same four names, where three of them mean something when a label is a set. Read by
+#: `build_classification_metric` and held to the specification's own `supports_multilabel`
+#: by `tests/objectives/test_multilabel_classification_metrics.py`, which is the pair: the
+#: flag is what the configuration layer refuses on, and this mapping is what exists.
+_MULTILABEL_BUILDERS = {
+    BalancedAccuracyMetric: MultiLabelBalancedAccuracy,
+    F1Metric: MultiLabelMacroF1,
+    AucMetric: MultiLabelAuc,
+}
 
-    A label is one answer out of a set of alternatives, so there are no independent channels
-    to decide for themselves, and there is no grid, so there is no tolerance in millimetres
-    to convert. `build_metric` takes both because a mask has both.
+
+def build_classification_metric(
+    spec: ClassificationMetricSpec, *, multilabel: bool = False
+) -> _OverAPass:
+    """`multilabel` and no `spacing`, which is one of the two `build_metric` takes.
+
+    There is no grid, so there is no tolerance in millimetres to convert. There *are*
+    independent channels when the labelling named one column per class, and then every one
+    of these is a different quantity computed from different state - so this returns a
+    different object rather than setting a flag on one, which is where it differs from
+    `build_metric` as well.
+
+    `multilabel` is a property of the data and is passed in by whoever built the loader,
+    never read off a target: a column of all zeros is ordinary in both worlds, so there is
+    nothing in the tensors to tell them apart.
     """
-    builder = _BUILDERS.get(type(spec))
-    if builder is None:  # pragma: no cover
-        raise KeyError(f"no implementation for metric {type(spec).__name__}")
+    builders = _MULTILABEL_BUILDERS if multilabel else _BUILDERS
+    builder = builders.get(type(spec))
+    if builder is None:
+        if multilabel and type(spec) in _BUILDERS:
+            # Reached only by a caller that built a metric list without the specification,
+            # because `ClassificationSpec` refuses this by name first - the flag on the
+            # specification is the one place the answer lives and this is the second line
+            # of a wall rather than a second copy of it.
+            raise KeyError(
+                f"`{spec.name}` is not admissible when a label is a set: a model answering "
+                "no to every class scores above one with half the signal on both readings "
+                "of it, so it would reward a collapse. `balanced_accuracy`, `f1` and `auc` "
+                "all put that answer below every model that has any signal."
+            )
+        raise KeyError(f"no implementation for metric {type(spec).__name__}")  # pragma: no cover
     return builder()
 
 
 def build_classification_metrics(
-    specs: list[ClassificationMetricSpec],
-) -> dict[str, ClassificationMetric]:
-    """Keyed by name, because that is how they end up in the history table."""
-    return {spec.name: build_classification_metric(spec) for spec in specs}
+    specs: list[ClassificationMetricSpec], *, multilabel: bool = False
+) -> dict[str, _OverAPass]:
+    """Keyed by name, because that is how they end up in the history table.
+
+    The key is the same for either family - `auc` is `auc` in a history column whether the
+    label was one of a set or a set - which is what lets a callback watch `val_auc` without
+    knowing how the classes were named.
+    """
+    return {spec.name: build_classification_metric(spec, multilabel=multilabel) for spec in specs}
