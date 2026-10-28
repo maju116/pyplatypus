@@ -653,10 +653,16 @@ class DetectionEngine(EngineBase):
     ) -> list[dict[str, Any]]:
         """Every detection cut out of the image it was found in.
 
-        The pipeline this is for is a detector followed by a classifier it does not
-        contain: find the objects with three classes, crop them, hand the crops to
-        something that knows eighty. It is the second thing people ask for after boxes,
-        and doing it by hand means re-reading every image and getting the rounding right.
+        The pipeline this is for is a detector followed by a classifier: find the objects
+        with three classes, crop them, hand the crops to something that knows eighty. It is
+        the second thing people ask for after boxes, and doing it by hand means re-reading
+        every image and getting the rounding right.
+
+        **Since `0.8.0a49` the second half is in this package too** - `task: classification`
+        - and the join is still yours: this returns arrays, and a classification run reads a
+        directory or a CSV, so the crops have to be written out in between. That is left
+        undone on purpose, because which crops are worth keeping is a decision about the
+        data rather than about either model.
 
         **Filtered at `operating_point`, not at `score_threshold`.** The specification's
         `score_threshold` is deliberately near zero so that average precision integrates

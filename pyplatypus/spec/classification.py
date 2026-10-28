@@ -26,9 +26,12 @@ refusal.
 classifier. It exists because `crops()` cuts objects out and hands them to "a classifier it
 does not contain", and because explainability needs a per-image answer to explain.
 
-Nothing in this file is reachable from a specification yet: `task: classification` lands
-last, now that the head and the metrics are built, which is the order `0.8.0a20` built the
-instance task in and the order `tests/spec/test_task_coverage.py` exists to make safe.
+Reachable from a specification since `0.8.0a49`, and the tag landed **last** - after the
+head, the metrics, the reader and the trainer - which is the order `0.8.0a20` built the
+instance task in and the order `tests/spec/test_task_coverage.py` exists to make safe. That
+test fired on the first edit of a49, when `Task` gained a member and `AnySpec` had not, which
+is the window it was written for; the paragraph that stood here said *nothing in this file is
+reachable yet* and was true until 21:43Z on 2026-10-27.
 """
 
 from __future__ import annotations

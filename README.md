@@ -360,9 +360,22 @@ reading even if you never write R.
 
 Ensembling remains out of scope.
 
-Classification has no task of its own. `DetectionEngine.crops()` cuts detected objects out of
-their images at a fixed size, which is the half of it this package is the right place for; the
-classifier is yours.
+Classification **has** a task of its own since `0.8.0a49` - `task: classification`, one label
+per image, read from the image's parent directory in `nested_dirs` mode or from a `label`
+column in `config_file` mode - so the line that used to stand here is now a boundary rather
+than an absence, and this is where it runs.
+
+**It is not a general-purpose image classifier.** It exists for the two-stage pipeline and for
+explainability, both of which need a per-image answer: `DetectionEngine.crops()` cuts detected
+objects out of their images at a fixed size, and classifying them is a second run over those
+crops. `crops()` hands back arrays rather than files, so writing them out and reading them
+back is the join - and that step is deliberately yours, because where the crops go and which
+of them are worth keeping is a decision about the data.
+
+**A label that is a set is not this either.** One image with four findings is multi-label -
+independent questions rather than alternatives, sigmoid channels, a loss that says it supports
+them - and `pyplatypus#307` is where it is being built. The metric family for it shipped
+first; nothing can ask for it yet.
 
 ## About the author
 
