@@ -1399,10 +1399,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-3">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 13%">
-<col style="width: 20%">
-<col style="width: 54%">
-<col style="width: 11%">
+<col style="width: 7%">
+<col style="width: 12%">
+<col style="width: 72%">
+<col style="width: 6%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1416,43 +1416,43 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td>model_name</td>
 <td>str | None</td>
-<td>which trained detector.</td>
+<td>Which trained detector. Defaults to the first.</td>
 <td><code>None</code></td>
 </tr>
 <tr class="even">
 <td>split</td>
 <td>str</td>
-<td>which split’s images to read.</td>
+<td>Which split’s images to read and cut from.</td>
 <td><code>'test'</code></td>
 </tr>
 <tr class="odd">
 <td>score_threshold</td>
 <td>float | None</td>
-<td>override the confidence to crop at.</td>
+<td>Crop at this confidence instead of the model’s <code>operating_point</code>.</td>
 <td><code>None</code></td>
 </tr>
 <tr class="even">
 <td>context</td>
 <td>float</td>
-<td>expand each box by this fraction of its size per side, 0 by default.</td>
+<td>Extra margin per side, as a fraction of the box rather than in pixels, so one value suits a platelet and a white cell. 0 by default.</td>
 <td><code>0.0</code></td>
 </tr>
 <tr class="odd">
 <td>size</td>
 <td>tuple[int, int] | None</td>
-<td>bring every crop to <code>(height, width)</code>, or None to keep each as cut.</td>
+<td>Bring every crop to <code>(height, width)</code>, or None to keep each as it was cut.</td>
 <td><code>None</code></td>
 </tr>
 <tr class="even">
 <td>fit</td>
 <td>str</td>
-<td><code>"letterbox"</code> to preserve aspect, <code>"stretch"</code> to resize both axes.</td>
+<td><code>"letterbox"</code> to preserve the aspect, <code>"stretch"</code> to resize both axes - a stretch changes the aspect of every non-square object and so has to be asked for.</td>
 <td><code>'letterbox'</code></td>
 </tr>
 <tr class="odd">
 <td>fill</td>
 <td>float</td>
-<td>padding value for <code>"letterbox"</code>.</td>
+<td>Padding value for <code>"letterbox"</code>.</td>
 <td><code>0.5</code></td>
 </tr>
 </tbody>
@@ -1462,9 +1462,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-3">Returns</h4>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 7%">
-<col style="width: 23%">
-<col style="width: 69%">
+<col style="width: 6%">
+<col style="width: 22%">
+<col style="width: 70%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1477,90 +1477,40 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td></td>
 <td>list[dict[str, Any]]</td>
-<td>One dict per image with <code>key</code>, <code>crops</code>, <code>boxes</code>, <code>scores</code>, <code>labels</code>, <code>names</code>.</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="parameters-4" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-4">Parameters</h4>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 5%">
-<col style="width: 13%">
-<col style="width: 75%">
-<col style="width: 5%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Type</th>
-<th>Description</th>
-<th>Default</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>split</td>
-<td>str</td>
-<td>Which data to cut from.</td>
-<td><code>'test'</code></td>
-</tr>
-<tr class="even">
-<td>model_name</td>
-<td>str | None</td>
-<td>Which detector. Defaults to the first.</td>
-<td><code>None</code></td>
-</tr>
-<tr class="odd">
-<td>context</td>
-<td>float</td>
-<td>Extra margin, as a fraction of the box rather than in pixels, so one value suits a platelet and a white cell.</td>
-<td><code>0.0</code></td>
-</tr>
-<tr class="even">
-<td>size</td>
-<td>tuple[int, int] | None</td>
-<td>Resize every crop to this. Letterboxed rather than stretched, because a stretch changes the aspect of every non-square object and has to be asked for.</td>
-<td><code>None</code></td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="returns-4" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-4">Returns</h4>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 7%">
-<col style="width: 23%">
-<col style="width: 69%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Name</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td></td>
-<td>list[dict[str, Any]]</td>
-<td>One record per image, each with the crops and the boxes they came from, plus</td>
+<td>One record per image, each a dict of seven keys. <code>key</code> says which image;</td>
 </tr>
 <tr class="even">
 <td></td>
 <td>list[dict[str, Any]]</td>
-<td><code>dropped</code> - boxes the inverse letterbox mapped to no extent at all, which a</td>
+<td><code>crops</code> are the cut-out arrays and <code>boxes</code> the coordinates they came from, in</td>
 </tr>
 <tr class="odd">
 <td></td>
 <td>list[dict[str, Any]]</td>
-<td>model may legitimately produce by saying an object is off the frame.</td>
+<td>that image’s own pixels; <code>scores</code>, <code>labels</code> and <code>names</code> are the detections that</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>cleared the threshold. <code>dropped</code> is how many boxes the inverse letterbox mapped</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>to no extent at all - which a model may legitimately produce by saying an</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>object is off the frame, and which is reported rather than left as a count that</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>list[dict[str, Any]]</td>
+<td>quietly does not match the boxes.</td>
 </tr>
 </tbody>
 </table>
-<p>Read at <code>operating_point</code>, not at <code>score_threshold</code>: that one sits near zero so average precision can integrate the whole ranking, and cropping it would hand a classifier the tail.</p>
 </section>
 </section>
 <section id="pyplatypus.DetectionEngine.dataset" class="level3">
@@ -1574,8 +1524,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    augmented<span class="op">=</span><span class="va">False</span>,</span>
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The dataset for one split: images letterboxed to <code>input_shape</code>, boxes encoded.</p>
-<section id="parameters-5" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-5">Parameters</h4>
+<section id="parameters-4" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-4">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 5%">
@@ -1625,8 +1575,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-5" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-5">Returns</h4>
+<section id="returns-4" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-4">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
@@ -1666,8 +1616,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>One row per model: the comparison table, with detection’s columns.</p>
 <p>Different columns from the segmentation table, because they answer a different question. <code>mean_matched_iou</code> is the one worth keeping beside the averages: the gap between mAP@0.5 and mAP@[.50:.95] is localisation, and this is that gap as a single number - how well the boxes that matched actually fit, rather than merely that they cleared a threshold.</p>
 <p><strong>No precision or recall here</strong>, although <code>operating_point</code> says where to read them. Averaging them over classes needs a weighting and every choice of weighting is a different claim: summed over BCCD’s 4155 red cells, 372 white and 361 platelets, a single precision is a statement about red cells wearing the costume of a statement about the model. They are in <code>evaluate_classes</code>, per class, which is the only form in which they mean anything. <code>DetectionMetrics.as_rows</code> made the same decision - its “all” row leaves both as None.</p>
-<section id="parameters-6" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-6">Parameters</h4>
+<section id="parameters-5" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-5">Parameters</h4>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -1687,8 +1637,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-6" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-6">Returns</h4>
+<section id="returns-5" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-5">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
@@ -1737,8 +1687,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.evaluate_classes(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>One row per class instead of one row per model.</p>
 <p>The row that matters on an unbalanced dataset, which is most of them: BCCD has 4155 red cells against 372 white and 361 platelets, so a single number is a number about red cells.</p>
-<section id="parameters-7" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-7">Parameters</h4>
+<section id="parameters-6" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-6">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 14%">
@@ -1770,8 +1720,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-7" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-7">Returns</h4>
+<section id="returns-6" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-6">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
@@ -1822,8 +1772,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><strong>No average precision per image.</strong> AP is the area under a precision-recall curve and therefore a property of a ranking over a dataset; on one image with three boxes it swings on a single box’s rank and says nothing. The columns are counts and overlap, which do mean something for one picture.</p>
 <p><strong>Counts are read at the specification’s <code>operating_point</code></strong> unless another <code>score_threshold</code> is given, because “how many were missed” is undefined over the whole ranking - at a threshold of zero every box the model dimly considered is a prediction, and <code>spurious</code> would count the tail that average precision exists to integrate over rather than anything a user would see.</p>
 <p>Sort by <code>missed</code> to find the frames it cannot see, or by <code>mean_matched_iou</code> to find the ones where it sees everything and places it badly. Those are different problems: the first is usually the data, the second is usually the anchors.</p>
-<section id="parameters-8" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-8">Parameters</h4>
+<section id="parameters-7" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-7">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 14%">
@@ -1855,8 +1805,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-8" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-8">Returns</h4>
+<section id="returns-7" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-7">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 6%">
@@ -1902,8 +1852,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.export_weights(model_name, path, <span class="op">**</span>extra)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Write one detector’s weights, with the anchors in the sidecar.</p>
 <p>The anchors are not optional metadata. The same weights read with different anchors decode every box scaled by a fixed factor, and nothing about the output says so - the boxes are plausible, the scores are plausible, and they are in the wrong places.</p>
-<section id="parameters-9" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-9">Parameters</h4>
+<section id="parameters-8" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-8">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 14%">
@@ -1941,8 +1891,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-9" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-9">Returns</h4>
+<section id="returns-8" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-8">Returns</h4>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -1966,8 +1916,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.fit(verbose<span class="op">=</span><span class="va">False</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Train every model in the specification, in turn, against the same data.</p>
 <p>Anchors are fitted first for any model that does not declare them, because the targets cannot be encoded without them. A model naming <code>weights</code> adopts the architecture, the class names and <strong>the anchors</strong> from the file: weights mean nothing without the anchors they were trained with, so a specification naming both is refused rather than warned about.</p>
-<section id="parameters-10" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-10">Parameters</h4>
+<section id="parameters-9" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-9">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 2%">
@@ -1993,8 +1943,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-10" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-10">Returns</h4>
+<section id="returns-9" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-9">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
@@ -2052,8 +2002,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.fit_anchors(model)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>k-means with an IoU distance over the training boxes, or nothing to do.</p>
 <p>Euclidean distance on (width, height) is scale-blind - (0.02, 0.02) and (0.04, 0.04) sit the same distance apart as (0.50, 0.50) and (0.52, 0.52), while their overlaps are 0.25 and 0.93 - so the distance is 1 - IoU, which is what the anchors are for.</p>
-<section id="parameters-11" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-11">Parameters</h4>
+<section id="parameters-10" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-10">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 10%">
@@ -2079,8 +2029,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-11" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-11">Returns</h4>
+<section id="returns-10" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-10">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 8%">
@@ -2121,8 +2071,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    augmented<span class="op">=</span><span class="va">False</span>,</span>
 <span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A torch DataLoader over one split, wrapping <code>dataset</code>.</p>
-<section id="parameters-12" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-12">Parameters</h4>
+<section id="parameters-11" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-11">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 12%">
@@ -2172,8 +2122,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-12" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-12">Returns</h4>
+<section id="returns-11" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-11">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 9%">
@@ -2201,8 +2151,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.model_names">model_names</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.model_names()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The models that have been fitted or loaded, in the order they were.</p>
-<section id="returns-13" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-13">Returns</h4>
+<section id="returns-12" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-12">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 8%">
@@ -2236,8 +2186,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.predict(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'test'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Boxes, scores and labels for every image in a split, in its own pixels.</p>
 <p>A list and not an array, and in source pixels rather than the network’s frame - both for the same reason the segmentation side returns a list for <code>space="source"</code>. Images differ in size, the number of boxes found differs per image, and a box in a letterboxed 416x416 frame cannot be drawn on the photograph it came from without undoing the letterbox, which is a step nobody should have to remember.</p>
-<section id="parameters-13" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-13">Parameters</h4>
+<section id="parameters-12" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-12">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 15%">
@@ -2269,8 +2219,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-14" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-14">Returns</h4>
+<section id="returns-13" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-13">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
@@ -2314,8 +2264,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.report(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'validation'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Everything a detection table is read off, from one pass over the split.</p>
 <p>Public because <code>evaluate</code> and <code>evaluate_classes</code> are both views over it, and a caller that wants both - which the example does - would otherwise run the model over the split twice. No caching: a cache would be stale the moment the model trained another epoch, and the honest alternative is to hand back the thing and let the caller hold it.</p>
-<section id="parameters-14" class="level4 doc-section doc-section-parameters">
-<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-14">Parameters</h4>
+<section id="parameters-13" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-13">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 15%">
@@ -2341,8 +2291,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tbody>
 </table>
 </section>
-<section id="returns-15" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-15">Returns</h4>
+<section id="returns-14" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-14">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
@@ -2386,8 +2336,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 class="anchored" data-anchor-id="pyplatypus.DetectionEngine.split_sizes">split_sizes</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>DetectionEngine.split_sizes()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>How many images each split holds, and in which order they were found.</p>
-<section id="returns-16" class="level4 doc-section doc-section-returns">
-<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-16">Returns</h4>
+<section id="returns-15" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-15">Returns</h4>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 7%">
