@@ -23,7 +23,12 @@ import numpy as np
 
 from pyplatypus.data.augmentation import build_augmenter
 from pyplatypus.data.classification import ClassBalance, ClassificationDataset, discover_labelled
-from pyplatypus.engine import EngineBase, EngineError, split_from_train
+from pyplatypus.engine import (
+    EngineBase,
+    EngineError,
+    labels_in_test_split,
+    split_from_train,
+)
 from pyplatypus.models.classifier import build_classifier
 from pyplatypus.spec.classification import ClassificationModel
 from pyplatypus.spec.spec import ClassificationSpec, PlatypusSpec
@@ -138,9 +143,33 @@ class ClassificationEngine(EngineBase):
             self.labelled.add("test")
 
     def _has_any_labels(self) -> bool:
-        """In `nested_dirs` mode the label *is* the directory, so a test split read that way
-        is labelled by construction; a CSV may name no label column at all."""
-        return True
+        """Whether the test split carries labels for anything, without reading them.
+
+        In `nested_dirs` mode the label *is* the directory, so a test split read that way
+        is labelled by construction - this is the one task that answers without asking the
+        layout anything, because its directories are the classes rather than a place the
+        labels sit beside the images.
+
+        A CSV may name no label column at all, and **that is the ordinary shape of a
+        prediction set**: `key, images` and nothing else. This returned `True`
+        unconditionally until `pyplatypus#320` while saying both halves of the distinction
+        out loud, so `_discover_test`'s fallback was unreachable and the one task whose
+        whole output is a label per image was the only one that could not predict on
+        unlabelled images from a CSV. The reader could already do it - `only_images=True`
+        on that same file accepts it - and nothing asked.
+
+        **For a set of labels the columns are `labels_from`'s, one per class**, and the
+        question is whether the header names any of them. A file naming two of three
+        carries labels for something, so the labelled read refuses it by naming the third
+        rather than quietly becoming an unlabelled split, which is `_discover_test`'s
+        "none and some are not the same thing" seen from the side that decides.
+        """
+        from pyplatypus.spec.common import DataMode
+
+        data = self.spec.data
+        if data.mode is not DataMode.CONFIG_FILE:
+            return True
+        return labels_in_test_split(data, columns=data.labels_from)
 
     # -------------------------------------------------------------------- the data
 
@@ -189,7 +218,28 @@ class ClassificationEngine(EngineBase):
         Public, and on the engine rather than only on the dataset, because it is the number
         every decision about this task's metrics turned on - and the person who most needs
         it is the one who has just written a specification and not yet run anything.
+
+        **An unlabelled split is refused rather than counted**, which became reachable with
+        `pyplatypus#320`: a test set of images alone counted this way reports every class
+        at zero, `never` lists all of them, and `labels_are_a_set` reads `False` whatever
+        the specification says - three readings that look like findings about a dataset and
+        are findings about there being no labels. §4 of the workbench's notes: a zero in a
+        table is read as a result.
+
+        The sentence is this method's own rather than `_needs_labels`'s, because that one
+        says *there is nothing to score against* and is about asking a model for a number.
+        This is a question about the data with no model in it, and the reading somebody
+        needs here is the zero they would otherwise have believed.
         """
+        self._require_split(split)
+        if split not in self.labelled:
+            raise EngineError(
+                f"the '{split}' split has no labels, so there is no balance to report - "
+                f"counted anyway it would say every class has zero images, which reads as "
+                f"a finding about the dataset. This is the ordinary shape of a prediction "
+                f"set; ask `balance` of a split that has labels, or add the label "
+                f"column(s) to the file this split was read from."
+            )
         return self.dataset(None, split, augment=False).balance()
 
     # ------------------------------------------------------------------------- fit
@@ -319,7 +369,19 @@ class ClassificationEngine(EngineBase):
                         # In `classes` order rather than as they were written, so two rows
                         # are comparable, and a list rather than a joined string because a
                         # class name may contain anything a CSV header may.
-                        "labels": [klass for klass in classes if klass in (sample.labels or ())],
+                        # `None` rather than `[]` when nobody said, because an empty list
+                        # here means *this image carries none of the findings* - a
+                        # labelled image, and the commonest row in every dataset this
+                        # reads. An unlabelled split arrives with `labels is None`, which
+                        # is the reader's own marker for the distinction, and reporting it
+                        # as `[]` would put a measured answer in a column nobody filled
+                        # in. Reachable since `pyplatypus#320`; the single-label branch
+                        # below has always said `None` here for the same reason.
+                        "labels": (
+                            None
+                            if sample.labels is None
+                            else [klass for klass in classes if klass in sample.labels]
+                        ),
                         "predicted": [
                             klass
                             for klass, chance in zip(classes, row, strict=True)

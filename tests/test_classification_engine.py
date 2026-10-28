@@ -521,3 +521,196 @@ def test_the_single_label_row_is_unchanged(tmp_path):
     assert isinstance(row["predicted"], str)
     assert "probability" in row and "labels" not in row
     assert row["label"] in ("benign", "malignant")
+
+
+# ------------------------------------------- a test split of images alone, `pyplatypus#320`
+
+
+def listed(root, how_many: int, *, labelled: bool, size: int = 24) -> str:
+    """A CSV naming images, with or without the column that labels them.
+
+    The two differ by one column and nothing else, which is what makes the pair a control:
+    the labelled one has to come back labelled or the unlabelled one proves nothing.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    lines = ["key,images,label" if labelled else "key,images"]
+    for index in range(how_many):
+        write_png(root / f"{index:04d}.png", picture(index, index % 2 == 1, size))
+        name = "benign" if index % 2 == 0 else "malignant"
+        lines.append(f"c{index:04d},{index:04d}.png" + (f",{name}" if labelled else ""))
+    path = root / ("labelled.csv" if labelled else "images.csv")
+    path.write_text("\n".join(lines) + "\n")
+    return str(path)
+
+
+def test_a_test_set_of_images_alone_is_read_and_predicted(tmp_path):
+    """The round trip the defect made impossible: a CSV of `key, images` as `test_path`,
+    `predict` on it, and `evaluate` refusing it by name instead of the run refusing to
+    start. The control is the same file with a `label` column, which must read as labelled -
+    otherwise "unlabelled" is just this engine failing to find anything.
+    """
+    train = listed(tmp_path / "train", 12, labelled=True)
+    images_only = listed(tmp_path / "test", 4, labelled=False)
+    engine = engine_for(
+        data(train, mode="config_file", validation_path=train, test_path=images_only),
+        [model(epochs=1)],
+    )
+
+    assert engine._has_any_labels() is False
+    assert len(engine._samples["test"]) == 4
+    assert engine.labelled == {"train", "validation"}, "the test split carries no labels"
+    assert all(sample.label is None for sample in engine._samples["test"])
+
+    engine.fit()
+    assert engine.predict(split="test").shape == (4, 2)
+    assert len(engine.predict_labels(split="test")) == 4
+    assert all(name in ("benign", "malignant") for name in engine.predict_labels(split="test"))
+    rows = engine.answers(split="test")
+    assert [row["label"] for row in rows] == [None] * 4
+    assert all(isinstance(row["predicted"], str) for row in rows)
+
+    with pytest.raises(EngineError, match="'test' split has no labels"):
+        engine.evaluate("test")
+
+    # the control: one column more and the same four images are a labelled split
+    labelled_test = listed(tmp_path / "scored", 4, labelled=True)
+    scored = engine_for(
+        data(train, mode="config_file", validation_path=train, test_path=labelled_test),
+        [model(epochs=1)],
+    )
+    assert scored._has_any_labels() is True
+    assert scored.labelled == {"train", "validation", "test"}
+
+
+def test_the_directory_is_the_label_so_nested_dirs_never_asks(tmp_path):
+    """The one task that answers without reading the layout, and the reason it may: a class
+    directory with no images is refused by the reader long before this is asked, so there is
+    no unlabelled form of this mode to fall back to."""
+    for part, counts in (
+        ("train", {"benign": 6, "malignant": 6}),
+        ("test", {"benign": 2, "malignant": 2}),
+    ):
+        tree(tmp_path / part, counts)
+    engine = engine_for(
+        ClassificationData(
+            train_path=str(tmp_path / "train"),
+            validation_path=str(tmp_path / "train"),
+            test_path=str(tmp_path / "test"),
+            classes=["benign", "malignant"],
+        ),
+        [model(epochs=1)],
+    )
+    assert engine._has_any_labels() is True
+    assert "test" in engine.labelled
+
+
+def test_for_a_set_of_labels_the_columns_are_the_question_and_some_is_not_none(tmp_path):
+    """`labels_from` makes the label a set, so the header is asked about one column per
+    class rather than about `label`. Four shapes, and the third is the distinction
+    `_discover_test` is built on: a file naming two of three classes carries labels for
+    *something*, so it must refuse by naming the third rather than quietly becoming an
+    unlabelled split and reporting nothing about the two that are there.
+    """
+    from pyplatypus.engine import labels_in_test_split
+
+    train = films(tmp_path / "chest")
+    paths = tmp_path / "chest"
+    rows = [f"film{index:04d},{index:04d}.png" for index in range(4)]
+
+    all_three = paths / "all-three.csv"
+    all_three.write_text(
+        "key,images,Atelectasis,Cardiomegaly,Effusion\n"
+        + "\n".join(f"{r},1,0,1" for r in rows)
+        + "\n"
+    )
+    two_of_three = paths / "two-of-three.csv"
+    two_of_three.write_text(
+        "key,images,Atelectasis,Cardiomegaly\n" + "\n".join(f"{r},1,0" for r in rows) + "\n"
+    )
+    none_at_all = paths / "none.csv"
+    none_at_all.write_text("key,images\n" + "\n".join(rows) + "\n")
+    # The `label` column a single-label set would be read by, which is not this question:
+    # with `labels_from` given it is one of the many columns the reader ignores.
+    wrong_column = paths / "wrong-column.csv"
+    wrong_column.write_text(
+        "key,images,label\n" + "\n".join(f"{r},atelectasis" for r in rows) + "\n"
+    )
+
+    def asked(path):
+        block = multi_data(train, validation_path=train, test_path=str(path))
+        return labels_in_test_split(block, columns=block.labels_from)
+
+    assert asked(all_three) is True
+    assert asked(two_of_three) is True, "two of three is `some`, and some is not none"
+    assert asked(none_at_all) is False
+    assert asked(wrong_column) is False, "`label` is not what a set of labels is read from"
+
+    # And what `some` costs: the labelled read refuses, naming the column that is missing.
+    with pytest.raises(ConfigError, match="missing Effusion"):
+        engine_for(
+            multi_data(train, validation_path=train, test_path=str(two_of_three)),
+            [model(epochs=1)],
+        )
+
+    # while `none` is read as images alone and predicted on
+    engine = engine_for(
+        multi_data(train, validation_path=train, test_path=str(none_at_all)), [model(epochs=1)]
+    )
+    assert engine._has_any_labels() is False
+    assert engine.labelled == {"train", "validation"}
+    assert len(engine._samples["test"]) == 4
+
+
+def test_nobody_said_is_not_none_of_the_findings(tmp_path):
+    """The two states an empty list would have conflated, in one test because neither half
+    means anything alone: an unlabelled image's `labels` is `None`, and a labelled film
+    carrying no finding at all is `[]` - which is a labelled row and the commonest one in
+    every dataset this reads.
+    """
+    train = films(tmp_path / "chest")
+    none_at_all = tmp_path / "chest" / "unlabelled.csv"
+    none_at_all.write_text(
+        "key,images\n" + "\n".join(f"film{index:04d},{index:04d}.png" for index in range(4)) + "\n"
+    )
+    engine = engine_for(
+        multi_data(train, validation_path=train, test_path=str(none_at_all)), [model(epochs=1)]
+    )
+    engine.fit()
+
+    unlabelled = engine.answers(split="test")
+    assert [row["labels"] for row in unlabelled] == [None] * 4
+
+    # The other half, on a split that does carry labels: `films` writes a finding on every
+    # second, third and fourth image, so film0001 carries none of the three.
+    #
+    # `validation` rather than `train`, and not for tidiness: the training loader shuffles
+    # and drops a ragged last batch, so `answers("train")` pairs each key with another
+    # image's probabilities. Measured while writing this - two `predict("train")` calls on
+    # one split are a permutation of each other, same multiset of rows and not one row in
+    # place - and filed rather than fixed here, since it has nothing to do with labels
+    # being absent.
+    labelled = {row["key"]: row for row in engine.answers(split="validation")}
+    empty = [key for key, row in labelled.items() if row["labels"] == []]
+    assert empty, "no film here carries none of the findings, so this control proves nothing"
+    assert all(labelled[key]["labels"] is not None for key in labelled)
+
+
+def test_an_unlabelled_split_has_no_balance_to_report(tmp_path):
+    """Counted anyway it reads as a dataset where no class has any image, which is a
+    sentence about the labels being absent dressed as a finding. The control is the same
+    call on a split that has them."""
+    train = listed(tmp_path / "train", 12, labelled=True)
+    images_only = listed(tmp_path / "test", 4, labelled=False)
+    engine = engine_for(
+        data(train, mode="config_file", validation_path=train, test_path=images_only),
+        [model(epochs=1)],
+    )
+
+    with pytest.raises(EngineError, match="no balance to report"):
+        engine.balance("test")
+    # not a refusal about the split being absent, which is a different thing
+    with pytest.raises(EngineError, match="no 'holdout' data in this spec"):
+        engine.balance("holdout")
+
+    counted = engine.balance("train")
+    assert counted.total == 12 and sum(counted.counts.values()) == 12
