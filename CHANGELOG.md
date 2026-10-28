@@ -87,8 +87,28 @@ behind it. `maju116/pyplatypus#307`, part of `#206`.
 
 ### Fixed
 
- - Nothing was broken; the entries below are findings from building the above that are worth
-   more than the release note.
+ - **Every per-class classification metric raised on an Apple Silicon Mac, and that shipped
+   in `0.8.0a49`.** `ClassificationMetric` accumulates a `float64` confusion matrix and
+   **MPS has no float64 at all** - `Cannot convert a MPS Tensor to float64 dtype` - so
+   `accuracy`, `balanced_accuracy` and `f1` have been unusable there since the task landed.
+   Every Apple Silicon Mac picks `mps` since `0.8.0a38` repaired `pick_device`.
+
+   Nothing caught it because the **default** metric is `auc`, which takes the scores path
+   and was already moving its state to the CPU for a different reason - memory - and no
+   macOS test had asked for one of the other three. It was found by the multi-label family
+   hitting the identical line: both macOS jobs of `pyplatypus#315` failed on the one test
+   that reaches a multi-label metric which counts rather than ranks, and the single-label
+   half was found by reading the file beside it.
+
+   Both families now count on the CPU. The arithmetic does not care and the transfer is one
+   small tensor per batch - the state was never the thing whose size grows with the pass.
+
+   **The local suite could not have found this and the reason is not that there is no
+   accelerator.** This machine has CUDA, `pick_device` picks it, and CUDA *has* float64 - so
+   the conversion succeeds here on exactly the device that refuses it there. §4 of the
+   workbench's notes calls this a gate passing because of the machine it ran on; this is the
+   version where the machine is an accelerator rather than an installed library, and the
+   only instrument that could answer was the macOS runner.
 
 ### Measured
 
