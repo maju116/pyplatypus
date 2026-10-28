@@ -676,34 +676,27 @@ class DetectionEngine(EngineBase):
         from, in that image's own pixels.
 
         Args:
-            model_name: which trained detector.
-            split: which split's images to read.
-            score_threshold: override the confidence to crop at.
-            context: expand each box by this fraction of its size per side, 0 by default.
-            size: bring every crop to `(height, width)`, or None to keep each as cut.
-            fit: `"letterbox"` to preserve aspect, `"stretch"` to resize both axes.
-            fill: padding value for `"letterbox"`.
+            model_name: Which trained detector. Defaults to the first.
+            split: Which split's images to read and cut from.
+            score_threshold: Crop at this confidence instead of the model's
+                `operating_point`.
+            context: Extra margin per side, as a fraction of the box rather than in pixels,
+                so one value suits a platelet and a white cell. 0 by default.
+            size: Bring every crop to `(height, width)`, or None to keep each as it was
+                cut.
+            fit: `"letterbox"` to preserve the aspect, `"stretch"` to resize both axes - a
+                stretch changes the aspect of every non-square object and so has to be
+                asked for.
+            fill: Padding value for `"letterbox"`.
 
         Returns:
-            One dict per image with `key`, `crops`, `boxes`, `scores`, `labels`, `names`.
-
-        Args:
-            split: Which data to cut from.
-            model_name: Which detector. Defaults to the first.
-            context: Extra margin, as a fraction of the box rather than in pixels, so one
-                value suits a platelet and a white cell.
-            size: Resize every crop to this. Letterboxed rather than stretched, because a
-                stretch changes the aspect of every non-square object and has to be asked
-                for.
-
-        Returns:
-            One record per image, each with the crops and the boxes they came from, plus
-            `dropped` - boxes the inverse letterbox mapped to no extent at all, which a
-            model may legitimately produce by saying an object is off the frame.
-
-        Read at `operating_point`, not at `score_threshold`: that one sits near zero so
-        average precision can integrate the whole ranking, and cropping it would hand a
-        classifier the tail.
+            One record per image, each a dict of seven keys. `key` says which image;
+            `crops` are the cut-out arrays and `boxes` the coordinates they came from, in
+            that image's own pixels; `scores`, `labels` and `names` are the detections that
+            cleared the threshold. `dropped` is how many boxes the inverse letterbox mapped
+            to no extent at all - which a model may legitimately produce by saying an
+            object is off the frame, and which is reported rather than left as a count that
+            quietly does not match the boxes.
         """
         model_name = self._resolve_model(model_name)
         from pyplatypus.detection.boxes import clip_boxes, crop_boxes, drop_degenerate
