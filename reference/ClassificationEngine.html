@@ -83,9 +83,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-dark-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -1088,7 +1088,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="odd">
 <td><a href="#pyplatypus.ClassificationEngine.loader">loader</a></td>
-<td>Shuffled on the training split and ordered everywhere else.</td>
+<td>Ordered and complete unless the caller says otherwise, which only <code>fit</code> does.</td>
 </tr>
 <tr class="even">
 <td><a href="#pyplatypus.ClassificationEngine.predict">predict</a></td>
@@ -1146,9 +1146,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="pyplatypus.ClassificationEngine.loader" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.ClassificationEngine.loader">loader</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>ClassificationEngine.loader(model_name, split, <span class="op">*</span>, augment<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Shuffled on the training split and ordered everywhere else.</p>
-<p><code>drop_last</code> on training, and that is not a default copied from anywhere: a last batch of one is a batch-norm with nothing to normalise over, and this task’s batches are images rather than tiles so a dropped one costs a single example.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>ClassificationEngine.loader(</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    model_name,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    split,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    augment<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    shuffle<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    drop_last<span class="op">=</span><span class="va">False</span>,</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Ordered and complete unless the caller says otherwise, which only <code>fit</code> does.</p>
+<p><strong>Both flags used to be derived from <code>split == "train"</code> here, and that was <code>pyplatypus#321</code>.</strong> A method that asks what the model said got the loader built for optimising over, so <code>predict</code> came back in the shuffled order its own docstring promises the split’s own order, and <code>answers</code> paired each key with <strong>another image’s</strong> probabilities. Measured: two <code>predict(split="train")</code> calls on one split are a permutation of each other - the same multiset of rows, not one row in place - and at 16 samples with <code>batch_size: 8</code> nothing is dropped, so no count disagreed and nothing refused.</p>
+<p>The three other engines take <code>shuffle</code> from the caller and every asking site passes <code>False</code>; this one derived it. So this is not a new parameter but the shape its siblings already have, which is also what makes the defect legible: one question answered four times, three the same way, and the odd one out is the bug. <code>_has_any_labels</code> was the same shape one release earlier.</p>
+<p><strong>The two flags stay separate rather than travelling under one name</strong>, and that is measured rather than tidy: <code>drop_last</code> was <code>training and len(base) &gt; batch_size</code>, independent of <code>data.shuffle</code>, so keying it to shuffling would stop dropping the ragged last batch for anybody running <code>shuffle: false</code> - and a last batch of one is a batch-norm with nothing to normalise over, which is the whole reason the flag is here. This task’s batches are images rather than tiles, so a dropped one costs a single example.</p>
+<p>The <code>len(base) &gt; batch_size</code> guard stays inside rather than moving to the caller: a split smaller than one batch would otherwise be emptied by the flag <code>fit</code> always passes, and that is a property of the data rather than a decision <code>fit</code> is making.</p>
 </section>
 <section id="pyplatypus.ClassificationEngine.predict" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.ClassificationEngine.predict">predict</h3>
