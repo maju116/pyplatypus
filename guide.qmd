@@ -320,6 +320,83 @@ models:
 nine on blood cells - measured, 0.65 against 0.88 - so the default is the useful one and
 naming anchors by hand is for reproducing a published model.
 
+## One label instead of a mask
+
+`task: classification` answers with one label for a whole image rather than one per voxel.
+The data block loses everything that describes a mask and gains the one thing a label
+needs - `classes`, in class order:
+
+```yaml
+task: classification
+data:
+  train_path: data/train
+  validation_path: data/validation
+  mode: nested_dirs
+  classes: [benign, malignant]
+models:
+  - name: ours
+    input_shape: [128, 128]
+    blocks: 4
+    filters: 16
+    loss: {name: cce}
+    metrics: [{name: auc}, {name: balanced_accuracy}]
+  - name: resnet
+    input_shape: [224, 224]
+    encoder: resnet34
+    pretrained: true
+    freeze_encoder: 2
+    pooling: max
+    head_dropout: 0.2
+    loss: {name: focal, gamma: 2}
+```
+
+**Where the labelling is written follows from `mode` rather than being said twice.** In
+`nested_dirs` the directories under `train_path` are the classes, with the images inside
+them - the layout nearly every image dataset ships in - and in `config_file` the CSV's
+`label` column holds the name. `subdirs` is refused here, which is what keeps the two
+readings of `nested_dirs` apart: a sample is one image rather than a directory with the
+image in one subdirectory and what labels it in the other.
+
+**There is no `architecture`, and that is the one field this task is missing rather than
+renaming.** The network is a contracting path, pooled, with one dense layer on top, so
+`encoder` is the whole answer: unset it is ours, sized by `blocks` and `filters`, and named
+it is any of timm's. The two models above are therefore the comparison this task makes
+easiest - ours against a pretrained backbone on the same split - and
+`available_models("classification")` says all of this instead of returning rows.
+`blocks`, `filters` and `block_width` are **refused** beside `encoder` rather than ignored,
+because a backbone's own depth is then the only one there is.
+
+**`auc` is the default metric and that is a measurement rather than a preference.** On 40000
+images at a prevalence of 3%, with the model's own probabilities as the truth so that only
+its discrimination varies, accuracy spans 0.0100 where the AUC spans 0.4631 - and accuracy
+is not monotone in quality: the model with no signal at all scores above two that have one.
+Balanced accuracy and F1 do not rescue it, moving 0.0000 and -0.0005 between a real signal
+and a collapse, because a calibrated model at that prevalence never crosses the threshold
+and everything read off the hard prediction sees the same all-negative answer. Being
+threshold-free is the property that separates them. `accuracy` is offered because it is the
+number people ask for.
+
+**Three of the four are not means over images, so they are accumulated over the pass and
+computed once.** At that prevalence 398 of 500 batches of eight hold no positive at all, so
+a per-class recall, an F1 or a rank statistic averaged over batches is an average over
+whichever batches happened to contain the rare class - which a bigger batch does not fix.
+
+**A split cut out of the training folder is stratified**, which is the one part of the walk
+this task overrides. Measured over 400 seeds, a random 70/15/15 of 100 images at a 3%
+prevalence leaves some part with none of the rare class 91% of the time, 64% at 200 images
+and 20% at 500 - and a per-class metric cannot average over a class its pass never held, so
+the run dies at the end of the first epoch with the epoch already paid for. It costs at most
+one image per class against the proportions asked for. `group_by` beside it is refused when a
+group's images do not share a label, because keeping a patient on one side and keeping a
+class on both are then two instructions that cannot both be followed.
+
+**Two fields of a segmentation model have no meaning here and are gone rather than
+ignored**: `splits`, because tiling an image and then reporting one label for the whole of it
+is not a question anybody asked, and `n_class`, which comes from `classes` as it always has.
+There is no `foreground` to watch either - a classification epoch has no background class
+and reports no such share - so `terminate_on_collapse` is refused by name rather than
+failing at the end of the first epoch.
+
 ## Not training at all
 
 ```yaml
