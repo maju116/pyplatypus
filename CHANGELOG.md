@@ -1,6 +1,69 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a51] - 2026-10-28
+
+**Two defects found by reading the task that had just shipped, and one new instrument.**
+`maju116/pyplatypus#316` and `#312`.
+
+**The R half: none, and the pin does not have to move for it** - which is a stronger claim
+than *None beyond the pin*, and the distinction is one `0.8.0a47` and `a48` are recorded here
+for not having: those two were defects whose fix reached an R user by the pin moving and by
+nothing else. Neither of these does. `write_splits` is not exported from R, and
+`classification_data()` refuses a `split_dataset()` by name before any interpreter starts, so
+the branch repaired below is unreachable from that side; and `?detection_crops` already
+documented all seven keys correctly - see the second item.
+
+### Fixed
+
+ - **`write_splits()` wrote `sample.masks` whatever the task**, so a classification split
+   written to CSV lost its labelling entirely: the `label` column was renamed and its cells
+   were the masks a classification sample does not have. Measured on 6 images in two classes -
+   six empty cells - and the file then refused at the *reader*, one run later, with
+   `no label name` on every row and `yielded no usable samples`. That message is a sentence
+   about the dataset, so the first place anybody looks is the data, and the data is fine.
+
+   What the label column holds is read **off the samples** now, the way `stratified_split`
+   already dispatches: one `masks` column of paths, one `label` column of names, or one column
+   per class holding `0` or `1`. Samples that disagree are refused - one CSV has one header.
+
+   **A set of labels takes `classes`**, and is refused without them rather than taking the
+   union of what the split happens to carry: a class no image in that part has would simply
+   have no column, and the file would then describe a narrower problem than the one being
+   studied. Same argument and same parameter name as `save_class_masks`.
+
+   `label_column` now defaults to `None`, which takes the name from what the samples carry.
+   The mask layout is byte-for-byte what it was, and a test asserts that rather than trusting
+   it.
+
+   **The test that would have caught it already existed and was written over masks.**
+   `test_written_csvs_are_readable_by_the_config_file_mode` writes a split and reads it back,
+   which is exactly the right shape, for the one label kind the writer handled. The round trip
+   is now asserted for a name and for a set as well - and asserted as a *round trip*, because
+   a test demanding a non-empty cell passes on a writer that puts the key there.
+
+ - **`crops()`'s docstring carried two `Args:` blocks and two `Returns:` blocks**, and
+   neither pair agreed with itself: one `Returns:` omitted `dropped`, the other omitted
+   `scores`, `labels` and `names`, and the second `Args:` dropped `score_threshold` - the one
+   parameter the prose two paragraphs above it is about. The published reference rendered
+   both, so whichever a reader believed, they were wrong about the function's answer.
+
+   **`?detection_crops` in `rplatypus` was right the whole time**, naming all seven keys and
+   all seven parameters. This project's cross-package pairs are built on the assumption that
+   the engine's text is the source and R's hand-written copy is what drifts; here it was the
+   other way round, and nothing was looking in that direction.
+
+### Added
+
+ - **A test over every docstring in the package: no section header twice.** 749 docstrings on
+   this commit, by AST rather than by import, so module and class docstrings and the two
+   engines outside `__all__` are all in it. Nothing in this repository read a docstring's
+   *shape* - `quartodoc build` renders a duplicate without complaining and the `docs` job was
+   green throughout - and the duplicate also blinded the one test that reads `Args:`, which
+   takes the first block and stops, so a parameter invented in a second block was invisible
+   to the guard written for exactly that. It carries both controls: a synthetic duplicate it
+   must report, and prose of the form `Args: the four below` it must not.
+
 ## [0.8.0a50] - 2026-10-28
 
 **A label that is a set** - `labels_from`, one CSV column per class, and the four slices

@@ -609,3 +609,121 @@ def test_a_rare_class_inside_a_common_one_is_what_the_order_is_for():
     for seed in range(10):
         strat = stratified_split(films, fractions=(0.7, 0.15, 0.15), seed=seed)
         assert one_sided(strat, ["common", "rare"]) == [], f"seed {seed}"
+
+
+# ------------------------------------------------- what the label column holds, `#316`
+
+
+def named(key: str, label: str) -> Sample:
+    return Sample(key=key, images=(Path(f"/data/{key}.png"),), label=label)
+
+
+def carrying(key: str, labels: tuple[str, ...]) -> Sample:
+    return Sample(key=key, images=(Path(f"/data/{key}.png"),), labels=labels)
+
+
+def with_a_mask(key: str) -> Sample:
+    """`sample()` at the top of this file builds its paths as **strings**, and nothing that
+    uses it reaches `write_splits`, which resolves them. Paths here, so the control is about
+    the writer rather than about the fixture."""
+    return Sample(key=key, images=(Path(f"/data/{key}.png"),), masks=(Path(f"/masks/{key}.png"),))
+
+
+def in_one_part(samples: list[Sample]) -> Split:
+    """One `Split` with everything in `train`, because what is being tested is the header
+    and the cells rather than the division."""
+    return Split(
+        train=tuple(samples), validation=(), test=(), groups={s.key: s.key for s in samples}
+    )
+
+
+def rows_of(path: Path) -> list[dict[str, str]]:
+    with open(path, newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def test_a_class_name_is_written_and_read_back(tmp_path):
+    """`#316`: this wrote `sample.masks` whatever the task, so every cell was empty and the
+    labelling was gone. The assertion is the **round trip** rather than the cell: a test
+    asserting the cell is non-empty passes on a writer that puts the key there."""
+    split = in_one_part([named("a", "normal"), named("b", "nodule")])
+
+    written = write_splits(split, tmp_path)
+    rows = rows_of(written["train"])
+    assert list(rows[0]) == ["key", "group", "images", "label"]
+    assert [row["label"] for row in rows] == ["normal", "nodule"]
+
+    found = discover_samples(
+        written["train"], mode="config_file", label_column="label", label_is_a_name=True
+    )
+    assert [(s.key, s.label) for s in found.samples] == [("a", "normal"), ("b", "nodule")]
+
+
+def test_a_set_of_labels_is_one_column_per_class_and_reads_back_as_the_same_set(tmp_path):
+    """And a class no image in this part carries still gets its column, all zeros.
+
+    That is the whole reason `classes` is a parameter rather than the union of what the
+    samples hold: `Mass` below would otherwise have no column, and the file would describe
+    a two-class problem.
+    """
+    split = in_one_part(
+        [
+            carrying("a", ("Effusion",)),
+            carrying("b", ()),
+            carrying("c", ("Effusion", "Nodule")),
+        ]
+    )
+    classes = ["Effusion", "Nodule", "Mass"]
+
+    written = write_splits(split, tmp_path, classes=classes)
+    rows = rows_of(written["train"])
+    assert list(rows[0]) == ["key", "group", "images", *classes]
+    assert [row["Mass"] for row in rows] == ["0", "0", "0"]
+    assert [row["Effusion"] for row in rows] == ["1", "0", "1"]
+
+    found = discover_samples(written["train"], mode="config_file", label_columns=classes)
+    assert [s.labels for s in found.samples] == [("Effusion",), (), ("Effusion", "Nodule")]
+
+
+def test_a_set_of_labels_is_refused_without_the_classes(tmp_path):
+    split = in_one_part([carrying("a", ("Effusion",)), carrying("b", ())])
+    with pytest.raises(ConfigError, match="one column per class"):
+        write_splits(split, tmp_path)
+
+
+def test_a_class_the_classes_do_not_name_is_refused_by_name(tmp_path):
+    """Silently dropping it is the alternative, and it would write a file that disagrees
+    with the dataset it came from while looking complete."""
+    split = in_one_part([carrying("a", ("Effusion",)), carrying("b", ("Pneumothorax",))])
+    with pytest.raises(ConfigError, match="Pneumothorax"):
+        write_splits(split, tmp_path, classes=["Effusion", "Nodule"])
+
+
+def test_samples_that_disagree_about_what_a_label_is_are_refused(tmp_path):
+    """One CSV has one header. `stratified_split` refuses the same mixture one layer up, and
+    this is reachable without it: a caller may build a `Split` itself."""
+    split = in_one_part([named("a", "normal"), carrying("b", ("Effusion",)), with_a_mask("c")])
+    with pytest.raises(ConfigError, match="do not agree on what a label is"):
+        write_splits(split, tmp_path)
+
+
+def test_the_column_name_is_the_callers_when_they_say_so(tmp_path):
+    """The override still works, and the mask default has not moved - which is the control
+    that `#316` fixed one branch rather than changing the writer."""
+    names = in_one_part([named("a", "normal")])
+    assert list(rows_of(write_splits(names, tmp_path / "said")["train"])[0]) == [
+        "key",
+        "group",
+        "images",
+        "label",
+    ]
+    renamed = rows_of(write_splits(names, tmp_path / "mine", label_column="finding")["train"])
+    assert list(renamed[0])[3] == "finding"
+
+    masks = in_one_part([with_a_mask("a")])
+    assert list(rows_of(write_splits(masks, tmp_path / "paths")["train"])[0]) == [
+        "key",
+        "group",
+        "images",
+        "masks",
+    ]
