@@ -1575,7 +1575,7 @@ Where a run record is written, and where <code>fit()</code> puts anything it is 
 <dt><code>data</code></dt>
 <dd>
 a <code>ClassificationData</code> block — <strong>required</strong>
-Where the images are and what their labels are called. The label is the directory an image sits in, or a <code>label</code> column naming the class.
+Where the images are and what their labels are called. The label is the directory an image sits in, a <code>label</code> column naming the class, or - when it is a <strong>set</strong> rather than one of alternatives - one column per class under <code>labels_from</code>.
 </dd>
 <dt><code>models</code></dt>
 <dd>
@@ -1647,6 +1647,17 @@ Class names in class order. Position is the class index, and in <code>nested_dir
 <dd>
 <code>true</code> or <code>false</code> — <code>true</code>
 Refuse an image whose label is not in <code>classes</code>. False skips it instead, which is how you train on two of a dataset’s three classes without moving any files. True by default, and it matters more here than it does for a box: a skipped object leaves the rest of its image in the training set, while a skipped image leaves nothing, so the same setting quietly changes how much data there is.
+Has nothing to choose between when <code>labels_from</code> is given - the columns <em>are</em> the classes, so no cell can hold a class nobody named - and <code>false</code> is refused there rather than ignored.
+</dd>
+<dt><code>labels_from</code></dt>
+<dd>
+a list of text values — unset
+For a label that is a <strong>set</strong> - one CSV column per class, in class order, each cell <code>0</code> or <code>1</code>. A chest film with four findings is four independent questions rather than one of four alternatives, and this is the only way of saying so.
+It is a naming rather than a switch, for the reason <code>regions</code> and <code>classes_from</code> are on the mask side: <strong>the target changes, not only the activation</strong>. A <code>label</code> column structurally cannot say that a film has two findings, so a setting that turned the softmax into a sigmoid would train sigmoid channels against an exclusive target, raise nothing, and report plausible numbers meaning exactly what softmax meant. The naming carries the claim, and everything downstream reads <code>multilabel</code>.
+The position in this list is the class index, paired with <code>classes</code> - so the headers may be called whatever the dataset calls them and the model still learns the classes in the order you named. Stated rather than read off the header row for <code>channels_from</code>’s reason: sorting is reproducible and clinically meaningless.
+<code>config_file</code> mode only, and that is a refusal rather than a gap: an image cannot sit in two directories without being two files, so <code>nested_dirs</code> cannot express a set of labels at all.
+A cell that is not <code>0</code>, <code>1</code>, <code>0.0</code> or <code>1.0</code> is refused by name, and the case that is written for is <code>-1</code>. The datasets shaped this way write <code>-1</code> for <em>uncertain</em> and leave the cell empty for <em>not mentioned</em>; both have a defensible mapping to 0 or to 1, which is exactly why this reader must not pick one for you. An image with none of the findings is an ordinary labelled row, written as a line of zeros.
+<strong>There is no threshold field.</strong> Each class decides for itself at <code>logits &gt; 0</code>, which is a probability of 0.5 exactly, and a threshold is a number about your data rather than one this format should invent. And <code>accuracy</code> is refused outright here rather than redefined: measured on 4000 images with findings at 10%, 5%, 3% and 2%, a model answering no to everything scores 0.8137 on exact match and 0.9507 per class, <strong>above a model holding half the available signal</strong> - so neither reading of it can be what a <code>monitor</code> watches. Use <code>balanced_accuracy</code>, <code>f1</code> or <code>auc</code>, all of which put that answer below every model with any signal at all.
 </dd>
 </dl>
 <section id="split-inside-classification-data" class="level4">

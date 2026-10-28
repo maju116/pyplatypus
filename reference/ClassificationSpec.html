@@ -1027,6 +1027,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a>
   <ul class="collapse">
+  <li><a href="#pyplatypus.ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse" id="toc-pyplatypus.ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse" class="nav-link" data-scroll-target="#pyplatypus.ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse">a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse</a></li>
   <li><a href="#pyplatypus.ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive" id="toc-pyplatypus.ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive" class="nav-link" data-scroll-target="#pyplatypus.ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive">nothing_watches_a_validation_number_that_will_not_arrive</a></li>
   </ul></li>
   </ul></li>
@@ -1058,14 +1059,34 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
+<td><a href="#pyplatypus.ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse">a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse</a></td>
+<td><code>accuracy</code> is refused when <code>labels_from</code> made each class its own question.</td>
+</tr>
+<tr class="even">
 <td><a href="#pyplatypus.ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive">nothing_watches_a_validation_number_that_will_not_arrive</a></td>
 <td>A callback cannot wait for <code>val_loss</code> in a run that has no validation set.</td>
 </tr>
 </tbody>
 </table>
+<section id="pyplatypus.ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse" class="level3">
+<h3 class="anchored" data-anchor-id="pyplatypus.ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse">a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>ClassificationSpec.a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>accuracy</code> is refused when <code>labels_from</code> made each class its own question.</p>
+<p>Measured before the choice was put up rather than after. On 4000 images with findings at 10%, 5%, 3% and 2% - a chest film’s profile, one draw of the truth, and models whose ordering is degraded by noise rather than shrunk:</p>
+<pre><code>quality        exact   per-class   balanced   macro f1   macro auc
+1.00          0.8353      0.9570     0.5742     0.2339      0.9029
+0.50          0.8023      0.9477     0.5433     0.1444      0.8041
+0.00          0.7650      0.9370     0.4984     0.0184      0.4834
+all-negative  0.8137      0.9507     0.5000     0.0000      0.5000</code></pre>
+<p><strong>The disqualifying reading is the row’s position rather than the size of a gap.</strong> A model answering no to everything scores above the model holding half the available signal on <em>both</em> readings of accuracy - 0.8137 against 0.8023 exact, 0.9507 against 0.9477 per class - while <code>balanced_accuracy</code>, <code>f1</code> and <code>auc</code> all put it below every model with any signal at all. A number that rewards giving up cannot be what a <code>monitor</code> watches.</p>
+<p>This is a <strong>different</strong> mechanism from the single-label finding and the argument does not carry over, which is worth saying because reusing it would have been easy: there, accuracy is nearly flat and non-monotone in the signal. Here both readings are monotone on two seeds, and what breaks them is the comparison against a collapse, which is not a point on that curve - an all-negative answer is not a noisy model, it is a confident one.</p>
+<p>Read off <code>supports_multilabel</code> on the metric’s own specification rather than a list here, the way the losses’ admissibility is read off <code>continuous</code> and <code>needs_extent</code>. <code>build_classification_metric</code> refuses the same thing one layer down, for a caller that assembled a metric list without a specification - a second line of the wall rather than a second copy of it.</p>
+<p><strong>And the matching loss refusal is deliberately absent, because it would be unreachable.</strong> Measured off the flags: the two losses a label admits - <code>cce</code> and <code>focal</code>, the ones with neither <code>needs_extent</code> nor <code>continuous</code> - both carry <code>supports_multilabel=True</code>, so no admissible loss can fail that test today. <code>build_loss(multilabel=True)</code> refuses by name if a third one ever arrives, which is the mechanism already there; a validator here would be a guard for a state nothing can produce, and this file deleted one of those an hour earlier for the same reason.</p>
+</section>
 <section id="pyplatypus.ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive" class="level3">
 <h3 class="anchored" data-anchor-id="pyplatypus.ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive">nothing_watches_a_validation_number_that_will_not_arrive</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>ClassificationSpec.nothing_watches_a_validation_number_that_will_not_arrive()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A callback cannot wait for <code>val_loss</code> in a run that has no validation set.</p>
 
 

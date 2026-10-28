@@ -1038,6 +1038,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>ClassificationEngine.predict_labels(model_name<span class="op">=</span><span class="va">None</span>, split<span class="op">=</span><span class="st">'test'</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The class names, because a name is what a reader wanted.</p>
 <p>Read off <code>data.classes</code>, whose <strong>order is the class index</strong> - so this is the one place where the engine knows the right names and a caller passing their own could be wrong without anything saying so.</p>
+<p><strong>A list of names per image when the label is a set</strong>, which is the trainer’s own shape and is there for its reason: one name per image would have to pick which of the findings is <em>the</em> one, and the model was not asked that.</p>
 
 
 </section>

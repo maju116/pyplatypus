@@ -521,6 +521,23 @@
           "title": "Column Sep",
           "type": "string"
         },
+        "labels_from": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a label that is a **set** - one CSV column per class, in class order, each cell `0` or `1`. A chest film with four findings is four independent questions rather than one of four alternatives, and this is the only way of saying so.\n\nIt is a naming rather than a switch, for the reason `regions` and `classes_from` are on the mask side: **the target changes, not only the activation**. A `label` column structurally cannot say that a film has two findings, so a setting that turned the softmax into a sigmoid would train sigmoid channels against an exclusive target, raise nothing, and report plausible numbers meaning exactly what softmax meant. The naming carries the claim, and everything downstream reads `multilabel`.\n\nThe position in this list is the class index, paired with `classes` - so the headers may be called whatever the dataset calls them and the model still learns the classes in the order you named. Stated rather than read off the header row for `channels_from`'s reason: sorting is reproducible and clinically meaningless.\n\n`config_file` mode only, and that is a refusal rather than a gap: an image cannot sit in two directories without being two files, so `nested_dirs` cannot express a set of labels at all.\n\nA cell that is not `0`, `1`, `0.0` or `1.0` is refused by name, and the case that is written for is `-1`. The datasets shaped this way write `-1` for *uncertain* and leave the cell empty for *not mentioned*; both have a defensible mapping to 0 or to 1, which is exactly why this reader must not pick one for you. An image with none of the findings is an ordinary labelled row, written as a line of zeros.\n\n**There is no threshold field.** Each class decides for itself at `logits > 0`, which is a probability of 0.5 exactly, and a threshold is a number about your data rather than one this format should invent. And `accuracy` is refused outright here rather than redefined: measured on 4000 images with findings at 10%, 5%, 3% and 2%, a model answering no to everything scores 0.8137 on exact match and 0.9507 per class, **above a model holding half the available signal** - so neither reading of it can be what a `monitor` watches. Use `balanced_accuracy`, `f1` or `auc`, all of which put that answer below every model with any signal at all.",
+          "title": "Labels From"
+        },
         "mode": {
           "$ref": "#/$defs/DataMode",
           "default": "nested_dirs",
@@ -546,7 +563,7 @@
         },
         "strict_labels": {
           "default": true,
-          "description": "Refuse an image whose label is not in `classes`. False skips it instead, which is how you train on two of a dataset's three classes without moving any files. True by default, and it matters more here than it does for a box: a skipped object leaves the rest of its image in the training set, while a skipped image leaves nothing, so the same setting quietly changes how much data there is.",
+          "description": "Refuse an image whose label is not in `classes`. False skips it instead, which is how you train on two of a dataset's three classes without moving any files. True by default, and it matters more here than it does for a box: a skipped object leaves the rest of its image in the training set, while a skipped image leaves nothing, so the same setting quietly changes how much data there is.\n\nHas nothing to choose between when `labels_from` is given - the columns *are* the classes, so no cell can hold a class nobody named - and `false` is refused there rather than ignored.",
           "title": "Strict Labels",
           "type": "boolean"
         },
@@ -1050,7 +1067,7 @@
       "properties": {
         "data": {
           "$ref": "#/$defs/ClassificationData",
-          "description": "Where the images are and what their labels are called. The label is the directory an image sits in, or a `label` column naming the class."
+          "description": "Where the images are and what their labels are called. The label is the directory an image sits in, a `label` column naming the class, or - when it is a **set** rather than one of alternatives - one column per class under `labels_from`."
         },
         "deterministic": {
           "default": false,
