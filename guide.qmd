@@ -397,6 +397,60 @@ There is no `foreground` to watch either - a classification epoch has no backgro
 and reports no such share - so `terminate_on_collapse` is refused by name rather than
 failing at the end of the first epoch.
 
+### When the label is a set: `labels_from`
+
+A chest film with four findings is **four independent questions** rather than one of four
+alternatives, and `labels_from` is how that is said: one CSV column per class, in class
+order, each cell `0` or `1`.
+
+```yaml
+task: classification
+data:
+  train_path: data/train.csv
+  validation_path: data/validation.csv
+  mode: config_file
+  classes: [atelectasis, effusion, nodule, mass]
+  labels_from: [Atelectasis, Effusion, Nodule, Mass]
+models:
+  - name: ours
+    input_shape: [224, 224]
+    blocks: 4
+    filters: 16
+    loss: {name: cce}
+    metrics: [{name: auc}, {name: f1}]
+```
+
+**It is a naming rather than a switch**, for the reason `regions` and `classes_from` are on
+the mask side: the *target* changes and not only the activation. A `label` column
+structurally cannot say a film has two findings, so a `multilabel: true` would have trained
+sigmoid channels against an exclusive target, raised nothing, and reported plausible numbers
+meaning exactly what softmax meant. The naming carries the claim and everything downstream
+reads it.
+
+**Position is the pairing.** The headers may be called whatever the dataset calls them -
+above they are capitalised and the classes are not - and the model still learns the classes
+in the order `classes` names them. Stated rather than read off the header row for
+`channels_from`'s reason: sorting is reproducible and clinically meaningless.
+
+`config_file` only, and that is a refusal rather than a gap - an image cannot sit in two
+directories without being two files, so `nested_dirs` cannot express a set of labels at all.
+`strict_labels` is refused beside it rather than ignored, because the columns *are* the
+classes and no cell can hold a class nobody named.
+
+**A cell that is not `0`, `1`, `0.0` or `1.0` is refused by name, and the case it is written
+for is `-1`.** The datasets shaped this way write `-1` for *uncertain* and leave the cell
+empty for *not mentioned*; both have a defensible mapping to 0 or to 1, which is exactly why
+this reader must not pick one for you. An image with none of the findings is an ordinary
+labelled row, written as a line of zeros.
+
+**There is no threshold field, and `accuracy` is refused outright rather than redefined.**
+Each class decides for itself at a probability of 0.5, and a threshold is a number about
+your data rather than one this format should invent. On 4000 images with findings at 10%, 5%,
+3% and 2%, a model answering no to everything scores **0.8137** on exact match and **0.9507**
+per class - above a model holding half the available signal - so neither reading of accuracy
+can be what a `monitor` watches. `balanced_accuracy`, `f1` and `auc` all put that answer
+below every model with any signal at all.
+
 ## Not training at all
 
 ```yaml
