@@ -9,7 +9,7 @@ model on distorted data measures the distortion.
 from __future__ import annotations
 
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -1357,17 +1357,36 @@ def summarise_cases(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def labels_in_test_split(data) -> bool:
+def labels_in_test_split(data, *, columns: Sequence[str] | None = None) -> bool:
     """Whether a test split carries labels for anything, without reading any of them.
 
-    Shared by the two engines that read masks, from one place. The question is about the
-    *layout* - is the label subdirectory there and not empty, does the CSV name the column -
-    and the layout is identical whether those files are united into one mask or read as one
-    object each. What differs is everything after they are read.
+    The question is about the *layout* - is the label subdirectory there and not empty,
+    does the CSV name the column - and the layout is identical whether those files are
+    united into one mask or read as one object each. What differs is everything after they
+    are read.
 
-    A function rather than a method on `EngineBase`, for the reason the callback validator
-    in the spec layer is one: detection answers this differently and must not be changed on
-    the way past. The two that share an answer share it; the third keeps its own.
+    `columns` is which CSV columns a label would be read from, defaulting to the one
+    `label_column` names. A label that is a **set** has one column per class, so there are
+    several, and the answer is whether the header names **any** of them: `_discover_test`
+    is built on "none" and "some" being different things, and a file naming two of three
+    classes carries labels for something. The labelled read then refuses it by naming the
+    missing column, which is what should happen - the fallback is for a file that carries
+    no labels at all.
+
+    A function rather than a method on `EngineBase`, and the reason is testable rather
+    than stylistic: it takes a **data block**, so the question can be asked of a
+    specification with nothing built - which is how `#320`'s own test asks it, over header
+    shapes an engine cannot be constructed from at all, because constructing one is what
+    refuses.
+
+    **All four engines call this, and the docstring said for several releases that
+    detection "answers this differently and must not be changed on the way past".** That
+    was false when it was written: detection's own copy was this body verbatim, modulo one
+    `return False` folded into splitting an empty string, and the fields it reads -
+    `label_column`, `subdirs[1]` - are derived per task, which is what makes one function
+    serve all of them. Classification is the one that genuinely differs and it differs
+    *before* this call: its directories are the classes, so in `nested_dirs` mode the
+    split is labelled by construction and it answers without asking the layout anything.
     """
     from pyplatypus.spec.common import DataMode
 
@@ -1378,7 +1397,8 @@ def labels_in_test_split(data) -> bool:
         header = path.read_text().splitlines()[:1]
         if not header:
             return False
-        return data.label_column in [name.strip() for name in header[0].split(",")]
+        named = [name.strip() for name in header[0].split(",")]
+        return any(column in named for column in columns or [data.label_column])
     if not path.is_dir():
         return False
     wanted = data.subdirs[1]

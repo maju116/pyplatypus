@@ -42,7 +42,7 @@ from pyplatypus.detection.metrics import (
     image_report,
 )
 from pyplatypus.detection.yolo3 import build_yolo3
-from pyplatypus.engine import EngineBase, EngineError
+from pyplatypus.engine import EngineBase, EngineError, labels_in_test_split
 from pyplatypus.spec.detection import DetectionModel
 from pyplatypus.spec.spec import (
     ClassificationSpec,
@@ -166,24 +166,16 @@ class DetectionEngine(EngineBase):
         self._discover_splits(discover, strict=strict_data)
 
     def _has_any_labels(self) -> bool:
-        """Whether the test split carries annotations for anything, without reading them."""
-        from pyplatypus.spec.common import DataMode
+        """Whether the test split carries annotations for anything, without reading them.
 
-        path = Path(self.spec.data.test_path)
-        if self.spec.data.mode is DataMode.CONFIG_FILE:
-            if not path.is_file():
-                return False
-            first = path.read_text().splitlines()[:1]
-            header = first[0] if first else ""
-            return self.spec.data.label_column in [name.strip() for name in header.split(",")]
-        if not path.is_dir():
-            return False
-        wanted = self.spec.data.subdirs[1]
-        return any(
-            (entry / wanted).is_dir() and any((entry / wanted).iterdir())
-            for entry in path.iterdir()
-            if entry.is_dir()
-        )
+        The shared question, from the one place that asks it. This carried its own copy of
+        that body until `pyplatypus#320`, and `labels_in_test_split` said in as many words
+        that detection "answers this differently" - which was never true: the two bodies
+        were the same operations in the same order, and what differs between the tasks is
+        `label_column` and `subdirs`, both derived per task. A second copy claiming to be
+        a divergence is the shape §3F of the workbench's notes is a list of.
+        """
+        return labels_in_test_split(self.spec.data)
 
     # ------------------------------------------------------------------ data
     def dataset(

@@ -1,6 +1,107 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a52] - 2026-10-28
+
+**The one task whose whole output is a label per image was the only one that could not
+predict on unlabelled images.** `maju116/pyplatypus#320`.
+
+**The R half: one thing, owed rather than built** - `maju116/rplatypus#245`. On the
+single-label route R is already right: `predict()`'s comment says *"`label` is NA on a
+split that carries no labelling, which is what a test set often is"*, and measured against
+`rows_to_frame`, a `None` from the engine does come back as `NA`. That sentence described a
+state R could not reach until this release, and it is true now rather than aspirational. The
+long form a **set** of labels comes back in is the half that is wrong: `label` is
+`classes %in% as.character(unlist(row$labels))`, which for *nobody said* is
+`FALSE FALSE FALSE` - the same three rows a film carrying none of the findings produces. The
+comment directly above it claims long form is *"the only shape in which 'this image has none
+of the findings' is four rows of FALSE rather than an empty cell that could also mean
+unread"*, so the property that prose rests on is the one that stops holding here. **The pin
+moves with that fix**, because R cannot reach this state against an older engine.
+
+### Fixed
+
+ - **A classification test set of images alone was refused**, where every other task in this
+   package accepts one. `ClassificationEngine._has_any_labels()` returned `True`
+   unconditionally while its own docstring described the distinction it was not making - *"in
+   `nested_dirs` mode the label is the directory ... a CSV may name no label column at all"* -
+   so `_discover_test`'s fallback was unreachable and a `key, images` CSV as `test_path` died
+   in the labelled read. Three legs, measured: the labelled read refuses with
+   `needs a 'label' column`; the **same file** read `only_images=True` is accepted at four
+   samples; and `_has_any_labels()` answering `True` is the only reason leg 2 was never
+   reached. The reader could already do it and nothing asked.
+
+   It answers now: `True` in `nested_dirs` mode, because the directory *is* the label and
+   there is no unlabelled form of that layout to fall back to; otherwise whether the test
+   CSV's header names the column a label would be read from. **For a set of labels that is
+   `labels_from`'s columns rather than `label`**, and the answer is whether the header names
+   **any** of them - `_discover_test` is built on *none* and *some* being different things,
+   so a file naming two of three classes still refuses by naming the third instead of
+   quietly becoming an unlabelled split and reporting nothing about the two that are there.
+
+ - **Two guards that could not fire became reachable, and both were wrong in the state they
+   had never been in.** This is the honest cost of the fix rather than scope: `#320` is
+   closed by one method, and making a state reachable is what obliges the code that meets it.
+
+   `balance()` on an unlabelled split counted it anyway and reported **every class at zero**,
+   with `never` listing all of them and `labels_are_a_set` reading `False` whatever the
+   specification said - three readings that look like findings about a dataset and are
+   findings about there being no labels. §4's *a zero in a table is read as a result*. It
+   refuses by name now, in its own sentence rather than `_needs_labels`'s: that one says
+   *there is nothing to score against* and is about asking a model for a number, and this is
+   a question about the data with no model in it.
+
+   `answers()` reported `labels: []` for an image nobody had labelled, which is exactly how
+   it reports **an image carrying none of the findings** - a labelled row, and the commonest
+   one in every dataset this reads, as the reader's own comment says. `None` now, which is
+   the marker the reader already uses and what the single-label branch has always said.
+
+### Changed
+
+ - **One reader for the header question, and the claim that said there could not be one was
+   false.** `labels_in_test_split`'s docstring said detection *"answers this differently and
+   must not be changed on the way past"*; detection's own `_has_any_labels` was that
+   function's body verbatim, modulo one `return False` folded into splitting an empty string.
+   What differs between the tasks is `label_column` and `subdirs`, both derived per task,
+   which is what lets one function serve all of them - and classification would have been a
+   fourth copy. All four engines call it now, `columns` says which CSV columns to ask about,
+   and the one genuine difference is classification's and happens *before* the call.
+
+   **Measured rather than asserted, by mutating each branch and running each task's suite
+   separately** - and the table is the finding, not the convergence:
+
+       nested-dirs branch -> always labelled   CAUGHT by detection, segmentation
+                                               uncaught by instance, classification
+       CSV branch -> never labelled            CAUGHT by classification only
+
+   So detection does depend on the shared function, which is what the convergence needed to
+   show. And **the CSV half of this question had no test in any suite before this release**:
+   the two tasks that read a CSV test split never exercise it, so detection's own copy of
+   that branch was untested code for its whole life. The tests added here are the first.
+
+ - `tests/test_engine_base.py`'s structural columns are **four** - `classification` arrived in
+   `0.8.0a49` and that file never grew a column for it, and the question it would have been
+   asked there is the one whose answer was `return True`. Its behavioural columns are still
+   three and are recorded in the file as owed: they need a built engine with its own layout
+   and a `_needs_*` wrapper this engine does not have.
+
+ - No guide section, which is a decision rather than an omission. Neither guide says a test
+   split must be labelled for any task, so §3C's *a change to how a run is written* is not
+   triggered - nothing about the configuration format changed, a CSV simply has one column
+   fewer. The subsection worth writing is *predicting on a folder of images you have no
+   labels for*, and it belongs on **both** sides at once; written here alone it would
+   document, in the shared guide, a capability an R reader cannot use until the pin moves. So
+   it is a task on `maju116/rplatypus#245` rather than a section here.
+
+ - **One defect found while writing these tests and filed rather than fixed** -
+   `maju116/pyplatypus#321`. The control for an unlabelled split needed a labelled one beside
+   it, and `answers(split="train")` was the obvious place to get it: it comes back in the
+   training loader's **shuffled** order, so each key is paired with another image's
+   probabilities. Two `predict("train")` calls on one split are a permutation of each other,
+   and at 16 samples with `batch_size: 8` nothing is dropped, so nothing refuses. It has
+   nothing to do with labels being absent, so it is not repaired here - the test's control
+   reads the `validation` split instead, and says why.
+
 ## [0.8.0a51] - 2026-10-28
 
 **Two defects found by reading the task that had just shipped, and one new instrument.**
