@@ -1,6 +1,66 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a53] - 2026-10-28
+
+**A method that asks what the model said was handed the loader built for optimising over.**
+`maju116/pyplatypus#321`.
+
+**The R half: none beyond the pin - and that is not *R needs nothing*.** This is a defect an
+R user meets, through `predict(fit, split = "train")` and `evaluate(fit, "train")`, and the
+fix reaches them by the pin moving and by nothing else. §1 records `0.8.0a47` and `a48` as
+the two releases that taught this distinction, and §3E read literally would say to leave the
+pin alone on all three. The pin is moving anyway for `maju116/rplatypus#245`, so one move
+carries both - the ratchet rather than two R releases.
+
+### Fixed
+
+ - **`predict(split="train")` came back in the training loader's shuffled order**, so
+   `answers()` paired every key with **another image's** probabilities. `loader()` derived
+   both `shuffle` and `drop_last` from `split == "train"`, which is right for the pass that
+   optimises and wrong for every method that asks a question - and `predict`'s own docstring
+   promises *"in the split's own order"*.
+
+   Measured: two `predict(split="train")` calls on one split are **a permutation of each
+   other** - the same multiset of rows, not one row in place - and at 16 samples with
+   `batch_size: 8` nothing is dropped, so no count disagreed and nothing refused.
+   `answers()` then reported `label == predicted` on 8 of 16 training images, which is
+   chance on two classes.
+
+   `drop_last` is the same defect reading as a score rather than as rows: `evaluate("train")`
+   scored **only the images that fit a whole batch** and reported the number as that split's,
+   and `answers("train")` on a ragged count ended in
+   `ValueError: zip() argument 2 is shorter` three layers from the cause.
+
+   Both flags are the caller's now, defaulting to ordered and complete, and **`fit` is the
+   only caller that asks for either**. That is not a new parameter: the three other engines
+   already take `shuffle` from the caller and every asking site in them passes `False`, so
+   this is one question answered four times with the odd one out being the bug - the same
+   shape `_has_any_labels` had in `0.8.0a52`, one release earlier.
+
+   **The two flags stay separate rather than travelling under one name**, measured rather
+   than tidy: `drop_last` was independent of `data.shuffle`, so keying it to shuffling would
+   stop dropping the ragged last batch for anybody running `shuffle: false` - and a last
+   batch of one is a batch-norm with nothing to normalise over, which is the whole reason
+   the flag exists here. The `len(base) > batch_size` guard stays inside `loader()`: a split
+   smaller than one batch would otherwise be emptied by the flag `fit` always passes.
+
+### Changed
+
+ - **The test that pinned the old behaviour was named for two properties and asserted one.**
+   `test_the_loader_shuffles_training_only_and_drops_a_lone_last_batch` checked `drop_last`
+   and said nothing about shuffling, which is why `predict` could come back in it. It is
+   replaced by one that asserts the asking defaults, the capability `fit` asks for, and the
+   inner guard at its boundary - eight samples against a batch of eight, where dropping
+   would leave nothing.
+
+   And moving a decision to a caller needs the caller pinned: a mutation making `fit` pass
+   `shuffle=False` left **all 29 other tests in this file green**. Training a classifier on
+   batches that are each one class is a real degradation and no number in this suite would
+   have moved. So `fit`'s own request is recorded off `loader` and asserted, with
+   `shuffle: false` in the data block as the control that the value is read from the
+   specification rather than hard-coded. Five mutations, five caught.
+
 ## [0.8.0a52] - 2026-10-28
 
 **The one task whose whole output is a label per image was the only one that could not

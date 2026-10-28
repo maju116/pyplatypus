@@ -194,22 +194,52 @@ class ClassificationEngine(EngineBase):
             only_images=split not in self.labelled,
         )
 
-    def loader(self, model_name: str | None, split: str, *, augment: bool | None = None):
-        """Shuffled on the training split and ordered everywhere else.
+    def loader(
+        self,
+        model_name: str | None,
+        split: str,
+        *,
+        augment: bool | None = None,
+        shuffle: bool = False,
+        drop_last: bool = False,
+    ):
+        """Ordered and complete unless the caller says otherwise, which only `fit` does.
 
-        `drop_last` on training, and that is not a default copied from anywhere: a last
-        batch of one is a batch-norm with nothing to normalise over, and this task's batches
-        are images rather than tiles so a dropped one costs a single example.
+        **Both flags used to be derived from `split == "train"` here, and that was
+        `pyplatypus#321`.** A method that asks what the model said got the loader built for
+        optimising over, so `predict` came back in the shuffled order its own docstring
+        promises the split's own order, and `answers` paired each key with **another
+        image's** probabilities. Measured: two `predict(split="train")` calls on one split
+        are a permutation of each other - the same multiset of rows, not one row in place -
+        and at 16 samples with `batch_size: 8` nothing is dropped, so no count disagreed
+        and nothing refused.
+
+        The three other engines take `shuffle` from the caller and every asking site passes
+        `False`; this one derived it. So this is not a new parameter but the shape its
+        siblings already have, which is also what makes the defect legible: one question
+        answered four times, three the same way, and the odd one out is the bug.
+        `_has_any_labels` was the same shape one release earlier.
+
+        **The two flags stay separate rather than travelling under one name**, and that is
+        measured rather than tidy: `drop_last` was `training and len(base) > batch_size`,
+        independent of `data.shuffle`, so keying it to shuffling would stop dropping the
+        ragged last batch for anybody running `shuffle: false` - and a last batch of one is
+        a batch-norm with nothing to normalise over, which is the whole reason the flag is
+        here. This task's batches are images rather than tiles, so a dropped one costs a
+        single example.
+
+        The `len(base) > batch_size` guard stays inside rather than moving to the caller: a
+        split smaller than one batch would otherwise be emptied by the flag `fit` always
+        passes, and that is a property of the data rather than a decision `fit` is making.
         """
         model_spec = self._model_spec(model_name)
         base = self.dataset(model_name, split, augment=augment)
-        training = split == "train"
         return make_classification_loader(
             base,
             batch_size=model_spec.batch_size,
-            shuffle=training and self.spec.data.shuffle,
+            shuffle=shuffle,
             num_workers=self.num_workers,
-            drop_last=training and len(base) > model_spec.batch_size,
+            drop_last=drop_last and len(base) > model_spec.batch_size,
         )
 
     def balance(self, split: str = "train") -> ClassBalance:
@@ -262,7 +292,14 @@ class ClassificationEngine(EngineBase):
                 else None
             )
             history = trainer.fit(
-                self.loader(model_spec.name, "train"),
+                # The one caller that is optimising rather than asking, so the one that
+                # asks for shuffling and for a ragged last batch to be dropped.
+                self.loader(
+                    model_spec.name,
+                    "train",
+                    shuffle=self.spec.data.shuffle,
+                    drop_last=True,
+                ),
                 validation,
                 verbose=verbose,
             )

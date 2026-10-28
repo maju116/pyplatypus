@@ -176,14 +176,42 @@ def test_only_the_training_split_is_augmented(tmp_path):
     assert engine.dataset(None, "validation", augment=True).augmenter is not None
 
 
-def test_the_loader_shuffles_training_only_and_drops_a_lone_last_batch(tmp_path):
+def test_the_loader_is_ordered_and_complete_unless_the_caller_asks_otherwise(tmp_path):
+    """Both flags belong to the caller, which is `pyplatypus#321`: derived from
+    `split == "train"` here, they reached every method that *asks* what the model said.
+
+    The test this replaces was called `..._shuffles_training_only_and_drops_a_lone_last_batch`
+    and asserted `drop_last` alone - the shuffling in its own name was never checked by
+    anything, which is why `predict` could come back in it.
+    """
+    from torch.utils.data import RandomSampler, SequentialSampler
+
     root = tree(tmp_path / "set", {"benign": 20, "malignant": 20})
     engine = engine_for(data(root, split=split()), [model(batch_size=8)], seed=0)
-    train = engine.loader(None, "train")
-    validation = engine.loader(None, "validation")
-    assert train.drop_last is True
-    assert validation.drop_last is False
-    assert train.batch_size == 8
+
+    for split_name in ("train", "validation"):
+        asked = engine.loader(None, split_name)
+        assert isinstance(asked.sampler, SequentialSampler), split_name
+        assert asked.drop_last is False, split_name
+    assert engine.loader(None, "train").batch_size == 8
+
+    # And the capability `fit` asks for still exists, which is the half that makes the
+    # defaults above a decision rather than a removal.
+    optimising = engine.loader(None, "train", shuffle=True, drop_last=True)
+    assert isinstance(optimising.sampler, RandomSampler)
+    assert optimising.drop_last is True
+    assert list(iter(optimising.sampler)) != list(iter(optimising.sampler)), (
+        "two passes over a shuffling sampler gave the same order, so nothing here would "
+        "notice a method that asked for it by accident"
+    )
+
+    # The guard that stays inside: a split smaller than one batch must not be emptied by
+    # the flag `fit` always passes, and that is a property of the data rather than a
+    # decision `fit` is making.
+    # `<=`, because the guard is `len(base) > batch_size` and the boundary is the point:
+    # eight samples are one batch of eight, and dropping it would leave nothing at all.
+    assert len(engine._samples["test"]) <= 8
+    assert engine.loader(None, "test", drop_last=True).drop_last is False
 
 
 # ------------------------------------------------------------------------- a run
@@ -714,3 +742,116 @@ def test_an_unlabelled_split_has_no_balance_to_report(tmp_path):
 
     counted = engine.balance("train")
     assert counted.total == 12 and sum(counted.counts.values()) == 12
+
+
+# ------------------------------- the loader a question asks for, `pyplatypus#321`
+
+
+def test_predict_comes_back_in_the_splits_own_order_on_the_training_split(tmp_path):
+    """`predict`'s own docstring promises the split's own order and the training split did
+    not have it, because the method reused the loader built for optimising.
+
+    Two calls, asserted **identical row for row** rather than as the same set: today they
+    were a permutation of each other - same multiset of rows, not one row in place - so an
+    assertion about sets would have passed throughout. The control is the sampler beside
+    it: shuffling exists and would still break this, which is what makes the identity worth
+    asserting.
+    """
+    import numpy as np
+    from torch.utils.data import SequentialSampler
+
+    root = tree(tmp_path / "set", {"benign": 12, "malignant": 12})
+    engine = engine_for(data(root, split=split()), [model(epochs=1)], seed=0)
+    engine.fit()
+
+    first, second = engine.predict(split="train"), engine.predict(split="train")
+    assert first.shape == (len(engine._samples["train"]), 2)
+    assert np.array_equal(first, second), "two predictions of one split disagree"
+
+    # the control, in both directions: this loader does not shuffle, and one that does
+    # gives an order that is not the split's
+    assert isinstance(engine.loader(None, "train").sampler, SequentialSampler)
+    shuffled = engine.loader(None, "train", shuffle=True)
+    assert list(iter(shuffled.sampler)) != list(range(len(engine._samples["train"]))), (
+        "the shuffling sampler handed back the split's own order, so this test could not "
+        "have failed before the fix either"
+    )
+
+
+def test_answers_pairs_every_key_with_its_own_label_on_a_ragged_training_split(tmp_path):
+    """A count that is not a multiple of `batch_size`, which is where this used to end in
+    `ValueError: zip() argument 2 is shorter than argument 1` three layers from the cause -
+    and where `evaluate` scored only the images that fit a whole batch and reported the
+    number as the split's.
+
+    The raggedness is asserted rather than hoped for: with a count that happens to divide,
+    nothing here is about `drop_last` at all.
+    """
+    root = tree(tmp_path / "set", {"benign": 8, "malignant": 7})
+    engine = engine_for(
+        data(root, split=split((0.7, 0.15, 0.15))), [model(epochs=1, batch_size=8)], seed=0
+    )
+    engine.fit()
+
+    samples = engine._samples["train"]
+    assert len(samples) % 8 != 0, "the training split divides evenly, so this proves nothing"
+
+    rows = engine.answers(split="train")
+    assert len(rows) == len(samples), "a row per image, including the ragged last batch"
+    beside = {row["key"]: row["label"] for row in rows}
+    assert beside == {sample.key: sample.label for sample in samples}
+
+    # and the whole split reaches `evaluate`, which is the same defect reading as a score
+    assert len(engine.loader(None, "train")) == 2
+    assert len(engine.loader(None, "train", drop_last=True)) == 1
+
+
+def test_fit_is_the_only_caller_that_asks_to_shuffle_and_to_drop(tmp_path):
+    """The contract the defect's repair rests on, and nothing was asserting it.
+
+    Moving both flags to the caller is only right if the one caller that needs them asks:
+    a mutation making `fit` pass `shuffle=False` left all 29 other tests in this file
+    green, which is the shape of a capability nobody pins. Training a classifier on
+    batches that are each one class is a real degradation and no number here would have
+    moved.
+
+    Recorded off `loader` itself rather than inferred from a trained model, because the
+    question is which arguments were asked for.
+    """
+    root = tree(tmp_path / "set", {"benign": 12, "malignant": 12})
+    engine = engine_for(data(root, split=split()), [model(epochs=1)], seed=0)
+
+    asked = []
+    original = engine.loader
+
+    def recording(model_name, split_name, **kwargs):
+        asked.append((split_name, kwargs.get("shuffle", False), kwargs.get("drop_last", False)))
+        return original(model_name, split_name, **kwargs)
+
+    engine.loader = recording
+    engine.fit()
+    assert ("train", True, True) in asked, asked
+    assert ("validation", False, False) in asked, asked
+
+    # and every method that ASKS what the model said asks for neither
+    asked.clear()
+    engine.predict(split="train")
+    engine.predict_labels(split="train")
+    engine.answers(split="train")
+    engine.evaluate("train")
+    assert asked, "nothing went through the loader, so this half proves nothing"
+    assert all(shuffle is False and drop is False for _, shuffle, drop in asked), asked
+
+    # The control that `fit` reads the specification rather than hard-coding a shuffle:
+    # `shuffle: false` is a decision a user can write down, and it has to arrive.
+    quiet = engine_for(data(root, split=split(), shuffle=False), [model(epochs=1)], seed=0)
+    seen = []
+    plain = quiet.loader
+
+    def watching(model_name, split_name, **kwargs):
+        seen.append((split_name, kwargs.get("shuffle", False)))
+        return plain(model_name, split_name, **kwargs)
+
+    quiet.loader = watching
+    quiet.fit()
+    assert ("train", False) in seen, seen
