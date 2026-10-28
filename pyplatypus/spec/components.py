@@ -797,6 +797,21 @@ _LABEL_METRIC_NAME = (
 class _LabelMetric(SpecModel):
     """One label per image, scored over a whole pass."""
 
+    #: Whether this metric means anything when a label is a **set** rather than one of a
+    #: set of alternatives - `labels_from`, where every class is an independent question.
+    #: The same shape of claim as `_Loss.supports_multilabel` and in the same layer, for the
+    #: same reason: the refusal belongs before anything is built, and the specification
+    #: cannot ask a metric object because it must not import torch.
+    #:
+    #: True for every one of these but `accuracy`, and that exception is measured. On 4000
+    #: images at a prevalence of 10%, 5%, 3% and 2%, a model answering no to every class
+    #: scores **above** the model holding half the available signal on both readings of
+    #: accuracy - 0.8137 against 0.8023 on exact match, 0.9507 against 0.9477 per class -
+    #: while balanced accuracy, F1 and the AUC all put that answer below every model with
+    #: any signal at all. A number that rewards giving up cannot be what a `monitor`
+    #: watches. `pyplatypus#307`.
+    supports_multilabel: ClassVar[bool] = True
+
 
 class AccuracyMetric(_LabelMetric):
     """The share of images whose label was right - offered, and not the default.
@@ -808,6 +823,8 @@ class AccuracyMetric(_LabelMetric):
     It is here because it is the number people ask for, and its own docstring in
     `objectives.classification` carries the table.
     """
+
+    supports_multilabel: ClassVar[bool] = False
 
     name: Literal["accuracy"] = Field("accuracy", description=_LABEL_METRIC_NAME)
 

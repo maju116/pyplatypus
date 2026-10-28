@@ -1,5 +1,6 @@
 from pyplatypus.objectives.classification import (
     ClassificationMetric,
+    MultiLabelMetric,
     build_classification_metric,
     build_classification_metrics,
 )
@@ -8,6 +9,7 @@ from pyplatypus.objectives.metrics import SegmentationMetric, build_metric, buil
 
 __all__ = [
     "ClassificationMetric",
+    "MultiLabelMetric",
     "SegmentationLoss",
     "SegmentationMetric",
     "build_classification_metric",
