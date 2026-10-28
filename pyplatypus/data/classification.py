@@ -1,4 +1,4 @@
-"""One image, one label, and the two places that label can be written.
+"""One image, its label, and the three places that label can be written.
 
 The segmentation walk reads a sample as a directory holding the image in one subdirectory
 and what labels it in the other. A classification sample is a single file whose class is
@@ -16,12 +16,21 @@ prefer a `key` column to a row number.
 the number every decision about a classifier's metrics rested on. So it reports it rather
 than leaving it to be discovered from a disappointing score: `ClassBalance` is what
 `inspect_masks` is for a mask.
+
+**The third place is one column per class, and it is what makes the label a SET** - a chest
+film with four findings is four independent questions rather than one of four alternatives.
+That is `classes_from`'s shape one task across, which is why it is a naming rather than a
+switch: `colormap` and `labels` structurally cannot say that a voxel is in two classes, and
+a `label` cell cannot say that a film has two findings, so a setting that only changed the
+activation would train sigmoid channels against an exclusive target and report plausible
+numbers meaning what softmax meant. The naming carries the claim. `pyplatypus#307`.
 """
 
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -47,13 +56,72 @@ class ClassBalance:
     accuracy, balanced accuracy and F1 all report a collapse and a real signal as the same
     number. A reader that knows the prevalence and does not say it leaves that to be
     discovered from a score that looks fine.
+
+    **When the label is a set the counts stop being a partition**, which is the one thing
+    about this class that changes: four findings on one film are four counts and one image,
+    so `images` is given rather than derived and each share is that class's own. The shares
+    then do not add up to 100%, and `__str__` says so where the column is - a column of
+    percentages is the one thing a reader assumes sums.
     """
 
     counts: dict[str, int]
+    images: int | None = None
 
     @property
     def total(self) -> int:
-        return sum(self.counts.values())
+        """How many images were counted.
+
+        `images` is `None` for a label that is one of a set of alternatives, where the
+        counts **partition** the images and their sum is therefore the same number - and it
+        is set when the label is a set, where it is not. Deriving it from the sum in both
+        cases would read as a total and be the number of *labels*, which is larger than the
+        dataset and divides every share by the wrong thing.
+        """
+        return self.images if self.images is not None else sum(self.counts.values())
+
+    @property
+    def labels_are_a_set(self) -> bool:
+        """Whether an image may carry several of these classes at once.
+
+        Read off `images` having been given rather than off the arithmetic, and the
+        difference matters: a multi-label set where every image happens to carry exactly
+        one finding has counts that sum to the image count, and it is still a set.
+        """
+        return self.images is not None
+
+    @property
+    def labels_per_image(self) -> float:
+        """Labels divided by images: 1.0 exactly when the label is one of alternatives.
+
+        The one number that says what shape the labelling is, and it is here because the
+        shares cannot say it - four classes at 25% each read the same whether every image
+        has one finding or a quarter of them have all four.
+        """
+        return sum(self.counts.values()) / self.total if self.total else 0.0
+
+    @property
+    def never(self) -> list[str]:
+        """Classes no image in this set carries.
+
+        Named because it is the reading that predicts a refusal three layers away: every
+        per-class metric this task offers averages over the classes and refuses one the
+        pass holds no positive of, so this is what a run is about to die of at the end of
+        its first epoch.
+        """
+        return [name for name, count in self.counts.items() if count == 0]
+
+    @property
+    def always(self) -> list[str]:
+        """Classes every image in this set carries, which only a set of labels can have.
+
+        The other half of the same refusal: a finding present in every image has no
+        negative, so a specificity and therefore a balanced accuracy have nothing to
+        average. With one label out of alternatives this is empty by construction - two
+        classes are named at a minimum and each image has one - which is why it costs
+        nothing to ask in both cases.
+        """
+        total = self.total
+        return [name for name, count in self.counts.items() if total and count == total]
 
     @property
     def rarest(self) -> tuple[str, int]:
@@ -77,6 +145,7 @@ class ClassBalance:
             "classes": float(len(self.counts)),
             "rarest": float(self.rarest[1]),
             "prevalence": self.prevalence,
+            "labels_per_image": self.labels_per_image,
             **{f"n_{key}": float(value) for key, value in self.counts.items()},
         }
 
@@ -94,11 +163,29 @@ class ClassBalance:
             for name, count in self.counts.items()
         )
         name, _ = self.rarest
-        lines = [
-            f"{self.total} images in {len(self.counts)} classes",
-            rows,
-            f"  rarest: {name} at {self.prevalence:.2%}",
-        ]
+        heading = f"{self.total} images in {len(self.counts)} classes"
+        if self.labels_are_a_set:
+            heading += f", {self.labels_per_image:.2f} labels per image"
+        lines = [heading, rows]
+        if self.labels_are_a_set:
+            # Said where the arithmetic is visible rather than in a docstring nobody is
+            # reading at that moment: the percentages in the rows above do not add up to
+            # 100, and a column of shares is the one thing a reader assumes does.
+            lines.append(
+                "  each share is that class's own and they do not add up - a label is a set"
+            )
+        lines.append(f"  rarest: {name} at {self.prevalence:.2%}")
+        # Before the threshold sentence, because these two are a refusal waiting to happen
+        # and that one is advice.
+        for named, what, why in (
+            (self.never, "never present", "no positive"),
+            (self.always, "present in every image", "no negative"),
+        ):
+            if named:
+                lines.append(
+                    f"  {', '.join(named)}: {what}, so every per-class metric here has "
+                    f"{why} to average for it and will refuse"
+                )
         # Only where it is true. A warning that fires on a balanced set is a warning people
         # learn to skip, and then it is not there on the set it was written for - which is
         # the same reasoning `terminate_on_collapse` is reported unconditionally for and
@@ -184,10 +271,55 @@ def _check_labels(
     return kept, skipped
 
 
+def _check_every_class_is_answerable(samples: list[Sample], classes: list[str], root: Path) -> None:
+    """Both sides of every class, for a label that is a set.
+
+    The single-label walk refuses a class with no images, and the argument is the same one
+    step across - except that an independent question can fail in **two** directions. A
+    finding no image carries has no positive to average a recall over; a finding every
+    image carries has no negative to average a specificity over. `MultiLabelMetric` refuses
+    both at the end of the first epoch, after the epoch is paid for, and the message it can
+    write there cannot say which file to look at.
+
+    Refused rather than reported, which is the choice `classes` makes available: a column
+    that is all zeros is a class to take out of `classes` and `labels_from`, and that is a
+    sentence somebody writes rather than a column somebody forgot.
+    """
+    # No guard for an empty `samples`, and that was a guard here for an hour: the shared
+    # CSV reader calls `finish` before this is reached, and `finish` refuses a read with no
+    # usable samples whatever `strict` says. So the comfortable-looking check - *say nothing
+    # about the classes when nothing was read* - is unreachable, and a test written for it
+    # passed with it deleted. Said here so that it is not added back on the same reasoning.
+    counted = Counter(name for sample in samples for name in (sample.labels or ()))
+    for named, side, what in (
+        ([name for name in classes if counted[name] == 0], "no image", "a positive"),
+        (
+            [name for name in classes if counted[name] == len(samples)],
+            "every image",
+            "a negative",
+        ),
+    ):
+        if not named:
+            continue
+        raise LabelError(
+            f"{side} in '{root}' carries {', '.join(named)}, so there is never "
+            f"{what} to score {'it' if len(named) == 1 else 'them'} against. Every metric "
+            f"this task offers for a set of labels averages over the classes and refuses "
+            f"one it holds a single side of - which would happen at the end of the first "
+            f"epoch instead of here. Take the class out of `classes` and out of "
+            f"`labels_from` if it is not really in this dataset."
+        )
+
+
 def discover_labelled(
-    root: str | Path, data: ClassificationData, *, only_images: bool = False, strict: bool = True
+    root: str | Path,
+    data: ClassificationData,
+    *,
+    only_images: bool = False,
+    strict: bool = True,
+    label_columns: Sequence[str] | None = None,
 ) -> Discovery:
-    """The samples under `root`, each carrying the name of its class.
+    """The samples under `root`, each carrying the name of its class - or the set of them.
 
     **A class named in `classes` and holding no image is refused**, by name. The
     alternative is to train on what is there, and then nothing says which class the model
@@ -195,10 +327,34 @@ def discover_labelled(
     first epoch instead, three layers from the cause, and accuracy would report a figure
     that looks fine. `classes` is the thing to shorten when a class genuinely is not in a
     dataset, which is a sentence somebody writes rather than a directory somebody forgot.
+
+    `label_columns` is one CSV column per class, in class order, and it is what makes the
+    label a **set**: the sample then carries `labels` rather than `label`. It is passed in
+    rather than read off `data` because the specification has no field for it yet - the
+    field lands last, after the trainer, so that nothing in a configuration can describe a
+    feature the run would get wrong. From slice 4 on, the engine reads it off
+    `data.labels_from` and this stays the one place it is honoured.
     """
     root = Path(root)
     if not root.exists():
         raise ConfigError(f"'{root}' does not exist")
+
+    if label_columns is not None and data.mode is DataMode.NESTED_DIRS:
+        # A plain refusal rather than the message a person writing YAML needs, which is the
+        # specification's to write once `labels_from` exists there: an image cannot sit in
+        # two directories without being two files, so this layout cannot express a set at
+        # all. Here the combination is simply impossible to serve.
+        raise ConfigError(
+            "a label that is a set is read from one column per class, which is "
+            "`config_file` mode; `nested_dirs` makes the directory the label and an image "
+            "sits in one directory"
+        )
+    if label_columns is not None and len(label_columns) != len(data.classes):
+        raise ConfigError(
+            f"one column per class, in class order: `classes` names {len(data.classes)} "
+            f"and {len(label_columns)} column(s) were given. The position is the class "
+            f"index, so a shorter list is not a subset - it is a different pairing."
+        )
 
     if data.mode is DataMode.NESTED_DIRS:
         if not root.is_dir():
@@ -224,15 +380,38 @@ def discover_labelled(
             strict=strict,
             label_column=data.label_column,
             label_is_a_name=True,
+            label_columns=label_columns,
         )
         if only_images:
             return found
-        samples, skipped = _check_labels(
-            list(found.samples), data.classes, data.strict_labels, root
-        )
-        skipped = list(found.skipped) + skipped
+        if label_columns is not None:
+            # Nothing to check a name against: the columns *are* the classes, paired by
+            # position, so there is no cell that could hold a class nobody named. That is
+            # also why `strict_labels` has nothing to do on this route - the state it
+            # chooses between cannot arise - and the specification refuses it as a written
+            # field rather than this reader ignoring it quietly.
+            #
+            # **The column is renamed to the class here and not in the CSV reader**, which
+            # knows about files and not about `classes`. The pairing is by position, so a
+            # dataset whose headers are `Atelectasis` and `Effusion` reaches everything
+            # downstream as whatever `classes` calls them - and a reader that left the
+            # headers in would make the class index depend on the CSV, which is the one
+            # thing `classes` exists to stop.
+            renamed = dict(zip(label_columns, data.classes, strict=True))
+            samples = [
+                replace(sample, labels=tuple(renamed[name] for name in sample.labels or ()))
+                for sample in found.samples
+            ]
+            skipped = list(found.skipped)
+        else:
+            samples, skipped = _check_labels(
+                list(found.samples), data.classes, data.strict_labels, root
+            )
+            skipped = list(found.skipped) + skipped
 
-    if not only_images:
+    if not only_images and label_columns is not None:
+        _check_every_class_is_answerable(samples, data.classes, root)
+    elif not only_images:
         present = {sample.label for sample in samples}
         missing = [name for name in data.classes if name not in present]
         if missing:
@@ -259,6 +438,13 @@ class ClassificationDataset:
     and unrelated to anything - so a model trained where 0 meant `benign` and used where it
     means `malignant` would report plausible probabilities with nothing downstream able to
     tell.
+
+    **Whether the label is a set is read off the samples rather than passed in**, and that
+    is the same decision `DataSpec.multilabel` makes one task across: the naming carries
+    the claim. A sample read from one column per class carries `labels`; one read from a
+    directory or a `label` cell carries `label`. So nothing here can be told that a set of
+    labels is exclusive, which is the state that trains, raises nothing and reports numbers
+    meaning what softmax meant.
     """
 
     def __init__(
@@ -276,6 +462,34 @@ class ClassificationDataset:
         self.augmenter = augmenter
         self.only_images = only_images
         self._index = {name: position for position, name in enumerate(data.classes)}
+        self.multilabel = self._labels_are_a_set()
+
+    def _labels_are_a_set(self) -> bool:
+        """One shape for the whole set, or a refusal naming the samples that disagree.
+
+        A mixed set is refused rather than resolved either way, because both resolutions
+        are wrong in a way nothing downstream can see: read as exclusive, the rows carrying
+        several findings lose all but one of them to the `argmax` that builds the target;
+        read as a set, the rows carrying a `label` reach a sigmoid head as an all-zero
+        target and the model is trained that every finding is absent from them.
+
+        An unlabelled set - `only_images`, which is how a prediction split arrives - has
+        nothing to read, and the answer there is `False` by construction rather than by
+        guess: the trainer takes the activation from the specification, because a model
+        that has been trained knows what it answers and the pictures it is pointed at do
+        not.
+        """
+        kinds = {sample.labels is not None for sample in self.samples}
+        if len(kinds) > 1:
+            mixed = [sample.key for sample in self.samples if sample.labels is None]
+            shown = ", ".join(mixed[:5]) + (" ..." if len(mixed) > 5 else "")
+            raise LabelError(
+                f"{len(mixed)} of {len(self.samples)} samples carry one label where the "
+                f"rest carry a set of them: {shown}. One reading has to be wrong for some "
+                f"of them and neither is visible in any number a run produces, so this is "
+                f"refused - the labelling of a dataset is one shape."
+            )
+        return kinds == {True}
 
     #: There are no tiles, and the loader asks. One rather than a property that raises, so
     #: `make_loader`'s window logic reads the same answer it would read for an untiled
@@ -297,16 +511,56 @@ class ClassificationDataset:
                 f"{', '.join(self.data.classes)}"
             ) from None
 
+    def labels_of(self, sample: Sample) -> np.ndarray:
+        """One row of the multi-hot target: a column per class, 1 where it is present.
+
+        `float32` rather than a boolean or an index, because this is the target a loss
+        reads: `binary_cross_entropy` multiplies by it, and an integer target would make
+        the product an integer tensor on the first term. The dtype is also what tells
+        `as_onehot` to leave it alone - it passes a floating target of the right width
+        through untouched, and an integer one it would expand as indices.
+        """
+        row = np.zeros(len(self.data.classes), dtype=np.float32)
+        for name in sample.labels or ():
+            try:
+                row[self._index[name]] = 1.0
+            except KeyError:
+                raise LabelError(
+                    f"'{sample.key}' carries '{name}', which is not one of "
+                    f"{', '.join(self.data.classes)}"
+                ) from None
+        return row
+
     def labels(self) -> np.ndarray:
-        """Every sample's class index, in order - what a stratified split would read."""
+        """Every sample's label, in order: indices, or a multi-hot row each.
+
+        **Not what the stratified split reads**, which this docstring claimed until the set
+        of labels arrived: `stratified_split` works on `Sample` objects and reads
+        `sample.label` itself, and a claim about a caller that does not exist is the shape
+        §4 of the workbench's notes is a list of. What this is for is looking at a split's
+        labelling without iterating the images, which is the only reason it is cheap.
+        """
+        if self.multilabel:
+            return np.stack([self.labels_of(sample) for sample in self.samples])
         return np.array([self.label_of(sample) for sample in self.samples], dtype=np.int64)
 
     def balance(self) -> ClassBalance:
-        """Counted in `classes` order rather than in whatever order the labels arrived."""
+        """Counted in `classes` order rather than in whatever order the labels arrived.
+
+        With a set of labels the image count is passed in rather than summed, because the
+        counts no longer partition anything: four findings on one film are four counts and
+        one image, and a total taken as their sum would be larger than the dataset.
+        """
+        if self.multilabel:
+            seen = Counter(name for sample in self.samples for name in (sample.labels or ()))
+            return ClassBalance(
+                counts={name: seen.get(name, 0) for name in self.data.classes},
+                images=len(self.samples),
+            )
         seen = Counter(sample.label for sample in self.samples)
         return ClassBalance(counts={name: seen.get(name, 0) for name in self.data.classes})
 
-    def __getitem__(self, index: int) -> tuple[np.ndarray, np.int64 | None]:
+    def __getitem__(self, index: int) -> tuple[np.ndarray, np.int64 | np.ndarray | None]:
         if index < 0:
             index += len(self)
         if not 0 <= index < len(self):
@@ -327,4 +581,6 @@ class ClassificationDataset:
         image = to_float(image)
         if self.only_images:
             return image, None
+        if self.multilabel:
+            return image, self.labels_of(sample)
         return image, np.int64(self.label_of(sample))

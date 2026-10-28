@@ -202,6 +202,13 @@ class TorchClassificationDataset(Dataset):
     `ClassificationTrainer` expands it in the one place that needs it and the index is what
     crosses here: one integer per image rather than `n_class` floats, and the metrics take
     either shape.
+
+    **A label that is a set crosses as the `n_class` floats instead, and it has to.** There
+    is no index form of a set - that is `_checked_multilabel`'s whole refusal - so the
+    dataset hands over a multi-hot row and this passes it along, where torch's own collate
+    stacks the rows into the `(examples, classes)` the loss and the metrics both read. The
+    dtype is the dataset's: `float32`, because the target is multiplied by log
+    probabilities rather than used to index them.
     """
 
     def __init__(self, base: ClassificationDataset):
@@ -214,6 +221,12 @@ class TorchClassificationDataset(Dataset):
         image, label = self.base[index]
         if label is None:
             return to_channels_first(image)
+        if self.base.multilabel:
+            # `from_numpy` rather than `tensor(...)`: the row is already the right dtype
+            # and width, and a conversion through a Python number is what `int(label)`
+            # below does - on an array of four it would raise, which is the better of the
+            # two failures and still not this one's job.
+            return to_channels_first(image), torch.from_numpy(label)
         return to_channels_first(image), torch.tensor(int(label), dtype=torch.long)
 
 

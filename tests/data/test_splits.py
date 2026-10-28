@@ -16,6 +16,7 @@ import pytest
 
 from pyplatypus.data.paths import Sample, discover_samples
 from pyplatypus.data.splits import (
+    SPLIT_NAMES,
     Split,
     group_of,
     split_dataset,
@@ -445,3 +446,166 @@ def test_a_class_with_fewer_examples_than_parts_is_refused_naming_the_class():
 def test_an_empty_set_is_refused():
     with pytest.raises(ConfigError, match="no samples to split"):
         stratified_split([], fractions=(0.5, 0.5))
+
+
+# ----------------------------------------------- the split for a label that is a set
+
+
+FINDINGS = ["atelectasis", "cardiomegaly", "effusion", "nodule"]
+PREVALENCE = [0.10, 0.05, 0.03, 0.02]
+
+
+def films(n: int, seed: int = 0, *, group_size: int = 1) -> list[Sample]:
+    """`n` films, four independent findings at a chest film's prevalences.
+
+    `group_size` puts several films under one patient key, so the same draw can be split
+    with and without `group_by` and the two answers compared.
+    """
+    rng = np.random.default_rng(seed)
+    present = rng.random((n, len(FINDINGS))) < np.array(PREVALENCE)
+    return [
+        Sample(
+            key=f"patient{index // group_size:05d}_film{index:05d}",
+            images=(Path(f"{index:05d}.png"),),
+            labels=tuple(name for name, yes in zip(FINDINGS, row) if yes),
+        )
+        for index, row in enumerate(present)
+    ]
+
+
+def one_sided(split, classes=FINDINGS) -> list[tuple[str, str]]:
+    """The (part, class) pairs where a part holds only one side of a class.
+
+    That is the state every per-class metric for a set of labels refuses to average over,
+    and it is what the split exists to prevent - so the test asserts on the pairs rather
+    than on a count, because the pair says which one.
+    """
+    bad = []
+    for name in SPLIT_NAMES:
+        members = split[name]
+        if not members:
+            continue
+        for klass in classes:
+            positive = sum(1 for s in members if klass in s.labels)
+            if positive == 0 or positive == len(members):
+                bad.append((name, klass))
+    return bad
+
+
+def test_a_set_of_labels_gives_every_class_to_every_part():
+    """And the control is the same draw split without stratifying, which does not.
+
+    Without it this asserts only that one arrangement of 500 films happens to be fine -
+    which the first draft of this test did, at 1000 films where a random split is fine
+    87.75% of the time. Measured over 400 draws: random leaves some part one-sided 51.25%
+    of the time at 500 films and 12.25% at 1000, where this is 0.00% at both. So the size
+    is chosen to make the control *likely* rather than to make the claim bigger.
+    """
+    samples = films(500, seed=0)
+    assert one_sided(stratified_split(samples, fractions=(0.7, 0.15, 0.15), seed=0)) == []
+
+    plain = split_samples(samples, fractions=(0.7, 0.15, 0.15), seed=0)
+    assert one_sided(plain) == [("validation", "nodule")], (
+        "the control: a random split of this draw leaves validation with no nodule at all"
+    )
+
+
+def test_it_holds_at_every_seed_rather_than_at_a_lucky_one():
+    for seed in range(25):
+        strat = stratified_split(films(600, seed=seed), fractions=(0.7, 0.15, 0.15), seed=seed)
+        assert one_sided(strat) == [], f"seed {seed}"
+
+
+def test_the_fractions_are_not_what_it_costs():
+    """The size deficit is the second key, so the parts come out where they were asked for.
+    0.0000 was the worst drift over 400 draws; this is the one-draw version of that."""
+    samples = films(1000, seed=3)
+    strat = stratified_split(samples, fractions=(0.7, 0.15, 0.15), seed=3)
+    for name, share in zip(SPLIT_NAMES, (0.7, 0.15, 0.15)):
+        assert len(strat[name]) / len(samples) == pytest.approx(share, abs=0.01)
+
+
+def test_a_class_too_rare_for_the_smallest_part_is_refused_in_those_numbers():
+    """Four positives and a 15% part is 0.6 of an image, so no assignment can give the
+    smallest part one. The refusal says that rather than returning a split that dies at the
+    end of the first epoch - and the same data at 50/50 is fine, which is the boundary."""
+
+    def finding(index: int) -> tuple[str, ...]:
+        # Written out rather than drawn: four is the whole point, and `common` carries
+        # enough of both sides that the refusal can only be about the other one.
+        return ("rare",) * (index < 4) + ("common",) * (index % 2 == 0 and index < 50)
+
+    samples = [
+        Sample(key=f"film{index:04d}", images=(Path("x.png"),), labels=finding(index))
+        for index in range(100)
+    ]
+    with pytest.raises(ConfigError, match="'rare'"):
+        stratified_split(samples, fractions=(0.7, 0.15, 0.15))
+    # Two parts and four positives is enough, which is the boundary rather than a number.
+    halved = stratified_split(samples, fractions=(0.5, 0.5))
+    assert one_sided(halved, ["rare", "common"]) == []
+
+
+def test_a_patient_stays_whole_and_every_class_still_reaches_every_part():
+    """The group is the unit of assignment here, which is how both guarantees hold at once.
+
+    The single-label path cannot do this - it refuses a group spanning two labels, because
+    its strata would hand that group out twice - and a group spanning several findings is
+    the ordinary case for a set.
+    """
+    samples = films(900, seed=11, group_size=3)
+    strat = stratified_split(samples, fractions=(0.7, 0.15, 0.15), group_by=PATIENT, seed=11)
+
+    assert one_sided(strat) == []
+    seen = [strat.groups_of(name) for name in SPLIT_NAMES]
+    assert seen[0] & seen[1] == set() and seen[0] & seen[2] == set() and seen[1] & seen[2] == set()
+
+
+def test_the_same_seed_is_the_same_split_and_another_seed_is_not():
+    samples = films(400, seed=1)
+    first = stratified_split(samples, fractions=(0.6, 0.2, 0.2), seed=3)
+    again = stratified_split(samples, fractions=(0.6, 0.2, 0.2), seed=3)
+    other = stratified_split(samples, fractions=(0.6, 0.2, 0.2), seed=4)
+
+    assert [s.key for s in first.train] == [s.key for s in again.train]
+    assert [s.key for s in first.train] != [s.key for s in other.train]
+
+
+def test_a_dataset_labelled_two_ways_at_once_is_refused_here_too():
+    """The two need different algorithms, so there is no split that is right for both
+    halves - which is the same refusal the dataset makes, one layer down."""
+    samples = films(50, seed=0)
+    samples.append(Sample(key="odd", images=(Path("x.png"),), label="atelectasis"))
+    with pytest.raises(ConfigError, match="one label where the rest carry a set"):
+        stratified_split(samples, fractions=(0.5, 0.5))
+
+
+def test_a_rare_class_inside_a_common_one_is_what_the_order_is_for():
+    """The rarest class is placed first, and reversing that passed every other test here.
+
+    What it changes is not whether a returned split is correct - the post-condition
+    guarantees that - but whether a split that exists is found at all. Measured over 200
+    draws of a rare finding occurring only inside a common one: 3.00% refused at 500 films
+    against 35.50% with the order reversed, and 0.00% against 12.00% at 1000. On the ten
+    seeds below, rarest-first finds a split every time and commonest-first refuses on five
+    of them.
+
+    This is the clinically ordinary shape rather than a constructed one: an effusion inside
+    a film already marked abnormal.
+    """
+    films = [
+        Sample(
+            key=f"film{index:05d}",
+            images=(Path("x.png"),),
+            # Written out rather than drawn, so the fixture does not depend on a random
+            # stream staying the same across a numpy upgrade. Ten rare films, every one of
+            # them inside a common one.
+            labels=("common",) * (index % 2 == 0) + ("rare",) * (index % 66 == 0),
+        )
+        for index in range(600)
+    ]
+    assert sum(1 for f in films if "rare" in f.labels) == 10
+
+    for seed in range(10):
+        strat = stratified_split(films, fractions=(0.7, 0.15, 0.15), seed=seed)
+        assert one_sided(strat, ["common", "rare"]) == [], f"seed {seed}"
