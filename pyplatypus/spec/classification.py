@@ -14,13 +14,17 @@ directory tree carries the labelling, and what the tree carries is the task's ow
 What keeps the two from colliding is `subdirs`, which is refused here, so a per-sample
 layout cannot be written for a classification spec at all.
 
-**One label per image, and multi-label is a different feature rather than a setting.** A
-chest film with four findings is not this - it is `classes_from`'s shape one task across,
-an independent question per class rather than one of a set of alternatives, with sigmoid
-channels and a loss that has to support them. `supports_multilabel` already exists on every
-loss for exactly that distinction, so the day it lands it reads the flag that is there. Said
-here because a reader who wants it should learn it from this file rather than from a
-refusal.
+**A label may also be a SET, and it is a naming rather than a setting.** A chest film with
+four findings is `classes_from`'s shape one task across - an independent question per class
+rather than one of a set of alternatives - and `labels_from` is how it is said: one CSV
+column per class, in class order. It reads the `supports_multilabel` flag that was already
+on every loss and metric for exactly this distinction rather than keeping a list, which is
+what that paragraph promised when it said *the day it lands*. `pyplatypus#307`.
+
+The reason it cannot be a switch is the reason the mask side gives: **the target changes,
+not only the activation.** A `label` column structurally cannot say that a film has two
+findings, so `activation: sigmoid` over an exclusive target would train, raise nothing, and
+report plausible numbers meaning what softmax meant.
 
 **What this is not** is in `pyplatypus#206`'s own words: not a general-purpose image
 classifier. It exists because `crops()` cuts objects out and hands them to "a classifier it
@@ -40,6 +44,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from pyplatypus.spec.common import DataMode
 from pyplatypus.spec.components import (
     AucMetric,
     CceLoss,
@@ -112,7 +117,49 @@ class ClassificationData(DataSpec):
             "is how you train on two of a dataset's three classes without moving any files. "
             "True by default, and it matters more here than it does for a box: a skipped "
             "object leaves the rest of its image in the training set, while a skipped image "
-            "leaves nothing, so the same setting quietly changes how much data there is."
+            "leaves nothing, so the same setting quietly changes how much data there is.\n\n"
+            "Has nothing to choose between when `labels_from` is given - the columns *are* "
+            "the classes, so no cell can hold a class nobody named - and `false` is refused "
+            "there rather than ignored."
+        ),
+    )
+    labels_from: list[str] | None = Field(
+        None,
+        min_length=2,
+        description=(
+            "For a label that is a **set** - one CSV column per class, in class order, each "
+            "cell `0` or `1`. A chest film with four findings is four independent questions "
+            "rather than one of four alternatives, and this is the only way of saying so.\n\n"
+            "It is a naming rather than a switch, for the reason `regions` and "
+            "`classes_from` are on the mask side: **the target changes, not only the "
+            "activation**. A `label` column structurally cannot say that a film has two "
+            "findings, so a setting that turned the softmax into a sigmoid would train "
+            "sigmoid channels against an exclusive target, raise nothing, and report "
+            "plausible numbers meaning exactly what softmax meant. The naming carries the "
+            "claim, and everything downstream reads `multilabel`.\n\n"
+            "The position in this list is the class index, paired with `classes` - so the "
+            "headers may be called whatever the dataset calls them and the model still "
+            "learns the classes in the order you named. Stated rather than read off the "
+            "header row for `channels_from`'s reason: sorting is reproducible and "
+            "clinically meaningless.\n\n"
+            "`config_file` mode only, and that is a refusal rather than a gap: an image "
+            "cannot sit in two directories without being two files, so `nested_dirs` cannot "
+            "express a set of labels at all.\n\n"
+            "A cell that is not `0`, `1`, `0.0` or `1.0` is refused by name, and the case "
+            "that is written for is `-1`. The datasets shaped this way write `-1` for "
+            "*uncertain* and leave the cell empty for *not mentioned*; both have a "
+            "defensible mapping to 0 or to 1, which is exactly why this reader must not "
+            "pick one for you. An image with none of the findings is an ordinary labelled "
+            "row, written as a line of zeros.\n\n"
+            "**There is no threshold field.** Each class decides for itself at `logits > 0`, "
+            "which is a probability of 0.5 exactly, and a threshold is a number about your "
+            "data rather than one this format should invent. And `accuracy` is refused "
+            "outright here rather than redefined: measured on 4000 images with findings at "
+            "10%, 5%, 3% and 2%, a model answering no to everything scores 0.8137 on exact "
+            "match and 0.9507 per class, **above a model holding half the available "
+            "signal** - so neither reading of it can be what a `monitor` watches. Use "
+            "`balanced_accuracy`, `f1` or `auc`, all of which put that answer below every "
+            "model with any signal at all."
         ),
     )
 
@@ -136,6 +183,69 @@ class ClassificationData(DataSpec):
         return self
 
     @model_validator(mode="after")
+    def a_set_of_labels_is_read_from_columns_and_not_from_directories(self):
+        """`labels_from` needs the layout that can hold several answers for one image.
+
+        The directory tree carries exactly one answer per file, so this is not a gap in the
+        reader - there is nothing for it to read. The message names the layout, the way
+        `subdirs`' refusal does, because that is what the person who wrote the field was
+        trying to describe.
+        """
+        if self.labels_from is None or self.mode is not DataMode.NESTED_DIRS:
+            return self
+        raise ValueError(
+            "`labels_from` reads one column per class, which is `config_file` mode. In "
+            "`nested_dirs` mode the directory an image sits in *is* its label, and an image "
+            "sits in one directory - so a set of labels cannot be written that way at all. "
+            "Move to a CSV with one column per class, or drop `labels_from` and name one "
+            "class per directory."
+        )
+
+    @model_validator(mode="after")
+    def one_column_per_class_in_class_order(self):
+        """As many columns as classes, because the pairing is by position.
+
+        A shorter list is not a subset - it is a different pairing, and the model would
+        learn classes whose names are somebody else's. Checked here rather than in the
+        reader so that it is refused while a configuration is being read rather than when a
+        dataset is walked.
+        """
+        if self.labels_from is None or len(self.labels_from) == len(self.classes):
+            return self
+        raise ValueError(
+            f"`labels_from` names {len(self.labels_from)} column(s) and `classes` names "
+            f"{len(self.classes)}; there is one column per class and the position in both "
+            f"lists is the class index, so a shorter list is a different pairing rather "
+            f"than a subset."
+        )
+
+    @model_validator(mode="after")
+    def nothing_to_be_strict_about_when_the_columns_are_the_classes(self):
+        """`strict_labels: false` asks for a state `labels_from` cannot produce.
+
+        It chooses what to do with an image whose label is not a named class, and with one
+        column per class there is no cell that could hold one. `true` written is a redundant
+        statement of what happens anyway and is left alone; only `false` asks for something
+        this naming cannot give.
+
+        **`model_fields_set` is not consulted and that is measured rather than assumed.** The
+        mask side's `include_background: false` has to ask, because `cldice` defaults that
+        field to False and a default is not a request. Here the default is `True` for every
+        model, so `strict_labels is False` **is** the evidence that somebody wrote it - the
+        check was here for an hour and the mutation that deletes it was caught by nothing,
+        because it is unreachable.
+        """
+        if self.labels_from is None or self.strict_labels:
+            return self
+        raise ValueError(
+            "`strict_labels: false` skips an image whose label is not one of `classes`, and "
+            "with `labels_from` there is no such image: the columns are the classes, paired "
+            "by position, so a cell can only say yes or no to a class you named. Leave the "
+            "setting out. A cell that is unreadable - `-1`, or empty - is refused by name "
+            "rather than skipped, because an unreadable cell is not a missing label."
+        )
+
+    @model_validator(mode="after")
     def class_names_are_distinct(self):
         """Two classes sharing a name cannot be told apart, and in `nested_dirs` mode they
         cannot even be two directories."""
@@ -148,8 +258,29 @@ class ClassificationData(DataSpec):
 
     @property
     def label_column(self) -> str:
-        """The CSV column holding the label. Derived, like every other task's."""
+        """The CSV column holding the label. Derived, like every other task's.
+
+        Not read at all when `labels_from` is given: the classes have a column each then,
+        and a `label` column in the same file is one of the many columns the reader ignores.
+        """
         return "label"
+
+    @property
+    def multilabel(self) -> bool:
+        """Whether one image may carry several of these classes at once.
+
+        The single switch the rest of the package reads - the loss's binary form, a sigmoid
+        per class instead of a softmax across them, a two-by-two table per class instead of
+        one confusion matrix, and a threshold instead of an `argmax`. `DataSpec.multilabel`
+        is the same property one task over and is derived the same way: **from the naming**,
+        because the naming is the only thing that can carry the claim.
+
+        One naming answers yes here where two do on the mask side, and the asymmetry is the
+        layout rather than a decision: `regions` derives overlap from one label map's values
+        and `classes_from` reads it from separate files, while an image's own directory
+        cannot say two things at once.
+        """
+        return self.labels_from is not None
 
     @property
     def n_class(self) -> int:

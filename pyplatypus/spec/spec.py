@@ -418,7 +418,9 @@ class ClassificationSpec(PlatypusSpec):
     data: ClassificationData = Field(
         description=(
             "Where the images are and what their labels are called. The label is the "
-            "directory an image sits in, or a `label` column naming the class."
+            "directory an image sits in, a `label` column naming the class, or - when it is "
+            "a **set** rather than one of alternatives - one column per class under "
+            "`labels_from`."
         )
     )
     models: list[ClassificationModel] = Field(
@@ -435,6 +437,69 @@ class ClassificationSpec(PlatypusSpec):
     def nothing_watches_a_validation_number_that_will_not_arrive(self):
         """A callback cannot wait for `val_loss` in a run that has no validation set."""
         return _refuse_watching_a_number_no_split_will_produce(self)
+
+    @model_validator(mode="after")
+    def a_set_of_labels_rules_out_the_metric_that_rewards_a_collapse(self):
+        """`accuracy` is refused when `labels_from` made each class its own question.
+
+        Measured before the choice was put up rather than after. On 4000 images with
+        findings at 10%, 5%, 3% and 2% - a chest film's profile, one draw of the truth, and
+        models whose ordering is degraded by noise rather than shrunk:
+
+            quality        exact   per-class   balanced   macro f1   macro auc
+            1.00          0.8353      0.9570     0.5742     0.2339      0.9029
+            0.50          0.8023      0.9477     0.5433     0.1444      0.8041
+            0.00          0.7650      0.9370     0.4984     0.0184      0.4834
+            all-negative  0.8137      0.9507     0.5000     0.0000      0.5000
+
+        **The disqualifying reading is the row's position rather than the size of a gap.** A
+        model answering no to everything scores above the model holding half the available
+        signal on *both* readings of accuracy - 0.8137 against 0.8023 exact, 0.9507 against
+        0.9477 per class - while `balanced_accuracy`, `f1` and `auc` all put it below every
+        model with any signal at all. A number that rewards giving up cannot be what a
+        `monitor` watches.
+
+        This is a **different** mechanism from the single-label finding and the argument does
+        not carry over, which is worth saying because reusing it would have been easy: there,
+        accuracy is nearly flat and non-monotone in the signal. Here both readings are
+        monotone on two seeds, and what breaks them is the comparison against a collapse,
+        which is not a point on that curve - an all-negative answer is not a noisy model, it
+        is a confident one.
+
+        Read off `supports_multilabel` on the metric's own specification rather than a list
+        here, the way the losses' admissibility is read off `continuous` and `needs_extent`.
+        `build_classification_metric` refuses the same thing one layer down, for a caller
+        that assembled a metric list without a specification - a second line of the wall
+        rather than a second copy of it.
+
+        **And the matching loss refusal is deliberately absent, because it would be
+        unreachable.** Measured off the flags: the two losses a label admits - `cce` and
+        `focal`, the ones with neither `needs_extent` nor `continuous` - both carry
+        `supports_multilabel=True`, so no admissible loss can fail that test today.
+        `build_loss(multilabel=True)` refuses by name if a third one ever arrives, which is
+        the mechanism already there; a validator here would be a guard for a state nothing
+        can produce, and this file deleted one of those an hour earlier for the same reason.
+        """
+        if not self.data.multilabel:
+            return self
+        offenders = [
+            f"{model.name}: metric {metric.name}"
+            for model in self.models
+            for metric in model.metrics
+            if not metric.supports_multilabel
+        ]
+        if not offenders:
+            return self
+        listed = "\n  - ".join(offenders)
+        raise ValueError(
+            f"`labels_from` makes each class an independent question, and these metrics "
+            f"cannot be read over one:\n  - {listed}\n"
+            "Measured on 4000 images with findings at 10%, 5%, 3% and 2%, a model answering "
+            "no to everything scores 0.8137 on exact match and 0.9507 per class - above a "
+            "model holding half the available signal - so accuracy would reward a collapse "
+            "rather than report one. Use balanced_accuracy, f1 or auc, which all put that "
+            "answer below every model with any signal at all."
+        )
 
 
 class DetectionSpec(PlatypusSpec):

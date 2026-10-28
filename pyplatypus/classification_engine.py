@@ -1,4 +1,4 @@
-"""One label per image, from a specification to a trained model and an answer.
+"""One label per image - or a set of them - from a specification to a trained model.
 
 This engine takes a `ClassificationSpec`, like its three siblings, and `build_engine(spec)`
 returns it for `task: classification`. It took the two halves and a `_Pieces` stand-in until
@@ -93,8 +93,20 @@ class ClassificationEngine(EngineBase):
     # ------------------------------------------------------------------- discovery
 
     def _discover(self, path, data, *, only_images: bool = False, strict: bool = True):
-        """`discover_labelled`, in the shape `EngineBase` hands a discovery function."""
-        return discover_labelled(path, data, only_images=only_images, strict=strict)
+        """`discover_labelled`, in the shape `EngineBase` hands a discovery function.
+
+        `labels_from` is forwarded from the specification, which is the **only** place it
+        is held: the reader takes the columns as an argument so that it can be exercised
+        without a specification, and this is the one line that decides what a configured
+        run reads. A second source for it is how the two would come to disagree.
+        """
+        return discover_labelled(
+            path,
+            data,
+            only_images=only_images,
+            strict=strict,
+            label_columns=data.labels_from,
+        )
 
     def _discover_splits(self, discover, *, strict: bool) -> None:
         """The base's own walk, except that a split cut out of the training folder is
@@ -105,6 +117,13 @@ class ClassificationEngine(EngineBase):
         rare class 91% of the time, 64% at 200 and 20% at 500 - and every per-class metric
         refuses to average over a class its pass never held, so the run dies at the end of
         the first epoch with the epoch already paid for.
+
+        **`stratified_split` dispatches on the shape of the label and this line does not
+        have to**, which is why there is no `multilabel` here: strata cannot serve a set -
+        a film with three findings belongs to three of them - so a set of labels is placed
+        one group at a time, rarest class first. Measured over 400 draws of four findings
+        at 10%, 5%, 3% and 2%, a random split leaves some part holding one side only of
+        some class 51.25% of the time at 500 images where that is 0.00%.
         """
         data = self.spec.data
         if data.split is None:
@@ -184,6 +203,7 @@ class ClassificationEngine(EngineBase):
                 network,
                 model_spec,
                 n_class=self.spec.data.n_class,
+                multilabel=self.spec.data.multilabel,
                 device=self.device,
             )
             validation = (
@@ -248,12 +268,18 @@ class ClassificationEngine(EngineBase):
         self._require_split(split)
         return self.runs[name].trainer.predict(self.loader(name, split, augment=False))
 
-    def predict_labels(self, model_name: str | None = None, split: str = "test") -> list[str]:
+    def predict_labels(
+        self, model_name: str | None = None, split: str = "test"
+    ) -> list[str] | list[list[str]]:
         """The class names, because a name is what a reader wanted.
 
         Read off `data.classes`, whose **order is the class index** - so this is the one
         place where the engine knows the right names and a caller passing their own could
         be wrong without anything saying so.
+
+        **A list of names per image when the label is a set**, which is the trainer's own
+        shape and is there for its reason: one name per image would have to pick which of
+        the findings is *the* one, and the model was not asked that.
         """
         name = self._resolve_model(model_name)
         self._require_split(split)
@@ -267,6 +293,15 @@ class ClassificationEngine(EngineBase):
         The key is what makes this joinable to anything else the caller holds, and it is
         the thing `rplatypus#223` was filed about on the segmentation side - a prediction
         returned as a bare sequence has to be paired by position.
+
+        **A set of labels is a different row and not the same row with a longer string.**
+        `labels` holds the findings the image actually carries and `predicted` the ones the
+        model says it does, both as lists in `classes` order, and there is **no
+        `probability` column at all**: that column is the chosen class's own number, and
+        with independent questions nothing was chosen - the `p_<class>` columns are each
+        class's answer and they are the whole of it. Inventing a single figure here would
+        mean picking a finding to call the answer, which is the thing `predict_labels`
+        refuses to do one layer down.
         """
         name = self._resolve_model(model_name)
         probabilities = self.predict(name, split)
@@ -274,6 +309,26 @@ class ClassificationEngine(EngineBase):
         samples = self._samples[split]
         rows = []
         for sample, row in zip(samples, probabilities, strict=True):
+            per_class = {
+                f"p_{klass}": float(value) for klass, value in zip(classes, row, strict=True)
+            }
+            if self.spec.data.multilabel:
+                rows.append(
+                    {
+                        "key": sample.key,
+                        # In `classes` order rather than as they were written, so two rows
+                        # are comparable, and a list rather than a joined string because a
+                        # class name may contain anything a CSV header may.
+                        "labels": [klass for klass in classes if klass in (sample.labels or ())],
+                        "predicted": [
+                            klass
+                            for klass, chance in zip(classes, row, strict=True)
+                            if chance > 0.5
+                        ],
+                        **per_class,
+                    }
+                )
+                continue
             chosen = int(row.argmax())
             rows.append(
                 {
@@ -281,10 +336,7 @@ class ClassificationEngine(EngineBase):
                     "label": sample.label,
                     "predicted": classes[chosen],
                     "probability": float(row[chosen]),
-                    **{
-                        f"p_{klass}": float(value)
-                        for klass, value in zip(classes, row, strict=True)
-                    },
+                    **per_class,
                 }
             )
         return rows

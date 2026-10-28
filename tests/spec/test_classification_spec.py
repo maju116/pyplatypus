@@ -18,7 +18,9 @@ import pytest
 from pydantic import ValidationError
 
 from pyplatypus.spec import ClassificationData, ClassificationModel, DataSpec
+from pyplatypus.spec.catalogue import _members
 from pyplatypus.spec.components import ClassificationMetricSpec, LossSpec
+from pyplatypus.spec.spec import ClassificationSpec
 
 #: The losses this package offers, read off the union rather than listed - the
 #: argument `conftest.metric_configs` makes about metrics, and what
@@ -274,3 +276,110 @@ def test_the_metrics_are_part_of_what_a_weights_file_is_not_asked_about():
         model(metrics=[{"name": "auc"}]).weights_fingerprint()
         == model(metrics=[{"name": "accuracy"}, {"name": "f1"}]).weights_fingerprint()
     )
+
+
+# ----------------------------------------------- `labels_from`: a label that is a set
+
+
+def test_the_naming_is_what_says_the_label_is_a_set():
+    """`multilabel` is derived, not declared - the same property `DataSpec.multilabel` is
+    one task over, for the same reason: the naming is the only thing that can carry the
+    claim, since a `label` column cannot say a film has two findings."""
+    assert data(mode="config_file", labels_from=["A", "B"]).multilabel is True
+    assert data().multilabel is False
+    assert data(mode="config_file").multilabel is False
+
+
+def test_a_set_of_labels_cannot_be_read_from_one_directory_per_class():
+    """The refusal names the layout rather than the field, because an image sitting in one
+    directory is what makes this impossible rather than unimplemented."""
+    said = refusal(data, mode="nested_dirs", labels_from=["A", "B"])
+    assert "config_file" in said and "one directory" in said
+
+
+def test_one_column_per_class_and_the_position_is_the_pairing():
+    said = refusal(data, mode="config_file", classes=["a", "b", "c"], labels_from=["A", "B"])
+    assert "2 column(s)" in said and "3" in said
+    assert data(mode="config_file", classes=["a", "b", "c"], labels_from=["A", "B", "C"])
+
+
+def test_strict_labels_has_nothing_to_choose_between_and_false_is_refused():
+    """`include_background`'s rule on the mask side: refused when it was *written*, because
+    a default is not a request - and `true` written is a redundant statement of what
+    happens anyway rather than a request for something impossible."""
+    said = refusal(data, mode="config_file", labels_from=["A", "B"], strict_labels=False)
+    assert "strict_labels: false" in said
+
+    assert data(mode="config_file", labels_from=["A", "B"], strict_labels=True)
+    assert data(mode="config_file", labels_from=["A", "B"]).strict_labels is True
+    # And without the columns it still means what it always meant.
+    assert data(strict_labels=False).strict_labels is False
+
+
+def test_two_columns_at_a_minimum_because_two_classes_are():
+    said = refusal(data, mode="config_file", labels_from=["A"])
+    assert "at least 2 items" in said or "too_short" in said
+
+
+def test_the_loss_refusal_is_absent_because_no_admissible_loss_could_fail_it():
+    """The claim that justifies a validator this file does not have, held to the flags.
+
+    `ClassificationSpec` refuses `accuracy` for a set of labels and refuses no loss, and the
+    reason is that the two losses a label admits - the ones with neither `needs_extent` nor
+    `continuous` - both support a set. This fails the day a third admissible loss arrives
+    without the flag, which is exactly when the validator would stop being unreachable.
+
+    The control is that the filter selects anything at all: two empty sets compare equal,
+    and a filter that matched nothing would make the claim vacuously true.
+    """
+    admissible = [
+        member for member in _members(LossSpec) if not member.needs_extent and not member.continuous
+    ]
+    assert len(admissible) >= 2, "the control: the filter has to select something"
+    assert {member.model_fields["name"].default for member in admissible} == {"cce", "focal"}
+    assert all(member.supports_multilabel for member in admissible)
+
+
+def whole(block: ClassificationData, **over) -> ClassificationSpec:
+    """A whole specification, because the metric refusal reads the data and the models
+    together - which is where that answer has to live, the same as on the mask side."""
+    return ClassificationSpec(task="classification", data=block, models=[model(**over)])
+
+
+def test_accuracy_is_refused_when_the_label_is_a_set_and_the_message_carries_the_number():
+    """The refusal is the first line of the wall; `build_classification_metric` is the
+    second, for a caller that assembled a metric list without a specification.
+
+    What disqualifies it is the row's position rather than a gap: a model answering no to
+    everything scores above the model holding half the signal, on both readings.
+    """
+    columns = data(mode="config_file", labels_from=["A", "B"])
+    said = refusal(whole, columns, metrics=[{"name": "accuracy"}])
+    assert "accuracy" in said and "0.8137" in said
+    assert "balanced_accuracy, f1 or auc" in said
+
+    # Every other metric this task offers is admissible over a set, so the refusal is about
+    # `accuracy` rather than about the family.
+    for name in ("balanced_accuracy", "f1", "auc"):
+        assert whole(columns, metrics=[{"name": name}])
+
+    # And the control: with one label out of alternatives, `accuracy` is merely a bad
+    # default rather than refused - `0.8.0a49` made `auc` the default on that measurement
+    # and left the metric available.
+    assert whole(data(), metrics=[{"name": "accuracy"}])
+
+
+def test_the_refusal_names_every_offending_model_rather_than_the_first():
+    columns = data(mode="config_file", labels_from=["A", "B"])
+    said = refusal(
+        ClassificationSpec,
+        task="classification",
+        data=columns,
+        models=[
+            model(name="one", metrics=[{"name": "accuracy"}]),
+            model(name="two", metrics=[{"name": "auc"}]),
+            model(name="three", metrics=[{"name": "f1"}, {"name": "accuracy"}]),
+        ],
+    )
+    assert "one: metric accuracy" in said and "three: metric accuracy" in said
+    assert "two:" not in said
