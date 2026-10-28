@@ -22,6 +22,14 @@ which is exactly what it is.
 no stitching; no per-case accumulator, because a case is one image and its accuracy is 0 or
 1; no `foreground`, because there is no background class to be the complement of; no source
 space to score in, because the answer is a label rather than a picture.
+
+**A label that is a set changes four lines and no structure**, which is the argument for
+`multilabel` being one flag on the data rather than a second trainer: the loss is the binary
+form of whichever one was asked for, the probabilities are a sigmoid per class, the metrics
+hold a two-by-two table each instead of one confusion matrix, and `predict_labels` is a
+threshold instead of an `argmax`. Every one of those decisions is taken somewhere else -
+`build_loss`, `f.probabilities`, `build_classification_metrics` - and read here. The epoch is
+the same epoch. `pyplatypus#307`.
 """
 
 from __future__ import annotations
@@ -49,6 +57,14 @@ class ClassificationTrainer:
     `n_class` is passed rather than read off the specification, the same way
     `build_classifier` takes it: the data decides how many classes there are, and a model
     that also declared it would be a second place for one fact.
+
+    **`multilabel` is passed for the same reason and it is the data's**, not the model's: it
+    follows from how the classes were named - one column per class makes each one an
+    independent question - and there is nothing in a batch of tensors to tell the two apart,
+    because a row of all zeros is ordinary in both worlds. It decides three things and every
+    one of them is somewhere else: a sigmoid per class instead of a softmax across them, the
+    binary form of whichever loss was asked for, and a two-by-two table per class instead of
+    one confusion matrix.
     """
 
     def __init__(
@@ -57,15 +73,17 @@ class ClassificationTrainer:
         spec: ClassificationModel,
         *,
         n_class: int,
+        multilabel: bool = False,
         device: str | None = None,
         callbacks: list[Callback] | None = None,
     ):
         self.spec = spec
         self.n_class = n_class
+        self.multilabel = multilabel
         self.device = pick_device(device)
         self.model = model.to(self.device)
-        self.loss_fn = build_loss(spec.loss)
-        self.metrics = build_classification_metrics(spec.metrics)
+        self.loss_fn = build_loss(spec.loss, multilabel=multilabel)
+        self.metrics = build_classification_metrics(spec.metrics, multilabel=multilabel)
         # The layers that arrived pretrained, if any - read exactly as the segmentation
         # trainer reads them, because `encoder_learning_rate` and `freeze_encoder` are on
         # the shared `EncoderModel` and act on the same part.
@@ -94,7 +112,26 @@ class ClassificationTrainer:
         instead of `n_class` floats, and leaves the metrics free to take either. The control
         that the one-hot route is the right one: on the same logits our `cross_entropy`
         agrees with `torch.nn.functional.cross_entropy`'s index form to every digit.
+
+        **A label that is a set arrives as the target already and is handed over
+        untouched**, because there is no index form of a set. It needs no shape check of its
+        own: `binary_cross_entropy_with_logits` refuses a `(examples,)` target against
+        `(examples, classes)` logits **by name**, including when the batch size equals the
+        class count - which is exactly the shape that defeats the categorical form above. So
+        the two halves fail differently, and only one of them fails silently.
+
+        **That is true because of the branch and not beside it**, which this paragraph said
+        the other way round for an hour. `as_onehot` passes a floating target of the right
+        width through unchanged, so the branch looked like a statement of intent that no
+        measurement could distinguish - and the mutation that deletes it is caught, by the
+        refusal above. Without it a `(3,)` target against `(3, 3)` logits reaches
+        `as_onehot`, which reads it as **indices** and expands it into a plausible one-hot,
+        and the binary loss then returns 0.843 rather than refusing. So the branch is what
+        makes the refusal reachable: the function that rescues the categorical route is the
+        same function that would hide the failure on this one.
         """
+        if self.multilabel:
+            return self.loss_fn(logits, labels)
         return self.loss_fn(logits, f.as_onehot(labels, self.n_class))
 
     def _set_transferred_frozen(self, frozen: bool) -> None:
@@ -254,23 +291,45 @@ class ClassificationTrainer:
         Probabilities rather than logits, because that is what a caller can threshold, rank
         or calibrate - and the same quantity `auc` is read off, so a reported score and a
         returned answer cannot disagree about what the model said.
+
+        **Which probabilities is `f.probabilities`' own single line and not a branch here**,
+        which is the one place in this package where mutual exclusivity lives: a softmax
+        across the classes says they are alternatives and makes them sum to one, a sigmoid
+        per class says each is its own yes-or-no. Everything overlap-based on the
+        segmentation side already reads that function, and a second copy of the choice here
+        is how the two would come to disagree.
         """
         self.model.eval()
         for batch in loader:
             images = (batch[0] if isinstance(batch, (tuple, list)) else batch).to(self.device)
-            yield self.model(images).softmax(dim=1).cpu().numpy()
+            logits = self.model(images)
+            yield f.probabilities(logits, multilabel=self.multilabel).cpu().numpy()
 
     def predict(self, loader: DataLoader) -> np.ndarray:
         """Every probability, as one `(images, classes)` array."""
         return np.concatenate(list(self.predict_stream(loader)), axis=0)
 
-    def predict_labels(self, loader: DataLoader, classes: Sequence[str]) -> list[str]:
+    def predict_labels(
+        self, loader: DataLoader, classes: Sequence[str]
+    ) -> list[str] | list[list[str]]:
         """The names rather than the indices, because a name is what a reader wanted.
 
         `classes` is passed rather than read off a spec for the reason `n_class` is: the
         data names the classes, and their **order is the class index** - so handing this the
         wrong list is the one mistake here that produces plausible output, and it is the
         caller's own `data.classes` that is right.
+
+        **A set of labels answers with a list of names per image, and the return type
+        therefore depends on the model.** That is uncomfortable in one method and it is the
+        honest shape: a name per image would have to pick one of the findings, and the model
+        was not asked which finding is *the* one. Nothing here guesses - `multilabel` came
+        from the naming of the data this model was trained on.
+
+        The threshold is **0.5 of a probability, which is `logits > 0` exactly** and is the
+        same decision `MultiLabelMetric` makes on the hard prediction, so a reported score
+        and a returned answer cannot disagree about what the model said. There is no
+        threshold field, here or in the specification: a threshold is a number about
+        somebody's data, and each class decides for itself.
         """
         if len(classes) != self.n_class:
             raise ValueError(
@@ -278,4 +337,12 @@ class ClassificationTrainer:
                 f"were given ({', '.join(classes)}); the names are the data's `classes`, in "
                 f"order, because the position is the class index"
             )
-        return [classes[index] for index in self.predict(loader).argmax(axis=1)]
+        probabilities = self.predict(loader)
+        if self.multilabel:
+            # In `classes` order rather than by probability, because the position is the
+            # class index and a reader comparing two images wants the same order in both.
+            return [
+                [name for name, chance in zip(classes, row, strict=True) if chance > 0.5]
+                for row in probabilities
+            ]
+        return [classes[index] for index in probabilities.argmax(axis=1)]
