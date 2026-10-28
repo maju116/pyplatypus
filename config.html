@@ -2424,7 +2424,7 @@ Excludes both ends: at 1 the surface term is absent and the name is a lie, and a
 </section>
 <section id="loss-cce" class="level4">
 <h4 class="anchored" data-anchor-id="loss-cce"><code>cce</code></h4>
-<p>Per-pixel classification, with no notion of the object.</p>
+<p>Cross-entropy on the classes, scoring each element on its own.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -2498,7 +2498,7 @@ Added to both numerator and denominator so a class absent from an image gives a 
 </section>
 <section id="loss-focal" class="level4">
 <h4 class="anchored" data-anchor-id="loss-focal"><code>focal</code></h4>
-<p>Cross-entropy that loses interest in the voxels it already gets right.</p>
+<p>Cross-entropy that loses interest in the elements it already gets right.</p>
 <dl>
 <dt><code>name</code></dt>
 <dd>
@@ -2508,7 +2508,7 @@ Which loss, and it decides which other keys this block accepts: <code>tversky</c
 <dt><code>gamma</code></dt>
 <dd>
 a number — <code>2.0</code>
-How hard to discount the pixels already classified well, so the gradient comes from the ones that are not. 0 is plain cross-entropy; 2 is the usual value.
+How hard to discount what is already classified well - a voxel for a mask, an image for a label - so the gradient comes from what is not. 0 is plain cross-entropy; 2 is the usual value.
 </dd>
 <dt><code>alpha</code></dt>
 <dd>

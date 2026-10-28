@@ -445,7 +445,7 @@
     },
     "CceLoss": {
       "additionalProperties": false,
-      "description": "Per-pixel classification, with no notion of the object.\n\nHealthy gradients from the first epoch, which the overlap losses do not have while\neverything is still wrong. The cost is that it optimises what is numerous: with a\nbackground of 95% of the voxels, which in medical images is ordinary, it is mostly\nlearning the background. That is what `cce_dice` exists to fix.",
+      "description": "Cross-entropy on the classes, scoring each element on its own.\n\n**An element is a voxel for a mask and a whole image for a label**, which is what makes\nthis and `focal` the only two losses admissible at every task in this package: they need\nno extent to score, where an overlap is a ratio of areas. The first line of this\ndocstring read *per-pixel classification, with no notion of the object* until\n`task: classification` existed to contradict it - `available_losses(\"classification\")`\npublishes it, and it was describing a mask to somebody holding one label per image.\n\nHealthy gradients from the first epoch, which the overlap losses do not have while\neverything is still wrong. For a mask the cost is that it optimises what is numerous:\nwith a background of 95% of the voxels, which in medical images is ordinary, it is\nmostly learning the background, and that is what `cce_dice` exists to fix. For a label\nthere is no background class and nothing numerous in one image, so that cost is a\nproperty of the target rather than of this loss - what takes its place is the class\nbalance of the split, which `ClassBalance` reports before a run.",
       "properties": {
         "label_smoothing": {
           "default": 0.0,
@@ -1994,7 +1994,7 @@
     },
     "FocalLoss": {
       "additionalProperties": false,
-      "description": "Cross-entropy that loses interest in the voxels it already gets right.\n\n`gamma` is the whole feature: at 0 this is exactly cross-entropy - measured, the two\nagree to floating point - and raising it pushes the loss onto the hard voxels. Worth\nhaving where the easy background dominates the gradient. The cost is that a model that\nis right but unconfident everywhere is barely trained at all.",
+      "description": "Cross-entropy that loses interest in the elements it already gets right.\n\nAn element is a voxel for a mask and a whole image for a label, and this reads the same\neither way - which is the reason the noun changed: the sentence is published by\n`available_losses(\"classification\")` as well.\n\n`gamma` is the whole feature: at 0 this is exactly cross-entropy - measured, the two\nagree to floating point - and raising it pushes the loss onto the hard ones. Worth\nhaving where the easy background dominates the gradient of a mask, and where a rare\nclass dominates the gradient of a label. The cost is that a model that is right but\nunconfident everywhere is barely trained at all.",
       "properties": {
         "alpha": {
           "anyOf": [
@@ -2013,7 +2013,7 @@
         },
         "gamma": {
           "default": 2.0,
-          "description": "How hard to discount the pixels already classified well, so the gradient comes from the ones that are not. 0 is plain cross-entropy; 2 is the usual value.",
+          "description": "How hard to discount what is already classified well - a voxel for a mask, an image for a label - so the gradient comes from what is not. 0 is plain cross-entropy; 2 is the usual value.",
           "minimum": 0,
           "title": "Gamma",
           "type": "number"
