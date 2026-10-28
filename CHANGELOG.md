@@ -1,6 +1,153 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a50] - 2026-10-28
+
+**A label that is a set** - `labels_from`, one CSV column per class, and the four slices
+behind it. `maju116/pyplatypus#307`, part of `#206`.
+
+### Added
+
+ - **`labels_from` on a classification data block**: one column per class, in class order,
+   each cell `0` or `1`. A chest film with four findings is four independent questions
+   rather than one of four alternatives, and this is the only way of saying so.
+
+   **It is a naming rather than a switch, and that is the decision this release rests on.**
+   The author's question was whether multi-class could be made multi-label by a parameter -
+   softmax to sigmoid - and the answer is no for the reason the mask side already paid for:
+   **the target changes, not only the activation.** A `label` column structurally cannot say
+   that a film has two findings, so `activation: sigmoid` over an exclusive target would
+   train sigmoid channels against a one-hot, raise nothing, and report plausible numbers
+   meaning exactly what softmax meant. `regions` and `classes_from` are the same shape one
+   task over, which is why `ClassificationData.multilabel` is a derived property and
+   everything downstream reads it rather than a new flag.
+
+   `config_file` mode only, which is a refusal rather than a gap: an image cannot sit in two
+   directories without being two files. The position in `labels_from` is the class index,
+   paired with `classes`, so the headers may be whatever the dataset calls them - read off
+   the header row the order would be alphabetical, reproducible and clinically meaningless.
+
+ - **A cell that is not `0`, `1`, `0.0` or `1.0` is refused by name**, and the case it is
+   written for is `-1`. The datasets shaped this way write `-1` for *uncertain* and leave the
+   cell empty for *not mentioned*; both have a defensible mapping to 0 or to 1, which is
+   exactly why the reader must not pick one. An image with none of the findings is an
+   ordinary labelled row.
+
+ - **Three metrics for a set of labels, and `accuracy` is refused rather than redefined.**
+   `MultiLabelMetric` holds a two-by-two table per class - a confusion matrix answers *which
+   one of these was it* and with independent questions there is no such quantity. Measured on
+   4000 images with findings at 10%, 5%, 3% and 2%, one draw of the truth, models degraded by
+   noise rather than shrunk:
+
+        quality        exact   per-class   balanced   macro f1   macro auc
+        1.00          0.8353      0.9570     0.5742     0.2339      0.9029
+        0.50          0.8023      0.9477     0.5433     0.1444      0.8041
+        0.00          0.7650      0.9370     0.4984     0.0184      0.4834
+        all-negative  0.8137      0.9507     0.5000     0.0000      0.5000
+
+   **The disqualifying reading is the row's position rather than the size of a gap.** A model
+   answering no to everything scores above the model holding half the available signal on
+   *both* readings of accuracy, while `balanced_accuracy`, `f1` and `auc` all put it below
+   every model with any signal at all. A number that rewards giving up cannot be what a
+   `monitor` watches. This is a **different** mechanism from the single-label finding of
+   `0.8.0a49`, where accuracy is nearly flat and non-monotone: here both readings are
+   monotone in quality on two seeds, and what breaks them is the comparison against a
+   collapse, which is not a point on that curve.
+
+   `auc` stays the default and crosses with its definition untouched, because macro-OvR
+   equals the binary AUC to every digit.
+
+ - **The split is a different algorithm, which was found rather than planned.**
+   `stratified_split` divides the samples by label and splits each part, so a film carrying
+   three findings would belong to three of them and be handed out three times. It now
+   dispatches on the shape of the label. Measured over 400 draws at 70/15/15, as how often
+   some part came out holding only **one side** of some class - the state every per-class
+   metric refuses to average over:
+
+        images   random   iterative   iterative refuses   combination refuses
+           200   96.75%       0.00%              78.50%                91.75%
+           500   51.25%       0.00%               4.50%                96.25%
+          1000   12.25%       0.00%               0.00%                97.25%
+          4000    0.00%       0.00%               0.00%                94.00%
+
+   The combination as a stratum key buys a guarantee nobody asked for at a price that makes
+   it useless. Iterative stratification with **the group** as the unit of assignment keeps
+   `group_by`'s guarantee at the same time, at a worst drift from the requested fractions of
+   **0.0000**. A class too rare for the smallest part is refused in those numbers - four
+   positives and a 15% part is 0.6 of an image - rather than producing a split that dies at
+   the end of the first epoch.
+
+ - **A set of labels through the trainer and the engine**: the binary form of whichever loss
+   was asked for, a sigmoid per class through `f.probabilities`, and `predict_labels` as a
+   threshold at `logits > 0` - a probability of 0.5 exactly, which is the same decision the
+   metric family makes on the hard prediction. There is **no threshold field**: a threshold
+   is a number about somebody's data. `answers()` returns `labels` and `predicted` as lists
+   and carries **no `probability` column**, because that column is the chosen class's own
+   number and with independent questions nothing was chosen.
+
+### Fixed
+
+ - **Every per-class classification metric raised on an Apple Silicon Mac, and that shipped
+   in `0.8.0a49`.** `ClassificationMetric` accumulates a `float64` confusion matrix and
+   **MPS has no float64 at all** - `Cannot convert a MPS Tensor to float64 dtype` - so
+   `accuracy`, `balanced_accuracy` and `f1` have been unusable there since the task landed.
+   Every Apple Silicon Mac picks `mps` since `0.8.0a38` repaired `pick_device`.
+
+   Nothing caught it because the **default** metric is `auc`, which takes the scores path
+   and was already moving its state to the CPU for a different reason - memory - and no
+   macOS test had asked for one of the other three. It was found by the multi-label family
+   hitting the identical line: both macOS jobs of `pyplatypus#315` failed on the one test
+   that reaches a multi-label metric which counts rather than ranks, and the single-label
+   half was found by reading the file beside it.
+
+   Both families now count on the CPU. The arithmetic does not care and the transfer is one
+   small tensor per batch - the state was never the thing whose size grows with the pass.
+
+   **The local suite could not have found this and the reason is not that there is no
+   accelerator.** This machine has CUDA, `pick_device` picks it, and CUDA *has* float64 - so
+   the conversion succeeds here on exactly the device that refuses it there. §4 of the
+   workbench's notes calls this a gate passing because of the machine it ran on; this is the
+   version where the machine is an accelerator rather than an installed library, and the
+   only instrument that could answer was the macOS runner.
+
+### Measured
+
+ - **The rarest-class-first order buys the refusal column and not the correctness**, which
+   reversing it proved by surviving every test written for the split first. The
+   post-condition is what makes a returned split correct, so the order cannot move the bad
+   column at all - it moves how often a split that exists is found. With a rare finding
+   occurring only inside a common one, which is the clinically ordinary shape: 3.00% refused
+   against 35.50% reversed at 500 films, and 0.00% against 12.00% at 1000.
+
+ - **A wrong-width target does not broadcast through the binary loss**, so `_loss_of` needs
+   no shape check of its own: `binary_cross_entropy_with_logits` refuses a `(examples,)`
+   target against `(examples, classes)` logits by name, including when the batch size equals
+   the class count - the shape that defeats the categorical form.
+
+ - **And `_loss_of`'s multi-label branch is load-bearing rather than declarative**, which is
+   the second half of that measurement and went the other way. `as_onehot` passes a floating
+   target of the right width through unchanged, so the branch looked like something no
+   measurement could distinguish; deleting it makes a `(3,)` target reach `as_onehot`, which
+   reads it as **indices**, expands it into a plausible one-hot, and the binary loss returns
+   **0.843** instead of refusing. The function that rescues the categorical route is the one
+   that would hide the failure on this one.
+
+ - **The matching loss refusal is deliberately absent because it would be unreachable.** The
+   two losses a label admits - `cce` and `focal`, the ones with neither `needs_extent` nor
+   `continuous` - both carry `supports_multilabel=True`, so no admissible loss can fail that
+   test today. `build_loss(multilabel=True)` refuses by name if a third ever arrives, and a
+   test holds that claim to the flags so it fails on the day it stops being true.
+
+### The R half
+
+**None yet, and deliberately.** R has no `classification_data()` at all, and the pin is what
+keeps the two halves from disagreeing: a pin move alone would make YAML accept `labels_from`
+while the constructor refuses it, which is `maju116/rplatypus#152`'s three-way divergence. For
+the same reason the configuration guide does **not** describe the field - that guide is one
+document in two packages, with its section list pinned by a test in each - so it arrives with
+the R surface rather than before it. The field's own `description=` is the documentation on
+this package's site, which is what §3C of the workbench's notes means by it.
+
 ## [0.8.0a49] - 2026-10-27
 
 `task: classification` - one label per image, and the fourth task this package can be asked

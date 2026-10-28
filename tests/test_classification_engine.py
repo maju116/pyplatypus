@@ -376,3 +376,148 @@ def test_a_split_this_run_does_not_have_is_refused(tmp_path):
     assert "test" not in engine._samples
     with pytest.raises(EngineError):
         engine.dataset(None, "test")
+
+
+# ------------------------------------------------- a label that is a set, end to end
+
+
+FINDINGS = ["atelectasis", "cardiomegaly", "effusion"]
+
+
+def films(root, how_many: int = 30, size: int = 24) -> str:
+    """A CSV with one column per finding, and pictures whose brightness carries the first.
+
+    Each finding is present on a fixed arithmetic subset, so every one of them has both
+    sides in every part of a 0.6/0.2/0.2 split and nothing here depends on a draw. The
+    brightness tracks `atelectasis`, so a run that learns is distinguishable from one that
+    does not on at least one class.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    header = "key,images,Atelectasis,Cardiomegaly,Effusion"
+    lines = [header]
+    for index in range(how_many):
+        present = (index % 2 == 0, index % 3 == 0, index % 4 == 0)
+        write_png(root / f"{index:04d}.png", picture(index, present[0], size))
+        cells = ",".join("1" if yes else "0" for yes in present)
+        lines.append(f"film{index:04d},{index:04d}.png,{cells}")
+    path = root / "films.csv"
+    path.write_text("\n".join(lines) + "\n")
+    return str(path)
+
+
+def multi_data(csv, **over) -> ClassificationData:
+    return ClassificationData(
+        **{
+            "train_path": csv,
+            "mode": "config_file",
+            "classes": list(FINDINGS),
+            "labels_from": ["Atelectasis", "Cardiomegaly", "Effusion"],
+            **over,
+        }
+    )
+
+
+def test_the_columns_reach_the_reader_from_the_specification_alone(tmp_path):
+    """The one line that decides what a configured run reads. The control is the same CSV
+    with `labels_from` left out, which is then a file with no `label` column at all."""
+    csv = films(tmp_path / "chest")
+    engine = engine_for(multi_data(csv, split=split()), [model()])
+
+    assert engine.spec.data.multilabel is True
+    assert all(sample.labels is not None for sample in engine._samples["train"])
+
+    with pytest.raises(ConfigError, match="needs a 'label' column"):
+        engine_for(data(csv, classes=FINDINGS, mode="config_file", split=split()), [model()])
+
+
+def test_the_balance_of_a_split_reports_shares_that_do_not_add_up(tmp_path):
+    csv = films(tmp_path / "chest")
+    balance = engine_for(multi_data(csv, split=split()), [model()]).balance("train")
+
+    assert balance.labels_are_a_set
+    assert balance.total == 18, "0.6 of 30 films"
+    assert balance.labels_per_image > 1.0
+    assert sum(balance.counts.values()) > balance.total
+    assert "do not add up" in str(balance)
+    assert balance.never == [] and balance.always == []
+
+
+def test_every_finding_reaches_every_part_of_the_split(tmp_path):
+    """Which is the reason the split dispatches rather than striating, and the control is
+    the same films through `split_samples`, where it does not hold."""
+    csv = films(tmp_path / "chest")
+    engine = engine_for(multi_data(csv, split=split()), [model()])
+
+    for part in ("train", "validation", "test"):
+        members = engine._samples[part]
+        for finding in FINDINGS:
+            positive = sum(1 for sample in members if finding in sample.labels)
+            assert 0 < positive < len(members), f"{finding} in {part}"
+
+
+def test_a_run_over_a_set_of_labels_trains_scores_and_answers(tmp_path):
+    """The join this slice is for: a configuration, the reader, the stratified split, the
+    multi-hot target, the metric family and the two ways of asking what the model said."""
+    csv = films(tmp_path / "chest")
+    engine = engine_for(
+        multi_data(csv, split=split()), [model(metrics=[{"name": "auc"}, {"name": "f1"}])]
+    )
+    histories = engine.fit()
+
+    assert engine.runs["ours"].trainer.multilabel is True
+    logs = histories["ours"].records[-1]
+    assert {"train_loss", "val_loss", "train_auc", "val_auc", "train_f1"} <= set(logs)
+
+    rows = engine.evaluate("test")
+    assert len(rows) == 1
+    assert rows[0]["split"] == "test"
+    assert 0.0 <= rows[0]["auc"] <= 1.0
+
+    probabilities = engine.predict("ours", "test")
+    assert probabilities.shape == (6, 3)
+    assert not np.allclose(probabilities.sum(axis=1), 1.0), (
+        "independent questions: a softmax here would make them sum to one"
+    )
+
+    named = engine.predict_labels("ours", "test")
+    assert all(isinstance(answer, list) for answer in named)
+    assert all(set(answer) <= set(FINDINGS) for answer in named)
+
+
+def test_answers_carries_the_truth_and_the_prediction_as_lists_and_no_probability(tmp_path):
+    """`probability` is the chosen class's own number and with independent questions nothing
+    was chosen, so the column is absent rather than invented. The `p_<class>` columns are
+    each class's answer and they are the whole of it."""
+    csv = films(tmp_path / "chest")
+    engine = engine_for(multi_data(csv, split=split()), [model(epochs=1)])
+    engine.fit()
+    rows = engine.answers("ours", "test")
+
+    assert len(rows) == 6
+    first = rows[0]
+    assert "probability" not in first
+    assert "label" not in first, "the truth is a set here and is called `labels`"
+    assert isinstance(first["labels"], list) and isinstance(first["predicted"], list)
+    assert set(first) == {"key", "labels", "predicted"} | {f"p_{name}" for name in FINDINGS}
+
+    # The truth comes back in `classes` order whatever order the columns were read in, and
+    # it is the CSV's own answer for that film rather than anything the model said.
+    by_key = {row["key"]: row for row in rows}
+    for sample in engine._samples["test"]:
+        assert by_key[sample.key]["labels"] == [name for name in FINDINGS if name in sample.labels]
+    # And `predicted` agrees with the probabilities beside it, at 0.5.
+    for row in rows:
+        assert row["predicted"] == [name for name in FINDINGS if row[f"p_{name}"] > 0.5]
+
+
+def test_the_single_label_row_is_unchanged(tmp_path):
+    """The control on the branch in `answers`: one label out of alternatives still carries
+    `label`, one `predicted` name and its `probability`."""
+    root = tree(tmp_path / "train", {"benign": 12, "malignant": 12})
+    engine = engine_for(data(root, split=split()), [model(epochs=1)])
+    engine.fit()
+    row = engine.answers("ours", "test")[0]
+
+    assert isinstance(row["predicted"], str)
+    assert "probability" in row and "labels" not in row
+    assert row["label"] in ("benign", "malignant")

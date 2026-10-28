@@ -227,3 +227,61 @@ def test_the_specifications_flag_is_the_set_of_metrics_that_have_an_implementati
 
     assert flagged, "nothing says it supports a multi-label label"
     assert set(members) - flagged, "every metric claims to - the flag distinguishes nothing"
+
+
+# ------------------------------------------------- where the table is built, and why
+
+
+class Recorded(torch.overrides.TorchFunctionMode):
+    """Every torch call this mode saw, in order.
+
+    Which makes an **ordering** claim assertable on a machine whose accelerator cannot
+    reproduce the failure: the property both metric families need is that the float64
+    conversion happens *after* the move off the device, and a mode sees both calls by name
+    wherever they ran.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        self.calls.append(getattr(func, "__name__", str(func)))
+        return func(*args, **(kwargs or {}))
+
+
+def test_the_table_is_moved_off_the_device_before_it_becomes_float64():
+    """**MPS has no float64 at all**, and this is where that cost a red CI.
+
+    `Cannot convert a MPS Tensor to float64 dtype` is what both macOS jobs of
+    `pyplatypus#315` reported, on the one test that reaches a multi-label metric which
+    counts rather than ranks - and every Apple Silicon Mac picks `mps` since `0.8.0a38`
+    repaired `pick_device`. The table has to exist on the CPU, and nothing about the
+    arithmetic cares: two batches of booleans is what crosses, which is smaller than the
+    logits that produced them.
+
+    **The device cannot be the lever here and the reason is not that there is no
+    accelerator.** This machine has CUDA and `pick_device` picks it, so the engine's own
+    tests do run off the CPU - and CUDA *has* float64, which is exactly why the whole local
+    suite passed while both macOS jobs failed. No local device can refuse the conversion.
+    The **order** can be read anywhere, and a run that builds the table where the batch
+    lives never calls `cpu` at all, which is what the assertion below reads. The
+    discriminating control for the dtype itself is CI's macOS runner, which is the thing
+    that found this.
+
+    A second control exists by accident and is worth naming: moving only *half* of this -
+    `chosen` to the CPU and the present mask left behind - is caught on a CUDA machine by a
+    device mismatch rather than by a dtype, so the engine test holds the pair together too.
+    """
+    metric = build_classification_metric(F1Metric(), multilabel=True)
+    logits, target = table([(2, 1, 1, 2), (1, 2, 2, 1)])
+
+    recorder = Recorded()
+    with recorder:
+        metric.update(logits, target)
+
+    assert "cpu" in recorder.calls, "the table is being built where the batch lives"
+    assert recorder.calls.index("cpu") < recorder.calls.index("double")
+    assert metric._tables.device.type == "cpu"
+    assert metric._tables.dtype == torch.float64
+    # And the figure is unchanged by where it was counted, which is the point of moving it.
+    assert 0.0 <= metric.compute() <= 1.0

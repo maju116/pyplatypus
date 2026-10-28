@@ -156,7 +156,16 @@ class ClassificationMetric(_OverAPass):
         # One bincount rather than a loop over classes: the pair (truth, predicted) is a
         # single index into a flattened matrix, which is what makes this O(batch) rather
         # than O(batch * classes).
-        flat = labels * n_class + predicted
+        #
+        # **Counted on the CPU, and that is a different reason from the scores above.**
+        # There the transfer is about memory; here it is that the accumulator is `float64`
+        # and **MPS has no float64 at all** - `Cannot convert a MPS Tensor to float64
+        # dtype`. Every Apple Silicon Mac picks `mps` since `0.8.0a38` repaired
+        # `pick_device`, so this path raises there for any metric that reads a confusion
+        # matrix rather than scores: `accuracy`, `balanced_accuracy` and `f1`. It costs one
+        # int tensor of the batch's length per batch, which is nothing, and it also means
+        # the bincount itself never has to exist on the accelerator.
+        flat = (labels * n_class + predicted).cpu()
         counts = torch.bincount(flat, minlength=n_class * n_class).reshape(n_class, n_class)
         if self._confusion is None:
             self._confusion = counts.double()
@@ -415,7 +424,12 @@ class MultiLabelMetric(_OverAPass):
             self._scores.append(logits.sigmoid().detach().cpu())
             self._present.append(present.detach().cpu())
             return
-        chosen = logits > 0
+        # On the CPU for the single-label family's second reason rather than its first: the
+        # table is `float64` and MPS has none, so building it where the batch lives raises
+        # on every Apple Silicon Mac. Two batches of booleans is what crosses, which is
+        # smaller than the logits that produced them.
+        chosen = (logits > 0).cpu()
+        present = present.cpu()
         counts = torch.stack(
             [
                 (chosen & present).sum(dim=0),

@@ -25,7 +25,7 @@ from pyplatypus.objectives.classification import (
     build_classification_metric,
     build_classification_metrics,
 )
-from pyplatypus.spec.components import ClassificationMetricSpec
+from pyplatypus.spec.components import AccuracyMetric, ClassificationMetricSpec
 
 MEMBERS = get_args(get_args(ClassificationMetricSpec)[0])
 BUILT = (Accuracy, BalancedAccuracy, MacroF1, Auc)
@@ -363,3 +363,42 @@ def test_the_builders_key_by_name():
     assert sorted(built) == sorted(member.model_fields["name"].default for member in MEMBERS)
     assert all(isinstance(value, ClassificationMetric) for value in built.values())
     assert not math.isnan(built["accuracy"](*calibrated(100, 0.3, 2.0)).item())
+
+
+def test_the_confusion_matrix_is_moved_off_the_device_before_it_becomes_float64():
+    """The same defect one family over, and this one **shipped** in `0.8.0a49`.
+
+    `ClassificationMetric` accumulates a float64 confusion matrix, and MPS has no float64 -
+    so `accuracy`, `balanced_accuracy` and `f1` have raised on every Apple Silicon Mac since
+    the task landed. Nothing caught it because the default metric is `auc`, which takes the
+    scores path and was already moving its state to the CPU for a different reason
+    (memory), and no macOS test asked for one of the other three. It was found by the
+    multi-label family hitting the identical line in `pyplatypus#315`.
+
+    Asserted as an ordering rather than as a dtype because no local device can refuse the
+    conversion: this machine has CUDA, CUDA has float64, and that is the whole reason the
+    suite was green here while macOS was not. The sibling test in
+    `test_multilabel_classification_metrics.py` has the longer version.
+    """
+
+    class Recorded(torch.overrides.TorchFunctionMode):
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def __torch_function__(self, func, types, args=(), kwargs=None):
+            self.calls.append(getattr(func, "__name__", str(func)))
+            return func(*args, **(kwargs or {}))
+
+    metric = build_classification_metric(AccuracyMetric())
+    logits = torch.tensor([[2.0, 0.0], [0.0, 2.0], [1.0, 3.0], [3.0, 1.0]])
+    labels = torch.tensor([0, 1, 1, 0])
+
+    recorder = Recorded()
+    with recorder:
+        metric.update(logits, labels)
+
+    assert "cpu" in recorder.calls, "the matrix is being built where the batch lives"
+    assert recorder.calls.index("cpu") < recorder.calls.index("double")
+    assert metric._confusion.device.type == "cpu"
+    assert metric._confusion.dtype == torch.float64
+    assert metric.compute() == pytest.approx(1.0)

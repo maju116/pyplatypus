@@ -372,10 +372,23 @@ crops. `crops()` hands back arrays rather than files, so writing them out and re
 back is the join - and that step is deliberately yours, because where the crops go and which
 of them are worth keeping is a decision about the data.
 
-**A label that is a set is not this either.** One image with four findings is multi-label -
-independent questions rather than alternatives, sigmoid channels, a loss that says it supports
-them - and `pyplatypus#307` is where it is being built. The metric family for it shipped
-first; nothing can ask for it yet.
+**A label may also be a set, since `0.8.0a50`.** One image with four findings is four
+independent questions rather than one of four alternatives, and `labels_from` is how it is
+said: one CSV column per class, in class order, each cell 0 or 1. It is a naming rather than a
+setting for the reason the mask side gives - the target changes, not only the activation, so a
+switch that turned the softmax into a sigmoid would train against an exclusive target and
+report plausible numbers meaning what softmax meant. `config_file` mode only: an image cannot
+sit in two directories without being two files.
+
+Two things about it are measurements rather than choices. `accuracy` is **refused** for a set
+of labels rather than redefined, because a model answering no to everything scores 0.8137 on
+exact match and 0.9507 per class - above a model holding half the available signal - so either
+reading of it would reward a collapse; `balanced_accuracy`, `f1` and `auc` all put that answer
+below every model with any signal. And the split for it is not stratified by label but placed
+one group at a time, rarest class first: a random 70/15/15 of 500 films at those prevalences
+leaves some part holding only one side of some class 51% of the time, where this is 0%.
+`pyplatypus#307`. **The R side does not have it yet**, which is why the configuration guide
+does not describe it - the guide is one document in two packages.
 
 ## About the author
 
