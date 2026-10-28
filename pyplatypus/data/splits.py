@@ -585,13 +585,55 @@ def _fill_empty_splits(
         assigned[moved] = name
 
 
+MASK_PATHS = "mask paths"
+A_CLASS_NAME = "a class name"
+A_SET_OF_LABELS = "a set of labels"
+
+
+def _labelling_of(samples: Sequence[Sample]) -> str:
+    """Which of the three kinds of label these samples carry, refusing a mixture.
+
+    Read off the samples rather than taken as a flag, for `stratified_split`'s reason one
+    layer over: a caller holding a `Split` holds the answer already, and a flag beside it is
+    a second copy of it that can disagree.
+
+    **The first that applies wins** - `labels` is the set, `label` the name, masks are what
+    is left - and no walk in this package produces a sample with two of them, since each
+    reader fills exactly one. A hand-built `Sample` carrying both a `label` and `masks` is
+    written as the label; refusing that here would be a guard on a state nothing can reach
+    through its own routes, and the place to refuse a malformed sample is `Sample`.
+
+    Raises:
+        ConfigError: If the samples do not agree, because one file has one header.
+    """
+    kinds: dict[str, list[str]] = {}
+    for sample in samples:
+        if sample.labels is not None:
+            kinds.setdefault(A_SET_OF_LABELS, []).append(sample.key)
+        elif sample.label is not None:
+            kinds.setdefault(A_CLASS_NAME, []).append(sample.key)
+        else:
+            kinds.setdefault(MASK_PATHS, []).append(sample.key)
+    if len(kinds) > 1:
+        parts = []
+        for kind, keys in sorted(kinds.items()):
+            shown = ", ".join(keys[:5]) + (" ..." if len(keys) > 5 else "")
+            parts.append(f"{len(keys)} carry {kind} ({shown})")
+        raise ConfigError(
+            f"these samples do not agree on what a label is: {'; '.join(parts)}. One CSV has "
+            f"one header, so there is no file that is correct for all of them."
+        )
+    return next(iter(kinds))
+
+
 def write_splits(
     split: Split,
     out_dir: str | Path,
     *,
     column_sep: str = ";",
     relative: bool = True,
-    label_column: str = "masks",
+    label_column: str | None = None,
+    classes: Sequence[str] | None = None,
 ) -> dict[str, Path]:
     """Write one CSV per split, in the layout `config_file` mode reads.
 
@@ -599,9 +641,76 @@ def write_splits(
     can be moved or mounted elsewhere together. `key` and `group` columns come along for
     provenance: the reader ignores them, a person reading the file does not, and they are
     what lets anyone check afterwards that no patient straddles the split.
+
+    **What the label column holds is decided by the samples**, not by the caller, and that
+    is `#316`: this wrote `sample.masks` whatever the task, so a classification split came
+    out with an empty column and the dataset's labelling was gone. The refusal arrived one
+    run later and at the reader - `no label name` on every row - which is a sentence about
+    the data rather than about the file that had just been written. The three shapes:
+
+        mask paths        one `masks` column of paths, which is every mask task
+        a class name      one `label` column of names, which is `classification`
+        a set of labels   one column per class, `1` or `0`, which is `labels_from`
+
+    **A set of labels needs `classes`**, and it is refused without them rather than taken
+    from the samples. The union of what a split happens to carry is not the class list: a
+    class no image in this part has would simply have no column, and the file would then
+    describe a narrower problem than the one being studied - which is the single thing
+    `classes` exists to stop. It is the same argument, and the same parameter name, as
+    `save_class_masks` and `save_class_volumes`.
+
+    Args:
+        split: What to write, from `split_samples` or `stratified_split`.
+        out_dir: Where the three CSVs go. Created if it does not exist.
+        column_sep: What separates several paths inside one cell.
+        relative: Write paths relative to the CSV where that is possible.
+        label_column: Override the label column's name. `None` takes the name from what the
+            samples carry - `masks` for paths and `label` for a class name, which is what
+            `ClassificationData.label_column` reads. Ignored for a set of labels, where the
+            class names *are* the column names.
+        classes: The classes, in class order, and required for a set of labels. The reader
+            pairs its columns to `classes` by position, so this is also what fixes each
+            class's index.
+
+    Returns:
+        The path written for each non-empty split, keyed by split name.
+
+    Raises:
+        ConfigError: If the samples disagree about what a label is, if a set of labels is
+            written without `classes`, or if a sample carries a class `classes` does not
+            name.
     """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+
+    everything = [sample for name in SPLIT_NAMES for sample in split[name]]
+    if not everything:
+        # Nothing to write and nothing to decide. Reachable by constructing a `Split`
+        # directly; every function in this module that builds one refuses an empty result
+        # before it gets here.
+        return {}
+
+    labelling = _labelling_of(everything)
+    if labelling == A_SET_OF_LABELS:
+        if classes is None:
+            raise ConfigError(
+                "these samples carry a set of labels, which is written as one column per "
+                "class, so `classes` is needed to say which columns and in what order. The "
+                "classes the samples happen to carry are not that list: a class none of "
+                "them has would have no column at all."
+            )
+        named = set(classes)
+        stray = sorted({k for s in everything for k in (s.labels or ()) if k not in named})
+        if stray:
+            raise ConfigError(
+                f"these samples carry {stray}, which `classes` does not name. One column "
+                f"per class is the layout, so a finding with no column would be dropped "
+                f"from the file with nothing saying so. `classes` is {list(classes)}."
+            )
+        header = ["key", "group", "images", *classes]
+    else:
+        default = "label" if labelling == A_CLASS_NAME else "masks"
+        header = ["key", "group", "images", label_column or default]
 
     written: dict[str, Path] = {}
     for name in SPLIT_NAMES:
@@ -611,14 +720,23 @@ def write_splits(
         path = out / f"{name}.csv"
         with path.open("w", newline="") as handle:
             writer = csv.writer(handle)
-            writer.writerow(["key", "group", "images", label_column])
+            writer.writerow(header)
             for sample in samples:
+                if labelling == A_SET_OF_LABELS:
+                    carried = sample.labels or ()
+                    label_cells = ["1" if klass in carried else "0" for klass in classes or ()]
+                elif labelling == A_CLASS_NAME:
+                    label_cells = [sample.label or ""]
+                else:
+                    label_cells = [
+                        column_sep.join(_as_text(p, out, relative) for p in sample.masks)
+                    ]
                 writer.writerow(
                     [
                         sample.key,
                         split.groups[sample.key],
                         column_sep.join(_as_text(p, out, relative) for p in sample.images),
-                        column_sep.join(_as_text(p, out, relative) for p in sample.masks),
+                        *label_cells,
                     ]
                 )
         written[name] = path
