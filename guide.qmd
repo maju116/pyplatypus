@@ -451,6 +451,53 @@ per class - above a model holding half the available signal - so neither reading
 can be what a `monitor` watches. `balanced_accuracy`, `f1` and `auc` all put that answer
 below every model with any signal at all.
 
+### Predicting on images you have no labels for
+
+A test set is often just pictures, and that is an ordinary thing to have rather than a
+half-written configuration. Name them in a CSV with no label column - `key, images` and
+nothing else - and the split is read as unlabelled:
+
+```yaml
+task: classification
+data:
+  train_path: data/train.csv
+  validation_path: data/validation.csv
+  test_path: data/to-predict.csv
+  mode: config_file
+  classes: [benign, malignant]
+models:
+  - name: ours
+    input_shape: [224, 224]
+    blocks: 4
+    filters: 16
+```
+
+What each method can honestly do with such a split differs, and the differences are
+refusals rather than silences:
+
+- **`predict()` and `predict_labels()` work**, which is what the split is for. In
+  `answers()` the truth column says nothing happened: `label` is `None`, and for a set of
+  labels `labels` is `None` rather than `[]` - an empty list there means *this image carries
+  none of the findings*, which is a labelled row and the commonest one in every dataset
+  shaped that way.
+- **`evaluate()` refuses it by name.** Scoring against labels that are not there would
+  either fail inside a metric or, worse, report a number, and a zero in a table is read as
+  a result.
+- **`balance()` refuses it too**, for the same reason: counted anyway it says every class
+  has no images, which reads as a finding about the dataset rather than about there being
+  nothing to count.
+
+**One layout cannot express this, and the refusal says which.** `nested_dirs` makes the
+directory the label, so there is no unlabelled form of it - an image has to sit somewhere,
+and where it sits is the answer. Point `test_path` at a CSV instead, or at the images
+themselves.
+
+**"None" and "some" are not the same thing here either.** The header is asked about the
+column a label would be read from - `label`, or every column `labels_from` names - and a
+file naming two of three classes carries labels for *something*, so it is refused by naming
+the third rather than quietly becoming an unlabelled split and reporting nothing about the
+two that are there.
+
 ## Not training at all
 
 ```yaml
