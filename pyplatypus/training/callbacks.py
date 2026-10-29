@@ -148,6 +148,31 @@ def first_epoch(start: float | None, start_epoch: int | None, total: int) -> int
     return 1
 
 
+def ask_to_stop(callbacks: list[Callback], state: TrainingState) -> bool:
+    """Whether any callback wants the run to end, having asked **every one of them**.
+
+    One definition with three callers - the segmentation, detection and classification
+    trainers - because the three had a copy each and every copy was
+    `any(callback.on_epoch_end(state) for callback in self.callbacks)`. `any()` over a
+    generator short-circuits, so the callbacks listed after the first one that answered
+    `True` never saw the epoch the run stopped on. `pyplatypus#334`.
+
+    What that cost, measured on the issue: a `csv_logger` written after a stopper lost the
+    run's final row, and - worse, because the schema recommends it in as many words -
+    `early_stopping(restore_best=True)` written after `stop_after` restored the
+    second-best epoch instead of the best. `stop_after`'s own description says to pair it
+    with `restore_best` *"if what the run produced matters"*, and writing the pair in that
+    order is what broke it.
+
+    A list is the whole fix. It is a function rather than a line in three files so that
+    the next trainer cannot reintroduce the generator, and so that one test holds all
+    three - the shape `labels_in_test_split` already has for the question of whether a
+    split carries labels.
+    """
+    asked = [callback.on_epoch_end(state) for callback in callbacks]
+    return any(asked)
+
+
 class _Watcher(Callback):
     def __init__(self, monitor: str, min_delta: float = 0.0):
         self.monitor = monitor
@@ -453,10 +478,13 @@ class Swa(Callback):
         # `start_epoch` says the same thing in epochs, and is clamped to the run's length
         # for the same reason the fraction is: a start past the end would fold nothing,
         # and folding the last epoch alone is the honest reading of "begin at the end".
-        if self.start_epoch is not None:
-            self._first = min(horizon, self.start_epoch)
-        else:
-            self._first = min(horizon, max(1, round(horizon * self.start) + 1))
+        # Through `first_epoch`, which is where every other callback's `start` is
+        # resolved. This read `round(horizon * self.start) + 1` until `pyplatypus#335`,
+        # and `round` is half-to-even, so the two disagreed by an epoch whenever
+        # `horizon * start` landed on a half with an odd integer part - (10, 0.75) gave 8
+        # here and 9 there. The schema says of `swa.start_epoch` that "it is the same
+        # concept `early_stopping` names with these two words", so there is one rule.
+        self._first = min(horizon, max(1, first_epoch(self.start, self.start_epoch, horizon)))
         self._folded = 0
 
     def on_epoch_end(self, state: TrainingState) -> bool:
@@ -645,17 +673,70 @@ _BUILDERS: dict[type, Any] = {
 }
 
 
+def _replaces_weights_last(callback: Callback) -> int:
+    """Where a callback's `on_train_end` sits in `finish_training`. Lower runs first.
+
+    THREE callbacks replace the model's weights in `on_train_end`, and the trainer calls
+    them in list order, so the last one to run decides what the run produced.
+    `EarlyStopping.restore_best` loads the best epoch's snapshot, `Ema` loads its average
+    and `Swa` loads its own. `ModelSpec.one_averager` refuses `ema` beside `swa` on exactly
+    that argument - *"both replace the model when training ends ... in whichever order the
+    list happened to have them"* - and `restore_best` is the third, which neither the
+    refusal nor this ordering accounted for until `pyplatypus#333`.
+
+    Measured there, on one run with only the order changed: `[ema, early_stopping]` ended
+    on the raw best epoch and `[early_stopping, ema]` on the average, 0.578 apart in the
+    largest weight, while the history reported `ema_steps = 8` in both.
+
+    **The averager wins**, which is the same answer `swa` already got here and for a
+    related reason: somebody who configured averaging asked for the averaged model, and
+    `restore_best` is a statement about which *epoch* was best rather than about which
+    weights the run should hand back. A refusal was the alternative and is the wrong shape:
+    `restore_best` defaults to `True`, so refusing the pair would reject configurations
+    whose authors never knowingly asked for it.
+
+    `swa` is last of the three, which also happens to be where `build_callbacks` puts it -
+    for its own and unrelated reason, the learning rate it pins during the epochs.
+    """
+    if isinstance(callback, Swa):
+        return 3
+    if isinstance(callback, Ema):
+        return 2
+    if isinstance(callback, EarlyStopping) and callback.restore_best:
+        return 1
+    return 0
+
+
+def finish_training(callbacks: list[Callback], state: TrainingState) -> None:
+    """Run every callback's `on_train_end`, with the weight-replacers last and in order.
+
+    One definition with three callers, for `ask_to_stop`'s reason and one more: this
+    guarantee has to hold however the list arrived, and a caller may hand a `Trainer` its
+    own `callbacks=` list that never went through `build_callbacks`. Ordering at the point
+    of building would have left that route exactly as `pyplatypus#333` found it - which is
+    what the test for this caught, on the first version of the fix.
+    """
+    for callback in sorted(callbacks, key=_replaces_weights_last):
+        callback.on_train_end(state)
+
+
 def build_callbacks(specs: list[CallbackSpec]) -> list[Callback]:
-    """Built in the order given, except that `swa` is moved last.
+    """Built in the order given, except that the weight-replacers are moved to the end.
 
-    Two callbacks may write the learning rate in one epoch: a schedule, which computes it
-    from the optimiser's initial value, and `swa`, which pins it to a constant once
-    averaging has begun. Which one the epoch ends with decided itself by where they
-    happened to sit in the list, and nothing said so - so the order is fixed here instead.
-    `swa` wins, because a constant tail rate is the whole point of configuring it.
+        Two callbacks may write the learning rate in one epoch: a schedule, which computes it
+        from the optimiser's initial value, and `swa`, which pins it to a constant once
+        averaging has begun. Which one the epoch ends with decided itself by where they
+        happened to sit in the list, and nothing said so - so the order is fixed here instead.
+        `swa` wins, because a constant tail rate is the whole point of configuring it.
 
-    The spec refuses the other pairs outright: two schedules, or a schedule beside
-    `reduce_lr_on_plateau`, which a schedule erases every epoch.
+        The spec refuses the other pairs outright: two schedules, or a schedule beside
+        `reduce_lr_on_plateau`, which a schedule erases every epoch.
+
+    **Which weights the run ends on is a different question and is not settled here**, even
+        though it also used to be decided by list position. It is settled in `finish_training`,
+        because it is about the order `on_train_end` runs in rather than the order the epochs
+        see - and because a caller may build a `Trainer` with a `callbacks=` list of its own,
+        which never passes through this function. `pyplatypus#333`.
     """
     built = [_BUILDERS[type(spec)](spec) for spec in specs]
     # Stable, so everything else keeps the order it was written in.

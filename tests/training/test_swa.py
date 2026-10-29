@@ -226,3 +226,50 @@ def test_the_spec_builds_the_callback_with_what_it_was_given():
     assert isinstance(callback, Swa)
     assert callback.start == pytest.approx(0.6)
     assert callback.learning_rate == pytest.approx(2e-4)
+
+
+def test_swa_resolves_its_start_fraction_by_the_rule_every_other_callback_uses():
+    """`pyplatypus#335`: it used `round()` where the shared rule uses `int()`.
+
+    Python's `round` is half-to-even, so the two disagreed by an epoch whenever
+    `total * start` landed on a half with an odd integer part - and the schema says of
+    `swa.start_epoch` that "it is the same concept `early_stopping` names with these two
+    words", so there is one rule rather than two.
+    """
+    from pyplatypus.training.callbacks import first_epoch
+
+    def swa_first(epochs: int, start: float) -> int:
+        callback = Swa(start=start)
+        callback.on_train_begin(
+            TrainingState(model=nn.Linear(1, 1), optimizer=None, total_epochs=epochs)
+        )
+        return callback._first
+
+    # The three cases that used to differ, measured on the issue as 8/9, 6/7 and 2/3.
+    differed = [(10, 0.75), (11, 0.5), (6, 0.25)]
+    for epochs, start in differed:
+        assert swa_first(epochs, start) == first_epoch(start, None, epochs), (epochs, start)
+
+    # The controls: cases with no half, which agreed before the fix too - so the loop above
+    # is not passing because both rules were changed into something else together.
+    for epochs, start in [(12, 0.75), (14, 0.75), (8, 0.5)]:
+        assert swa_first(epochs, start) == first_epoch(start, None, epochs), (epochs, start)
+
+    # And the old rule really is a different answer on the first group, which is what makes
+    # this test about a divergence rather than about one arbitrary formula.
+    assert [round(e * s) + 1 for e, s in differed] == [9, 7, 3]
+    assert [first_epoch(s, None, e) for e, s in differed] == [8, 6, 2]
+
+
+def test_swa_still_clamps_a_start_past_the_end_to_the_last_epoch():
+    """The clamps are `Swa`'s own and were not the divergence, so they have to survive it."""
+    for start, epochs, expected in [(1.0, 5, 5), (0.99, 3, 3)]:
+        callback = Swa(start=start)
+        callback.on_train_begin(
+            TrainingState(model=nn.Linear(1, 1), optimizer=None, total_epochs=epochs)
+        )
+        assert callback._first == expected, (start, epochs)
+
+    by_epoch = Swa(start=0.5, start_epoch=99)
+    by_epoch.on_train_begin(TrainingState(model=nn.Linear(1, 1), optimizer=None, total_epochs=4))
+    assert by_epoch._first == 4, "start_epoch past the end should clamp, not fold nothing"
