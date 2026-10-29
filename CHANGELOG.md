@@ -1,6 +1,35 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a56] - 2026-10-29
+
+**A regression `0.8.0a55` shipped, found by the other package.** Recorded that way rather
+than folded into a55's entry, because a55 is on PyPI and somebody could be using it: an
+agreement figure drawn over a label map with a gap in its numbering coloured the wrong
+objects.
+
+### Fixed
+
+ - **`overlay_instance_agreement` turned a row of the IoU matrix back into an object number
+   with `row + 1`**, which was correct for as long as every map numbered its objects
+   consecutively. `0.8.0a55` made `iou_matrix`'s rows the object numbers **present**, so on
+   a gapped map that line marked the wrong objects matched: with truth and prediction both
+   holding objects 1 and 4, every object matches and the figure drew one as a hit and one as
+   a miss.
+
+   **What caught it is `rplatypus`'s drawing pair**, which compares R's overlay with this one
+   pixel for pixel and carries a fixture named `gapped` - whose own comment says that taking
+   `seq_len(max(labels))` instead of the values present *changes nothing*, which was true of
+   R and had just stopped being true here. That is §3F working in the direction it was built
+   for, and it means this suite was blind to it: there was no engine test that could fail.
+   There is one now.
+
+   **The object-number rule has one definition rather than two.** `object_labels` is exported
+   from `pyplatypus.instances`, `iou_matrix` indexes by it and the overlay maps back through
+   it. The alternative - computing `np.unique(...)` again inside `plots.py` - is the second
+   copy §3F is a list of, and this defect is what a second copy costs when only one of them
+   moves.
+
 ## [0.8.0a55] - 2026-10-29
 
 **The review agent's first audit, engine half.** Six of its nine findings are here; each was

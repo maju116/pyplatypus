@@ -37,6 +37,7 @@ from pyplatypus.instances.metrics import (
     foreground_dice,
     iou_matrix,
     label_map,
+    object_labels,
     score_cases,
     summarise_instances,
 )
@@ -66,6 +67,7 @@ __all__ = [
     "instances_from_parts",
     "iou_matrix",
     "label_map",
+    "object_labels",
     "parts_from_instances",
     "read_instance_masks",
     "read_instances",

@@ -82,6 +82,23 @@ def label_map(masks: Sequence[np.ndarray]) -> np.ndarray:
     return labels
 
 
+def object_labels(labels: np.ndarray) -> np.ndarray:
+    """The object numbers a map carries, ascending - which is not `1..max`.
+
+    One definition, because the rows of `iou_matrix` are in this order and anything that
+    turns a row back into an object number has to use the same list. `overlay_instance_
+    agreement` did it with `row + 1` and was correct only while the numbering was
+    consecutive; when `pyplatypus#325` made the matrix's rows the values present, that line
+    started colouring the wrong objects on a gapped map - and the R suite's own `gapped`
+    fixture, compared against this drawing pixel for pixel, is what caught it.
+
+    So this is a second copy avoided rather than added: `measure.instance_sizes` says the
+    same thing in prose - *"a model that found objects 1, 2 and 4 found three objects"* - and
+    `rplatypus`'s matcher says it in R.
+    """
+    return np.unique(labels[labels > 0]).astype(np.int64)
+
+
 def iou_matrix(truth: np.ndarray, predicted: np.ndarray) -> np.ndarray:
     """Pairwise IoU between every truth label and every predicted label.
 
@@ -108,8 +125,8 @@ def iou_matrix(truth: np.ndarray, predicted: np.ndarray) -> np.ndarray:
     # A gap is not somebody else's mistake either: `instances_from_parts` produces one at
     # its own default, because a seed outside the foreground loses every pixel and
     # `_drop_small` renumbers only when `minimum_area > 0`.
-    truth_values = np.unique(truth[truth > 0]).astype(np.int64)
-    predicted_values = np.unique(predicted[predicted > 0]).astype(np.int64)
+    truth_values = object_labels(truth)
+    predicted_values = object_labels(predicted)
     n_truth, n_predicted = len(truth_values), len(predicted_values)
     if n_truth == 0 or n_predicted == 0:
         return np.zeros((n_truth, n_predicted), dtype=np.float64)
