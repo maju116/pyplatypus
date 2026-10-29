@@ -83,9 +83,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -1025,15 +1025,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#change-log" id="toc-change-log" class="nav-link active" data-scroll-target="#change-log">Change Log</a>
   <ul class="collapse">
+  <li><a href="#a54---2026-10-29" id="toc-a54---2026-10-29" class="nav-link" data-scroll-target="#a54---2026-10-29">[0.8.0a54] - 2026-10-29</a>
+  <ul class="collapse">
+  <li><a href="#changed" id="toc-changed" class="nav-link" data-scroll-target="#changed">Changed</a></li>
+  </ul></li>
   <li><a href="#a53---2026-10-28" id="toc-a53---2026-10-28" class="nav-link" data-scroll-target="#a53---2026-10-28">[0.8.0a53] - 2026-10-28</a>
   <ul class="collapse">
   <li><a href="#fixed" id="toc-fixed" class="nav-link" data-scroll-target="#fixed">Fixed</a></li>
-  <li><a href="#changed" id="toc-changed" class="nav-link" data-scroll-target="#changed">Changed</a></li>
+  <li><a href="#changed-1" id="toc-changed-1" class="nav-link" data-scroll-target="#changed-1">Changed</a></li>
   </ul></li>
   <li><a href="#a52---2026-10-28" id="toc-a52---2026-10-28" class="nav-link" data-scroll-target="#a52---2026-10-28">[0.8.0a52] - 2026-10-28</a>
   <ul class="collapse">
   <li><a href="#fixed-1" id="toc-fixed-1" class="nav-link" data-scroll-target="#fixed-1">Fixed</a></li>
-  <li><a href="#changed-1" id="toc-changed-1" class="nav-link" data-scroll-target="#changed-1">Changed</a></li>
+  <li><a href="#changed-2" id="toc-changed-2" class="nav-link" data-scroll-target="#changed-2">Changed</a></li>
   </ul></li>
   <li><a href="#a51---2026-10-28" id="toc-a51---2026-10-28" class="nav-link" data-scroll-target="#a51---2026-10-28">[0.8.0a51] - 2026-10-28</a>
   <ul class="collapse">
@@ -1078,7 +1082,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a44---2026-10-26" id="toc-a44---2026-10-26" class="nav-link" data-scroll-target="#a44---2026-10-26">[0.8.0a44] - 2026-10-26</a>
   <ul class="collapse">
-  <li><a href="#changed-2" id="toc-changed-2" class="nav-link" data-scroll-target="#changed-2">Changed</a></li>
+  <li><a href="#changed-3" id="toc-changed-3" class="nav-link" data-scroll-target="#changed-3">Changed</a></li>
   <li><a href="#owed-and-not-in-this-release" id="toc-owed-and-not-in-this-release" class="nav-link" data-scroll-target="#owed-and-not-in-this-release">Owed, and not in this release</a></li>
   </ul></li>
   <li><a href="#a43---2026-10-26" id="toc-a43---2026-10-26" class="nav-link" data-scroll-target="#a43---2026-10-26">[0.8.0a43] - 2026-10-26</a>
@@ -1098,19 +1102,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a40---2026-10-25" id="toc-a40---2026-10-25" class="nav-link" data-scroll-target="#a40---2026-10-25">[0.8.0a40] - 2026-10-25</a>
   <ul class="collapse">
   <li><a href="#fixed-9" id="toc-fixed-9" class="nav-link" data-scroll-target="#fixed-9">Fixed</a></li>
-  <li><a href="#changed-3" id="toc-changed-3" class="nav-link" data-scroll-target="#changed-3">Changed</a></li>
+  <li><a href="#changed-4" id="toc-changed-4" class="nav-link" data-scroll-target="#changed-4">Changed</a></li>
   <li><a href="#not-in-this-release" id="toc-not-in-this-release" class="nav-link" data-scroll-target="#not-in-this-release">Not in this release</a></li>
   </ul></li>
   <li><a href="#a39---2026-10-25" id="toc-a39---2026-10-25" class="nav-link" data-scroll-target="#a39---2026-10-25">[0.8.0a39] - 2026-10-25</a>
   <ul class="collapse">
   <li><a href="#added-5" id="toc-added-5" class="nav-link" data-scroll-target="#added-5">Added</a></li>
-  <li><a href="#changed-4" id="toc-changed-4" class="nav-link" data-scroll-target="#changed-4">Changed</a></li>
+  <li><a href="#changed-5" id="toc-changed-5" class="nav-link" data-scroll-target="#changed-5">Changed</a></li>
   </ul></li>
   <li><a href="#a38---2026-10-24" id="toc-a38---2026-10-24" class="nav-link" data-scroll-target="#a38---2026-10-24">[0.8.0a38] - 2026-10-24</a>
   <ul class="collapse">
   <li><a href="#added-6" id="toc-added-6" class="nav-link" data-scroll-target="#added-6">Added</a></li>
   <li><a href="#fixed-10" id="toc-fixed-10" class="nav-link" data-scroll-target="#fixed-10">Fixed</a></li>
-  <li><a href="#changed-5" id="toc-changed-5" class="nav-link" data-scroll-target="#changed-5">Changed</a></li>
+  <li><a href="#changed-6" id="toc-changed-6" class="nav-link" data-scroll-target="#changed-6">Changed</a></li>
   <li><a href="#measured-1" id="toc-measured-1" class="nav-link" data-scroll-target="#measured-1">Measured</a></li>
   </ul></li>
   <li><a href="#a37---2026-10-24" id="toc-a37---2026-10-24" class="nav-link" data-scroll-target="#a37---2026-10-24">[0.8.0a37] - 2026-10-24</a>
@@ -1121,13 +1125,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a36---2026-10-24" id="toc-a36---2026-10-24" class="nav-link" data-scroll-target="#a36---2026-10-24">[0.8.0a36] - 2026-10-24</a>
   <ul class="collapse">
   <li><a href="#added-8" id="toc-added-8" class="nav-link" data-scroll-target="#added-8">Added</a></li>
-  <li><a href="#changed-6" id="toc-changed-6" class="nav-link" data-scroll-target="#changed-6">Changed</a></li>
+  <li><a href="#changed-7" id="toc-changed-7" class="nav-link" data-scroll-target="#changed-7">Changed</a></li>
   <li><a href="#measured-3" id="toc-measured-3" class="nav-link" data-scroll-target="#measured-3">Measured</a></li>
   </ul></li>
   <li><a href="#a35---2026-10-24" id="toc-a35---2026-10-24" class="nav-link" data-scroll-target="#a35---2026-10-24">[0.8.0a35] - 2026-10-24</a>
   <ul class="collapse">
   <li><a href="#added-9" id="toc-added-9" class="nav-link" data-scroll-target="#added-9">Added</a></li>
-  <li><a href="#changed-7" id="toc-changed-7" class="nav-link" data-scroll-target="#changed-7">Changed</a></li>
+  <li><a href="#changed-8" id="toc-changed-8" class="nav-link" data-scroll-target="#changed-8">Changed</a></li>
   <li><a href="#measured-while-building-it" id="toc-measured-while-building-it" class="nav-link" data-scroll-target="#measured-while-building-it">Measured while building it</a></li>
   </ul></li>
   <li><a href="#a34---2026-10-24" id="toc-a34---2026-10-24" class="nav-link" data-scroll-target="#a34---2026-10-24">[0.8.0a34] - 2026-10-24</a>
@@ -1139,18 +1143,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#added-11" id="toc-added-11" class="nav-link" data-scroll-target="#added-11">Added</a></li>
   <li><a href="#fixed-11" id="toc-fixed-11" class="nav-link" data-scroll-target="#fixed-11">Fixed</a></li>
-  <li><a href="#changed-8" id="toc-changed-8" class="nav-link" data-scroll-target="#changed-8">Changed</a></li>
+  <li><a href="#changed-9" id="toc-changed-9" class="nav-link" data-scroll-target="#changed-9">Changed</a></li>
   </ul></li>
   <li><a href="#a32---2026-10-24" id="toc-a32---2026-10-24" class="nav-link" data-scroll-target="#a32---2026-10-24">[0.8.0a32] - 2026-10-24</a>
   <ul class="collapse">
   <li><a href="#added-12" id="toc-added-12" class="nav-link" data-scroll-target="#added-12">Added</a></li>
-  <li><a href="#changed-9" id="toc-changed-9" class="nav-link" data-scroll-target="#changed-9">Changed</a></li>
+  <li><a href="#changed-10" id="toc-changed-10" class="nav-link" data-scroll-target="#changed-10">Changed</a></li>
   <li><a href="#measured-while-building-it-1" id="toc-measured-while-building-it-1" class="nav-link" data-scroll-target="#measured-while-building-it-1">Measured while building it</a></li>
   </ul></li>
   <li><a href="#a31---2026-10-24" id="toc-a31---2026-10-24" class="nav-link" data-scroll-target="#a31---2026-10-24">[0.8.0a31] - 2026-10-24</a>
   <ul class="collapse">
   <li><a href="#fixed-12" id="toc-fixed-12" class="nav-link" data-scroll-target="#fixed-12">Fixed</a></li>
-  <li><a href="#changed-10" id="toc-changed-10" class="nav-link" data-scroll-target="#changed-10">Changed</a></li>
+  <li><a href="#changed-11" id="toc-changed-11" class="nav-link" data-scroll-target="#changed-11">Changed</a></li>
   </ul></li>
   <li><a href="#a30---2026-10-23" id="toc-a30---2026-10-23" class="nav-link" data-scroll-target="#a30---2026-10-23">[0.8.0a30] - 2026-10-23</a>
   <ul class="collapse">
@@ -1166,7 +1170,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#added-15" id="toc-added-15" class="nav-link" data-scroll-target="#added-15">Added</a></li>
   <li><a href="#fixed-14" id="toc-fixed-14" class="nav-link" data-scroll-target="#fixed-14">Fixed</a></li>
-  <li><a href="#changed-11" id="toc-changed-11" class="nav-link" data-scroll-target="#changed-11">Changed</a></li>
+  <li><a href="#changed-12" id="toc-changed-12" class="nav-link" data-scroll-target="#changed-12">Changed</a></li>
   <li><a href="#still-open" id="toc-still-open" class="nav-link" data-scroll-target="#still-open">Still open</a></li>
   </ul></li>
   <li><a href="#a27---2026-10-16" id="toc-a27---2026-10-16" class="nav-link" data-scroll-target="#a27---2026-10-16">[0.8.0a27] - 2026-10-16</a>
@@ -1176,7 +1180,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a26---2026-10-15" id="toc-a26---2026-10-15" class="nav-link" data-scroll-target="#a26---2026-10-15">[0.8.0a26] - 2026-10-15</a>
   <ul class="collapse">
   <li><a href="#added-16" id="toc-added-16" class="nav-link" data-scroll-target="#added-16">Added</a></li>
-  <li><a href="#changed-12" id="toc-changed-12" class="nav-link" data-scroll-target="#changed-12">Changed</a></li>
+  <li><a href="#changed-13" id="toc-changed-13" class="nav-link" data-scroll-target="#changed-13">Changed</a></li>
   <li><a href="#not-built-and-why---the-other-half-of-the-milestone" id="toc-not-built-and-why---the-other-half-of-the-milestone" class="nav-link" data-scroll-target="#not-built-and-why---the-other-half-of-the-milestone">Not built, and why - the other half of the milestone</a></li>
   </ul></li>
   <li><a href="#a25---2026-10-15" id="toc-a25---2026-10-15" class="nav-link" data-scroll-target="#a25---2026-10-15">[0.8.0a25] - 2026-10-15</a>
@@ -1186,14 +1190,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a24---2026-10-15" id="toc-a24---2026-10-15" class="nav-link" data-scroll-target="#a24---2026-10-15">[0.8.0a24] - 2026-10-15</a>
   <ul class="collapse">
   <li><a href="#fixed-16" id="toc-fixed-16" class="nav-link" data-scroll-target="#fixed-16">Fixed</a></li>
-  <li><a href="#changed-13" id="toc-changed-13" class="nav-link" data-scroll-target="#changed-13">Changed</a></li>
+  <li><a href="#changed-14" id="toc-changed-14" class="nav-link" data-scroll-target="#changed-14">Changed</a></li>
   </ul></li>
   <li><a href="#a23---2026-10-14" id="toc-a23---2026-10-14" class="nav-link" data-scroll-target="#a23---2026-10-14">[0.8.0a23] - 2026-10-14</a>
   <ul class="collapse">
   <li><a href="#added-18" id="toc-added-18" class="nav-link" data-scroll-target="#added-18">Added</a></li>
   <li><a href="#fixed-17" id="toc-fixed-17" class="nav-link" data-scroll-target="#fixed-17">Fixed</a></li>
   <li><a href="#documentation" id="toc-documentation" class="nav-link" data-scroll-target="#documentation">Documentation</a></li>
-  <li><a href="#changed-14" id="toc-changed-14" class="nav-link" data-scroll-target="#changed-14">Changed</a></li>
+  <li><a href="#changed-15" id="toc-changed-15" class="nav-link" data-scroll-target="#changed-15">Changed</a></li>
   <li><a href="#measured-4" id="toc-measured-4" class="nav-link" data-scroll-target="#measured-4">Measured</a></li>
   <li><a href="#documentation-1" id="toc-documentation-1" class="nav-link" data-scroll-target="#documentation-1">Documentation</a></li>
   <li><a href="#fixed-18" id="toc-fixed-18" class="nav-link" data-scroll-target="#fixed-18">Fixed</a></li>
@@ -1208,12 +1212,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a21---2026-10-14" id="toc-a21---2026-10-14" class="nav-link" data-scroll-target="#a21---2026-10-14">[0.8.0a21] - 2026-10-14</a>
   <ul class="collapse">
   <li><a href="#fixed-20" id="toc-fixed-20" class="nav-link" data-scroll-target="#fixed-20">Fixed</a></li>
-  <li><a href="#changed-15" id="toc-changed-15" class="nav-link" data-scroll-target="#changed-15">Changed</a></li>
+  <li><a href="#changed-16" id="toc-changed-16" class="nav-link" data-scroll-target="#changed-16">Changed</a></li>
   </ul></li>
   <li><a href="#a20---2026-10-13" id="toc-a20---2026-10-13" class="nav-link" data-scroll-target="#a20---2026-10-13">[0.8.0a20] - 2026-10-13</a>
   <ul class="collapse">
   <li><a href="#added-20" id="toc-added-20" class="nav-link" data-scroll-target="#added-20">Added</a></li>
-  <li><a href="#changed-16" id="toc-changed-16" class="nav-link" data-scroll-target="#changed-16">Changed</a></li>
+  <li><a href="#changed-17" id="toc-changed-17" class="nav-link" data-scroll-target="#changed-17">Changed</a></li>
   <li><a href="#fixed-21" id="toc-fixed-21" class="nav-link" data-scroll-target="#fixed-21">Fixed</a></li>
   </ul></li>
   <li><a href="#a19---2026-10-12" id="toc-a19---2026-10-12" class="nav-link" data-scroll-target="#a19---2026-10-12">[0.8.0a19] - 2026-10-12</a>
@@ -1237,7 +1241,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#added-24" id="toc-added-24" class="nav-link" data-scroll-target="#added-24">Added</a></li>
   <li><a href="#measured-and-no" id="toc-measured-and-no" class="nav-link" data-scroll-target="#measured-and-no">Measured and no</a></li>
-  <li><a href="#changed-17" id="toc-changed-17" class="nav-link" data-scroll-target="#changed-17">Changed</a></li>
+  <li><a href="#changed-18" id="toc-changed-18" class="nav-link" data-scroll-target="#changed-18">Changed</a></li>
   <li><a href="#measured-and-no-from-0.8.0a15s-work" id="toc-measured-and-no-from-0.8.0a15s-work" class="nav-link" data-scroll-target="#measured-and-no-from-0.8.0a15s-work">Measured and no, from 0.8.0a15’s work</a></li>
   <li><a href="#added-25" id="toc-added-25" class="nav-link" data-scroll-target="#added-25">Added</a></li>
   </ul></li>
@@ -1251,7 +1255,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a14---2026-10-12" id="toc-a14---2026-10-12" class="nav-link" data-scroll-target="#a14---2026-10-12">[0.8.0a14] - 2026-10-12</a>
   <ul class="collapse">
   <li><a href="#added-27" id="toc-added-27" class="nav-link" data-scroll-target="#added-27">Added</a></li>
-  <li><a href="#changed-18" id="toc-changed-18" class="nav-link" data-scroll-target="#changed-18">Changed</a></li>
+  <li><a href="#changed-19" id="toc-changed-19" class="nav-link" data-scroll-target="#changed-19">Changed</a></li>
   <li><a href="#refused-rather-than-served" id="toc-refused-rather-than-served" class="nav-link" data-scroll-target="#refused-rather-than-served">Refused rather than served</a></li>
   <li><a href="#not-done-so-it-is-not-looked-for" id="toc-not-done-so-it-is-not-looked-for" class="nav-link" data-scroll-target="#not-done-so-it-is-not-looked-for">Not done, so it is not looked for</a></li>
   <li><a href="#for-the-r-package-1" id="toc-for-the-r-package-1" class="nav-link" data-scroll-target="#for-the-r-package-1">For the R package</a></li>
@@ -1273,7 +1277,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a10---2026-10-11" id="toc-a10---2026-10-11" class="nav-link" data-scroll-target="#a10---2026-10-11">[0.8.0a10] - 2026-10-11</a>
   <ul class="collapse">
   <li><a href="#fixed-25" id="toc-fixed-25" class="nav-link" data-scroll-target="#fixed-25">Fixed</a></li>
-  <li><a href="#changed-19" id="toc-changed-19" class="nav-link" data-scroll-target="#changed-19">Changed</a></li>
+  <li><a href="#changed-20" id="toc-changed-20" class="nav-link" data-scroll-target="#changed-20">Changed</a></li>
   <li><a href="#noted-not-fixed" id="toc-noted-not-fixed" class="nav-link" data-scroll-target="#noted-not-fixed">Noted, not fixed</a></li>
   </ul></li>
   <li><a href="#a9---2026-10-10" id="toc-a9---2026-10-10" class="nav-link" data-scroll-target="#a9---2026-10-10">[0.8.0a9] - 2026-10-10</a>
@@ -1282,7 +1286,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a8---2026-10-10" id="toc-a8---2026-10-10" class="nav-link" data-scroll-target="#a8---2026-10-10">[0.8.0a8] - 2026-10-10</a>
   <ul class="collapse">
-  <li><a href="#changed-20" id="toc-changed-20" class="nav-link" data-scroll-target="#changed-20">Changed</a></li>
+  <li><a href="#changed-21" id="toc-changed-21" class="nav-link" data-scroll-target="#changed-21">Changed</a></li>
   <li><a href="#note" id="toc-note" class="nav-link" data-scroll-target="#note">Note</a></li>
   </ul></li>
   <li><a href="#a7---2026-10-09" id="toc-a7---2026-10-09" class="nav-link" data-scroll-target="#a7---2026-10-09">[0.8.0a7] - 2026-10-09</a>
@@ -1292,14 +1296,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a6---2026-10-09" id="toc-a6---2026-10-09" class="nav-link" data-scroll-target="#a6---2026-10-09">[0.8.0a6] - 2026-10-09</a>
   <ul class="collapse">
-  <li><a href="#changed-21" id="toc-changed-21" class="nav-link" data-scroll-target="#changed-21">Changed</a></li>
+  <li><a href="#changed-22" id="toc-changed-22" class="nav-link" data-scroll-target="#changed-22">Changed</a></li>
   <li><a href="#added-32" id="toc-added-32" class="nav-link" data-scroll-target="#added-32">Added</a></li>
   <li><a href="#note-2" id="toc-note-2" class="nav-link" data-scroll-target="#note-2">Note</a></li>
   </ul></li>
   <li><a href="#a5---2026-10-09" id="toc-a5---2026-10-09" class="nav-link" data-scroll-target="#a5---2026-10-09">[0.8.0a5] - 2026-10-09</a>
   <ul class="collapse">
   <li><a href="#added-33" id="toc-added-33" class="nav-link" data-scroll-target="#added-33">Added</a></li>
-  <li><a href="#changed-22" id="toc-changed-22" class="nav-link" data-scroll-target="#changed-22">Changed</a></li>
+  <li><a href="#changed-23" id="toc-changed-23" class="nav-link" data-scroll-target="#changed-23">Changed</a></li>
   <li><a href="#fixed-27" id="toc-fixed-27" class="nav-link" data-scroll-target="#fixed-27">Fixed</a></li>
   <li><a href="#note-3" id="toc-note-3" class="nav-link" data-scroll-target="#note-3">Note</a></li>
   </ul></li>
@@ -1309,17 +1313,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a3---2026-10-08" id="toc-a3---2026-10-08" class="nav-link" data-scroll-target="#a3---2026-10-08">[0.8.0a3] - 2026-10-08</a>
   <ul class="collapse">
-  <li><a href="#changed-23" id="toc-changed-23" class="nav-link" data-scroll-target="#changed-23">Changed</a></li>
+  <li><a href="#changed-24" id="toc-changed-24" class="nav-link" data-scroll-target="#changed-24">Changed</a></li>
   </ul></li>
   <li><a href="#a2---2026-10-08" id="toc-a2---2026-10-08" class="nav-link" data-scroll-target="#a2---2026-10-08">[0.8.0a2] - 2026-10-08</a>
   <ul class="collapse">
   <li><a href="#added-35" id="toc-added-35" class="nav-link" data-scroll-target="#added-35">Added</a></li>
-  <li><a href="#changed-24" id="toc-changed-24" class="nav-link" data-scroll-target="#changed-24">Changed</a></li>
+  <li><a href="#changed-25" id="toc-changed-25" class="nav-link" data-scroll-target="#changed-25">Changed</a></li>
   </ul></li>
   <li><a href="#a1---2026-10-08" id="toc-a1---2026-10-08" class="nav-link" data-scroll-target="#a1---2026-10-08">[0.8.0a1] - 2026-10-08</a>
   <ul class="collapse">
   <li><a href="#added-36" id="toc-added-36" class="nav-link" data-scroll-target="#added-36">Added</a></li>
-  <li><a href="#changed-25" id="toc-changed-25" class="nav-link" data-scroll-target="#changed-25">Changed</a></li>
+  <li><a href="#changed-26" id="toc-changed-26" class="nav-link" data-scroll-target="#changed-26">Changed</a></li>
   <li><a href="#fixed-28" id="toc-fixed-28" class="nav-link" data-scroll-target="#fixed-28">Fixed</a></li>
   </ul></li>
   <li><a href="#a3---2026-10-07" id="toc-a3---2026-10-07" class="nav-link" data-scroll-target="#a3---2026-10-07">[0.7.0a3] - 2026-10-07</a>
@@ -1335,7 +1339,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a1---2026-10-07" id="toc-a1---2026-10-07" class="nav-link" data-scroll-target="#a1---2026-10-07">[0.7.0a1] - 2026-10-07</a>
   <ul class="collapse">
-  <li><a href="#changed-26" id="toc-changed-26" class="nav-link" data-scroll-target="#changed-26">Changed</a></li>
+  <li><a href="#changed-27" id="toc-changed-27" class="nav-link" data-scroll-target="#changed-27">Changed</a></li>
   <li><a href="#added-38" id="toc-added-38" class="nav-link" data-scroll-target="#added-38">Added</a></li>
   <li><a href="#not-changed-and-deliberately" id="toc-not-changed-and-deliberately" class="nav-link" data-scroll-target="#not-changed-and-deliberately">Not changed, and deliberately</a></li>
   </ul></li>
@@ -1345,7 +1349,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </ul></li>
   <li><a href="#a3---2026-10-07-1" id="toc-a3---2026-10-07-1" class="nav-link" data-scroll-target="#a3---2026-10-07-1">[0.6.0a3] - 2026-10-07</a>
   <ul class="collapse">
-  <li><a href="#changed-27" id="toc-changed-27" class="nav-link" data-scroll-target="#changed-27">Changed</a></li>
+  <li><a href="#changed-28" id="toc-changed-28" class="nav-link" data-scroll-target="#changed-28">Changed</a></li>
   </ul></li>
   <li><a href="#a2---2026-10-07-1" id="toc-a2---2026-10-07-1" class="nav-link" data-scroll-target="#a2---2026-10-07-1">[0.6.0a2] - 2026-10-07</a>
   <ul class="collapse">
@@ -1355,7 +1359,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a1---2026-10-06" id="toc-a1---2026-10-06" class="nav-link" data-scroll-target="#a1---2026-10-06">[0.6.0a1] - 2026-10-06</a>
   <ul class="collapse">
   <li><a href="#added-41" id="toc-added-41" class="nav-link" data-scroll-target="#added-41">Added</a></li>
-  <li><a href="#changed-28" id="toc-changed-28" class="nav-link" data-scroll-target="#changed-28">Changed</a></li>
+  <li><a href="#changed-29" id="toc-changed-29" class="nav-link" data-scroll-target="#changed-29">Changed</a></li>
   </ul></li>
   <li><a href="#a6---2026-10-06" id="toc-a6---2026-10-06" class="nav-link" data-scroll-target="#a6---2026-10-06">[0.5.0a6] - 2026-10-06</a>
   <ul class="collapse">
@@ -1380,12 +1384,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a1---2026-10-05" id="toc-a1---2026-10-05" class="nav-link" data-scroll-target="#a1---2026-10-05">[0.5.0a1] - 2026-10-05</a>
   <ul class="collapse">
   <li><a href="#removed" id="toc-removed" class="nav-link" data-scroll-target="#removed">Removed</a></li>
-  <li><a href="#changed-29" id="toc-changed-29" class="nav-link" data-scroll-target="#changed-29">Changed</a></li>
+  <li><a href="#changed-30" id="toc-changed-30" class="nav-link" data-scroll-target="#changed-30">Changed</a></li>
   <li><a href="#migrating" id="toc-migrating" class="nav-link" data-scroll-target="#migrating">Migrating</a></li>
   </ul></li>
   <li><a href="#a1---2026-10-05-1" id="toc-a1---2026-10-05-1" class="nav-link" data-scroll-target="#a1---2026-10-05-1">[0.4.0a1] - 2026-10-05</a>
   <ul class="collapse">
-  <li><a href="#changed-30" id="toc-changed-30" class="nav-link" data-scroll-target="#changed-30">Changed</a></li>
+  <li><a href="#changed-31" id="toc-changed-31" class="nav-link" data-scroll-target="#changed-31">Changed</a></li>
   <li><a href="#migrating-1" id="toc-migrating-1" class="nav-link" data-scroll-target="#migrating-1">Migrating</a></li>
   </ul></li>
   <li><a href="#a15---2026-10-05" id="toc-a15---2026-10-05" class="nav-link" data-scroll-target="#a15---2026-10-05">[0.3.0a15] - 2026-10-05</a>
@@ -1410,7 +1414,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#added-a-learning-rate-schedule-the-specification-can-state" id="toc-added-a-learning-rate-schedule-the-specification-can-state" class="nav-link" data-scroll-target="#added-a-learning-rate-schedule-the-specification-can-state">Added — a learning-rate schedule the specification can state</a></li>
   <li><a href="#added-augmentation-for-boxes" id="toc-added-augmentation-for-boxes" class="nav-link" data-scroll-target="#added-augmentation-for-boxes">Added — augmentation for boxes</a></li>
   <li><a href="#fixed-37" id="toc-fixed-37" class="nav-link" data-scroll-target="#fixed-37">Fixed</a></li>
-  <li><a href="#changed-31" id="toc-changed-31" class="nav-link" data-scroll-target="#changed-31">Changed</a></li>
+  <li><a href="#changed-32" id="toc-changed-32" class="nav-link" data-scroll-target="#changed-32">Changed</a></li>
   <li><a href="#added-annotations-letterboxing-and-the-target-encoder" id="toc-added-annotations-letterboxing-and-the-target-encoder" class="nav-link" data-scroll-target="#added-annotations-letterboxing-and-the-target-encoder">Added — annotations, letterboxing and the target encoder</a></li>
   <li><a href="#added-a-detector-and-the-first-number-anyone-can-compare" id="toc-added-a-detector-and-the-first-number-anyone-can-compare" class="nav-link" data-scroll-target="#added-a-detector-and-the-first-number-anyone-can-compare">Added — a detector, and the first number anyone can compare</a></li>
   <li><a href="#measured-5" id="toc-measured-5" class="nav-link" data-scroll-target="#measured-5">Measured</a></li>
@@ -1421,12 +1425,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a11" id="toc-a11" class="nav-link" data-scroll-target="#a11">[0.3.0a11]</a>
   <ul class="collapse">
   <li><a href="#added-48" id="toc-added-48" class="nav-link" data-scroll-target="#added-48">Added</a></li>
-  <li><a href="#changed-32" id="toc-changed-32" class="nav-link" data-scroll-target="#changed-32">Changed</a></li>
+  <li><a href="#changed-33" id="toc-changed-33" class="nav-link" data-scroll-target="#changed-33">Changed</a></li>
   </ul></li>
   <li><a href="#a10" id="toc-a10" class="nav-link" data-scroll-target="#a10">[0.3.0a10]</a>
   <ul class="collapse">
   <li><a href="#added-49" id="toc-added-49" class="nav-link" data-scroll-target="#added-49">Added</a></li>
-  <li><a href="#changed-33" id="toc-changed-33" class="nav-link" data-scroll-target="#changed-33">Changed</a></li>
+  <li><a href="#changed-34" id="toc-changed-34" class="nav-link" data-scroll-target="#changed-34">Changed</a></li>
   <li><a href="#refused" id="toc-refused" class="nav-link" data-scroll-target="#refused">Refused</a></li>
   </ul></li>
   <li><a href="#a9" id="toc-a9" class="nav-link" data-scroll-target="#a9">[0.3.0a9]</a>
@@ -1464,18 +1468,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#a2" id="toc-a2" class="nav-link" data-scroll-target="#a2">[0.3.0a2]</a>
   <ul class="collapse">
   <li><a href="#added-57" id="toc-added-57" class="nav-link" data-scroll-target="#added-57">Added</a></li>
-  <li><a href="#changed-34" id="toc-changed-34" class="nav-link" data-scroll-target="#changed-34">Changed</a></li>
+  <li><a href="#changed-35" id="toc-changed-35" class="nav-link" data-scroll-target="#changed-35">Changed</a></li>
   </ul></li>
   <li><a href="#a1" id="toc-a1" class="nav-link" data-scroll-target="#a1">[0.3.0a1]</a>
   <ul class="collapse">
   <li><a href="#added-58" id="toc-added-58" class="nav-link" data-scroll-target="#added-58">Added</a></li>
-  <li><a href="#changed-35" id="toc-changed-35" class="nav-link" data-scroll-target="#changed-35">Changed</a></li>
+  <li><a href="#changed-36" id="toc-changed-36" class="nav-link" data-scroll-target="#changed-36">Changed</a></li>
   <li><a href="#not-done-on-purpose" id="toc-not-done-on-purpose" class="nav-link" data-scroll-target="#not-done-on-purpose">Not done, on purpose</a></li>
   </ul></li>
   <li><a href="#a3-1" id="toc-a3-1" class="nav-link" data-scroll-target="#a3-1">[0.2.0a3]</a>
   <ul class="collapse">
   <li><a href="#added-59" id="toc-added-59" class="nav-link" data-scroll-target="#added-59">Added</a></li>
-  <li><a href="#changed-36" id="toc-changed-36" class="nav-link" data-scroll-target="#changed-36">Changed</a></li>
+  <li><a href="#changed-37" id="toc-changed-37" class="nav-link" data-scroll-target="#changed-37">Changed</a></li>
   </ul></li>
   <li><a href="#a2-1" id="toc-a2-1" class="nav-link" data-scroll-target="#a2-1">[0.2.0a2]</a>
   <ul class="collapse">
@@ -1503,6 +1507,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="change-log" class="level1">
 <h1>Change Log</h1>
 <p>All notable changes to this project will be documented in this file.</p>
+<section id="a54---2026-10-29" class="level2">
+<h2 class="anchored" data-anchor-id="a54---2026-10-29">[0.8.0a54] - 2026-10-29</h2>
+<p><strong>Documentation only, and the pair rather than the prose is the reason it is a release.</strong> The configuration guide gains <em>Predicting on images you have no labels for</em>, which is the other half of <code>maju116/rplatypus#246</code> - the guide is one document in two repositories and both sides carry the same sections, so a subsection written on one side alone is the drift §3F of the workbench’s notes is a list of.</p>
+<p><strong>The R half: done already, and that is why this release exists at all.</strong> <code>0.8.0a52</code> shipped the capability and deliberately did <strong>not</strong> document it here, because written on the engine’s side alone it would have described, in the shared guide, something an R reader could not do until the pin moved. The pin moved in <code>rplatypus#246</code>, so this half is now writable - which makes the ordering the point rather than an accident: the guide’s two halves are written in the order the capability becomes true, not in the order the code lands.</p>
+<p><strong>Dated 2026-10-29 while the work and the pull request are 2026-10-28’s</strong>, which is the first entry here to straddle a day. Both places were corrected rather than left: the heading and <code>CITATION.cff</code>’s <code>date-released</code> are the release’s, matching the tag, as <code>a51</code> through <code>a53</code> all do.</p>
+<p><strong>And this is the one case <code>test_the_citation_carries_the_date_the_changelog_gives_that_version</code> says out loud that it cannot catch.</strong> That test holds <code>date-released</code> to the changelog heading rather than to a clock, and its own docstring states the limit: <em>“It cannot catch both being wrong together, which is the limit worth stating rather than papering over with <code>date.today()</code> - that would fail every time the suite is run on a day that is not release day.”</em> Both were 2026-10-28 and agreed with each other, so the suite was green on a release that would have been a day early in the one field a citation is for. The limit is still the right trade - a clock in that test breaks every ordinary run - and what closes it is the release loop reading the date when the tag is cut, which is what happened here.</p>
+<p><strong>A release with no code in it, which has two precedents here.</strong> <code>0.7.0a3</code> was documentation only and <code>0.8.0a9</code> a README section on this package’s own page. The wheel is behaviourally identical to <code>a53</code>’s; what reaches a reader arrives through the <code>docs</code> job on merge rather than through PyPI, and the version exists so that the entry below has somewhere to live.</p>
+<section id="changed" class="level3">
+<h3 class="anchored" data-anchor-id="changed">Changed</h3>
+<ul>
+<li><p><strong><code>guide.qmd</code> gains <code>### Predicting on images you have no labels for</code></strong>, under <em>One label instead of a mask</em>, with a validated YAML block and the three refusals named: <code>predict()</code> and <code>predict_labels()</code> work, <code>evaluate()</code> refuses by name, and <code>balance()</code> refuses for the same reason. It says what the truth column carries - <code>label: None</code>, and <code>labels: None</code> rather than <code>[]</code>, because an empty list there means <em>this image carries none of the findings</em> - and it names the one layout that cannot express an unlabelled split at all, since <code>nested_dirs</code> makes the directory the label.</p>
+<p>A <code>###</code> rather than a <code>##</code> is deliberate and measured: both suites pin only <code>^## (.+)$</code>, so a subsection needs no merge ordering between the two repositories and the pair’s own test has nothing to say about it. The <code>##</code> sections are unchanged on both sides.</p>
+<p><strong>And a documentation-only release moved the test count, which is worth knowing before anybody reads that as a contradiction.</strong> The suite went 2686 to 2691 with no test written, because the guide’s tests are <strong>parametrised over the guide’s own content</strong>: collected before and after, the YAML block added two cases, two existing blocks were renumbered - the parameter ids carry line numbers, so inserting prose above a block renames its test - and <strong>three names this subsection offers a reader are each checked to resolve</strong>: <code>answers</code>, <code>balance</code> and <code>predict_labels</code>, none of which any guide prose had named before. All three resolve. So the prose added here is held to this package’s surface by the same instrument <code>spec_schema()</code>’s descriptions are, which is the strongest reason to write a guide section as prose naming functions rather than as description.</p></li>
+</ul>
+</section>
+</section>
 <section id="a53---2026-10-28" class="level2">
 <h2 class="anchored" data-anchor-id="a53---2026-10-28">[0.8.0a53] - 2026-10-28</h2>
 <p><strong>A method that asks what the model said was handed the loader built for optimising over.</strong> <code>maju116/pyplatypus#321</code>.</p>
@@ -1517,8 +1537,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><strong>The two flags stay separate rather than travelling under one name</strong>, measured rather than tidy: <code>drop_last</code> was independent of <code>data.shuffle</code>, so keying it to shuffling would stop dropping the ragged last batch for anybody running <code>shuffle: false</code> - and a last batch of one is a batch-norm with nothing to normalise over, which is the whole reason the flag exists here. The <code>len(base) &gt; batch_size</code> guard stays inside <code>loader()</code>: a split smaller than one batch would otherwise be emptied by the flag <code>fit</code> always passes.</p></li>
 </ul>
 </section>
-<section id="changed" class="level3">
-<h3 class="anchored" data-anchor-id="changed">Changed</h3>
+<section id="changed-1" class="level3">
+<h3 class="anchored" data-anchor-id="changed-1">Changed</h3>
 <ul>
 <li><p><strong>The test that pinned the old behaviour was named for two properties and asserted one.</strong> <code>test_the_loader_shuffles_training_only_and_drops_a_lone_last_batch</code> checked <code>drop_last</code> and said nothing about shuffling, which is why <code>predict</code> could come back in it. It is replaced by one that asserts the asking defaults, the capability <code>fit</code> asks for, and the inner guard at its boundary - eight samples against a batch of eight, where dropping would leave nothing.</p>
 <p>And moving a decision to a caller needs the caller pinned: a mutation making <code>fit</code> pass <code>shuffle=False</code> left <strong>all 29 other tests in this file green</strong>. Training a classifier on batches that are each one class is a real degradation and no number in this suite would have moved. So <code>fit</code>’s own request is recorded off <code>loader</code> and asserted, with <code>shuffle: false</code> in the data block as the control that the value is read from the specification rather than hard-coded. Five mutations, five caught.</p></li>
@@ -1539,8 +1559,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><code>answers()</code> reported <code>labels: []</code> for an image nobody had labelled, which is exactly how it reports <strong>an image carrying none of the findings</strong> - a labelled row, and the commonest one in every dataset this reads, as the reader’s own comment says. <code>None</code> now, which is the marker the reader already uses and what the single-label branch has always said.</p></li>
 </ul>
 </section>
-<section id="changed-1" class="level3">
-<h3 class="anchored" data-anchor-id="changed-1">Changed</h3>
+<section id="changed-2" class="level3">
+<h3 class="anchored" data-anchor-id="changed-2">Changed</h3>
 <ul>
 <li><p><strong>One reader for the header question, and the claim that said there could not be one was false.</strong> <code>labels_in_test_split</code>’s docstring said detection <em>“answers this differently and must not be changed on the way past”</em>; detection’s own <code>_has_any_labels</code> was that function’s body verbatim, modulo one <code>return False</code> folded into splitting an empty string. What differs between the tasks is <code>label_column</code> and <code>subdirs</code>, both derived per task, which is what lets one function serve all of them - and classification would have been a fourth copy. All four engines call it now, <code>columns</code> says which CSV columns to ask about, and the one genuine difference is classification’s and happens <em>before</em> the call.</p>
 <p><strong>Measured rather than asserted, by mutating each branch and running each task’s suite separately</strong> - and the table is the finding, not the convergence:</p>
@@ -1795,8 +1815,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <section id="a44---2026-10-26" class="level2">
 <h2 class="anchored" data-anchor-id="a44---2026-10-26">[0.8.0a44] - 2026-10-26</h2>
 <p>Python 3.10 is dropped. It reached end of life on 2026-10-01.</p>
-<section id="changed-2" class="level3">
-<h3 class="anchored" data-anchor-id="changed-2">Changed</h3>
+<section id="changed-3" class="level3">
+<h3 class="anchored" data-anchor-id="changed-3">Changed</h3>
 <ul>
 <li><p><strong><code>requires-python</code> is <code>&gt;=3.11</code>.</strong> The immediate reason is that <code>0.8.0a43</code>’s pillow floor had to be written with an environment marker: pillow 13 requires Python &gt;= 3.11, so a plain <code>pillow&gt;=13</code> is unsatisfiable against <code>&gt;=3.10</code> and <code>uv</code> refuses to resolve at all. A 3.10 install therefore got none of the decoder fixes that floor exists for. The marker was the honest thing to ship for one release and the wrong thing to keep, so the floor is one line again.</p>
 <p><strong>Nothing in the dependency tree moves forward, which is the measurement worth having.</strong> Resolved before and after, 13 locked entries differ and <strong>every one of them is the removal of an old-Python branch</strong>: <code>exceptiongroup</code> goes entirely, being a 3.10 backport, and <code>scipy</code> loses 1.15.3, <code>scikit-image</code> 0.25.2, <code>tifffile</code> 2025.5.10, <code>numpy</code> 2.2.6, <code>matplotlib</code> 3.10.9 and five more. Nothing is added and nothing is upgraded, so what a 3.11 install receives is unchanged - and the lock holds <strong>one</strong> pillow instead of two, which is what lets the advisory count against it reach zero.</p></li>
@@ -1889,8 +1909,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><p><strong>An epoch’s mean and its <code>_worst</code> are two readings of one set of per-case scores.</strong> They were computed from the accumulator separately; now the scores are taken once, so an epoch cannot report a worst case that is not among the cases its mean covers.</p></li>
 </ul>
 </section>
-<section id="changed-3" class="level3">
-<h3 class="anchored" data-anchor-id="changed-3">Changed</h3>
+<section id="changed-4" class="level3">
+<h3 class="anchored" data-anchor-id="changed-4">Changed</h3>
 <ul>
 <li><p><strong><code>Trainer.evaluate</code> takes <code>cases</code>.</strong> It was a one-line wrapper on the training path and is now the one place the difference is stated: a training pass is shuffled and has no case identity, so its line is the mean over examples; a caller scoring a split has the names.</p></li>
 <li><p><strong><code>best_model()</code> needs no change and may answer differently.</strong> It ranks on <code>evaluate()</code>, so it gets this for free - and where two models sat within the pooling’s own shift of each other, the winner can change. Recomputed on the eleven-loss FIVES table: the winner is unchanged and its margin over the runner-up grows from +0.0006 to +0.0033, while the one pair that swaps rank differs by 1e-4, which that table already called a tie.</p></li>
@@ -1916,8 +1936,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><p><strong><code>MeasureError</code></strong>, so a refusal here is one kind rather than a <code>ValueError</code>. R turns it into <code>platypus_measure_error</code> by the rule it applies to every kind the engine has.</p></li>
 </ul>
 </section>
-<section id="changed-4" class="level3">
-<h3 class="anchored" data-anchor-id="changed-4">Changed</h3>
+<section id="changed-5" class="level3">
+<h3 class="anchored" data-anchor-id="changed-5">Changed</h3>
 <ul>
 <li><p><strong><code>spacing</code> multiplies the coordinates, not the answer</strong> - the one decision in this release that is not a name. For a volume or an area the two are the same thing, because a count scales by the product of the sides either way. For a <strong>length</strong> they are not: an ellipse’s perimeter is not separable in its axes, so there is no number to multiply a pixel-space circumference by unless the pixels happen to be square.</p>
 <p>Measured on a circle of radius 100 px with <code>spacing=(2, 1)</code>, which <em>is</em> an ellipse of semi-axes 200 and 100: scaling the coordinates gives 968.9 against 968.8 integrated, where the two scalings somebody would reach for answer 628.3 and 1256.7. HC18’s pixels are square, so <code>examples/measure_fetal_head_circumference.py</code> was correct and would have stopped being correct on the first anisotropic 2D dataset. Its own composition on square pixels is now that claim’s control, and the two have to agree to twelve digits.</p></li>
@@ -1944,8 +1964,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p>A backend that raises while answering <code>is_available()</code> counts as unavailable. A build with no CUDA support has done exactly that, and a chooser that propagates it turns a usable processor into a failed run.</p></li>
 </ul>
 </section>
-<section id="changed-5" class="level3">
-<h3 class="anchored" data-anchor-id="changed-5">Changed</h3>
+<section id="changed-6" class="level3">
+<h3 class="anchored" data-anchor-id="changed-6">Changed</h3>
 <ul>
 <li><code>pick_device</code> lives in <code>pyplatypus.device</code> and the trainer re-exports it. Two answers to <em>what will this run on</em> - one choosing, one reporting - cannot be allowed to disagree, and a test pairs them.</li>
 </ul>
@@ -1990,8 +2010,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p><strong>Validation only.</strong> The training loader is shuffled, so a case has no identity in that pass and there is nothing honest to pool by.</p></li>
 </ul>
 </section>
-<section id="changed-6" class="level3">
-<h3 class="anchored" data-anchor-id="changed-6">Changed</h3>
+<section id="changed-7" class="level3">
+<h3 class="anchored" data-anchor-id="changed-7">Changed</h3>
 <ul>
 <li><code>score_cases</code> and the epoch share one definition of a case’s score, <code>_PerCase</code>. The pooling is a ratio of sums - a case’s tiles, or a patient’s slices, are added up and the formula applied once - and that arithmetic now exists in one place rather than in the two that report it.</li>
 </ul>
@@ -2016,8 +2036,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><p><strong><code>terminate_on_collapse</code></strong>, <code>terminate_on_nan</code>’s quiet sibling: it ends the run when the foreground share stays at or below <code>floor</code> for <code>patience</code> epochs. A floor rather than a test for zero, because 0.01% foreground on a target that is 14% foreground has collapsed in every sense that matters; and a patience, because an early epoch legitimately predicts almost nothing. It can watch the training share instead, which answers a different question - a model collapsing on data it has seen has a different problem from one collapsing only on data it has not.</p></li>
 </ul>
 </section>
-<section id="changed-7" class="level3">
-<h3 class="anchored" data-anchor-id="changed-7">Changed</h3>
+<section id="changed-8" class="level3">
+<h3 class="anchored" data-anchor-id="changed-8">Changed</h3>
 <ul>
 <li><code>evaluate()</code>’s rows carry <code>foreground</code>. It is the one column there that is not a quality measure, and it is there for the reason <code>load_shape</code> is: a collapsed model reports a plausible Dice, and a table that cannot show the foreground beside it is a table somebody misreads.</li>
 </ul>
@@ -2077,8 +2097,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><p><strong>Two schedules in one model are refused</strong> for the same reason, where before the last one in the list won silently.</p></li>
 </ul>
 </section>
-<section id="changed-8" class="level3">
-<h3 class="anchored" data-anchor-id="changed-8">Changed</h3>
+<section id="changed-9" class="level3">
+<h3 class="anchored" data-anchor-id="changed-9">Changed</h3>
 <ul>
 <li><strong><code>build_callbacks</code> declares an order instead of inheriting one.</strong> <code>swa</code> pins a constant rate once averaging starts and a schedule recomputes it every epoch, so which one an epoch ended with depended on where they sat in the list and nothing said so. <code>swa</code> is moved last - a constant tail rate is the whole point of configuring it - and everything else keeps the order it was written in.</li>
 <li><code>cosine_annealing</code>, <code>linear_annealing</code> and <code>step_decay</code> share a base class, so the horizon, the per-group initial rates and the refusal to run without knowing the run’s length exist once rather than three times.</li>
@@ -2103,8 +2123,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p>The <code>load_shape</code> column reads <code>source</code> when scored there, because what it has always meant is the grid the row’s numbers were computed on. The loss is not reported: a loss is defined by the objective a model trained with, on the grid it trained on.</p></li>
 </ul>
 </section>
-<section id="changed-9" class="level3">
-<h3 class="anchored" data-anchor-id="changed-9">Changed</h3>
+<section id="changed-10" class="level3">
+<h3 class="anchored" data-anchor-id="changed-10">Changed</h3>
 <ul>
 <li>The comparability warning now names <code>evaluate(at='source')</code> instead of describing what a reader would have to build. It had pointed at <code>predict(space='source')</code> since <code>0.8.0a30</code>, which is the raw material rather than the answer - an instruction addressed to a human in the place where a mechanism now exists.</li>
 <li><code>Dataset.to_target()</code> is the three-way expansion <code>__getitem__</code> used to end with, and <code>Dataset.target_as_stored()</code> reads a sample’s masks at the size its files hold. Reading <code>size=None</code> as <em>as stored</em> goes through the same reader as everything else: the three namings are the part that must not exist twice.</li>
@@ -2136,8 +2156,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p><strong>And the same defect turned out to be inside torch, one layer down.</strong> <code>torch.load</code> reads the <em>name</em> as well: on <strong>torch 2.14.1</strong> a path ending <code>.safetensors</code> is forwarded to <code>safetensors.torch.load_file</code>, while <code>torch.save</code> still writes a zip under that name - so the first fix failed every CI job on a suite that was green here, where torch is 2.7.1. <code>read_state()</code> hands <code>torch.load</code> an <strong>open file</strong> rather than a path, because a handle has no name to dispatch on. The fixtures were rebuilt the same way: an archive is written to a <code>.pt</code> and renamed, so the test does not depend on which side of torch’s own disagreement wins, and it asserts the file really is an archive before reading it.</p></li>
 </ul>
 </section>
-<section id="changed-10" class="level3">
-<h3 class="anchored" data-anchor-id="changed-10">Changed</h3>
+<section id="changed-11" class="level3">
+<h3 class="anchored" data-anchor-id="changed-11">Changed</h3>
 <ul>
 <li><code>model_checkpoint</code>’s <code>path</code> description says the extension decides the format. The R package’s prose for it is unchanged until its pin moves, which is when the field-prose ledger asks.</li>
 </ul>
@@ -2212,8 +2232,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><strong><code>InstanceEngine._load_weights</code> explained the absence of all this by a fact that had stopped being true.</strong> Its docstring said <em>there are no published instance weights, so there is no registry entry to read <code>blocks</code> and <code>filters</code> out of</em> - true when it was written, and ended by <code>dsbowl-instances</code> one release later without anybody noticing. A declaration beside a mechanism that no longer describes it, which is the same shape as <code>#230</code> and <code>#231</code>, and found the same way: by writing the documentation a reader would follow.</li>
 </ul>
 </section>
-<section id="changed-11" class="level3">
-<h3 class="anchored" data-anchor-id="changed-11">Changed</h3>
+<section id="changed-12" class="level3">
+<h3 class="anchored" data-anchor-id="changed-12">Changed</h3>
 <ul>
 <li><p><strong><code>separation</code> is no longer required outright</strong>: it may be omitted when <code>weights</code> names a file that records it, and that permission is paid for in two places rather than assumed in one. The specification refuses the omission when there are no weights at all, which it can check without resolving anything; the engine refuses a file whose sidecar does not record the separation, which needs the registry and therefore cannot live in a layer that must be validatable without a download. In the window between the two, asking a model what its head predicts answers with a sentence naming the file rather than with an attribute error on a field nobody wrote.</p></li>
 <li><p><strong><code>decode</code> is deliberately not adoptable.</strong> It is the reader’s question rather than the file’s property: one trained file answers it three ways - 0.5445, 0.5390 and 0.4822 on the published instance weights - and the sidecar lists every decoding it was measured with, so adopting from that list would silently pick whichever name came first.</p></li>
@@ -2270,8 +2290,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><p><strong>Where each may be named, asked of the configuration rather than of the union.</strong> A loss in the union that every spec refuses is a name in a listing and nothing else, so this is tested through <code>from_dict</code>: <code>generalized_dice</code> is accepted as a semantic model’s loss, as an instance model’s loss for the mask, and as <code>boundary</code>’s region term - the combination worth having, since the case that motivates this loss and the case that motivates that one are the same picture. A flow block refuses it <strong>by name</strong>, because a flow field is a vector per pixel and this scores classes, and a detector refuses it for the reason it refuses every loss. <code>surface_dice</code> is a metric at both segmentation tasks and <code>object_detection</code> lists no metrics at all.</p></li>
 </ul>
 </section>
-<section id="changed-12" class="level3">
-<h3 class="anchored" data-anchor-id="changed-12">Changed</h3>
+<section id="changed-13" class="level3">
+<h3 class="anchored" data-anchor-id="changed-13">Changed</h3>
 <ul>
 <li><strong><code>available_losses()</code> is 11 and 14 where it was 10 and 13, and <code>available_metrics()</code> is 5.</strong> Nothing was edited to make that happen - both read the pydantic unions, which is what that design is for - but six pinned counts failed and each one is a place somebody had to look: the union’s member count beside the two loader flags (looked: a region loss on one-hot classes, so neither flag), the semantic set written out by hand, two task listings, the component count in the description test, and two doctests. The R package’s own listing test pins 13 and will fail when the pin moves, which is the ratchet working.</li>
 </ul>
@@ -2330,8 +2350,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 </ul></li>
 </ul>
 </section>
-<section id="changed-13" class="level3">
-<h3 class="anchored" data-anchor-id="changed-13">Changed</h3>
+<section id="changed-14" class="level3">
+<h3 class="anchored" data-anchor-id="changed-14">Changed</h3>
 <ul>
 <li><p><strong><code>overlay_instances</code>, <code>overlay_instance_agreement</code> and <code>flow_to_colours</code> are now pairs rather than three functions with the same name on two sides.</strong> The R package drew neither until <code>maju116/rplatypus#154</code>; it draws both now, in its own code, because drawing there touches no Python on purpose. So <code>tests/test_reference_groups.py</code> pins where both are filed, which is this side’s half of §3F’s pair - the other half is in R’s <code>test-reference-groups.R</code>.</p>
 <p>Nothing in the wheel changes for this one and it needed no release of its own; it rides with <code>0.8.0a24</code>. Worth an entry anyway, because the subsequence test cannot catch what this one does: a name <strong>absent</strong> on one side is not a name filed differently, so until R had them there was nothing to disagree with and the pair could not have existed.</p>
@@ -2377,8 +2397,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p>The section says one voxel gets one colour and a voxel here may be in three classes, and it now names what writes such a prediction out: <code>save_class_masks()</code>, added in this same release. It was written without that sentence, because the function existed in neither package at the time and the honest thing was to say nothing rather than to name it; <code>maju116/rplatypus#152</code> is where the decision to build it was taken.</p></li>
 </ul>
 </section>
-<section id="changed-14" class="level3">
-<h3 class="anchored" data-anchor-id="changed-14">Changed</h3>
+<section id="changed-15" class="level3">
+<h3 class="anchored" data-anchor-id="changed-15">Changed</h3>
 <ul>
 <li><p><strong><code>_brand.yml</code> now names the test that holds its two copies together</strong>, because as of <code>maju116/rplatypus#160</code> there is one. It is on the R side alone - it fetches this file from this repository’s default branch and compares it line by line - for the reason the field-prose ledger is one-directional: the engine owns the look, so R’s copy is the copy. Nothing here changes but the comment, and nothing is in the wheel either way.</p></li>
 <li><p><strong>The R package is <code>rplatypus</code>.</strong> It was <code>platypus</code> until 2026-10-14; the name collided with <code>Platypus</code>, archived from CRAN on 2026-02-02, which archiving does not release, so it was renamed rather than waiting on a reserved name. One name per language, beside this package on PyPI. <strong>Nothing in the wheel changes</strong>: this is the engine’s own links, its <code>_brand.yml</code>, and the <code>citation("rplatypus")</code> the generated Citation page prints - §3E’s shape, a change R needs nothing from, said here rather than only in a commit message.</p>
@@ -2475,8 +2495,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p><strong>Nothing in this repository used it</strong>: no example, configuration, test or fixture builds a semantic model with a regression loss, so the behaviour change costs nothing here. An R caller reaches the same hole through <code>loss_mse()</code>, which R gains when its pin moves.</p></li>
 </ul>
 </section>
-<section id="changed-15" class="level3">
-<h3 class="anchored" data-anchor-id="changed-15">Changed</h3>
+<section id="changed-16" class="level3">
+<h3 class="anchored" data-anchor-id="changed-16">Changed</h3>
 <ul>
 <li><p><strong><code>available_losses()</code> answers per task</strong>: ten at <code>semantic_segmentation</code>, thirteen at <code>instance_segmentation</code>. The three in the difference are the regression family, and at the semantic task they can be named nowhere - a listing that offers what the next validator refuses is a list maintained against a validator, which is what <code>continuous</code> exists to avoid. The instance task keeps all thirteen because a <code>separation: flows</code> block’s own <code>loss</code> is that same union; which loss goes where is the tree, and <code>available_separations()</code> is where the tree lives.</p>
 <p>The listing-against-schema test now asks the losses of the instance task, because that is the only task whose answer can equal the schema’s <code>discriminator.mapping</code>: the mapping is per <em>field</em> and cannot express a validator. The semantic task’s shorter list has its own test which names the three excluded losses literally rather than deriving them the way the code does - so a fourth regression loss fails it, and failing is right.</p>
@@ -2503,8 +2523,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li>A refusal specific to this task: a split whose objects have all vanished in the resize. The objects are on disk, the resize removes them, and without the check the loss falls, every metric stays finite and the run learns to answer “nothing here”. Some cases losing theirs is a warning with the count; all of them is an error naming <code>input_shape</code>.</li>
 </ul>
 </section>
-<section id="changed-16" class="level3">
-<h3 class="anchored" data-anchor-id="changed-16">Changed</h3>
+<section id="changed-17" class="level3">
+<h3 class="anchored" data-anchor-id="changed-17">Changed</h3>
 <ul>
 <li><code>Trainer.activate</code> is a method rather than one inlined call, which is what <code>InstanceTrainer</code> overrides: a flows head is two raw vector channels in front of a block of classes, and a softmax across all of them would return a number, a gradient and no error anywhere.</li>
 <li>A dataset answers <code>foreground_of</code> for its own channels. The loader used to call <code>onehot_to_foreground</code>, which reads channel 0 as background - for a flows target that is the row component of a vector field, and the loss would have been handed a mask of everything.</li>
@@ -2654,8 +2674,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <p>So the limit is not where the seam falls: <strong>both decodings share the same seeds, and the seeds decide which objects exist at all.</strong> Perfect seam placement buys 0.003 of the 0.21 still missing to the 0.7655 bar.</p></li>
 </ul>
 </section>
-<section id="changed-17" class="level3">
-<h3 class="anchored" data-anchor-id="changed-17">Changed</h3>
+<section id="changed-18" class="level3">
+<h3 class="anchored" data-anchor-id="changed-18">Changed</h3>
 <ul>
 <li><p><strong>A ceiling run cannot test the watershed, and <code>separation_ceiling.py</code> now says so beside the number.</strong> With perfect parts the rim is binary, the surface is flat and the flood has nothing to climb, so <code>rim + watershed</code> reads 0.9756 there against nearest-seed’s 0.9846 - an artefact of flooding order rather than a comparison. A test asserts the caveat is printed, because the figure without it is misleading in the most-read place.</p></li>
 <li><p><strong><code>train_instance_separation.py</code> reports four decodings of one forward pass</strong>, including the oracle row - predicted seeds, true surface - labelled a diagnostic and not a route. That pattern is how the above was settled at the cost of one row and no extra training, and it is the pattern <code>#212</code> and <code>#213</code> should both inherit.</p></li>
@@ -2743,8 +2763,8 @@ a44 + albumentations==1.4.0   ACCEPTED</code></pre>
 <li><p><strong>A metric now reports what the model was asked.</strong> With an <code>argmax</code>, a voxel correctly predicted in both the core and the whole tumour was credited to whichever channel read higher and scored as a miss in the other. On the smallest case that can show it - one voxel, in two regions, both predicted - Dice went from 0.833 to 1.000.</p></li>
 </ul>
 </section>
-<section id="changed-18" class="level3">
-<h3 class="anchored" data-anchor-id="changed-18">Changed</h3>
+<section id="changed-19" class="level3">
+<h3 class="anchored" data-anchor-id="changed-19">Changed</h3>
 <ul>
 <li><p><strong><code>inspect_masks</code> reports regions by name, and <code>unmatched</code> means something different there.</strong> <code>missing_classes</code> keeps its meaning exactly and gains the failure <code>regions</code> invites: <code>of: [3]</code> against data holding <code>4</code> is a channel of zeros, which trains to predict nothing and scores a Dice of 0 while every other number looks ordinary. It is refused before training with the region named. <code>unmatched</code>, on the other hand, counts background - which is deliberately not a region - so it sits near 1 on any dataset where the thing being found is small. On BraTS that is the correct answer and it looks like the catastrophic one, so the warning that reads it is suppressed for <code>regions</code> rather than left to cry wolf on every correct run.</p></li>
 <li><p><strong>The class fingerprint written into every run record and weights sidecar now names the regions.</strong> <code>n_class</code> alone cannot tell three exclusive classes from three overlapping ones, and weights from one must not be read back as the other.</p></li>
@@ -2893,8 +2913,8 @@ eight listings, now     91, eight times</code></pre>
 <p><strong>The three-channel nine are still refused, deliberately.</strong> That is a different decision, not an unfinished one: a three-channel probe would list <code>ChromaticAberration</code> and its eight relatives as available to someone whose CT has one channel, and a listing cannot know the channel count. Only the pipeline-build check can, and it already probes at the model’s own input size.</p></li>
 </ul>
 </section>
-<section id="changed-19" class="level3">
-<h3 class="anchored" data-anchor-id="changed-19">Changed</h3>
+<section id="changed-20" class="level3">
+<h3 class="anchored" data-anchor-id="changed-20">Changed</h3>
 <ul>
 <li><p><strong>The docstring’s account of the refusals was wrong, and wrong in a way arithmetic shows.</strong> It said <em>“eleven of the 31 are the probe’s limits”</em> while naming nine three-channel ones and four size-dependent ones, which is thirteen. Counting the categories instead of recalling them gives a different answer again - on albumentations 2.0.8, of 27 refusals:</p>
 <pre><code> 10   no volume support, which is the question being asked - `KeyError: 'images'`
@@ -2927,8 +2947,8 @@ eight listings, now     91, eight times</code></pre>
 </section>
 <section id="a8---2026-10-10" class="level2">
 <h2 class="anchored" data-anchor-id="a8---2026-10-10">[0.8.0a8] - 2026-10-10</h2>
-<section id="changed-20" class="level3">
-<h3 class="anchored" data-anchor-id="changed-20">Changed</h3>
+<section id="changed-21" class="level3">
+<h3 class="anchored" data-anchor-id="changed-21">Changed</h3>
 <ul>
 <li><p><strong><code>seed</code> said “set it if you want a reproducible run”, and that was the whole description.</strong> It is now the one field on the specification that says where its guarantee stops, because the nuance lived in a private docstring and <em>half of that docstring was false</em>.</p>
 <p>What the field now states, measured rather than reasoned:</p>
@@ -2975,8 +2995,8 @@ not repeatable  a run on a CUDA device: two runs at one seed agreed to twelve
 </section>
 <section id="a6---2026-10-09" class="level2">
 <h2 class="anchored" data-anchor-id="a6---2026-10-09">[0.8.0a6] - 2026-10-09</h2>
-<section id="changed-21" class="level3">
-<h3 class="anchored" data-anchor-id="changed-21">Changed</h3>
+<section id="changed-22" class="level3">
+<h3 class="anchored" data-anchor-id="changed-22">Changed</h3>
 <ul>
 <li><p><strong>A tiled run can ask for <code>cldice</code> now, and <code>evaluate_cases</code> reassembles before measuring it.</strong> The combination used to be refused outright. The refusal was right about the arithmetic - a skeleton is a property of a whole mask, and a tile severs every structure crossing its edge - and wrong about the remedy, which it left to the caller: the FIVES example carried forty lines stepping the model over one sample’s tiles, stitching, and scoring, to get a number the engine could have produced.</p>
 <p><code>score_cases</code> now holds a case’s tiles until its image is complete, stitches the prediction and the target, and measures the whole-mask metrics once on the pair. One image at a time - the loader is never shuffled there, so a case’s tiles arrive together and the buffer empties as the last one does.</p>
@@ -3017,8 +3037,8 @@ scoring          1.8 min      200 reassembled images, inside the same walk that
 <p>The model name is resolved before the generator is returned rather than inside it, so a mistyped name is an error now instead of on the first <code>next</code>, by which time the caller has opened the file it was going to write into.</p></li>
 </ul>
 </section>
-<section id="changed-22" class="level3">
-<h3 class="anchored" data-anchor-id="changed-22">Changed</h3>
+<section id="changed-23" class="level3">
+<h3 class="anchored" data-anchor-id="changed-23">Changed</h3>
 <ul>
 <li><strong><code>predict</code> holds one copy instead of three</strong>, since it is now <code>np.stack</code> over the stream. Same signature, same numbers, same refusal of a partial grid - a test asserts the streamed and stacked results are identical element for element. For 200 retinas at 2048 that is 6.7 GB rather than about 20.</li>
 <li><strong><code>examples/segment_retinal_vessels.py</code> calls the public method now.</strong> It had twenty lines stepping the model over one sample’s tiles by hand, which is what prompted #178: an example reaching past a public method says the method is missing something. Both of its callers moved over - the clDice pass and the figure, which draws 2 of 200 images and now reads the stream for those two instead of asking for all of them at full resolution.</li>
@@ -3061,8 +3081,8 @@ normal          0.9020 +-0.0452        0.9051 +-0.0500</code></pre>
 </section>
 <section id="a3---2026-10-08" class="level2">
 <h2 class="anchored" data-anchor-id="a3---2026-10-08">[0.8.0a3] - 2026-10-08</h2>
-<section id="changed-23" class="level3">
-<h3 class="anchored" data-anchor-id="changed-23">Changed</h3>
+<section id="changed-24" class="level3">
+<h3 class="anchored" data-anchor-id="changed-24">Changed</h3>
 <ul>
 <li><p><strong>A tiled run shuffles in windows, and trains roughly twice as fast.</strong> The dataset has always cached decoded samples - <code>_load</code> says <em>“cached because every tile asks again”</em> - but training shuffled over <strong>tile</strong> indices, so a cache of eight held nothing against a working set of six hundred and nearly every tile paid for its own decode.</p>
 <p><code>TileShuffle</code> draws a window of samples, shuffles all of their tiles together, and moves on. One decode then serves every tile of its sample, and a batch still draws from several sources. The window is the cache size by construction: a wider one would evict a sample while its own tiles were still being asked for.</p>
@@ -3094,8 +3114,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 </ul></li>
 </ul>
 </section>
-<section id="changed-24" class="level3">
-<h3 class="anchored" data-anchor-id="changed-24">Changed</h3>
+<section id="changed-25" class="level3">
+<h3 class="anchored" data-anchor-id="changed-25">Changed</h3>
 <ul>
 <li><strong>A tiled run refuses a whole-mask metric.</strong> <code>splits</code> hands the model pieces, and a skeleton is a property of a whole mask, so every structure would be severed at four tile edges and come back low for a model that is perfectly connected - silently. Refused when the specification is read, which is before anything is loaded. Dice is unaffected: its pieces sum, which is what <code>combine</code> exists for.</li>
 </ul>
@@ -3114,8 +3134,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 <li><p><strong><code>--figures</code> on all four example scripts</strong>, each drawing what its table cannot say.</p></li>
 </ul>
 </section>
-<section id="changed-25" class="level3">
-<h3 class="anchored" data-anchor-id="changed-25">Changed</h3>
+<section id="changed-26" class="level3">
+<h3 class="anchored" data-anchor-id="changed-26">Changed</h3>
 <ul>
 <li><p><strong>Nine engine methods take the default they documented.</strong> Every one of them said <code>model_name</code> “defaults to the first” and every one required it, so omitting the name raised <code>TypeError</code> on nine reference pages. <code>evaluate_cases</code>, <code>predict</code>, <code>report</code>, <code>crops</code>, <code>box_shapes</code>, <code>anchor_coverage</code>, <code>evaluate_classes</code> and <code>evaluate_images</code>, across both engines. The resolution is one method on <code>EngineBase</code>, so the two cannot come to answer it differently.</p></li>
 <li><p><code>plot_masks</code> defaults to the black-and-white colormap R defaults to, and <code>plot_anchors</code> to a linear scale as R does.</p></li>
@@ -3188,8 +3208,8 @@ full shuffle   dice 0.9036 +/-0.0037    40.6 s an epoch</code></pre>
 <section id="a1---2026-10-07" class="level2">
 <h2 class="anchored" data-anchor-id="a1---2026-10-07">[0.7.0a1] - 2026-10-07</h2>
 <p>One name per concept, across both packages. The R surface and this engine had grown two words for several of the same things - <code>available_augmentations</code> against <code>available_transforms</code>, <code>save_weights</code> against <code>export_weights</code>, <code>mask_report</code> against <code>inspect_masks</code> - and a reader moving between the halves paid for every one of them. The rule settled on is that <strong>the engine’s name wins</strong>, because it is the layer that cannot be renamed later without touching the configuration format and the schema; the exception is where the R package already had a family of names, and <code>available_*</code> was one.</p>
-<section id="changed-26" class="level3">
-<h3 class="anchored" data-anchor-id="changed-26">Changed</h3>
+<section id="changed-27" class="level3">
+<h3 class="anchored" data-anchor-id="changed-27">Changed</h3>
 <ul>
 <li><strong><code>known_weights()</code> is now <code>available_weights()</code>.</strong> The R package already called it that, <code>available_transforms()</code> is the same verb, and “known” said nothing the other two did not say better. A breaking rename rather than an alias: two names for one thing is the thing this release removes.</li>
 </ul>
@@ -3236,8 +3256,8 @@ swa 0.5      0.9640 ±0.0085   +2.78% ±3.44%      13.75% ±4.21%</code></pre>
 </section>
 <section id="a3---2026-10-07-1" class="level2">
 <h2 class="anchored" data-anchor-id="a3---2026-10-07-1">[0.6.0a3] - 2026-10-07</h2>
-<section id="changed-27" class="level3">
-<h3 class="anchored" data-anchor-id="changed-27">Changed</h3>
+<section id="changed-28" class="level3">
+<h3 class="anchored" data-anchor-id="changed-28">Changed</h3>
 <ul>
 <li><p><strong><code>EngineBase</code>: the half of the two engines that is the same work.</strong> Closes maju116/pyplatypus#100, which asked for the split into a segmentation and a detection engine plus a gate for future ones plus shared methods in a base. The first two shipped earlier - two classes, and <code>task</code> as a required discriminated union, which turned out to belong in the specification rather than in a class hierarchy. This is the third.</p>
 <p><strong>The width was measured rather than chosen.</strong> Across the two engines twelve method names are shared and only two were the same work: <code>__init__</code> at 0.70 similarity and <code>_discover_test</code> at 0.65, the latter differing in nothing but its docstring and the name of one hook. <code>predict</code> is 0.05 similar and equal in length by coincidence. So the base holds split discovery, the test-split fallback, and the two refusals that go with them - and nothing else, because pulling up <code>predict</code> or <code>dataset</code> would produce a method that is mostly a branch on its caller.</p>
@@ -3290,8 +3310,8 @@ boundary a=0.9   0.9411 ±0.0093   -0.06% ±4.15%     22.17% ±2.88%</code></pre
 <p><strong><code>alpha</code> defaults to 0.9, not 0.5, because 0.5 was measured and is unusable</strong>: at that weight the surface term has half the objective while the prediction is still random, and three seeds gave a volume error spread of ±28.28% with every number worse than the baseline. Kervadec schedules it downwards from near 1; 0.9 is the closest a single number comes.</p></li>
 </ul>
 </section>
-<section id="changed-28" class="level3">
-<h3 class="anchored" data-anchor-id="changed-28">Changed</h3>
+<section id="changed-29" class="level3">
+<h3 class="anchored" data-anchor-id="changed-29">Changed</h3>
 <ul>
 <li><p><strong>The data path can carry a signed distance map, and the loss decides.</strong> A loss sets <code>needs_distance</code>, <code>loss_needs_distance(spec)</code> answers it from the specification, the loader computes the transform <strong>in its workers</strong> and the batch arrives with three items instead of two.</p>
 <p>In the loss it would have dominated training: one transform costs 5.3 ms at 256x256, 23.4 ms at 64x64x32 and 709.8 ms at 128^3, against an epoch of about half a second for a small 3D model. The paths that score or predict rather than optimise never call the loss, so they ask for two items and pay nothing.</p>
@@ -3398,8 +3418,8 @@ AnchorFit.flat / a list of N pairs         refused, naming `.anchors` not `.flat
 <p><code>build_model(spec, n_class=...)</code> takes it as an argument now: a network’s head is that wide, so it has to be told, and saying so in the signature is honest.</p></li>
 </ul>
 </section>
-<section id="changed-29" class="level3">
-<h3 class="anchored" data-anchor-id="changed-29">Changed</h3>
+<section id="changed-30" class="level3">
+<h3 class="anchored" data-anchor-id="changed-30">Changed</h3>
 <ul>
 <li><p><strong><code>channels</code> is derived from <code>channels_from</code> when the model does not state it.</strong> Unlike <code>n_class</code> the field stays, because without <code>channels_from</code> it is a real choice - the same files can be read as one channel or as three. Stated, it is still checked and still refused when it disagrees; silent, it is filled in.</p></li>
 <li><p><strong>A weights file’s own geometry is adopted.</strong> <code>architecture</code>, <code>blocks</code> and <code>filters</code> - and <code>anchors_per_grid</code> for a detector - are taken from the sidecar where the specification stayed silent. Using somebody else’s published model meant knowing its internals (<code>dsbowl-unet</code> is four blocks of sixteen filters) and being refused for guessing. Detection has adopted its anchors this way since 0.3.0a12; this is the same move applied to the rest of the fingerprint.</p>
@@ -3415,8 +3435,8 @@ AnchorFit.flat / a list of N pairs         refused, naming `.anchors` not `.flat
 <section id="a1---2026-10-05-1" class="level2">
 <h2 class="anchored" data-anchor-id="a1---2026-10-05-1">[0.4.0a1] - 2026-10-05</h2>
 <p><strong>Breaking.</strong> A minor bump rather than another alpha letter, because the configuration format changed and a number that hides that is a number doing nothing.</p>
-<section id="changed-30" class="level3">
-<h3 class="anchored" data-anchor-id="changed-30">Changed</h3>
+<section id="changed-31" class="level3">
+<h3 class="anchored" data-anchor-id="changed-31">Changed</h3>
 <ul>
 <li><p><strong><code>task</code> is required.</strong> It was defaulted to segmentation so that files written before detection existed kept working. The default is gone: a configuration that does not say what it is asking for means whatever version reads it, and more tasks are coming.</p>
 <p>The default also sent the bill to the wrong person. A <em>detection</em> configuration missing its <code>task</code> was validated as segmentation and reported <code>classes</code> and <code>anchors_per_grid</code> as <strong>extra fields</strong>, never naming the tag - exactly the confusion a discriminator exists to prevent.</p></li>
@@ -3565,8 +3585,8 @@ task: detection     -&gt;  "`task: detection` was renamed to `object_detection`.
 <p>What it does not do is ask torch for deterministic algorithms: that makes some convolutions much slower and makes others raise, so the result would be a seed that sometimes refuses to run. Two runs at one seed on one machine agree; across machines or cuDNN versions they need not</p></li>
 </ul>
 </section>
-<section id="changed-31" class="level3">
-<h3 class="anchored" data-anchor-id="changed-31">Changed</h3>
+<section id="changed-32" class="level3">
+<h3 class="anchored" data-anchor-id="changed-32">Changed</h3>
 <ul>
 <li><p><strong><code>examples/detect_blood_cells.py</code> was rewritten onto the specification</strong>, which is the test of whether the specification earned its place. The first version assembled a detector by hand out of <code>pyplatypus.detection</code>: a Dataset class, a training loop, a decode-and-score function and twenty flags. What is left is the part that is genuinely about BCCD - where its files are and what its canonical splits say - and the script writes out the YAML of the run it just did, beside the results</p></li>
 <li><p><strong>Loading weights into a detector adopts the anchors recorded beside the file</strong>, because a detector’s weights only mean anything with them: read with any others, the same weights decode every box scaled by a fixed factor - plausible boxes, plausible scores, wrong places, and nothing in the output to say so. A file that carries no anchors is refused rather than guessed at, and so is one whose anchors-per-grid does not fit the head.</p>
@@ -3657,8 +3677,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <li><code>Engine(..., check_masks=False)</code> skips it, and the refusal names that along with the call that looks at more of the data than the check does. Both were run as written before being printed</li>
 </ul>
 </section>
-<section id="changed-32" class="level3">
-<h3 class="anchored" data-anchor-id="changed-32">Changed</h3>
+<section id="changed-33" class="level3">
+<h3 class="anchored" data-anchor-id="changed-33">Changed</h3>
 <ul>
 <li>The sample the check reads is <strong>spread across the dataset and ordered so that any prefix still spans it</strong> - first, last, middle, then midpoints. Real datasets arrive sorted, by patient or acquisition date or class, so a prefix is a biased sample and “this class is absent” drawn from one can mean only “the positives are later in the list”. Tested on a dataset whose only labelled tissue is in the last 3% of a sorted listing, which a prefix would have refused</li>
 <li>The scan <strong>stops once every class has turned up</strong> and at least five masks have been read, so effort goes where there is doubt. On Data Science Bowl, where each sample carries one mask file per nucleus, a fifty-sample scan cost 3.8 seconds; it now answers in 0.13</li>
@@ -3677,8 +3697,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <li><code>examples/compare_pretrained_encoders.py</code> and the measurement it produced, in the README: three datasets, one per modality, three seeds each. <strong>The mechanisms work and the transfer does not.</strong> Use <code>freeze_encoder</code> rather than <code>encoder_learning_rate</code> alone - on Kvasir a tenth of the rate is the worst configuration in the table. Expect convergence in half the epochs rather than a better score. A bigger encoder earns its place where the target is thin, pretrained or not: on SIIM-ACR every ResNet variant roughly doubles the built-in encoder, whose seed spread there is larger than its own mean</li>
 </ul>
 </section>
-<section id="changed-33" class="level3">
-<h3 class="anchored" data-anchor-id="changed-33">Changed</h3>
+<section id="changed-34" class="level3">
+<h3 class="anchored" data-anchor-id="changed-34">Changed</h3>
 <ul>
 <li><code>verify_encoder</code> checks a supplied encoder <strong>by measurement</strong> rather than by its declaration: one tiny probe at build time confirms the level count, that <code>channels</code> matches what comes back, that level 0 is at input resolution, and that every level halves. The seam had an unstated contract - an encoder whose stem strides by 2, which is every ImageNet backbone, was accepted in silence and produced masks at half the size of the ones scoring them, surfacing much later as a bare tensor size error from inside the loss</li>
 <li>Levels are chosen from a backbone by downsampling factor rather than position, so <code>vgg16</code>’s full-resolution level is used directly and the patch-based backbones (<code>convnext_*</code>, <code>swin_*</code>), whose features start at 1/4, are refused by name with the reason instead of having a 1/2 level invented for them</li>
@@ -3828,8 +3848,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <li>Series reading is wired into the pipeline two ways: a 3D model with several DICOM files in one sample, and a path to a series directory in a CSV</li>
 </ul>
 </section>
-<section id="changed-34" class="level3">
-<h3 class="anchored" data-anchor-id="changed-34">Changed</h3>
+<section id="changed-35" class="level3">
+<h3 class="anchored" data-anchor-id="changed-35">Changed</h3>
 <ul>
 <li>Several volumes per sample - one per modality, as BraTS ships - is refused with a message saying so, rather than the first one being read and three quarters of the data ignored</li>
 </ul>
@@ -3852,8 +3872,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <li><code>resize_volume()</code>, through torch rather than scipy: one library fewer to conflict with</li>
 </ul>
 </section>
-<section id="changed-35" class="level3">
-<h3 class="anchored" data-anchor-id="changed-35">Changed</h3>
+<section id="changed-36" class="level3">
+<h3 class="anchored" data-anchor-id="changed-36">Changed</h3>
 <ul>
 <li>The data pipeline and the engine no longer refuse a 3D spec. Trained end to end on synthetic 64x64x32 CT volumes on a GTX 1070: 0.5s an epoch, per-case Dice, and predictions returned as whole volumes</li>
 <li><code>dicom_window</code> is now <code>window</code>, since NIfTI needs the same thing and the old name had become a lie. <code>dicom_window</code> is still accepted - a released R package sends it - and giving both is an error rather than a coin toss</li>
@@ -3881,8 +3901,8 @@ Platelets   0.8197  0.707      69      0.524     0.942</code></pre>
 <li>A <code>key</code> column in a <code>config_file</code> CSV now names the sample, instead of it being called ‘row 55’. Written by the splitter, so a bad score can be traced back to an image</li>
 </ul>
 </section>
-<section id="changed-36" class="level3">
-<h3 class="anchored" data-anchor-id="changed-36">Changed</h3>
+<section id="changed-37" class="level3">
+<h3 class="anchored" data-anchor-id="changed-37">Changed</h3>
 <ul>
 <li>Each metric is now one formula, written on overlap statistics and reused for tensors - which is what lets a tiled case be scored as a whole. Tiles are summed, not averaged: a ratio of sums is not the mean of ratios, and averaging punishes a case whose object happens to straddle a tile boundary</li>
 <li>Finding samples no longer needs a full specification (<code>discover_samples</code>), since splitting a dataset has no model, no colormap and no loss to invent</li>

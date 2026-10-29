@@ -84,9 +84,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-ee0d825c001f130fb265e92dcb17fa1f.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-fe59a2a7790bac0413e99a27709fd6b5.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-49dd25a0cb74a96880f649f38c655561.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -1037,6 +1037,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#one-label-instead-of-a-mask" id="toc-one-label-instead-of-a-mask" class="nav-link" data-scroll-target="#one-label-instead-of-a-mask">One label instead of a mask</a>
   <ul class="collapse">
   <li><a href="#when-the-label-is-a-set-labels_from" id="toc-when-the-label-is-a-set-labels_from" class="nav-link" data-scroll-target="#when-the-label-is-a-set-labels_from">When the label is a set: <code>labels_from</code></a></li>
+  <li><a href="#predicting-on-images-you-have-no-labels-for" id="toc-predicting-on-images-you-have-no-labels-for" class="nav-link" data-scroll-target="#predicting-on-images-you-have-no-labels-for">Predicting on images you have no labels for</a></li>
   </ul></li>
   <li><a href="#not-training-at-all" id="toc-not-training-at-all" class="nav-link" data-scroll-target="#not-training-at-all">Not training at all</a></li>
   <li><a href="#what-is-checked-and-when" id="toc-what-is-checked-and-when" class="nav-link" data-scroll-target="#what-is-checked-and-when">What is checked, and when</a></li>
@@ -1285,19 +1286,43 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><strong>A cell that is not <code>0</code>, <code>1</code>, <code>0.0</code> or <code>1.0</code> is refused by name, and the case it is written for is <code>-1</code>.</strong> The datasets shaped this way write <code>-1</code> for <em>uncertain</em> and leave the cell empty for <em>not mentioned</em>; both have a defensible mapping to 0 or to 1, which is exactly why this reader must not pick one for you. An image with none of the findings is an ordinary labelled row, written as a line of zeros.</p>
 <p><strong>There is no threshold field, and <code>accuracy</code> is refused outright rather than redefined.</strong> Each class decides for itself at a probability of 0.5, and a threshold is a number about your data rather than one this format should invent. On 4000 images with findings at 10%, 5%, 3% and 2%, a model answering no to everything scores <strong>0.8137</strong> on exact match and <strong>0.9507</strong> per class - above a model holding half the available signal - so neither reading of accuracy can be what a <code>monitor</code> watches. <code>balanced_accuracy</code>, <code>f1</code> and <code>auc</code> all put that answer below every model with any signal at all.</p>
 </section>
+<section id="predicting-on-images-you-have-no-labels-for" class="level3">
+<h3 class="anchored" data-anchor-id="predicting-on-images-you-have-no-labels-for">Predicting on images you have no labels for</h3>
+<p>A test set is often just pictures, and that is an ordinary thing to have rather than a half-written configuration. Name them in a CSV with no label column - <code>key, images</code> and nothing else - and the split is read as unlabelled:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> classification</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/train.csv</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/validation.csv</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">test_path</span><span class="kw">:</span><span class="at"> data/to-predict.csv</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">mode</span><span class="kw">:</span><span class="at"> config_file</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">classes</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">benign</span><span class="kw">,</span><span class="at"> malignant</span><span class="kw">]</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> ours</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">224</span><span class="kw">,</span><span class="at"> </span><span class="dv">224</span><span class="kw">]</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">blocks</span><span class="kw">:</span><span class="at"> </span><span class="dv">4</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">filters</span><span class="kw">:</span><span class="at"> </span><span class="dv">16</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>What each method can honestly do with such a split differs, and the differences are refusals rather than silences:</p>
+<ul>
+<li><strong><code>predict()</code> and <code>predict_labels()</code> work</strong>, which is what the split is for. In <code>answers()</code> the truth column says nothing happened: <code>label</code> is <code>None</code>, and for a set of labels <code>labels</code> is <code>None</code> rather than <code>[]</code> - an empty list there means <em>this image carries none of the findings</em>, which is a labelled row and the commonest one in every dataset shaped that way.</li>
+<li><strong><code>evaluate()</code> refuses it by name.</strong> Scoring against labels that are not there would either fail inside a metric or, worse, report a number, and a zero in a table is read as a result.</li>
+<li><strong><code>balance()</code> refuses it too</strong>, for the same reason: counted anyway it says every class has no images, which reads as a finding about the dataset rather than about there being nothing to count.</li>
+</ul>
+<p><strong>One layout cannot express this, and the refusal says which.</strong> <code>nested_dirs</code> makes the directory the label, so there is no unlabelled form of it - an image has to sit somewhere, and where it sits is the answer. Point <code>test_path</code> at a CSV instead, or at the images themselves.</p>
+<p><strong>“None” and “some” are not the same thing here either.</strong> The header is asked about the column a label would be read from - <code>label</code>, or every column <code>labels_from</code> names - and a file naming two of three classes carries labels for <em>something</em>, so it is refused by naming the third rather than quietly becoming an unlabelled split and reporting nothing about the two that are there.</p>
+</section>
 </section>
 <section id="not-training-at-all" class="level2">
 <h2 class="anchored" data-anchor-id="not-training-at-all">Not training at all</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/images</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/images</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> published</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weights</span><span class="kw">:</span><span class="at"> dsbowl-unet</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fit</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> semantic_segmentation</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> data/images</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> data/images</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">colormap</span><span class="kw">:</span><span class="at"> </span><span class="kw">[[</span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">,</span><span class="at"> </span><span class="dv">0</span><span class="kw">],</span><span class="at"> </span><span class="kw">[</span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">,</span><span class="at"> </span><span class="dv">255</span><span class="kw">]]</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> published</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">256</span><span class="kw">,</span><span class="at"> </span><span class="dv">256</span><span class="kw">]</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">weights</span><span class="kw">:</span><span class="at"> dsbowl-unet</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">fit</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>weights</code> takes a registry name, a local path, or <code>hf://owner/repo/file@commit</code> - and the <code>hf://</code> form requires the commit, because weights that change under a stable name are the worst kind of irreproducibility. A registry name carries one already.</p>
 <p>With <code>fit: false</code> nothing trains and <code>engine.predict()</code> works immediately. The weights are checked against the model they are being loaded into <em>before</em> torch is touched: a shape, a channel count or a class count that does not match is a refusal naming the field, not a tensor-size error from inside a loss.</p>
 </section>
@@ -1314,20 +1339,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="the-same-run-from-code" class="level2">
 <h2 class="anchored" data-anchor-id="the-same-run-from-code">The same run from code</h2>
 <p>The file is not a second implementation. <code>from_yaml()</code> and <code>from_dict()</code> produce the same object, and so does building the models by hand:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyplatypus <span class="im">import</span> build_engine, from_dict</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> from_dict(</span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    {</span>
-<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"semantic_segmentation"</span>,</span>
-<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"data"</span>: {</span>
-<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">"train_path"</span>: <span class="st">"data/train"</span>,</span>
-<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation_path"</span>: <span class="st">"data/validation"</span>,</span>
-<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"colormap"</span>: [[<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>], [<span class="dv">255</span>, <span class="dv">255</span>, <span class="dv">255</span>]],</span>
-<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        },</span>
-<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"models"</span>: [{<span class="st">"name"</span>: <span class="st">"first_try"</span>, <span class="st">"input_shape"</span>: [<span class="dv">256</span>, <span class="dv">256</span>]}],</span>
-<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> build_engine(spec)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyplatypus <span class="im">import</span> build_engine, from_dict</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>spec <span class="op">=</span> from_dict(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"semantic_segmentation"</span>,</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"data"</span>: {</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">"train_path"</span>: <span class="st">"data/train"</span>,</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation_path"</span>: <span class="st">"data/validation"</span>,</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"colormap"</span>: [[<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>], [<span class="dv">255</span>, <span class="dv">255</span>, <span class="dv">255</span>]],</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        <span class="st">"models"</span>: [{<span class="st">"name"</span>: <span class="st">"first_try"</span>, <span class="st">"input_shape"</span>: [<span class="dv">256</span>, <span class="dv">256</span>]}],</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>engine <span class="op">=</span> build_engine(spec)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Which to use is a question about how many models and how often, not about what is possible. A file is better when there are several models, when the run is going to be repeated, or when somebody else has to see what was done; the dict is better inside a loop over something the file cannot express, like a list of datasets.</p>
 
 
