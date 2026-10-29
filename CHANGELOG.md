@@ -1,6 +1,66 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a54] - 2026-10-29
+
+**Documentation only, and the pair rather than the prose is the reason it is a release.**
+The configuration guide gains *Predicting on images you have no labels for*, which is the
+other half of `maju116/rplatypus#246` - the guide is one document in two repositories and
+both sides carry the same sections, so a subsection written on one side alone is the drift
+§3F of the workbench's notes is a list of.
+
+**The R half: done already, and that is why this release exists at all.** `0.8.0a52` shipped
+the capability and deliberately did **not** document it here, because written on the engine's
+side alone it would have described, in the shared guide, something an R reader could not do
+until the pin moved. The pin moved in `rplatypus#246`, so this half is now writable - which
+makes the ordering the point rather than an accident: the guide's two halves are written in
+the order the capability becomes true, not in the order the code lands.
+
+**Dated 2026-10-29 while the work and the pull request are 2026-10-28's**, which is the
+first entry here to straddle a day. Both places were corrected rather than left: the heading
+and `CITATION.cff`'s `date-released` are the release's, matching the tag, as `a51` through
+`a53` all do.
+
+**And this is the one case `test_the_citation_carries_the_date_the_changelog_gives_that_version`
+says out loud that it cannot catch.** That test holds `date-released` to the changelog
+heading rather than to a clock, and its own docstring states the limit: *"It cannot catch
+both being wrong together, which is the limit worth stating rather than papering over with
+`date.today()` - that would fail every time the suite is run on a day that is not release
+day."* Both were 2026-10-28 and agreed with each other, so the suite was green on a release
+that would have been a day early in the one field a citation is for. The limit is still the
+right trade - a clock in that test breaks every ordinary run - and what closes it is the
+release loop reading the date when the tag is cut, which is what happened here.
+
+**A release with no code in it, which has two precedents here.** `0.7.0a3` was documentation
+only and `0.8.0a9` a README section on this package's own page. The wheel is behaviourally
+identical to `a53`'s; what reaches a reader arrives through the `docs` job on merge rather
+than through PyPI, and the version exists so that the entry below has somewhere to live.
+
+### Changed
+
+ - **`guide.qmd` gains `### Predicting on images you have no labels for`**, under *One label
+   instead of a mask*, with a validated YAML block and the three refusals named: `predict()`
+   and `predict_labels()` work, `evaluate()` refuses by name, and `balance()` refuses for the
+   same reason. It says what the truth column carries - `label: None`, and `labels: None`
+   rather than `[]`, because an empty list there means *this image carries none of the
+   findings* - and it names the one layout that cannot express an unlabelled split at all,
+   since `nested_dirs` makes the directory the label.
+
+   A `###` rather than a `##` is deliberate and measured: both suites pin only `^## (.+)$`,
+   so a subsection needs no merge ordering between the two repositories and the pair's own
+   test has nothing to say about it. The `##` sections are unchanged on both sides.
+
+   **And a documentation-only release moved the test count, which is worth knowing before
+   anybody reads that as a contradiction.** The suite went 2686 to 2691 with no test
+   written, because the guide's tests are **parametrised over the guide's own content**:
+   collected before and after, the YAML block added two cases, two existing blocks were
+   renumbered - the parameter ids carry line numbers, so inserting prose above a block
+   renames its test - and **three names this subsection offers a reader are each checked to
+   resolve**: `answers`, `balance` and `predict_labels`, none of which any guide prose had
+   named before. All three resolve. So the prose added here is held to this package's
+   surface by the same instrument `spec_schema()`'s descriptions are, which is the strongest
+   reason to write a guide section as prose naming functions rather than as description.
+
 ## [0.8.0a53] - 2026-10-28
 
 **A method that asks what the model said was handed the loader built for optimising over.**
