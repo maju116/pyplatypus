@@ -1,6 +1,88 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a57] - 2026-10-29
+
+**Four findings from the reviewer's second pass, and three of them are places the code argued
+against itself.** Every one was reproduced before it was filed and the numbers below are from
+that reproduction rather than from the report.
+
+### Fixed
+
+ - **The epoch loop asked `any(callback.on_epoch_end(state) for callback in self.callbacks)`,
+   and `any()` over a generator short-circuits**, so every callback listed after the first one
+   that wanted to stop never saw the epoch the run stopped on. The same line sat in all three
+   trainers. `pyplatypus#334`.
+
+   Measured: a `csv_logger` written after a stopper wrote **1 row for a 2-epoch run**, where
+   the reversed order wrote 2. Worse, because the schema recommends the pairing in as many
+   words - `stop_after`'s description says to pair it with `early_stopping`'s `restore_best`
+   *"if what the run produced matters"* - `[stop_after, early_stopping]` restored **epoch 2**
+   on a run whose monitored losses were 0.81197, 0.75427 and 0.71723, so the best epoch was
+   the one the short-circuit hid. Written the other way round it kept epoch 3.
+
+   There is one definition now, `ask_to_stop`, with the three trainers as its callers, for
+   the reason `labels_in_test_split` has the same shape: a row saying *one function, four
+   callers* is worth more than three saying *these two agree*.
+
+ - **`early_stopping`'s `restore_best` and `ema` both replace the model's weights when
+   training ends, and the trainer called them in list order**, so which weights a run handed
+   back was decided by where they happened to sit. `restore_best` defaults to `True`, so any
+   `early_stopping` written without arguments beside an `ema` was one of the two cases.
+   `pyplatypus#333`.
+
+   Measured on one run with nothing but the order changed, as the largest absolute weight
+   difference from the model's final state:
+
+        [ema, early_stopping]   |final - ema| = 0.578   |final - best| = 0       ema_steps = 8
+        [early_stopping, ema]   |final - ema| = 0       |final - best| = 0.578   ema_steps = 8
+
+   And the record said `ema_steps = 8` either way, so a run that asked for EMA, got the raw
+   best epoch, and wrote a weights sidecar reported that it had averaged 8 steps.
+
+   **The averager wins, and that is now stated rather than inherited from a list.**
+   `ModelSpec.one_averager` already refuses `ema` beside `swa` on exactly this argument;
+   `restore_best` is the third replacer and refusing it was the wrong shape, because its
+   default is `True` and a refusal would reject configurations nobody knowingly wrote. The
+   rule lives in `finish_training` rather than in `build_callbacks`, which is the correction
+   the test for it forced: ordering at build time leaves a caller who hands a `Trainer` its
+   own `callbacks=` list exactly where this issue found it.
+
+ - **`swa` resolved its `start` fraction with `round()` while every other callback uses
+   `first_epoch`, which uses `int()`** - and Python's `round` is half-to-even, so the two
+   disagreed by an epoch whenever `total * start` landed on a half with an odd integer part.
+   `pyplatypus#335`. `(10, 0.75)` gave 8 under the shared rule and 9 under `swa`'s own;
+   `(11, 0.5)` gave 6 against 7, `(6, 0.25)` 2 against 3, while `(12, 0.75)`, `(14, 0.75)`
+   and `(8, 0.5)` agreed. The schema says of `swa.start_epoch` that *"it is the same concept
+   `early_stopping` names with these two words"*, so there is one rule and `swa` now reads it.
+
+ - **The letterbox pasted the image at a rounded offset while `forward` added the exact
+   one**, so every letterboxed image and its boxes disagreed by up to a pixel.
+   `pyplatypus#336`, and the class's own docstring argues against precisely this: the
+   transform is stored because *"deriving it again from the shapes is how a rounding
+   difference becomes a box half a pixel out"*, and then `apply_to_image` derived it again.
+
+   Measured on `Letterbox.fit((300, 417), (416, 416))` with a filled square at source rows
+   200-299: the paste put it at rows **257-356** and `forward` put its box at
+   **257.88-357.64**.
+
+   Two disagreements rather than one, and both are gone by the transform naming what the
+   pixel grid actually did. `fit` rounds the inner size **once** and stores it as
+   `inner_shape`; the offsets are whole pixels taken from it; and `forward` multiplies by
+   `inner / source` per axis - the scale the image really underwent - rather than by the
+   factor that chose it. `scale` stays, as the aspect-preserving factor that picked the inner
+   size, and `axis_scales` is what the boxes follow. The invariant that holds now and did not
+   before: the source image's **own** bounding box, pushed through `forward`, is exactly the
+   rectangle `apply_to_image` fills.
+
+### The R half
+
+**The pin moves.** None of these four is a surface an R user calls, and all four are defects
+an R user meets **through the pin moving and by nothing else** - R forwards callbacks in the
+order the user wrote them, so `#333` and `#334` reach an R user exactly as they reach anybody
+else. §1 records that distinction at `0.8.0a47` and `a48`: *None beyond the pin* is not
+*R needs nothing*, and §3E's "leave the pin alone" is written for the second.
+
 ## [0.8.0a56] - 2026-10-29
 
 **A regression `0.8.0a55` shipped, found by the other package.** Recorded that way rather

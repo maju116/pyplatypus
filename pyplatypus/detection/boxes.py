@@ -31,17 +31,42 @@ from pyplatypus.detection.metrics import DetectionError
 class Letterbox:
     """What was done to an image to make it the network's size.
 
-    `scale` is the single factor both axes were multiplied by; `pad_x` and `pad_y` are the
-    pixels added on the left and top. Stored rather than recomputed because the inverse
-    has to undo exactly what the forward pass did - deriving it again from the shapes is
-    how a rounding difference becomes a box half a pixel out.
+    `scale` is the single aspect-preserving factor that CHOSE the inner size; `inner_shape`
+    is that size on the pixel grid, and `pad_x`/`pad_y` are the whole pixels added on the
+    left and top. Stored rather than recomputed because the inverse has to undo exactly
+    what the forward pass did - deriving it again from the shapes is how a rounding
+    difference becomes a box half a pixel out.
+
+    **That sentence was true of this class and not of its own `apply_to_image`, until
+    `pyplatypus#336`.** The paste rounded the inner size and the offset for the pixel grid
+    while `forward` added the unrounded offset and multiplied by the unrounded `scale`, so
+    a filled square at source rows 200-299 of a 300x417 picture landed at rows 257-356 of
+    the letterboxed frame while `forward` put its box at 257.88-357.64. Two separate
+    disagreements, and both are gone by the transform naming what the pixel grid actually
+    did: the offsets are integers, and `forward` multiplies by `inner / source` per axis -
+    the scale the image REALLY underwent - rather than by the factor that picked it. The
+    two differ by at most half a pixel over the whole axis, which is the rounding the pixel
+    grid forces and is now inside the stored transform instead of between two readers of it.
     """
 
     scale: float
     pad_x: float
     pad_y: float
+    inner_shape: tuple[int, int]
     source_shape: tuple[int, int]
     target_shape: tuple[int, int]
+
+    @property
+    def axis_scales(self) -> tuple[float, float]:
+        """What each axis was multiplied by, rows then columns.
+
+        `scale` picked the inner size and this is what the resize achieved. They differ
+        because an image is resized onto whole pixels; a box is not, so a box has to follow
+        the picture rather than the intention.
+        """
+        source_h, source_w = self.source_shape
+        inner_h, inner_w = self.inner_shape
+        return (inner_h / source_h, inner_w / source_w)
 
     @classmethod
     def fit(cls, source_shape: tuple[int, int], target_shape: tuple[int, int]) -> Letterbox:
@@ -53,10 +78,18 @@ class Letterbox:
         if target_h <= 0 or target_w <= 0:
             raise DetectionError(f"a network input cannot have shape {(target_h, target_w)}")
         scale = min(target_h / source_h, target_w / source_w)
+        # Rounded here, once, rather than in `apply_to_image` - which is what made the
+        # paste and `forward` two readers of one rule. `pyplatypus#336`.
+        inner_h = max(1, round(source_h * scale))
+        inner_w = max(1, round(source_w * scale))
         return cls(
             scale=scale,
-            pad_x=(target_w - source_w * scale) / 2,
-            pad_y=(target_h - source_h * scale) / 2,
+            # Whole pixels, floor-divided: the picture may sit half a pixel off centre,
+            # which nothing can measure, where a fractional offset put every box half a
+            # pixel off its own image, which the figures above did measure.
+            pad_x=float((target_w - inner_w) // 2),
+            pad_y=float((target_h - inner_h) // 2),
+            inner_shape=(inner_h, inner_w),
             source_shape=(source_h, source_w),
             target_shape=(target_h, target_w),
         )
@@ -66,7 +99,10 @@ class Letterbox:
         array = _boxes(boxes)
         if array.size == 0:
             return array
-        out = array * self.scale
+        scale_y, scale_x = self.axis_scales
+        out = array.copy()
+        out[:, [0, 2]] *= scale_x
+        out[:, [1, 3]] *= scale_y
         out[:, [0, 2]] += self.pad_x
         out[:, [1, 3]] += self.pad_y
         return out
@@ -80,10 +116,12 @@ class Letterbox:
         array = _boxes(boxes)
         if array.size == 0:
             return array
+        scale_y, scale_x = self.axis_scales
         out = array.copy()
         out[:, [0, 2]] -= self.pad_x
         out[:, [1, 3]] -= self.pad_y
-        out /= self.scale
+        out[:, [0, 2]] /= scale_x
+        out[:, [1, 3]] /= scale_y
         height, width = self.source_shape
         out[:, [0, 2]] = np.clip(out[:, [0, 2]], 0, width)
         out[:, [1, 3]] = np.clip(out[:, [1, 3]], 0, height)
@@ -112,14 +150,14 @@ class Letterbox:
                 f"{array.shape[:2]}; fit a new one rather than reusing this"
             )
 
-        inner_h = max(1, round(source_h * self.scale))
-        inner_w = max(1, round(source_w * self.scale))
+        # Both read off the transform, which is the whole point of storing it.
+        inner_h, inner_w = self.inner_shape
         resized = resize_image(array, (inner_h, inner_w))
 
         target_h, target_w = self.target_shape
         out = np.full((target_h, target_w, array.shape[2]), fill, dtype=np.float32)
-        top = round(self.pad_y)
-        left = round(self.pad_x)
+        top = int(self.pad_y)
+        left = int(self.pad_x)
         out[top : top + inner_h, left : left + inner_w] = resized
         return out
 

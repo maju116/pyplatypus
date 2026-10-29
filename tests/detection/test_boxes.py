@@ -113,3 +113,59 @@ def test_dropping_keeps_boxes_and_labels_together():
 def test_mismatched_boxes_and_labels_are_refused():
     with pytest.raises(DetectionError, match="they must agree"):
         drop_degenerate([[0, 0, 1, 1]], [0, 1])
+
+
+def test_the_whole_image_lands_exactly_on_the_rectangle_the_letterbox_pastes():
+    """`pyplatypus#336`, and it is the invariant the class's own docstring asks for.
+
+    The paste rounded the inner size and the offset for the pixel grid while `forward` used
+    the unrounded offset and the unrounded `scale`, so image and boxes disagreed by up to a
+    pixel. The transform now names what the grid did, and the test is the strongest form of
+    the claim: the source image's OWN bounding box, pushed through `forward`, is exactly the
+    rectangle `apply_to_image` fills.
+    """
+    source, target = (300, 417), (416, 416)
+    fit = Letterbox.fit(source, target)
+    source_h, source_w = source
+    inner_h, inner_w = fit.inner_shape
+
+    whole = fit.forward(np.array([[0.0, 0.0, float(source_w), float(source_h)]]))[0]
+    assert whole.tolist() == pytest.approx(
+        [fit.pad_x, fit.pad_y, fit.pad_x + inner_w, fit.pad_y + inner_h], abs=1e-9
+    ), f"the image's own box does not land on the pasted rectangle: {whole.tolist()}"
+
+    # The offsets have to be whole pixels, because the paste can only use whole ones. This
+    # is what used to be 58.359... against a paste at 58.
+    assert float(fit.pad_x).is_integer() and float(fit.pad_y).is_integer()
+
+    # And the paste really does fill that rectangle, so the comparison above is about the
+    # picture rather than about two readings of the same arithmetic.
+    image = np.ones((source_h, source_w, 3), dtype=np.float32)
+    out = fit.apply_to_image(image, fill=0.0)
+    rows = np.where(out[:, :, 0].max(axis=1) > 0.5)[0]
+    columns = np.where(out[:, :, 0].max(axis=0) > 0.5)[0]
+    assert (rows.min(), rows.max() + 1) == (int(fit.pad_y), int(fit.pad_y) + inner_h)
+    assert (columns.min(), columns.max() + 1) == (int(fit.pad_x), int(fit.pad_x) + inner_w)
+
+    # The control: a shape whose padding is already whole, which agreed before the fix as
+    # well - so the assertions above cannot be passing because both sides were changed into
+    # something else together.
+    square = Letterbox.fit((200, 400), (400, 400))
+    assert (square.pad_x, square.pad_y) == (0.0, 100.0)
+    assert square.axis_scales == (1.0, 1.0)
+    assert square.forward(np.array([[0.0, 0.0, 400.0, 200.0]]))[0].tolist() == [
+        0.0,
+        100.0,
+        400.0,
+        300.0,
+    ]
+
+
+def test_a_box_still_returns_to_its_own_pixels_through_the_inverse():
+    """The round trip is what the stored transform is for, and it has to survive #336."""
+    fit = Letterbox.fit((300, 417), (416, 416))
+    boxes = np.array(
+        [[10.0, 20.0, 110.0, 120.0], [0.0, 0.0, 417.0, 300.0], [200.5, 100.25, 300.0, 299.0]]
+    )
+    back = fit.inverse(fit.forward(boxes))
+    assert back == pytest.approx(boxes, abs=1e-9)

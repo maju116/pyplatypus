@@ -39,16 +39,34 @@ def build(root, *, model_kwargs=None, data_kwargs=None, only_images=False):
 
 
 def test_boxes_arrive_in_the_letterboxed_frame(tmp_path, voc_sample):
-    """A 160-wide source into a 128-wide model: the scale is 0.8 and the padding is
-    vertical, so a box at x=100 lands at x=80 and a box at y=0 lands at y=12.8."""
+    """A 160-wide source into a 128-wide model: the padding is vertical.
+
+    **These figures moved in `0.8.0a57` and the old ones are why.** This asserted
+    `pad_y == 12.8` and a box at `y=0` landing at `y=12.8`, which is where the unrounded
+    offset put the box - while `apply_to_image` pasted the picture at `round(12.8) = 13`,
+    so the frame and its boxes were a fifth of a pixel apart. `pyplatypus#336`.
+
+    The transform now names what the pixel grid did: `128 * 0.8 = 102.4` rounds to an inner
+    height of **102**, the offset is `(128 - 102) // 2 = 13` whole pixels, and a box follows
+    the scale the image really underwent - `102 / 128` down the rows - rather than the
+    aspect-preserving factor that chose it. So `y=0` lands at 13, which is the row the
+    picture's first row lands on.
+    """
     voc_sample(tmp_path, "one", [(100, 0, 120, 20)], [0])
     example = build(tmp_path).read(0)
 
     assert example.fit.scale == pytest.approx(128 / 160)
-    assert example.fit.pad_y == pytest.approx((128 - 128 * 0.8) / 2)
-    assert example.fit.pad_x == pytest.approx(0.0)
-    assert example.boxes[0] == pytest.approx([80.0, 12.8, 96.0, 28.8])
+    assert example.fit.inner_shape == (102, 128)
+    assert (example.fit.pad_x, example.fit.pad_y) == (0.0, 13.0)
+    assert example.fit.axis_scales == pytest.approx((102 / 128, 128 / 160))
+    assert example.boxes[0] == pytest.approx([80.0, 13.0, 96.0, 20 * 102 / 128 + 13])
     assert example.image.shape == (128, 128, 3)
+
+    # And the picture's own first row is at 13 as well, which is the agreement the old
+    # figures did not have. Written as a measurement of the image rather than of the
+    # transform, because the transform is what is on trial.
+    rows = np.where(example.image[:, :, 0].std(axis=1) > 0)[0]
+    assert rows.min() == 13, "the paste and the boxes disagree about where the image starts"
 
 
 def test_the_inverse_puts_a_box_back_where_it_came_from(tmp_path, voc_sample):

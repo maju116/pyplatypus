@@ -1183,7 +1183,13 @@ class EarlyStopping(_Callback):
         description=(
             "Put the best weights back when training stops, rather than keeping the last - "
             "which are by definition the ones that were not improving. Note that `swa` "
-            "replaces nothing if a run stops before averaging began."
+            "replaces nothing if a run stops before averaging began.\n\n"
+            "**An averager beside this one wins.** `ema` and `swa` also replace the weights "
+            "when training ends, and since `0.8.0a57` the order is fixed rather than left to "
+            "wherever the callbacks sat in the list: the average is what the run hands back, "
+            "because somebody who configured averaging asked for the averaged model and this "
+            "field is a statement about which *epoch* was best. Before that release the "
+            "answer was whichever of the two came last, which is `pyplatypus#333`."
         ),
     )
     start: float | None = Field(

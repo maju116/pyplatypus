@@ -23,7 +23,13 @@ from pyplatypus.device import pick_device as _pick_device
 from pyplatypus.objectives import build_loss, build_metrics
 from pyplatypus.objectives import functional as f
 from pyplatypus.spec.models import SegmentationModel
-from pyplatypus.training.callbacks import Callback, TrainingState, build_callbacks
+from pyplatypus.training.callbacks import (
+    Callback,
+    TrainingState,
+    ask_to_stop,
+    build_callbacks,
+    finish_training,
+)
 from pyplatypus.training.optimizers import build_optimizer, parameter_groups
 
 
@@ -453,12 +459,11 @@ class Trainer:
             if verbose:
                 print(f"epoch {epoch:>3}  {format_logs(logs)}  ({logs['seconds']:.1f}s)")
 
-            if any(callback.on_epoch_end(state) for callback in self.callbacks):
+            if ask_to_stop(self.callbacks, state):
                 history.stop_reason = state.stop_reason
                 break
 
-        for callback in self.callbacks:
-            callback.on_train_end(state)
+        finish_training(self.callbacks, state)
         return history
 
     @torch.no_grad()
