@@ -1,6 +1,110 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a55] - 2026-10-29
+
+**The review agent's first audit, engine half.** Six of its nine findings are here; each was
+reproduced independently before being filed, and the reproduction is in the issue rather
+than taken from the report. `maju116/pyplatypus#325`, `#326`, `#327`, `#328`, `#329`, `#330`
+and the engine half of `maju116/rplatypus#247`.
+
+**The R half: the pin, and it has to move.** `rplatypus#247` is a defect an R user meets
+through `evaluate(fit, at = "source")` - a route `?evaluate` calls *"the answer to that
+warning"* - and the fix reaches them by the pin moving and by nothing else. That is the
+distinction `0.8.0a47` and `a48` are recorded for, not §3E's *leave the pin alone*. R's two
+remaining findings are its own and need nothing from here.
+
+### Fixed
+
+ - **`evaluate(at="source")` and `evaluate_cases(at="source")` raised for `cldice` and
+   `surface_dice`**, the two metrics that path exists to give physical units to - and the
+   message named neither the metric nor `at`. `_score_at_source` applied `float()` to
+   `metric.coefficient(hard, truth)[0]`, which is a **per-class vector**, so it raised for
+   every run with more than one channel. Measured on four 64x64 cases: `[dice]` returns a
+   number on both grids, `[dice, cldice]` returned `ValueError: only one element tensors can
+   be converted to Python scalars` from both `evaluate` and `evaluate_cases`, and the
+   `dice`-only row is the control that the path works at all.
+
+   **A `.mean()` would have been the wrong repair.** The model-grid path keeps the vector,
+   averages over the group's images and *then* calls `reduce` - which is where
+   `include_background=False` drops the background and where `ClDice` refuses a `NaN` from a
+   skeleton it could not peel. Both steps were skipped here, so the source path was a third
+   copy of a rule `_score_at_source`'s own docstring says *"must not exist in several
+   versions"*. It is the same two steps in the same order as `Trainer.score_cases` now.
+
+   No test configured a whole-mask metric at source, which is why nothing saw it: both files
+   that test this path use `dice`, and `dice` accumulates, so the branch was unreached. The
+   test added computes the figure from `predict_stream` and the metric object by hand, with
+   two controls - that the per-class vector has more than one element, and that `reduce`
+   disagrees with a plain mean on this fixture.
+
+ - **`iou_matrix` counted object numbers rather than objects**, so a number missing from a
+   label map became an object of zero area, matched nothing, and was counted as a false
+   negative or a false positive. Measured on two 3x3 objects in a 10x10 map:
+
+       identical maps, consecutive numbering        AP 1.0     (control)
+       the same two objects numbered 1 and 4        AP 0.5
+       truth gapped, prediction consecutive         AP 0.5
+       BOTH sides gapped the same way               AP 0.3333
+
+   The last row is the one that makes it worth finding: **a prediction identical to the
+   truth scored one third**, because each side's phantom object was a false negative and a
+   false positive at once. All four read 1.0 now and the matrix is 2x2 rather than 2x4.
+
+   **The engine held the wrong copy of a rule this project already had right twice.**
+   `measure.instance_sizes` documents *"a model that found objects 1, 2 and 4 found three
+   objects"*, and `rplatypus`'s own matcher takes `sort(unique(...))` of each side - run on
+   the same maps it matches 2 of 2 where the engine scored 0.333. That is the second time
+   the engine was the wrong copy, after `crops()`'s docstring against `?detection_crops`, and
+   the first time it was *code* rather than prose.
+
+   It is not only a hazard for maps from other tools: `instances_from_parts` produces a gap
+   at its own default, because a seed outside the foreground loses every pixel and
+   `_drop_small` renumbers only when `minimum_area > 0`.
+
+### Changed
+
+ - **`summarise_instances` no longer promises a `pooled_average_precision`**, in either of
+   the two places that promised one - its own docstring and the module's, which said it
+   *"reports both and names which is the challenge's"*. It returns seven keys and none is
+   pooled, and the figure cannot be computed from what the function is given: `score_cases`
+   hands it one `matched_at_<lowest>` key and a pooled average precision needs the counts at
+   every threshold. The promise is removed rather than honoured, because the pooled figure is
+   a feature with a public return shape to change and is explicitly *not* the leaderboard's
+   number. The argument that the two quantities differ stays, because that is the sentence
+   worth having.
+
+ - **`foreground_dice`'s per-image argument no longer rests on a pooling rule that was
+   fixed.** It said the training metric pools over *batches* with each weighed equally and
+   quoted 0.0088; `Trainer._run_epoch` has weighted by **examples** since
+   `maju116/rplatypus#196`, with a test holding it there. So the number is gone rather than
+   re-measured - §3C says a number in prose needs a test holding it or no number - and the
+   reason that is still true is what is left.
+
+ - **Both accuracy figures for the ellipse circumference were wrong, in opposite
+   directions.** `pi * (a + b)` is wrong by **0.51%** at an axis ratio of 0.75 and 0.77% at
+   0.7, not 1.5% - that belongs to 0.6 - and Ramanujan's second approximation is right to
+   **8e-14** at 0.75, where the docstring claimed `1e-7` and so understated it by five
+   orders of magnitude. All three figures are now held to `scipy.special.ellipe`, with the
+   circle as the control because both formulas are exact there. `tests/test_measure.py`'s own
+   docstring named 0.7 and 1.5% while its assertion is met by the 150x75 case at a ratio of
+   0.5, and says so now.
+
+ - **`stratified_split`'s closed form belongs to the table above it.** It read *"0.5120 where
+   the simulation said 51.18%"*; the table says 70/15/15, and 0.5120 is exactly `0.8^3` - a
+   part of share 0.2. The nearest figure in the file is the **51.25%** of the multi-label
+   table 180 lines above, a different algorithm answering a different question, which is
+   §4's number measured in one setting and quoted in another. The sentence now gives
+   `0.85^3 = 0.6141` for a 15% part and 0.9055 against the 0.9125 the table measured - half
+   a standard error at 400 seeds - and a test holds all of it.
+
+ - **The instance summary's `median` and `matched_at_<lowest>` have tests that can fail.**
+   Both were reported and nothing read them: `np.median` could become `np.mean` and
+   `matched_at_0.5` could become `matched_at_0.95` with 110 tests green, and the second
+   mutation moves only the key's **name**. The median is asserted on three cases where it
+   differs from the mean, which took a correction - the first version used two cases at 1.0
+   and 0.0, where the median *is* the mean, and its own control caught that.
+
 ## [0.8.0a54] - 2026-10-29
 
 **Documentation only, and the pair rather than the prose is the reason it is a release.**

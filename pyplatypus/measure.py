@@ -350,9 +350,15 @@ def ellipse_axes(mask: np.ndarray, spacing: Any = None) -> tuple[float, float]:
 def _ramanujan(a: float, b: float) -> float:
     """An ellipse's circumference by Ramanujan's second approximation.
 
-    There is no closed form. This one is right to about `1e-7` relative at the
-    eccentricities a fetal skull has - four orders of magnitude below one pixel - where
-    `pi * (a + b)`, the thing reached for instead, is wrong by 1.5% at an axis ratio of 0.7.
+    There is no closed form. Measured against the exact perimeter `4a E(e^2)`, this one is
+    right to **8e-14** relative at an axis ratio of 0.75, which is about a fetal skull's, and
+    to 7e-13 at 0.7 - either way far below one pixel. `pi * (a + b)`, the thing reached for
+    instead, is wrong by **0.51%** at 0.75, by 0.77% at 0.7 and by 1.5% at 0.6.
+
+    **Both figures were wrong in opposite directions until `pyplatypus#328`**: the 1.5% was
+    quoted at the wrong ratio, and `1e-7` understated this approximation by five orders of
+    magnitude. `test_the_accuracy_figures_in_the_docstring_are_the_measured_ones` holds all
+    three numbers to `scipy.special.ellipe` now, which is §3C's rule rather than a comment.
     """
     if a <= 0.0 or b <= 0.0:
         return 0.0
