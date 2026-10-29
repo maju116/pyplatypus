@@ -658,3 +658,41 @@ def test_a_picture_the_palette_can_hold_warns_about_nothing():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         pyplatypus.overlay_instances(picture(*labels.shape), labels)
+
+
+def test_the_agreement_overlay_colours_a_gapped_map_by_its_own_object_numbers():
+    """`pyplatypus#325`'s own regression, and the engine had no test that could see it.
+
+    `iou_matrix`'s rows became the object numbers **present** rather than `1..max`, and this
+    function turned a row back into a label with `row + 1` - correct only while the numbering
+    was consecutive. `0.8.0a55` shipped the first half and not the second, so an agreement
+    figure over a gapped map coloured the wrong objects.
+
+    What caught it was `rplatypus`'s drawing pair, which compares R's overlay with this one
+    pixel for pixel and carries a fixture named `gapped`. That is §3F working in the
+    direction it was built for - and it means this suite was blind, which is what this test
+    is for.
+    """
+    from pyplatypus.plots import overlay_instance_agreement
+
+    truth = np.zeros((8, 8), dtype=np.int32)
+    truth[1:4, 1:4] = 1
+    truth[5:8, 5:8] = 4  # a gap: the labels present are 1 and 4
+    assert sorted(np.unique(truth)) == [0, 1, 4], "no gap, so this proves nothing"
+
+    picture = np.full((8, 8, 3), 128.0)
+    both = overlay_instance_agreement(picture.copy(), truth, truth.copy(), threshold=0.5)
+    # Everything matched, so every object is drawn as a hit and the two object regions carry
+    # the same colour - which is the assertion `row + 1` failed: it marked object 2 as
+    # matched, object 4 as missed, and coloured them differently.
+    first = both[2, 2].tolist()
+    second = both[6, 6].tolist()
+    assert first == second, f"the two matched objects are coloured differently: {first} {second}"
+    assert first != [128, 128, 128], "nothing was drawn, so the comparison above is vacuous"
+
+    # And the control in the other direction: an object that genuinely is not matched gets a
+    # different colour from one that is.
+    predicted = np.zeros((8, 8), dtype=np.int32)
+    predicted[1:4, 1:4] = 7  # matches truth's object 1, and nothing matches truth's 4
+    partly = overlay_instance_agreement(picture.copy(), truth, predicted, threshold=0.5)
+    assert partly[2, 2].tolist() != partly[6, 6].tolist()

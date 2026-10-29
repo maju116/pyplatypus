@@ -861,7 +861,7 @@ def overlay_instance_agreement(
     >>> bool((hit != missed).any() and (missed != invented).any())
     True
     """
-    from pyplatypus.instances import iou_matrix
+    from pyplatypus.instances import iou_matrix, object_labels
 
     if threshold < 0.5:
         raise PlatypusError(
@@ -897,6 +897,12 @@ def overlay_instance_agreement(
         raise PlatypusError(f"the maps are {predicted.shape} and the image is {picture.shape[:2]}")
 
     overlaps = iou_matrix(actual, predicted)
+    # The rows and columns are the object numbers PRESENT, ascending, so a row index is not
+    # the label minus one. This said `row + 1` and was right only while every map numbered
+    # its objects consecutively; `pyplatypus#325` made that assumption visible by removing
+    # it, and R's own `gapped` drawing fixture is what failed.
+    truth_labels = object_labels(actual)
+    predicted_labels = object_labels(predicted)
     matched_truth: set[int] = set()
     matched_prediction: set[int] = set()
     if overlaps.size:
@@ -919,10 +925,12 @@ def overlay_instance_agreement(
             # here as the statement of the invariant rather than as working code. Said
             # plainly because a mutation that removes it changes nothing, and a guard nothing
             # can test is a guard that has to explain itself.
-            if int(row) + 1 in matched_truth or int(column) + 1 in matched_prediction:
+            this_truth = int(truth_labels[row])
+            this_prediction = int(predicted_labels[column])
+            if this_truth in matched_truth or this_prediction in matched_prediction:
                 continue
-            matched_truth.add(int(row) + 1)
-            matched_prediction.add(int(column) + 1)
+            matched_truth.add(this_truth)
+            matched_prediction.add(this_prediction)
 
     hit = np.isin(actual, sorted(matched_truth)) if matched_truth else np.zeros_like(actual, bool)
     missed = (actual > 0) & ~hit
