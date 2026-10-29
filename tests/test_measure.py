@@ -15,6 +15,8 @@ outputs of the same function. An absolute number cannot be fooled that way.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -129,13 +131,50 @@ def test_the_moment_fit_returns_the_axes_of_an_ellipse_it_was_handed():
     assert abs(major - minor) < 0.5 and abs(major - 80.0) / 80.0 < 0.005, (major, minor)
 
 
+def test_the_accuracy_figures_in_the_docstring_are_the_measured_ones():
+    """§3C: a number in prose needs a test holding it to the measurement, or no number.
+
+    `_ramanujan`'s docstring carried two figures and both were wrong in opposite directions
+    (`pyplatypus#328`) - 1.5% quoted at the wrong axis ratio, and `1e-7` understating the
+    approximation by five orders of magnitude. The exact perimeter is `4a E(e^2)` from
+    `scipy.special.ellipe`, which shares no code with `_ramanujan`.
+
+    The control is the circle: both formulas are exact there, so a test that passed on a
+    circle alone would say nothing about either.
+    """
+    from scipy.special import ellipe
+
+    from pyplatypus.measure import _ramanujan
+
+    def exact(a: float, b: float) -> float:
+        return 4.0 * a * float(ellipe(1.0 - (b / a) ** 2))
+
+    assert _ramanujan(1.0, 1.0) == pytest.approx(exact(1.0, 1.0), rel=1e-15), "the circle"
+    assert math.pi * 2.0 == pytest.approx(exact(1.0, 1.0), rel=1e-15), "the circle, naively"
+
+    claimed = {0.75: (0.0051, 8e-14), 0.7: (0.0077, 7e-13), 0.6: (0.0154, 2.4e-11)}
+    for ratio, (naive_claim, ramanujan_claim) in claimed.items():
+        truth = exact(1.0, ratio)
+        naive = abs(math.pi * (1.0 + ratio) - truth) / truth
+        ours = abs(_ramanujan(1.0, ratio) - truth) / truth
+        assert naive == pytest.approx(naive_claim, rel=0.02), (ratio, naive)
+        assert ours == pytest.approx(ramanujan_claim, rel=0.2), (ratio, ours)
+
+    # And the docstring says those numbers, so a corrected figure here fails over there too.
+    prose = _ramanujan.__doc__
+    for said in ("8e-14", "7e-13", "0.51%", "0.77%", "1.5%", "0.75", "0.7", "0.6"):
+        assert said in prose, said
+
+
 def test_ramanujan_matches_an_integrated_perimeter_and_the_naive_formula_does_not():
     """The approximation, against the arc length of the parametric ellipse.
 
     Both halves are the test. Without the second, a circumference of `pi * (a + b)` - which
     is what somebody writes when they remember the circle - passes at every axis ratio a
-    test like this would casually use, because it is exact for a circle and wrong by 1.5% at
-    0.7. A fetal skull sits near 0.75.
+    test like this would casually use, because it is exact for a circle and wrong by only
+    0.51% at 0.75, where a fetal skull sits. The `naive_worst > 0.01` below is met by the
+    150x75 case, a ratio of 0.5 at 2.7%, and this docstring named 0.7 and 1.5% until
+    `pyplatypus#328` - neither of which is a row of the loop.
     """
     worst, naive_worst = 0.0, 0.0
     for a, b in ((100.0, 100.0), (120.0, 90.0), (120.0, 84.0), (150.0, 75.0)):

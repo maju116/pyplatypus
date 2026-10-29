@@ -23,8 +23,9 @@ turned into a different metric.
 
 **The mean is over images, not over objects.** That is the leaderboard's quantity: an image
 of 2 nuclei weighs as much as one of 375, and this dataset holds both. A ratio of pooled
-counts would be a defensible number and a different one, so `summarise_instances` reports
-both and names which is the challenge's.
+counts would be a defensible number and a different one, and `summarise_instances` reports
+the challenge's and says so rather than reporting both - which it claimed to do, and did not,
+until `pyplatypus#326`.
 
 **Instances are a label map, and overlapping truth is refused.** One integer per pixel,
 which is all this dataset needs and all that can be scored without deciding what an overlap
@@ -93,9 +94,37 @@ def iou_matrix(truth: np.ndarray, predicted: np.ndarray) -> np.ndarray:
             f"truth is {truth.shape} and the prediction is {predicted.shape}; "
             "they have to cover the same grid to be compared"
         )
-    n_truth, n_predicted = int(truth.max()), int(predicted.max())
+    # **An object is a number the map actually carries, not every number up to the
+    # maximum.** Indexing by `max()` made a missing number into an object of zero area,
+    # which matches nothing and is counted as a false negative or a false positive: two
+    # 3x3 objects numbered 1 and 4, scored against themselves, came out at an average
+    # precision of 0.333 rather than 1.0. `pyplatypus#325`.
+    #
+    # `measure.instance_sizes` has said the right thing the whole time - *"a model that
+    # found objects 1, 2 and 4 found three objects"* - and so has `rplatypus`'s own
+    # matcher, which takes `sort(unique(...))` of each side. This is the second place in
+    # this project where the engine held the wrong copy of a rule R held correctly.
+    #
+    # A gap is not somebody else's mistake either: `instances_from_parts` produces one at
+    # its own default, because a seed outside the foreground loses every pixel and
+    # `_drop_small` renumbers only when `minimum_area > 0`.
+    truth_values = np.unique(truth[truth > 0]).astype(np.int64)
+    predicted_values = np.unique(predicted[predicted > 0]).astype(np.int64)
+    n_truth, n_predicted = len(truth_values), len(predicted_values)
     if n_truth == 0 or n_predicted == 0:
         return np.zeros((n_truth, n_predicted), dtype=np.float64)
+
+    # The values are mapped onto 1..n so the single-pass count below still works: a lookup
+    # array indexed by the label itself, which costs the maximum label in memory and keeps
+    # the whole function one pass over the image. Reindexing is what makes the rows and
+    # columns mean *objects*; the bincount trick is unchanged.
+    truth_index = np.zeros(int(truth_values[-1]) + 1, dtype=np.int64)
+    truth_index[truth_values] = np.arange(1, n_truth + 1)
+    predicted_index = np.zeros(int(predicted_values[-1]) + 1, dtype=np.int64)
+    predicted_index[predicted_values] = np.arange(1, n_predicted + 1)
+
+    truth = truth_index[np.clip(truth.astype(np.int64), 0, len(truth_index) - 1)]
+    predicted = predicted_index[np.clip(predicted.astype(np.int64), 0, len(predicted_index) - 1)]
 
     # One bin per (truth, predicted) pair, background included, so the row and column sums
     # below are the object areas without a second pass over the image.
@@ -192,10 +221,17 @@ def foreground_dice(predicted: np.ndarray, truth: np.ndarray) -> float | None:
       which is this module's convention for it - `score_cases` leaves an unscorable case's
       `average_precision` at `None` and `summarise_instances` filters on exactly that.
     - **Per image.** The caller means over images, which is how `average_precision` is pooled
-      in the same row. The training metric pools over *batches* with each batch weighed
-      equally, so a short last batch counts as much as a full one: measured at 0.0088 on that
-      split, which is larger than several of the differences this table is read for. Two
-      poolings inside one row would hide one of them.
+      in the same row - one pooling inside one row, so a reader comparing two columns is
+      comparing the same kind of average.
+
+      **This bullet used to argue from a pooling difference that no longer exists**, and the
+      argument carried a number measured before the fix: it said the training metric pools
+      over *batches* with each weighed equally, at 0.0088 on that split. `Trainer._run_epoch`
+      weights by **examples** since `maju116/rplatypus#196`, and
+      `test_an_epoch_line_is_the_mean_over_examples_whatever_the_batching` holds it there. So
+      the figure is gone rather than re-measured - §3C says a number in prose needs a test
+      holding it or no number - and what is left is the reason that is still true.
+      `pyplatypus#327`.
 
     Args:
         predicted: the predicted foreground, boolean or anything truthy per pixel.
@@ -229,9 +265,16 @@ def summarise_instances(rows: Sequence[dict]) -> dict:
     """The leaderboard's number, and the one it is often confused with.
 
     `mean_average_precision` is the mean over images, which is what the challenge ranked on.
-    `pooled_average_precision` applies the same formula to the summed counts, so every object
-    weighs the same rather than every image. They are different quantities and this dataset
-    makes the gap visible: it holds images of 2 objects and images of 375.
+    A **pooled** figure - the same formula over the summed counts, so every object weighs the
+    same rather than every image - is a different quantity, and this dataset makes the gap
+    visible: it holds images of 2 objects and images of 375.
+
+    **This function does not return the pooled one, and said it did until
+    `pyplatypus#326`.** It cannot be computed from what it is given either: `score_cases`
+    hands it one `matched_at_<lowest>` key, and a pooled average precision needs the TP, FP
+    and FN at *every* threshold. So the promise is removed rather than honoured here - the
+    figure is a feature with a public return shape to change, and it is not the leaderboard's
+    number, which is what this function is for.
     """
     scored = [row for row in rows if row["average_precision"] is not None]
     if not scored:

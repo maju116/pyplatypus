@@ -445,8 +445,15 @@ def stratified_split(
           2000         1%      6.75%        0.00%
 
     and the closed form agrees with the simulation - a part of share `f` holds none of `r`
-    rare items with probability about `(1-f)^r`, which is 0.5120 where the simulation said
-    51.18%. What it costs is nothing anybody can see: the worst drift from the requested
+    rare items with probability about `(1-f)^r`, so with three rare items the 15% parts miss
+    them 0.85^3 = **0.6141** of the time each and some part misses them 0.9055 of the time
+    against the **0.9125** measured above, which is half a standard error at 400 seeds.
+
+    **That sentence quoted 0.5120 against a simulation of 51.18% until `pyplatypus#329`**,
+    and neither belongs to this table: 0.5120 is exactly `0.8^3`, a part of share 0.2, and
+    the nearest figure in this file is the **51.25%** of the multi-label table 180 lines
+    above - a different algorithm answering a different question. §4's number measured in one
+    setting and quoted in another. What it costs is nothing anybody can see: the worst drift from the requested
     fractions over 200 seeds is 0.0100 at 100 images, which is one image, and 0.0000 at 500.
 
     The alternative is not a slightly worse split. Every per-class metric this task offers -

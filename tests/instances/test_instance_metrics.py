@@ -278,6 +278,73 @@ def test_unscored_images_are_counted_and_left_out_of_the_mean():
     assert summary["mean_average_precision"] == 1.0
 
 
+def test_the_median_and_the_matched_at_key_are_both_read():
+    """`pyplatypus#330`. Both were reported and nothing read them, so `np.median` could
+    become `np.mean` and `matched_at_0.50` could become `matched_at_0.95` with 110 tests
+    green - the second mutation moves only the key's NAME, which is why the name is
+    asserted here and not just the value.
+
+    **The median is asserted where it differs from the mean**, which takes three cases: two
+    at 1.0 and 0.0 have the same median and the same mean, so an assertion on them cannot
+    tell the two apart and would be the defect this test exists to catch.
+    """
+    one = label_map([np.array([[1, 1], [0, 0]]) > 0])
+    missed = label_map([np.array([[0, 0], [0, 1]]) > 0])
+
+    # Two at 1.0 and one at 0.0: median 1.0 against a mean of 0.667, so the two differ and
+    # the assertion below can fail. 1.0 / 0.5 / 0.0 would not - that is median 0.5 and mean
+    # 0.5, which is the first thing I wrote and what the control caught.
+    rows = score_cases([("hit", one, one), ("hit again", one, one), ("miss", one, missed)])
+    scores = [row["average_precision"] for row in rows]
+    summary = summarise_instances(rows)
+
+    assert float(np.median(scores)) != pytest.approx(float(np.mean(scores))), (
+        f"median and mean agree on {scores}, so this assertion cannot fail"
+    )
+    assert summary["median"] == pytest.approx(float(np.median(scores)))
+    assert summary["median"] != pytest.approx(summary["mean_average_precision"])
+
+    # The key carries the LOWEST threshold in its name, which is the one the mutation moved.
+    # Read off the row rather than retyped from prose: the key is `matched_at_0.5`, and
+    # writing `0.50` here from an issue's text is what this assertion first did.
+    assert "matched_at_0.5" in rows[0], sorted(rows[0])
+    assert not any(key.startswith("matched_at_0.95") for key in rows[0])
+    assert rows[0]["matched_at_0.5"] == 1
+
+
+def test_a_gap_in_the_numbering_is_not_an_object(tmp_path=None):
+    """`pyplatypus#325`. An object is a number the map carries, not every number up to the
+    maximum, and the control is the pair: renumbering must change nothing, and the two maps
+    must genuinely be the same two objects.
+
+    The last case is the one that made this worth finding - both sides gapped the same way
+    is a prediction identical to the truth, and it scored one third.
+    """
+
+    def two(second: int) -> np.ndarray:
+        m = np.zeros((10, 10), dtype=np.int32)
+        m[1:4, 1:4] = 1
+        m[6:9, 6:9] = second
+        return m
+
+    assert sorted(np.unique(two(4))) == [0, 1, 4], "the fixture has no gap, so this proves nothing"
+
+    for name, truth, predicted in (
+        ("identical, consecutive", two(2), two(2)),
+        ("prediction gapped", two(2), two(4)),
+        ("truth gapped", two(4), two(2)),
+        ("both gapped the same way", two(4), two(4)),
+    ):
+        iou = iou_matrix(truth, predicted)
+        assert iou.shape == (2, 2), f"{name}: {iou.shape} rows and columns for two objects"
+        assert average_precision(iou) == 1.0, name
+
+    # And the counts a caller reads are counts of objects: `score_cases` reports two, not
+    # four, for a map whose highest label is 4.
+    row = score_cases([("gapped", two(4), two(4))])[0]
+    assert (row["truth"], row["predicted"]) == (2, 2)
+
+
 def test_nothing_to_score_at_all_is_refused():
     empty = np.zeros((2, 2), dtype=np.int32)
     with pytest.raises(InstanceError, match="no case had anything to score"):

@@ -727,3 +727,30 @@ def test_the_column_name_is_the_callers_when_they_say_so(tmp_path):
         "images",
         "masks",
     ]
+
+
+def test_the_closed_form_in_the_docstring_is_the_one_its_own_table_is_about():
+    """`pyplatypus#329`. That sentence quoted `0.5120` against a simulation of 51.18%, and
+    0.5120 is `0.8^3` - a part of share 0.2, where the table above it says 70/15/15. The
+    nearest figure in this file is the 51.25% of the multi-label table, a different
+    algorithm answering a different question.
+
+    Held here rather than left as prose: §3C's rule is about any number in prose, and a
+    closed form is the kind a reader checks.
+    """
+    from pyplatypus.data.splits import stratified_split
+
+    prose = stratified_split.__doc__
+
+    # three rare items, parts of 0.7 / 0.15 / 0.15
+    one_part_misses = 0.85**3
+    some_part_misses = 1 - 6 * 0.7 * 0.15 * 0.15
+    assert round(one_part_misses, 4) == 0.6141
+    assert round(some_part_misses, 4) == 0.9055
+    for said in ("0.6141", "0.9055", "0.9125", "0.85^3"):
+        assert said in prose, said
+
+    # The control: the figure the sentence used to carry belongs to a different share, and
+    # saying so is the point rather than deleting it quietly.
+    assert round(0.8**3, 4) == 0.5120
+    assert "0.5120" in prose and "share 0.2" in prose

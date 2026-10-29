@@ -37,6 +37,33 @@ def thin(tmp_path):
     return root
 
 
+def spec_for_with(root, size, metrics):
+    """`spec_for` with the metrics named, because every test here configured `dice` alone and
+    that is how the non-accumulating branch went unreached - `rplatypus#247`."""
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": str(root),
+                "validation_path": str(root),
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                "shuffle": False,
+            },
+            "models": [
+                {
+                    "name": f"at{size}",
+                    "input_shape": [size, size],
+                    "blocks": 2,
+                    "filters": 4,
+                    "batch_size": 2,
+                    "epochs": 1,
+                    "metrics": metrics,
+                }
+            ],
+        }
+    )
+
+
 def spec_for(root, size):
     return from_dict(
         {
@@ -91,6 +118,52 @@ def test_the_source_figure_is_the_arithmetic_done_by_hand(thin):
         with torch.no_grad():
             expected = float(metric(hard, truth))
         assert rows[case] == pytest.approx(expected, abs=1e-7)
+
+
+def test_a_whole_mask_metric_is_computable_at_source_and_pooled_the_same_way(thin):
+    """`rplatypus#247`. Every test in this file configured `dice` alone, and `dice`
+    accumulates - so the branch that handles a metric which does **not** accumulate was
+    never reached, and on it `float()` was applied to a per-class vector. `cldice` and
+    `surface_dice` are the only metrics that reach it, and they are the two this path exists
+    to give physical units to.
+
+    Pooled the same way as the model grid: the mean of the images' per-class vectors, then
+    the metric's own `reduce`. Computed here from `predict_stream` and the metric object,
+    which is the arithmetic the test above does for `dice` - and the half that matters is
+    `reduce`, because a fix that only took a mean would average in the background and would
+    not see `ClDice`'s refusal of a NaN skeleton.
+    """
+    from pyplatypus.objectives.metrics import ClDice
+
+    engine = Engine(spec_for_with(thin, 16, [{"name": "dice"}, {"name": "cldice"}]), device="cpu")
+    engine.fit()
+
+    on_source = engine.evaluate(at="source")[0]
+    cases = engine.evaluate_cases("at16", at="source")
+
+    assert isinstance(on_source["cldice"], float)
+    assert 0.0 <= on_source["cldice"] <= 1.0
+    assert all(isinstance(row["cldice"], float) for row in cases)
+
+    metric = ClDice()
+    truth = truth_as_the_fixture_drew_it()
+    pieces = []
+    for _, probabilities in engine.predict_stream("at16", split="validation", space="source"):
+        prediction = torch.from_numpy(np.moveaxis(probabilities, -1, 0).copy())[None]
+        hard = torch.nn.functional.one_hot(prediction.argmax(dim=1), 2).permute(0, 3, 1, 2).float()
+        with torch.no_grad():
+            pieces.append(metric.coefficient(hard, truth)[0])
+    with torch.no_grad():
+        expected = float(metric.reduce(torch.stack(pieces).mean(dim=0)))
+    assert on_source["cldice"] == pytest.approx(expected, abs=1e-7)
+
+    # The control, in the direction that would make this test vacuous: the per-class vector
+    # has more than one element, which is why `float()` of it raised and why `reduce` is not
+    # the identity.
+    assert pieces[0].numel() > 1, "one class only, so nothing here is about the vector"
+    assert float(metric.reduce(torch.stack(pieces).mean(dim=0))) != pytest.approx(
+        float(torch.stack(pieces).mean()), abs=1e-9
+    ), "reduce agrees with a plain mean here, so this fixture cannot tell them apart"
 
 
 def test_the_two_grids_disagree_which_is_the_whole_point(thin):

@@ -1025,8 +1025,19 @@ class Engine(EngineBase):
                 for metric_name, metric in metrics.items():
                     if metric.accumulates:
                         continue
+                    # The PER-CLASS vector, not a scalar. `coefficient` returns
+                    # `(batch, class)`, so `float()` of `[0]` raises for every run with more
+                    # than one channel - which a mutually exclusive run always has - and
+                    # `rplatypus#247` is that defect: `cldice` and `surface_dice`, the two
+                    # metrics this path exists to give physical units to, were the only ones
+                    # that could reach it and the only ones that could not be computed on it.
+                    #
+                    # Keeping the vector is also what makes the pooling the same rule as the
+                    # model grid's: `reduce` below is where `include_background=False` drops
+                    # the background and where `ClDice` refuses a NaN from a skeleton that
+                    # could not be peeled, and a `float()` here skips both.
                     whole.setdefault(metric_name, {}).setdefault(name, []).append(
-                        float(metric.coefficient(hard, truth)[0])
+                        metric.coefficient(hard, truth)[0].detach()
                     )
 
         built = build_metrics(run.spec.metrics, multilabel=multilabel, spacing=None)
@@ -1037,8 +1048,14 @@ class Engine(EngineBase):
                 if metric.accumulates:
                     row[metric_name] = metric.reduce(metric.combine(*totals[name])).item()
                 else:
+                    # The mean over the group's images, then the metric's own reduction -
+                    # the same two steps and the same order as `Trainer.score_cases`, which
+                    # is the one place this arithmetic is allowed to exist. A skeleton has no
+                    # counts to add, so the mean of the images' vectors is the only thing the
+                    # number could be; `reduce` then turns a vector into the figure a reader
+                    # reads.
                     scores = whole[metric_name][name]
-                    row[metric_name] = sum(scores) / len(scores)
+                    row[metric_name] = metric.reduce(torch.stack(scores).mean(dim=0)).item()
             rows.append(row)
         return rows
 
