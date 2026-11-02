@@ -110,6 +110,9 @@ def test_fit_refuses_a_colormap_that_matches_no_tissue(tmp_path):
     assert "class 1 (colour (128, 0, 0))" in message
     assert "never appears" in message
     assert "checked 6 of 6" in message
+    # The share is still quoted for a naming that HAS a background entry, which is the
+    # control for `pyplatypus#344`: it is left out only where it means nothing.
+    assert "matched no entry" in message
     # And it says what to do, rather than only what is wrong.
     assert "check_masks=False" in message
     assert "inspect_masks" in message

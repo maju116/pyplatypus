@@ -535,6 +535,33 @@ class SegmentationData(DataSpec):
         raise AssertionError("one_way_of_naming_classes should have refused this spec")
 
     @property
+    def class_names(self) -> list[str]:
+        """One SHORT label per class, in channel order. A name where there is one.
+
+        Not the same job as `EngineBase._describe_classes`, which writes a sentence for a
+        refusal - *"region 'absent' (of [9])"* - and reads well in a message and badly as a
+        column heading. This is the label a caller pairs with a file on disk or a row in a
+        table, and the two were conflated once: `maju116/rplatypus#259` asked R to name a
+        class the way the engine does, and the engine's way turned five of R's own
+        assertions from `"one, both"` into `"region 'one' (of [1]), region 'both' (of
+        [1, 2])"`.
+
+        A region and a `classes_from` pattern have names of their own, so those are used.
+        `labels` and `colormap` do not: there the number **is** the class, and inventing
+        "class 2" as a label would read as a name somebody chose. The index is the honest
+        answer and is what R has always shown for them.
+
+        Here rather than in R because R held a copy that covered `regions` alone, numbered
+        the other three, and claimed in its own documentation to mirror the engine. One
+        definition, and §3A's rule decides where it lives: the engine's name wins.
+        """
+        if self.regions is not None:
+            return [str(region.name) for region in self.regions]
+        if self.classes_from is not None:
+            return [str(pattern) for pattern in self.classes_from]
+        return [str(index) for index in range(self.n_class)]
+
+    @property
     def label_map(self) -> bool:
         """Whether masks are label maps rather than pictures."""
         return self.labels is not None or self.regions is not None

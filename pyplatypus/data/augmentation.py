@@ -91,6 +91,7 @@ class AlbumentationsAugmenter:
         steps: list[AugmentationStep],
         rank: int = 2,
         input_shape: tuple[int, ...] | None = None,
+        seed: int | None = None,
     ):
         try:
             import albumentations
@@ -101,10 +102,33 @@ class AlbumentationsAugmenter:
 
         built = _build_steps(albumentations, steps)
         self.rank = rank
-        self._pipeline = albumentations.Compose(built)
+        # SEEDED, because albumentations draws from its own generator and nothing else
+        # reaches it: `seed_everything` seeds `random`, `numpy` and `torch`, and this
+        # pipeline is seeded by none of them. The `seed` field's own description promises
+        # that a run's augmentation is repeatable, and until `pyplatypus#341` it was not.
+        #
+        # Seeding does NOT pin the sequence, which is the objection
+        # `build_box_augmenter`'s docstring used to raise against doing this. Measured on
+        # albumentations 2.0.8: one pipeline at seed 1, applied three times, gives three
+        # DIFFERENT results - and the same three in a fresh process. So the seed fixes
+        # where the sequence starts and the generator still advances, which is
+        # reproducibility across runs and variety across epochs at once.
+        self._pipeline = albumentations.Compose(built, seed=seed)
         self.steps = tuple(step.name for step in steps)
         if rank == 3:
             _refuse_flat_transforms(albumentations, steps, built, input_shape)
+
+    def reseed(self, seed: int) -> None:
+        """Start the pipeline's sequence again from `seed`.
+
+        For the loader's worker processes. A worker is forked with a copy of this object,
+        generator state included, so without this every worker draws the **same**
+        sequence - which is reproducible and wrong, and is the half of `pyplatypus#341`
+        that seeding the parent does not fix. `torch.initial_seed()` inside a worker is
+        already derived from the run's seed and distinct per worker, so that is what the
+        loader passes.
+        """
+        self._pipeline.set_random_seed(seed)
 
     def __call__(
         self, image: np.ndarray, mask: np.ndarray | None = None
@@ -204,19 +228,27 @@ def _always(transform, step: AugmentationStep):
 
 
 def build_augmenter(
-    steps: list[AugmentationStep] | None, rank: int = 2, input_shape: tuple[int, ...] | None = None
+    steps: list[AugmentationStep] | None,
+    rank: int = 2,
+    input_shape: tuple[int, ...] | None = None,
+    seed: int | None = None,
 ) -> Augmenter | None:
     """None when there is nothing to do, which keeps the caller free of special cases.
 
     `input_shape` only affects the 3D probe, which is honest at the size the transforms
     will really see. Optional rather than required because the 2D path has nothing to
     probe, and because this is called from tests that have no model.
+
+    `seed` is the run's own, and it is a parameter here because **it had no route at all**
+    until `pyplatypus#341`: three of the four tasks reach their augmentation through this
+    function, and the specification's `seed` promises the augmentation is repeatable. None
+    leaves the pipeline unseeded, which is what a caller with no run behind it wants.
     """
     if not steps:
         return None
     if rank not in (2, 3):
         raise AugmentationError(f"augmentation handles 2D and 3D; this spec is {rank}D")
-    return AlbumentationsAugmenter(steps, rank=rank, input_shape=input_shape)
+    return AlbumentationsAugmenter(steps, rank=rank, input_shape=input_shape, seed=seed)
 
 
 #: How much of a box has to survive a crop for the box to be kept, as a fraction of its
@@ -292,9 +324,10 @@ class AlbumentationsBoxAugmenter:
             # `seed` reaches albumentations' own generator, which is the only thing that
             # makes a pipeline reproducible: seeding numpy does not, and a test that
             # seeded numpy and believed it was controlled failed in CI and passed
-            # locally. None leaves it unseeded, which is what training wants - the engine
-            # seeds torch, and a fixed augmentation sequence across epochs would mean
-            # every epoch saw the same distortions.
+            # locally. The three sentences that used to follow - that None is what
+            # training wants, because a seeded pipeline would show every epoch the same
+            # distortions - were wrong, and training passes the run's seed since
+            # `pyplatypus#341`. See `build_box_augmenter` for the measurement.
             self._pipeline = albumentations.Compose(built, bbox_params=self._params, seed=seed)
         _refuse_transforms_without_boxes(albumentations, steps, built, self._params, input_shape)
 
@@ -392,10 +425,17 @@ def build_box_augmenter(
     `input_shape` is required rather than defaulted because the probe is only honest at the
     size the transforms will really see - see `_refuse_transforms_without_boxes`.
 
-    `seed` is for tests, and it is not a spec field on purpose: pinning the augmentation
-    sequence would make every epoch see the same distortions, which is the opposite of what
-    augmentation is for. The specification's own `seed` covers weight initialisation and
-    the order examples arrive in, which is what reproducibility means here.
+    `seed` is the run's own, as it is for `build_augmenter`.
+
+    **This docstring used to say the opposite and gave a reason that is false.** It said
+    `seed` was "for tests" and not a spec field on purpose, because "pinning the
+    augmentation sequence would make every epoch see the same distortions" - and so that
+    the specification's `seed` covered "weight initialisation and the order examples
+    arrive in". The `seed` field's own description promises the augmentation too, so the
+    two disagreed; and the reason is measured false. albumentations 2.0.8, one pipeline at
+    seed 1 applied three times, gives three **different** results and the same three in a
+    fresh process: the seed fixes where the sequence starts, not what it is. Repeatable
+    across runs and varied across epochs are not alternatives. `pyplatypus#341`.
     """
     if not steps:
         return None

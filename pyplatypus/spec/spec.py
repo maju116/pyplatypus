@@ -22,6 +22,7 @@ from pydantic import Field, TypeAdapter, model_validator
 
 from pyplatypus.spec.classification import ClassificationData, ClassificationModel
 from pyplatypus.spec.common import SpecModel, Task
+from pyplatypus.spec.components import multilabel_capable
 from pyplatypus.spec.data import SegmentationData
 from pyplatypus.spec.detection import DetectionData, DetectionModel
 from pyplatypus.spec.instances import InstanceData, InstanceModel
@@ -167,6 +168,28 @@ class PlatypusSpec(SpecModel):
         return self.model_dump(mode="json")
 
 
+def _describe_loss(loss) -> str:
+    """A loss's name, and the nested term's too when it has one.
+
+    `boundary` alone tells a reader nothing about why it was refused: the term inside it is
+    what the refusal is about. `pyplatypus#342`.
+    """
+    region = getattr(loss, "region", None)
+    return loss.name if region is None else f"{loss.name}(region={region.name})"
+
+
+def _val_watches(callback) -> list[str]:
+    """Every way one callback asks for a `val_` number: its `monitor` and its conditions."""
+    found = []
+    monitor = getattr(callback, "monitor", None)
+    if monitor is not None and str(monitor).startswith("val_"):
+        found.append(f"watches '{monitor}'")
+    for key in getattr(callback, "when", None) or {}:
+        if str(key).startswith("val_"):
+            found.append(f"has a condition on '{key}'")
+    return found
+
+
 def _refuse_watching_a_number_no_split_will_produce(spec):
     """A callback cannot wait for `val_loss` in a run that has no validation set.
 
@@ -183,12 +206,17 @@ def _refuse_watching_a_number_no_split_will_produce(spec):
     """
     if spec.data.validation:
         return spec
+    # A CONDITION IS A WATCH WITH A THRESHOLD ON IT, so it answers to the same rule -
+    # which is the sentence `ModelSpec.callbacks_watch_something_that_exists` already
+    # carries and this rule was not given. Without the `when` half,
+    # `model_checkpoint(monitor="train_loss", when={"val_dice": 0.5})` was accepted and the
+    # run died with a bare `KeyError` at the end of its first epoch, after the expensive
+    # part. `pyplatypus#343`.
     offenders = [
-        f"{model.name}: {callback.name} watches '{callback.monitor}'"
+        f"{model.name}: {callback.name} {how}"
         for model in spec.models
         for callback in model.callbacks
-        if getattr(callback, "monitor", None) is not None
-        and str(callback.monitor).startswith("val_")
+        for how in _val_watches(callback)
     ]
     if offenders:
         listed = "\n  - ".join(offenders)
@@ -278,9 +306,11 @@ class SegmentationSpec(PlatypusSpec):
         if not self.data.multilabel:
             return self
         offenders = [
-            f"{model.name}: loss {model.loss.name}"
+            # `multilabel_capable` rather than the flag, because `boundary` wraps a region
+            # term and the flag is a ClassVar that cannot see it - `pyplatypus#342`.
+            f"{model.name}: loss {_describe_loss(model.loss)}"
             for model in self.models
-            if not model.loss.supports_multilabel
+            if not multilabel_capable(model.loss)
         ]
         if offenders:
             listed = "\n  - ".join(offenders)
@@ -290,7 +320,9 @@ class SegmentationSpec(PlatypusSpec):
                 f"classes:\n  - {listed}\n"
                 "Lovasz-Softmax would still return a number on sigmoid channels, which is "
                 "why this is refused rather than warned about. Use dice, iou, cce, "
-                "cce_dice, focal, tversky, focal_tversky, combo or boundary."
+                "cce_dice, focal, tversky, focal_tversky, combo or boundary - and for "
+                "`boundary`, a region term from that same list, since the term inside it "
+                "is run on the channels too."
             )
         excluding = [
             f"{model.name}: metric {metric.name}"

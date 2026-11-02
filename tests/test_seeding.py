@@ -49,7 +49,7 @@ def tiny_root(tmp_path):
     return tmp_path
 
 
-def final_loss(root, seed):
+def final_loss(root, seed, augment=False):
     config = {
         "task": "semantic_segmentation",
         "data": {
@@ -70,6 +70,14 @@ def final_loss(root, seed):
     }
     if seed is not None:
         config["seed"] = seed
+    if augment:
+        # The configuration this suite never had, which is why it could not fail on
+        # `pyplatypus#341`: the augmentation pipeline draws from albumentations' own
+        # generator and nothing seeded it.
+        config["models"][0]["augmentation"] = [
+            {"name": "Rotate", "params": {"limit": 45, "p": 1.0}},
+            {"name": "RandomBrightnessContrast", "params": {"p": 1.0}},
+        ]
     engine = Engine(from_dict(config), device="cpu", check_masks=False)
     return engine.fit()["u"].records[-1]["train_loss"]
 
@@ -107,3 +115,56 @@ def test_a_detection_run_is_reproducible_too(detection_config):
     second_anchors, second_loss = once()
     assert first_anchors == second_anchors
     assert first_loss == second_loss
+
+
+def test_the_same_seed_gives_the_same_run_when_the_model_augments(tiny_root):
+    """`pyplatypus#341`, and the gap this suite had: every configuration above augments
+    nothing.
+
+    `seed_everything` seeds `random`, `numpy` and `torch`. albumentations draws from its
+    **own** generator, which none of those reach - so two runs at one seed differed
+    whenever a model augmented, while the `seed` field's description promised "the order
+    the data arrives in and its augmentation".
+    """
+    assert final_loss(tiny_root, 7, augment=True) == final_loss(tiny_root, 7, augment=True)
+
+
+def test_without_a_seed_two_augmented_runs_differ(tiny_root):
+    """The control that the test above is not vacuous: with the pipeline pinned to a
+    constant rather than to the run's seed, both would pass."""
+    assert final_loss(tiny_root, None, augment=True) != final_loss(tiny_root, None, augment=True)
+
+
+def test_a_different_seed_augments_differently(tiny_root):
+    """And the seed is what moved it, rather than the augmentation having become a no-op."""
+    assert final_loss(tiny_root, 7, augment=True) != final_loss(tiny_root, 8, augment=True)
+
+
+def test_a_seeded_pipeline_still_varies_from_call_to_call(tiny_root):
+    """Why seeding the pipeline is the right fix, rather than a choice against variety.
+
+    `build_box_augmenter`'s docstring used to refuse a seed on the grounds that "pinning
+    the augmentation sequence would make every epoch see the same distortions". That is
+    not what a seed does: it fixes where the sequence starts and the generator still
+    advances. Asserted here because the sentence it replaces was an argument rather than a
+    measurement, and because a fix that DID pin the sequence would pass every test above.
+    """
+    import numpy as np
+
+    from pyplatypus.data.augmentation import build_augmenter
+    from pyplatypus.spec.components import AugmentationStep
+
+    steps = [
+        AugmentationStep(name="Rotate", params={"limit": 45, "p": 1.0}),
+        AugmentationStep(name="RandomBrightnessContrast", params={"p": 1.0}),
+    ]
+    image = np.arange(32 * 32 * 3, dtype=np.uint8).reshape(32, 32, 3)
+
+    def three(seed):
+        augmenter = build_augmenter(steps, seed=seed)
+        return [augmenter(image.copy())[0].tobytes() for _ in range(3)]
+
+    first = three(11)
+    assert len(set(first)) == 3, "the seed pinned the sequence instead of its start"
+    assert three(11) == first, "the same seed did not reproduce the sequence"
+    assert three(12) != first, "a different seed drew the same sequence"

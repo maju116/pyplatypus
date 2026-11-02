@@ -25,7 +25,13 @@ from pyplatypus.errors import ConfigError
 from pyplatypus.objectives import functional as f
 from pyplatypus.objectives.losses import build_loss
 from pyplatypus.objectives.metrics import build_metrics
-from pyplatypus.spec.components import CceLoss, DiceLoss, DiceMetric, LovaszLoss
+from pyplatypus.spec.components import (
+    BoundaryLoss,
+    CceLoss,
+    DiceLoss,
+    DiceMetric,
+    LovaszLoss,
+)
 from pyplatypus.spec.data import SegmentationData
 
 #: The three scored regions of BraTS, over a ground truth holding {0, 1, 2, 4}.
@@ -165,7 +171,9 @@ def spec_for(root, *, regions=None, loss="cce_dice", metrics=None, **model):
         "filters": 4,
         "batch_size": 2,
         "epochs": 1,
-        "loss": {"name": loss},
+        # A name or a whole block, so a nested loss - `boundary(region=...)` - can be
+        # written here too. `pyplatypus#342`.
+        "loss": loss if isinstance(loss, dict) else {"name": loss},
         "metrics": metrics if metrics is not None else [{"name": "dice"}],
     }
     block.update(model)
@@ -438,3 +446,30 @@ def test_a_run_with_regions_trains_predicts_and_evaluates(brats_like):
 
     row = engine.evaluate("validation")[0]
     assert 0.0 <= row["dice"] <= 1.0
+
+
+def test_boundary_wrapping_lovasz_is_refused_too_and_the_message_names_the_term(brats_like):
+    """`pyplatypus#342`: the flag is a `ClassVar`, so it could not see what `boundary` wraps.
+
+    `lovasz` answered False and `boundary(region=lovasz)` answered True, so the one
+    combination that reaches Lovasz-Softmax through a wrapper was accepted - and
+    `build_loss` passed `multilabel` into the nested term, which its own docstring warns
+    "would be wrong in a way that still trains".
+    """
+    with pytest.raises(ConfigError, match="mutually exclusive classes") as refused:
+        spec_for(brats_like, loss={"name": "boundary", "region": {"name": "lovasz"}})
+    # The message names the term rather than only the wrapper, or a reader is told
+    # `boundary` is the problem and the list of alternatives includes it.
+    assert "boundary(region=lovasz)" in str(refused.value)
+
+    with pytest.raises(ValueError, match="cannot be used with overlapping"):
+        build_loss(BoundaryLoss(region=LovaszLoss(name="lovasz")), multilabel=True)
+
+
+def test_boundary_over_a_region_term_that_does_support_it_is_accepted(brats_like):
+    """The control. Without it the fix could be `boundary` refused outright, which would
+    take away the one surface term this task can use."""
+    spec = spec_for(brats_like, loss={"name": "boundary", "region": {"name": "dice"}})
+    assert spec.models[0].loss.name == "boundary"
+    built = build_loss(BoundaryLoss(region=DiceLoss(name="dice")), multilabel=True)
+    assert built.region.multilabel is True

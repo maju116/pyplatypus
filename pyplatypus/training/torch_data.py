@@ -149,6 +149,30 @@ class TileShuffle(Sampler[int]):
                 yield indices[position]
 
 
+def reseed_augmentation_in_worker(worker_id: int) -> None:
+    """Give each loader worker its own augmentation sequence, derived from the run's seed.
+
+    A worker is forked with a copy of the dataset, and so with a copy of the augmentation
+    pipeline's generator **state**. Without this every worker draws the same sequence:
+    reproducible, and wrong in a way that quietly halves the variety of a run with four
+    workers. `pyplatypus#341`.
+
+    `torch.initial_seed()` inside a worker is already derived from the run's seed and is
+    distinct per worker, so the loader does not have to invent a derivation. Reached
+    through `get_worker_info()` rather than closed over, because the function has to be
+    picklable for the spawn start method.
+
+    Silent when there is no augmenter, which is the ordinary case for a validation loader.
+    """
+    info = torch.utils.data.get_worker_info()
+    if info is None:  # pragma: no cover - a worker_init_fn only runs in a worker
+        return
+    augmenter = getattr(getattr(info.dataset, "base", None), "augmenter", None)
+    reseed = getattr(augmenter, "reseed", None)
+    if reseed is not None:
+        reseed(torch.initial_seed() % (2**32))
+
+
 def make_loader(
     base: SegmentationDataset | InstanceDataset,
     *,
@@ -181,6 +205,7 @@ def make_loader(
         drop_last=drop_last,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=num_workers > 0,
+        worker_init_fn=reseed_augmentation_in_worker if num_workers > 0 else None,
     )
 
 
@@ -253,6 +278,7 @@ def make_classification_loader(
         drop_last=drop_last,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=num_workers > 0,
+        worker_init_fn=reseed_augmentation_in_worker if num_workers > 0 else None,
     )
 
 
@@ -307,4 +333,5 @@ def make_detection_loader(
         collate_fn=_collate_detection,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=num_workers > 0,
+        worker_init_fn=reseed_augmentation_in_worker if num_workers > 0 else None,
     )

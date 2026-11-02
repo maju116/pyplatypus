@@ -221,6 +221,7 @@ class DetectionEngine(EngineBase):
                 model.augmentation,
                 input_shape=(int(model.input_shape[0]), int(model.input_shape[1])),
                 min_visibility=model.min_visibility,
+                seed=self.spec.seed,
             )
             if augmented
             else None

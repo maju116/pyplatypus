@@ -1,9 +1,12 @@
 """What a good spec accepts and what a bad one says about itself."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from pyplatypus import ConfigError, from_dict
 from pyplatypus.spec import Architecture, PlatypusSpec
+from pyplatypus.spec.data import SegmentationData
 
 
 def test_minimal_config_builds(config):
@@ -182,3 +185,55 @@ def test_the_refusal_is_on_the_model_that_has_the_one_hot_target(config):
     assert SegmentationModel(name="m", input_shape=[64, 64], loss=CceLoss()).loss.name == "cce"
     with pytest.raises(ValidationError, match="class channels"):
         SegmentationModel(name="m", input_shape=[64, 64], loss=MseLoss())
+
+
+def test_class_names_is_a_short_label_per_class_for_every_naming():
+    """`maju116/rplatypus#259`, and the distinction that finding turned on.
+
+    A region and a `classes_from` pattern have names of their own; `labels` and `colormap`
+    do not, and there the number **is** the class. This is the label a caller pairs with a
+    file on disk or a row in a table - **not** `Engine._describe_classes`, which writes
+    a sentence for a refusal.
+    """
+
+    def names(**naming):
+        return SegmentationData(train_path=".", validation=False, **naming).class_names
+
+    assert names(regions=[{"name": "one", "of": [1]}, {"name": "both", "of": [1, 2]}]) == [
+        "one",
+        "both",
+    ]
+    assert names(classes_from=[r"_vessel\.png$", r"_organ\.png$"]) == [
+        r"_vessel\.png$",
+        r"_organ\.png$",
+    ]
+    assert names(labels=[0, 1, 2]) == ["0", "1", "2"]
+    assert names(colormap=[[0, 0, 0], [255, 255, 255]]) == ["0", "1"]
+
+
+def test_class_names_is_not_the_refusal_sentence():
+    """The two jobs stay apart, which is what five of `rplatypus`'s assertions measured.
+
+    Asking the engine to "name a class the way the engine does" turned `"one, both"` into
+    `"region 'one' (of [1]), region 'both' (of [1, 2])"` - correct for a message and wrong
+    for a column. The control is that `_describe_classes` still writes the sentence.
+    """
+    from pyplatypus.engine import Engine
+
+    # Two regions, because one is refused: a naming with a single class is not a naming.
+    data = SegmentationData(
+        train_path=".",
+        validation=False,
+        regions=[{"name": "one", "of": [1]}, {"name": "both", "of": [1, 2]}],
+    )
+    assert data.class_names == ["one", "both"]
+
+    # The sentence, from the engine's own method, over a stand-in that carries only what
+    # that method reads. If these ever return the same string, one of the two jobs has
+    # been given to the wrong function.
+    holder = SimpleNamespace(spec=SimpleNamespace(data=data))
+    assert Engine._describe_classes(holder, [0]) == "region 'one' (of [1])"
+    assert Engine._describe_classes(holder, [0]) != data.class_names[0]
+
+    # And one name per class, so the two lists line up by position.
+    assert len(data.class_names) == data.n_class

@@ -27,6 +27,7 @@ from pyplatypus.spec.components import (
     MseLoss,
     SmoothL1Loss,
     TverskyLoss,
+    multilabel_capable,
 )
 
 
@@ -366,8 +367,16 @@ def loss_supports_multilabel(spec: LossSpec) -> bool:
     a function because this is the question callers ask, and because an `isinstance` list
     here would be a second place to update when a loss is added - the kind of pair that
     stays agreed right up until it does not.
+
+    **It returned the flag directly until `pyplatypus#342`, and the flag is a `ClassVar`**
+    that cannot see what an instance wraps: `boundary(region=lovasz)` answered True while
+    `lovasz` answered False, so the combination was accepted, built, and returned a number
+    on sigmoid channels - which `lovasz`'s own docstring calls the worst available outcome.
+    The walk lives in `spec.components.multilabel_capable` rather than here, because the
+    specification layer must not import torch and that is the layer the validator runs in.
+    This module is the one with torch in it, so it delegates rather than keeping a copy.
     """
-    return spec.supports_multilabel
+    return multilabel_capable(spec)
 
 
 def build_loss(spec: LossSpec, *, multilabel: bool = False) -> SegmentationLoss:

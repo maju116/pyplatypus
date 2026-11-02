@@ -377,6 +377,27 @@ class LovaszLoss(_Loss):
 #: rather than recursive: a boundary loss inside a boundary loss would add two surface
 #: terms with no region term holding either of them down, which is the one combination
 #: that cannot work.
+def multilabel_capable(loss) -> bool:
+    """Whether this loss can be run on independent sigmoid channels - **nested terms too**.
+
+    `supports_multilabel` is a `ClassVar`, so it is a claim about a loss family and cannot
+    see what an instance wraps. `boundary` wraps one: `BoundaryLoss.region` is a
+    `RegionLossSpec`, and `lovasz` is a member of that union. So the flag said True for
+    `boundary(region=lovasz)` while saying False for `lovasz`, and
+    `overlapping_classes_rule_out_two_settings` asked the flag. `pyplatypus#342`.
+
+    One definition with two callers - that validator and `build_loss` - because the second
+    is where the combination would otherwise be built and trained. `build_loss`'s own
+    docstring already said the hazard out loud: *"`multilabel` travels into nested losses
+    too … would be wrong in a way that still trains"*. The flag travelled in; the question
+    did not travel with it.
+    """
+    if not getattr(loss, "supports_multilabel", True):
+        return False
+    region = getattr(loss, "region", None)
+    return True if region is None else multilabel_capable(region)
+
+
 RegionLossSpec = Annotated[
     IouLoss
     | DiceLoss
