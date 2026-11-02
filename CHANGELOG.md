@@ -1,6 +1,107 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a59] - 2026-11-02
+
+**The reviewer's fourth pass: the four gates, then the data readers one floor below
+augmentation. Four findings, every one reproduced here before it was filed.** The gates
+themselves found nothing - all four pass, and each was asked whether it passes for the
+wrong reason.
+
+### Fixed
+
+ - **A 16- or 32-bit label map was read through 8-bit greyscale, so every value above 255
+   arrived as 255.** `pyplatypus#346`. `_PIL_MODE[1]` is `"L"` and the PIL branch converts
+   before anything else, so `convert("L")` flattened the values a label map stores - which
+   are class identities rather than brightness. The `labels` field's description says a
+   single-channel PNG mask *"can be read too"* and mentions no bit depth; `read_image`'s
+   docstring promises the file's values *"the way training would"* read them.
+
+   Measured, a 16-bit PNG holding 0, 255 and 1000:
+
+        read back                      [[0, 0], [255, 255], [255, 255]]
+        the control, 16-bit of 0 to 7  [[0, 1, 2, 3], [4, 5, 6, 7]]      unchanged
+        a 32-bit TIFF of [0, 7, 70000] [0, 7, 255]
+
+   So it is the clip and not the depth. **The silent case** is 255 as one label and a
+   higher value as another: with `labels = [0, 255, 1000]` the class index map reads
+   `[[0, 0], [1, 1], [1, 1]]`, class 2 never appears, and `unmatched` is **exactly 0.0** -
+   the one number the mask check reads. **The loud case** is misdiagnosed rather than
+   silent: `labels = [0, 1, 2, 300]` reports class 3 absent, so the refusal blames the
+   specification for a value the file does hold on every row.
+
+   `read_image` takes `label_map` now and reads such a file at full integer width, mode
+   `"I"` and `int32`. The mask route alone passes it - three call sites under
+   `SegmentationDataset._read_masks` - because `to_float` divides an ordinary picture by
+   255 and a one-channel *image* read this way would stop being normalised. A label map
+   asked for with more than one channel is refused by name: a mask with several channels is
+   a picture with a colormap.
+
+   Not affected, and checked: the instance path thresholds each object file at `> 0`,
+   `read_volume` never went through an 8-bit conversion, and an 8-bit mask saved as grey RGB
+   reads the same values either way.
+
+ - **Two CSV rows with one `key` were merged into one case.** `pyplatypus#347`. `key` names
+   the case and every per-case figure is pooled by it, and nothing in discovery checked that
+   the keys were distinct. Measured, four different images under `caseA, caseA, case2,
+   case3`:
+
+        discover_samples()                   4 samples, keys caseA caseA case2 case3
+        evaluate_cases(split="validation")   3 rows: caseA, case2, case3
+        the control, four distinct keys      4 rows
+
+   On R's side `predict(each = )` stores results by name in one environment, so the second
+   row's value is read back for both.
+
+   **The package already names this failure one route over**: `_class_dirs` makes its key
+   `class/filename` because *"a duplicate key would make two different images one case"*.
+   The CSV route had no such guard and has one now, naming the repeated keys.
+
+   Refused rather than made to work, because the thing it looks like a request for already
+   exists and says so in its own output: `evaluate_cases(group_by = )` pools by a pattern
+   read against the case name and labels the rows `group` instead of `case`. A repeated key
+   gives the pooling with nothing to say it happened - and `group_by` cannot recover those
+   two images either, since by then they are one name. Nothing relies on it: no CSV in
+   either repository repeats a key, `write_splits` writes the sample key, and `_nested_dirs`
+   takes a directory name. Splitting was never affected - `stratified_split` appends, so no
+   sample was lost.
+
+ - **Two docstrings described the state before a fix landed.** `pyplatypus#349`.
+   `onehot_to_foreground` told a reader that nothing forbids `labels: [1, 2]` and that the
+   wart was *"filed as `maju116/platypus#153`"*; `fit` refuses that combination by name -
+   *"labels=[1, 2] does not contain 0, and 76.6% of the training masks' voxels match none
+   of those labels"* - and `rplatypus#153` closed on that refusal. `discover_labelled`
+   narrated a build that has finished: `ClassificationData.labels_from` exists, and so does
+   the validator a comment beside it still said was owed.
+
+### Added
+
+ - **A test that two loader workers do not draw the same augmentations.**
+   `pyplatypus#348`. `reseed_augmentation_in_worker` arrived with `0.8.0a58` and nothing
+   held it: the whole suite passed with `worker_init_fn` set to `None` in all three loaders
+   **and** with `reseed()`'s body replaced by `pass`. The four tests written for `#341` all
+   run at `num_workers = 0`, where a worker function is never called, and the one test in
+   the suite that does use workers asserts only that the run finishes.
+
+   Measured, four identical images at `num_workers = 2` with a rotation that always fires:
+   as shipped the four outputs are all different, and with the hook removed they arrive in
+   two identical pairs - `a11023b3, a11023b3, afc146b6, afc146b6` - because the loader hands
+   alternating indices to the two workers and each draws from the same inherited state.
+
+   Two assertions rather than one, because divergence alone would pass on workers seeded
+   from the clock: the workers differ from each other, and two runs of the two-worker loader
+   still agree. The single-worker reading is the control that the rotation is what varies
+   them. §4's fixture that never contained the case, in the file written to cover this case.
+
+### The R half
+
+**`read_masks(labels = )` is the one surface this reaches**, and it is `rplatypus#262`: it
+crosses to the same reader through the shim with `channels = 1` and no `label_map`, so an R
+user reading a 16-bit label map gets the clip. That is a change in R's own code rather than
+in the pin alone, so the pin and the shim move together. `#347`'s refusal reaches R through
+the pin and by nothing else - R sends the specification and the engine does the discovery -
+and `#348` and `#349` need nothing.
+
 ## [0.8.0a58] - 2026-11-02
 
 **The reviewer's third pass. Four findings, and the first of them is the one promise this

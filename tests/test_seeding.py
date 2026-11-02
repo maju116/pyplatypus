@@ -49,6 +49,26 @@ def tiny_root(tmp_path):
     return tmp_path
 
 
+@pytest.fixture
+def tiny_root_for_workers(tmp_path):
+    """Four **identical** images, so a difference between them is the augmentation.
+
+    Separate from `tiny_root` on purpose: that fixture varies the images by index, which is
+    exactly what a test about two workers drawing the same sequence must not do.
+    """
+    for split in ("train", "valid"):
+        for n in range(4):
+            sample = tmp_path / split / f"s{n}"
+            (sample / "images").mkdir(parents=True)
+            (sample / "masks").mkdir(parents=True)
+            image = np.arange(32 * 32 * 3, dtype=np.uint8).reshape(32, 32, 3)
+            mask = np.zeros((32, 32, 3), np.uint8)
+            mask[8:20, 8:20] = 255
+            Image.fromarray(image).save(sample / "images" / "i.png")
+            Image.fromarray(mask).save(sample / "masks" / "m.png")
+    return tmp_path
+
+
 def final_loss(root, seed, augment=False):
     config = {
         "task": "semantic_segmentation",
@@ -168,3 +188,80 @@ def test_a_seeded_pipeline_still_varies_from_call_to_call(tiny_root):
     assert len(set(first)) == 3, "the seed pinned the sequence instead of its start"
     assert three(11) == first, "the same seed did not reproduce the sequence"
     assert three(12) != first, "a different seed drew the same sequence"
+
+
+def _four_hashes(root, *, workers: int, seed: int = 3):
+    """The images one epoch serves, hashed, through `workers` loader processes.
+
+    Four identical files and a rotation that always fires, so every difference between the
+    four outputs is the augmentation and nothing else.
+    """
+    import hashlib
+
+    from pyplatypus import Engine
+    from pyplatypus.training.torch_data import make_loader
+
+    config = {
+        "seed": seed,
+        "task": "semantic_segmentation",
+        "data": {
+            "train_path": str(root / "train"),
+            "validation_path": str(root / "valid"),
+            "colormap": [[0, 0, 0], [255, 255, 255]],
+        },
+        "models": [
+            {
+                "name": "u",
+                "input_shape": [32, 32],
+                "blocks": 2,
+                "filters": 4,
+                "epochs": 1,
+                "batch_size": 1,
+                "augmentation": [{"name": "Rotate", "params": {"limit": 90, "p": 1.0}}],
+            }
+        ],
+    }
+    engine = Engine(from_dict(config), device="cpu", check_masks=False)
+    model = engine.spec.models[0]
+    base = engine.dataset(model, "train", augmented=True)
+    loader = make_loader(base, batch_size=1, num_workers=workers)
+    return [hashlib.sha1(images.numpy().tobytes()).hexdigest()[:8] for images, _ in loader]
+
+
+def test_two_loader_workers_do_not_draw_the_same_augmentations(tiny_root_for_workers):
+    """`reseed_augmentation_in_worker`, which nothing held until this test.
+
+    A worker is forked with a copy of the augmentation pipeline's generator **state**, so
+    without a `worker_init_fn` every worker draws the same sequence - "reproducible, and
+    wrong in a way that quietly halves the variety of a run with four workers", as that
+    function's own docstring says. The whole suite passed with `worker_init_fn` set to
+    `None` in all three loaders, and with `reseed()`'s body replaced by `pass`: the four
+    tests above all run at `num_workers = 0`, where a worker function is never called.
+
+    Measured, four identical images at `num_workers = 2`: as shipped the four outputs are
+    all different, and with the hook removed they arrive in two identical pairs -
+    `a11023b3, a11023b3, afc146b6, afc146b6` - because the loader hands alternating indices
+    to the two workers and each draws from the same state. `pyplatypus#348`.
+
+    The single-worker reading is the control that the rotation is what varies them: one
+    process draws four times from one advancing generator, so four different outputs there
+    say nothing about workers, and the pair pattern above is what distinguishes them.
+    """
+    one = _four_hashes(tiny_root_for_workers, workers=0)
+    assert len(set(one)) == 4, "the pipeline did not vary within one process"
+
+    two = _four_hashes(tiny_root_for_workers, workers=2)
+    assert len(set(two)) == 4, f"two workers drew the same sequence: {two}"
+
+
+def test_two_worker_runs_at_one_seed_still_agree(tiny_root_for_workers):
+    """The other half, and the reason the test above is not satisfied by randomising.
+
+    Each worker's sequence is derived from `torch.initial_seed()`, which is itself derived
+    from the run's seed - so the workers differ from each other and the run as a whole
+    still repeats. A hook seeding the workers from the clock would pass the test above and
+    fail this one.
+    """
+    assert _four_hashes(tiny_root_for_workers, workers=2) == _four_hashes(
+        tiny_root_for_workers, workers=2
+    )

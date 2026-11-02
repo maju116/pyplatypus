@@ -184,6 +184,7 @@ class SegmentationDataset:
         nearest: bool = False,
         as_channels: bool = False,
         key: str | None = None,
+        label_map: bool = False,
     ) -> np.ndarray:
         """Read one sample's image files as one array.
 
@@ -231,7 +232,9 @@ class SegmentationDataset:
                 "channel; the order has to be stated, because sorting the names gives an "
                 "order that is reproducible and anatomically meaningless."
             )
-        return self._read_one(paths[0], channels=channels, size=size, nearest=nearest)
+        return self._read_one(
+            paths[0], channels=channels, size=size, nearest=nearest, label_map=label_map
+        )
 
     def _read_volume_channels(
         self, ordered: tuple, *, size: tuple[int, ...], nearest: bool, key: str | None
@@ -284,7 +287,13 @@ class SegmentationDataset:
         return resize_volume(stacked, size, nearest=nearest)
 
     def _read_one(
-        self, path, *, channels: int, size: tuple[int, ...] | None, nearest: bool = False
+        self,
+        path,
+        *,
+        channels: int,
+        size: tuple[int, ...] | None,
+        nearest: bool = False,
+        label_map: bool = False,
     ) -> np.ndarray:
         """One file, resampled to the wanted voxel size when that was asked for.
 
@@ -297,11 +306,20 @@ class SegmentationDataset:
             from pyplatypus.data.volumes import volume_spacing
 
             volume = read_image(
-                path, channels=channels, nearest=nearest, dicom_window=self.data.window
+                path,
+                channels=channels,
+                nearest=nearest,
+                dicom_window=self.data.window,
+                label_map=label_map,
             )
             return self._at_spacing(volume, volume_spacing(path), size=size, nearest=nearest)
         return read_image(
-            path, channels=channels, size=size, nearest=nearest, dicom_window=self.data.window
+            path,
+            channels=channels,
+            size=size,
+            nearest=nearest,
+            dicom_window=self.data.window,
+            label_map=label_map,
         )
 
     def _at_spacing(
@@ -349,9 +367,20 @@ class SegmentationDataset:
             # `_read_one` rather than `read_image`, so a volume per class is resampled to
             # `target_spacing` the way the image beside it is - the bug the rank-3 branch
             # below was written for, which this path would otherwise repeat.
-            planes = [self._read_one(path, channels=1, size=size, nearest=True) for path in ordered]
+            # `label_map=True` for the same reason as below: these files hold identities
+            # rather than brightness. `masks_to_codes` thresholds each at `> 0`, so the
+            # width changes nothing here - it is passed so that one route does not read a
+            # mask differently from another.
+            planes = [
+                self._read_one(path, channels=1, size=size, nearest=True, label_map=True)
+                for path in ordered
+            ]
             return masks_to_codes(planes)
 
+        # A label map is read at full integer width rather than through 8-bit greyscale:
+        # `convert("L")` flattened every value above 255 to 255, which merged two classes
+        # into one at an unmatched share of exactly zero. `pyplatypus#346`. A colormap mask
+        # is a picture and keeps its three 8-bit channels.
         mask_channels = 1 if self.data.label_map else 3
         if self.model.rank == 3:
             # The same reader as the image, always. Sending masks down a different path was
@@ -368,13 +397,21 @@ class SegmentationDataset:
                     size=size,
                     nearest=True,
                     key=sample.key,
+                    label_map=self.data.label_map,
                 )
             ]
         else:
             # 2D keeps one file per object - the Data Science Bowl ships a mask per nucleus
             # - and unites them.
             masks = [
-                read_image(p, channels=mask_channels, size=size, nearest=True) for p in sample.masks
+                read_image(
+                    p,
+                    channels=mask_channels,
+                    size=size,
+                    nearest=True,
+                    label_map=self.data.label_map,
+                )
+                for p in sample.masks
             ]
         return self._to_classes(unite_masks(masks))
 

@@ -302,10 +302,12 @@ def onehot_to_foreground(onehot: np.ndarray, *, multilabel: bool = False) -> np.
     exactly the seeds.
 
     The limit worth stating: with `labels` that do not list 0 the first entry is a real
-    class rather than background, and then this reads that class as background. Nothing in
-    the spec forbids `labels: [1, 2]`, and nothing else in the package treats it any
-    differently - index 0 doubles as "matched nothing" there, which is the older wart this
-    one rides on. Measured and filed as `maju116/platypus#153`.
+    class rather than background, and then this would read that class as background. Index
+    0 doubles as "matched nothing" there, which is the older wart this one rides on - and
+    it is no longer reachable: `fit` refuses `labels` that omit 0 over masks that hold it,
+    naming the unmatched share, which is what `rplatypus#153` closed on. So the convention
+    above is the one the whole package depends on, and the configuration that breaks it is
+    refused before anything reads a mask.
     """
     hot = np.asarray(onehot) >= 0.5
     foreground = hot.any(axis=-1) if multilabel else ~hot[..., 0]

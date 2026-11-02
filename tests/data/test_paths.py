@@ -110,6 +110,49 @@ def test_without_a_key_column_the_row_number_is_still_used(tmp_path):
     assert [s.key for s in found.samples] == ["row 2"]
 
 
+def test_a_repeated_key_is_refused_naming_the_rows(tmp_path):
+    """`pyplatypus#347`. A `key` names one case and every per-case figure is pooled by it,
+    so two rows sharing one are reported as a single case with nothing to say there were
+    two. Measured before the refusal existed: four images under `caseA, caseA, case2,
+    case3` gave **three** rows from `evaluate_cases`.
+
+    `_class_dirs` has prevented the same thing on its own route since it was written, by
+    making the key `class/filename`; this is that guard on the CSV route.
+    """
+    for name in ("a.png", "b.png", "m.png", "n.png"):
+        (tmp_path / name).write_bytes(b"")
+    config = tmp_path / "train.csv"
+    config.write_text("key,images,masks\ncaseA,a.png,m.png\ncaseA,b.png,n.png\n")
+
+    with pytest.raises(ConfigError) as caught:
+        discover_samples(config, mode=DataMode.CONFIG_FILE)
+    message = str(caught.value)
+    assert "'caseA' x2" in message
+    assert "group_by" in message  # the thing somebody repeating a key was reaching for
+
+
+def test_distinct_keys_are_the_ordinary_path(tmp_path):
+    """The control: the refusal above is about the repetition and not about the column."""
+    for name in ("a.png", "b.png", "m.png", "n.png"):
+        (tmp_path / name).write_bytes(b"")
+    config = tmp_path / "train.csv"
+    config.write_text("key,images,masks\ncaseA,a.png,m.png\ncaseB,b.png,n.png\n")
+
+    found = discover_samples(config, mode=DataMode.CONFIG_FILE)
+    assert [s.key for s in found.samples] == ["caseA", "caseB"]
+
+
+def test_row_numbers_cannot_collide_with_each_other(tmp_path):
+    """And the refusal does not fire on the fallback, which is unique by construction."""
+    for name in ("a.png", "b.png", "m.png", "n.png"):
+        (tmp_path / name).write_bytes(b"")
+    config = tmp_path / "train.csv"
+    config.write_text("images,masks\na.png,m.png\nb.png,n.png\n")
+
+    found = discover_samples(config, mode=DataMode.CONFIG_FILE)
+    assert [s.key for s in found.samples] == ["row 2", "row 3"]
+
+
 def test_a_spec_with_no_subdirs_is_refused_by_name(tmp_path):
     """`discover` reads one layout: a sample is a directory with the image in one
     subdirectory and what labels it in the other. A classification spec says there are no
