@@ -120,3 +120,62 @@ def test_volume_patches_come_out_of_the_same_tiling(volume_root, volume_data):
     image, mask = dataset[0]
     assert image.shape == (4, 4, 4, 3)
     assert mask.shape == (4, 4, 4, 2)
+
+
+# --- a wide label map through the whole reader --------------------------------------------
+
+
+@pytest.fixture
+def wide_label_root(tmp_path):
+    """One sample whose mask is a 16-bit label map holding 0, 255 and 1000.
+
+    The combination that made `pyplatypus#346` silent: 255 is one of the labels and a
+    higher value is another, so the clip sent both to one class with nothing unmatched.
+    """
+    from PIL import Image
+
+    root = tmp_path / "data" / "s0"
+    (root / "images").mkdir(parents=True)
+    (root / "masks").mkdir(parents=True)
+    Image.fromarray(np.zeros((64, 64, 3), np.uint8)).save(root / "images" / "i.png")
+    values = np.zeros((64, 64), np.uint16)
+    values[:20] = 255
+    values[20:40] = 1000
+    Image.fromarray(values).save(root / "masks" / "m.png")
+    return tmp_path / "data"
+
+
+def test_a_16_bit_label_map_reaches_the_target_as_three_classes(wide_label_root):
+    from pyplatypus.spec.data import SegmentationData
+
+    data = SegmentationData(
+        train_path=str(wide_label_root),
+        validation_path=str(wide_label_root),
+        labels=[0, 255, 1000],
+    )
+    samples = discover(wide_label_root, data).samples
+    dataset = SegmentationDataset(samples, make_model(), data)
+
+    _, mask = dataset[0]
+    assert mask.shape == (64, 64, 3)
+    # Each of the three bands is one class, and the third is the one the clip destroyed.
+    assert mask[:20, :, 1].all() and mask[20:40, :, 2].all() and mask[40:, :, 0].all()
+
+
+def test_the_mask_check_sees_a_class_above_255(wide_label_root):
+    """The loud half, which was misdiagnosed rather than silent: a label the file does hold
+    on every row of a band was reported as never appearing, and the refusal blamed the
+    specification for it."""
+    from pyplatypus.spec.data import SegmentationData
+
+    data = SegmentationData(
+        train_path=str(wide_label_root),
+        validation_path=str(wide_label_root),
+        labels=[0, 255, 1000],
+    )
+    samples = discover(wide_label_root, data).samples
+    report = SegmentationDataset(samples, make_model(), data).inspect_masks()
+
+    assert report.unmatched == 0.0
+    assert report.present_classes == [0, 1, 2]
+    assert report.missing_classes == []

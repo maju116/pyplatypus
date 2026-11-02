@@ -330,20 +330,20 @@ def discover_labelled(
 
     `label_columns` is one CSV column per class, in class order, and it is what makes the
     label a **set**: the sample then carries `labels` rather than `label`. It is passed in
-    rather than read off `data` because the specification has no field for it yet - the
-    field lands last, after the trainer, so that nothing in a configuration can describe a
-    feature the run would get wrong. From slice 4 on, the engine reads it off
-    `data.labels_from` and this stays the one place it is honoured.
+    rather than read off `data` because this is the one place it is honoured: the engine
+    reads `data.labels_from` and hands it down, so a caller reading a CSV directly can ask
+    for a set without a specification at all.
     """
     root = Path(root)
     if not root.exists():
         raise ConfigError(f"'{root}' does not exist")
 
     if label_columns is not None and data.mode is DataMode.NESTED_DIRS:
-        # A plain refusal rather than the message a person writing YAML needs, which is the
-        # specification's to write once `labels_from` exists there: an image cannot sit in
+        # A plain refusal rather than the message a person writing YAML needs, which is
+        # `ClassificationData`'s own validator's to write: an image cannot sit in
         # two directories without being two files, so this layout cannot express a set at
-        # all. Here the combination is simply impossible to serve.
+        # all. Here the combination is simply impossible to serve, and this is the floor
+        # under a caller who reached the reader without a specification.
         raise ConfigError(
             "a label that is a set is read from one column per class, which is "
             "`config_file` mode; `nested_dirs` makes the directory the label and an image "

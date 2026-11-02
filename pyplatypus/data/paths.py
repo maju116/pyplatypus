@@ -234,7 +234,44 @@ def _config_file(
             skipped.append((key, f"no {label_column} " + ("name" if label_is_a_name else "path")))
             continue
         samples.append(Sample(key=key, images=images, masks=masks, label=label, labels=labels))
+
+    _refuse_repeated_keys(samples, path)
     return samples, skipped
+
+
+def _refuse_repeated_keys(samples: Sequence[Sample], path: Path) -> None:
+    """A `key` names one case, and two rows sharing one are two cases with one name.
+
+    `_class_dirs` already says why this is not cosmetic - its key is `class/filename`
+    rather than the filename, because "a duplicate key would make two different images one
+    case". The CSV route had no such guard, and everything keyed by the name collapsed
+    quietly: four images under `caseA, caseA, case2, case3` gave **three** rows from
+    `evaluate_cases`, and R's `predict(each = )` stores results by name in one environment,
+    so the second row's value is read back for both.
+
+    Refused rather than made to work, because the thing it looks like a request for already
+    exists and says so in its output: `evaluate_cases(group_by = )` pools by a pattern read
+    against the case name and labels the rows `group` instead of `case`. A repeated key
+    gives the pooling with nothing to say it happened. `pyplatypus#347`.
+
+    Skipped rows are not checked: they never became samples, and a row this refuses is a
+    row somebody has to edit rather than one the reader may drop.
+    """
+    seen: dict[str, int] = {}
+    for sample in samples:
+        seen[sample.key] = seen.get(sample.key, 0) + 1
+    repeated = {key: count for key, count in seen.items() if count > 1}
+    if not repeated:
+        return
+    shown = ", ".join(f"'{key}' x{count}" for key, count in sorted(repeated.items())[:5])
+    more = f" ... and {len(repeated) - 5} more" if len(repeated) > 5 else ""
+    raise ConfigError(
+        f"'{path}' repeats {len(repeated)} case key(s): {shown}{more}. A `key` names one "
+        "case and every per-case figure is pooled by it, so two rows sharing one are "
+        "reported as a single case with nothing to say there were two. Give each row its "
+        "own key - or, to pool several rows on purpose, leave the keys distinct and pass "
+        "`group_by` to `evaluate_cases`, which says in the output that the rows are groups."
+    )
 
 
 def finish(

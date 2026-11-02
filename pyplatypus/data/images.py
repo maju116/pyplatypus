@@ -21,6 +21,14 @@ from pyplatypus.errors import PlatypusError
 # them is the classic silent bug, so the conversion happens in exactly one place.
 _PIL_MODE = {1: "L", 3: "RGB", 4: "RGBA"}
 
+#: The mode a LABEL MAP is read in, and why it is not `_PIL_MODE[1]`. `"L"` is 8-bit, so
+#: `convert("L")` flattens every value above 255 to 255 - and a label map's values are
+#: class identities rather than brightness, so that merges two classes into one at an
+#: unmatched share of exactly zero. `"I"` is 32-bit integer and keeps them. Not used for
+#: images: `to_float` divides an ordinary picture by 255, and a one-channel image read
+#: this way would stop being normalised. `pyplatypus#346`.
+_LABEL_MODE = "I"
+
 #: The formats `Image.open` is allowed to dispatch to, and the reason there is a list at all:
 #: PIL identifies a file by its CONTENT and not by its name, so without this every decoder it
 #: ships is reachable from any path a specification names. One of them, the EPS plugin, hands
@@ -46,6 +54,7 @@ def read_image(
     size: tuple[int, ...] | None = None,
     nearest: bool = False,
     dicom_window="auto",
+    label_map: bool = False,
 ) -> np.ndarray:
     """Read one image or volume as a channels-last array.
 
@@ -74,13 +83,20 @@ def read_image(
             background without a word.
         dicom_window: the window to apply to data in real units, `"auto"` to take the one
             the file records, or `(centre, width)`. Ignored for ordinary pictures.
+        label_map: the file holds class identities rather than brightness, so read it at
+            full integer width - a 16-bit PNG or a 32-bit TIFF keeps the values it stores
+            instead of being flattened at 255. One channel only, because a label map has
+            one. Ignored for DICOM and for volume formats, which never went through an
+            8-bit conversion. **Not for images**: `to_float` divides an ordinary picture
+            by 255.
 
     Returns:
         A channels-last array: `(height, width, channels)` for an image and
         `(height, width, depth, channels)` for a volume.
 
     Raises:
-        ImageError: for a channel count an ordinary picture cannot have.
+        ImageError: for a channel count an ordinary picture cannot have, or for
+            `label_map` with more than one channel.
 
     No example: it reads a file, so there is nothing to show without one on disk. The data
     science bowl article draws what it returns.
@@ -112,6 +128,17 @@ def read_image(
     mode = _PIL_MODE.get(channels)
     if mode is None:
         raise ImageError(f"channels must be 1, 3 or 4 for ordinary images, got {channels}")
+    if label_map:
+        if channels != 1:
+            raise ImageError(
+                f"a label map has one channel, got channels={channels}. A mask with "
+                "several channels is a picture - read it as one and use a colormap."
+            )
+        mode = _LABEL_MODE
+
+    # int32 with the integer mode, for the reason the mode itself exists: asking numpy for
+    # uint8 here would clip exactly what the conversion was widened to keep.
+    dtype = np.int32 if label_map else np.uint8
 
     try:
         with Image.open(path, formats=READABLE_FORMATS) as handle:
@@ -121,7 +148,7 @@ def read_image(
                     raise ImageError(f"2D readers take a (height, width), got {tuple(size)}")
                 resample = Image.Resampling.NEAREST if nearest else Image.Resampling.BILINEAR
                 picture = picture.resize((size[1], size[0]), resample=resample)
-            array = np.asarray(picture, dtype=np.uint8)
+            array = np.asarray(picture, dtype=dtype)
     except UnidentifiedImageError:
         raise _not_a_readable_picture(path) from None
     except OSError as error:

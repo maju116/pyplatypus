@@ -73,3 +73,92 @@ def test_greyscale_gets_a_channel_axis(tmp_path):
 def test_to_float_scales_only_integers():
     assert to_float(np.array([[255]], np.uint8))[0, 0] == pytest.approx(1.0)
     assert to_float(np.array([[0.5]], np.float32))[0, 0] == pytest.approx(0.5)
+
+
+# --- a label map's values, which 8-bit greyscale cannot hold -----------------------------
+#
+# `pyplatypus#346`. `_PIL_MODE[1]` is `"L"`, so `convert("L")` flattened every value above
+# 255 to 255 and `np.asarray(..., uint8)` would have clipped whatever survived. A label
+# map's values are class identities rather than brightness, so the clip merged two classes
+# into one - at an unmatched share of exactly zero, which is the one number the mask check
+# reads.
+
+
+def _write_label_map(path, array):
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.fromarray(array).save(path)
+
+
+def test_a_16_bit_label_map_keeps_the_values_above_255(tmp_path):
+    values = np.array([[0, 1, 2, 3], [255, 256, 300, 1000]], dtype=np.uint16)
+    _write_label_map(tmp_path / "m.png", values)
+
+    read = read_image(tmp_path / "m.png", channels=1, nearest=True, label_map=True)
+    assert read[..., 0].tolist() == values.tolist()
+
+    # The reading that made this a defect rather than a limitation of the format.
+    clipped = read_image(tmp_path / "m.png", channels=1, nearest=True)
+    assert clipped[..., 0].tolist() == [[0, 1, 2, 3], [255, 255, 255, 255]]
+
+
+def test_a_32_bit_label_map_keeps_its_values_too(tmp_path):
+    """A 32-bit TIFF, which is the other mode a label map arrives in."""
+    values = np.array([[0, 7, 70000]], dtype=np.int32)
+    _write_label_map(tmp_path / "m.tif", values)
+    read = read_image(tmp_path / "m.tif", channels=1, nearest=True, label_map=True)
+    assert read[..., 0].tolist() == values.tolist()
+
+
+def test_values_below_256_read_the_same_either_way(tmp_path):
+    """The control that the clip was what moved them, rather than the depth.
+
+    An 8-bit label map is the ordinary case and must not change, and a 16-bit file whose
+    values all fit in a byte read correctly before this too.
+    """
+    values = np.array([[0, 1, 2, 3], [4, 5, 6, 7]], dtype=np.uint16)
+    _write_label_map(tmp_path / "wide.png", values)
+    byte = np.array([[0, 1, 2, 3], [4, 5, 6, 7]], dtype=np.uint8)
+    _write_label_map(tmp_path / "byte.png", byte)
+
+    for name in ("wide.png", "byte.png"):
+        plain = read_image(tmp_path / name, channels=1, nearest=True)
+        widened = read_image(tmp_path / name, channels=1, nearest=True, label_map=True)
+        assert plain[..., 0].tolist() == values.tolist()
+        assert widened[..., 0].tolist() == values.tolist()
+
+
+def test_an_8_bit_label_map_stored_as_rgb_still_reads_its_values(tmp_path):
+    """The case a mask-only change to `"I"` must not break: `convert` reads a three-channel
+    file's luminance either way, and a grey RGB mask is a label map somebody saved wide."""
+    from tests.conftest import write_png
+
+    rgb = np.zeros((2, 2, 3), np.uint8)
+    rgb[0, 0] = (1, 1, 1)
+    rgb[1, 1] = (2, 2, 2)
+    write_png(tmp_path / "rgb.png", rgb)
+
+    read = read_image(tmp_path / "rgb.png", channels=1, nearest=True, label_map=True)
+    assert read[..., 0].tolist() == [[1, 0], [0, 2]]
+
+
+def test_a_resize_of_a_label_map_keeps_the_values(tmp_path):
+    """Nearest, which is what every mask route asks for - the widening must survive it."""
+    values = np.array([[0, 1000], [1000, 0]], dtype=np.uint16)
+    _write_label_map(tmp_path / "m.png", values)
+    read = read_image(tmp_path / "m.png", channels=1, size=(4, 4), nearest=True, label_map=True)
+    assert set(np.unique(read).tolist()) == {0, 1000}
+
+
+def test_a_label_map_with_several_channels_is_refused(tmp_path):
+    """Because a label map has one, and a three-channel mask is a picture with a colormap.
+
+    The refusal rather than a silent luminance, so that a caller asking for the wrong thing
+    hears about it instead of getting a plausible array.
+    """
+    from tests.conftest import write_png
+
+    write_png(tmp_path / "p.png", np.zeros((4, 4, 3)))
+    with pytest.raises(ImageError, match="label map has one channel"):
+        read_image(tmp_path / "p.png", channels=3, label_map=True)
