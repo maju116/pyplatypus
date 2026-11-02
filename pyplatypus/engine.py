@@ -339,7 +339,9 @@ class Engine(EngineBase):
         if only_images is None:
             only_images = split not in self.labelled
         augmenter = (
-            build_augmenter(model.augmentation, model.rank, tuple(model.input_shape))
+            build_augmenter(
+                model.augmentation, model.rank, tuple(model.input_shape), self.spec.seed
+            )
             if augmented
             else None
         )
@@ -556,11 +558,22 @@ class Engine(EngineBase):
         if report.missing_classes:
             described = self._describe_classes(report.missing_classes)
             verb = "never appears" if len(report.missing_classes) == 1 else "never appear"
+            # The share is LEFT OUT for an independent-channel naming. Twenty lines below,
+            # the warning that reports the same figure is skipped when `multilabel`, with
+            # the reason written out: those namings have no background entry, so the
+            # fraction sits near 1 on any dataset where the thing being found is small.
+            # Printing it here put that number beside a real defect as though it were
+            # evidence of it - 75.0% on a fixture whose only fault was an empty channel.
+            # `pyplatypus#344`.
+            share = (
+                ""
+                if self.spec.data.multilabel
+                else f", and {report.unmatched:.1%} of their voxels matched no entry"
+            )
             raise EngineError(
                 f"the data declares n_class={self.spec.data.n_class}, but "
                 f"{described} {verb} in the training masks - checked "
-                f"{report.samples_checked} of {report.total_samples}, and "
-                f"{report.unmatched:.1%} of their voxels matched no entry.\n"
+                f"{report.samples_checked} of {report.total_samples}{share}.\n"
                 f"  A class with no examples has no gradient towards it: the run would "
                 f"finish, the loss would fall, and the model would answer 'background' "
                 f"everywhere.\n"

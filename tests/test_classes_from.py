@@ -278,6 +278,30 @@ def test_a_class_whose_file_is_empty_everywhere_is_reported_and_refused(tmp_path
         Engine(spec).fit()
 
 
+def test_the_refusal_does_not_quote_the_unmatched_share_for_this_naming(tmp_path):
+    """`pyplatypus#344`, and the test below is the other half of the same argument.
+
+    That one asserts the WARNING about the unmatched share is suppressed here, because an
+    independent-channel naming has no background entry and the fraction sits near 1 on any
+    dataset where the thing being found is small. The refusal printed the same figure
+    unconditionally - 75.0% on a fixture whose only fault was an empty channel - which put
+    a number the package calls meaningless beside a real defect, as though it were evidence
+    of it.
+    """
+    root = tmp_path / "train"
+    for index in range(4):
+        write_case(root, f"case_{index}", vessel=False)
+    with pytest.raises(Exception) as refused:
+        Engine(spec_for(root)).fit()
+
+    message = str(refused.value)
+    assert "matched no entry" not in message, message
+    # And the sentences that are about the actual defect survive, so the fix is not "say
+    # less" - it is "do not say that".
+    assert "files matching" in message
+    assert "checked 4 of 4" in message
+
+
 def test_the_unmatched_fraction_is_high_and_not_warned_about(two_annotations):
     """There is no background channel here either, so every background voxel is unmatched.
     Warning about it would fire on every correct run of this naming."""

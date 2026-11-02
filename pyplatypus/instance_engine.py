@@ -260,7 +260,9 @@ class InstanceEngine(EngineBase):
         if only_images is None:
             only_images = split not in self.labelled
         augmenter = (
-            build_augmenter(model.augmentation, model.rank, tuple(model.input_shape))
+            build_augmenter(
+                model.augmentation, model.rank, tuple(model.input_shape), self.spec.seed
+            )
             if augmented
             else None
         )

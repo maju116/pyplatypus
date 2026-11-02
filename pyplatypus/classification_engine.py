@@ -189,7 +189,9 @@ class ClassificationEngine(EngineBase):
             model_spec,
             self.spec.data,
             augmenter=(
-                build_augmenter(model_spec.augmentation, rank=model_spec.rank) if augment else None
+                build_augmenter(model_spec.augmentation, rank=model_spec.rank, seed=self.spec.seed)
+                if augment
+                else None
             ),
             only_images=split not in self.labelled,
         )

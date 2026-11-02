@@ -134,3 +134,55 @@ def test_a_detector_can_also_be_fitted_without_validation(detection_config, dete
 
     with pytest.raises(EngineError, match="`validation: false`"):
         engine.evaluate()
+
+
+def test_a_condition_on_a_val_quantity_is_refused_too(no_validation):
+    """`pyplatypus#343`: the rule read `monitor` and nothing else.
+
+    A condition is a watch with a threshold on it - which is the sentence
+    `ModelSpec.callbacks_watch_something_that_exists` already carries, and this rule was
+    not given. Without it the specification was accepted and the run died with a bare
+    `KeyError` at the end of its first epoch, after the expensive part.
+    """
+    no_validation["models"][0]["callbacks"] = [
+        {
+            "name": "model_checkpoint",
+            "path": "w.safetensors",
+            "monitor": "train_loss",
+            "when": {"val_iou": 0.5},
+        }
+    ]
+    with pytest.raises(ConfigError, match="val_iou"):
+        from_dict(no_validation, check_paths=False)
+
+
+def test_a_condition_on_a_training_quantity_is_accepted(no_validation):
+    """The control. Without it the fix could be refusing every `when` under
+    `validation: false`, which would take away the one form that does work."""
+    no_validation["models"][0]["callbacks"] = [
+        {
+            "name": "model_checkpoint",
+            "path": "w.safetensors",
+            "monitor": "train_loss",
+            "when": {"train_iou": 0.5},
+        }
+    ]
+    assert from_dict(no_validation, check_paths=False)
+
+
+def test_the_refusal_names_both_the_monitor_and_the_condition(no_validation):
+    """One message for both, so a reader does not learn the rule twice."""
+    no_validation["models"][0]["callbacks"] = [
+        {"name": "early_stopping", "monitor": "val_loss"},
+        {
+            "name": "model_checkpoint",
+            "path": "w.safetensors",
+            "monitor": "train_loss",
+            "when": {"val_iou": 0.5},
+        },
+    ]
+    with pytest.raises(ConfigError) as refused:
+        from_dict(no_validation, check_paths=False)
+    message = str(refused.value)
+    assert "watches 'val_loss'" in message
+    assert "has a condition on 'val_iou'" in message

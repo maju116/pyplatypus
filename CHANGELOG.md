@@ -1,6 +1,105 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a58] - 2026-11-02
+
+**The reviewer's third pass. Four findings, and the first of them is the one promise this
+package makes about reproducibility.**
+
+### Fixed
+
+ - **`seed` promised that a run's augmentation was repeatable and nothing seeded the
+   augmentation pipeline.** `pyplatypus#341`. albumentations draws from its own generator;
+   `seed_everything` seeds `random`, `numpy` and `torch` and reaches none of it. Worse,
+   `build_augmenter` - the route all three non-detection tasks take - had **no `seed`
+   parameter at all**, so there was nowhere for a run's seed to go. Two runs at one seed
+   differed whenever a model augmented, `deterministic: true` included.
+
+   The `seed` field's own description promises *"the order the data arrives in and its
+   augmentation - including inside the loader's worker processes"*, and R repeats it on
+   `?platypus_spec`.
+
+   **The package also contradicted itself about this**, which is what made it read as a
+   decision rather than a defect: `build_box_augmenter`'s docstring said `seed` was "for
+   tests" and deliberately not a spec field, because "pinning the augmentation sequence
+   would make every epoch see the same distortions".
+
+   **That reason is measured false.** One pipeline at seed 1, applied three times, gives
+   three *different* results - and the same three in a fresh process:
+
+        seed=1     95ed59e7c7  f16089dd1e  1c24a3c313     three calls, all different
+        seed=1     95ed59e7c7  f16089dd1e  1c24a3c313     identical to the run above
+        seed=2     af79192b21  f7b808b724  15df46034b     a different seed, a different draw
+        none       707759f0f8  a73523140a  6648afe5fa     the control: unseeded
+        none       bd45f30f4b  f5f8cf784f  e3dca9522a     and again, different
+
+   A seed fixes where the sequence starts, not what it is. Repeatable across runs and
+   varied across epochs are not alternatives, so the docstring is rewritten and the
+   pipeline is seeded from the run.
+
+   **And the worker half, which seeding the parent does not fix.** A loader worker is
+   forked with a copy of the pipeline's generator *state*, so every worker drew the same
+   sequence: reproducible, and quietly a quarter of the variety on four workers. All three
+   loaders now carry `reseed_augmentation_in_worker`, which reseeds from
+   `torch.initial_seed()` - already derived from the run's seed and distinct per worker.
+
+   `tests/test_seeding.py` is where this is now asserted, and **why it could not fail
+   before is that none of its configurations augmented anything.**
+
+ - **`boundary(region = lovasz)` was accepted on overlapping classes where `lovasz` alone
+   is refused, and it trained.** `pyplatypus#342`. `supports_multilabel` is a `ClassVar`,
+   so it is a claim about a loss family and cannot see what an instance wraps: `boundary`
+   wraps a `RegionLossSpec`, and `lovasz` is a member of that union. `build_loss`'s own
+   docstring already said the hazard - *"`multilabel` travels into nested losses too …
+   would be wrong in a way that still trains"* - and the flag travelled in while the
+   question did not travel with it.
+
+   `multilabel_capable` walks the nested term, in the specification layer because that is
+   the layer the validator runs in and it must not import torch; `loss_supports_multilabel`
+   delegates to it rather than keeping a second copy. The refusal names the term now -
+   `boundary(region=lovasz)` - because naming the wrapper sends a reader to the wrong
+   place, and the list of alternatives it offers includes `boundary`.
+
+ - **A `when` condition on a `val_` quantity was accepted under `validation: false`**, and
+   the run died with a bare `KeyError` at the end of its first epoch. `pyplatypus#343`.
+   The rule read `monitor` and nothing else, while its sibling
+   `callbacks_watch_something_that_exists` already carries the sentence that settles it:
+   *"A condition is a watch with a threshold on it, so it answers to the same rule."* One
+   message now lists both, so a reader does not learn the rule twice.
+
+ - **The missing-class refusal quoted the unmatched-voxel share for namings where the
+   package itself calls that figure meaningless.** `pyplatypus#344`. Twenty lines below,
+   the warning reporting the same number is skipped when `multilabel`, with the reason
+   written out: those namings have no background entry, so the fraction sits near 1 on any
+   dataset where the thing being found is small. On a fixture whose only fault was an empty
+   channel the refusal read *"75.0% of their voxels matched no entry"* - the background,
+   presented as a symptom. Left out for those namings, kept for the rest.
+
+### Added
+
+ - **`SegmentationData.class_names`**, one short label per class in channel order: a
+   region's name, a `classes_from` pattern, and the index for `labels` and `colormap`,
+   where the number *is* the class.
+
+   It exists because `maju116/rplatypus#259` asked R to name a class "the way the engine
+   does", and the engine's way is `Engine._describe_classes` - which writes a sentence for
+   a **refusal**: *"region 'absent' (of [9])"*. Reading well in a message and badly in a
+   column are not the same job, and the two were conflated: forwarding the sentence turned
+   five of `rplatypus`'s own assertions from `"one, both"` into `"region 'one' (of [1]),
+   region 'both' (of [1, 2])"`. That measurement is what told them apart.
+
+   So there are two surfaces with two jobs, and R forwards to this one. It lives here
+   rather than in R because R held a copy that covered `regions` alone, numbered the other
+   three namings, and claimed in its own documentation to mirror the engine - §3A's rule
+   decides the rest: the engine's name wins.
+
+### The R half
+
+**The pin moves**, and this time R needs something *from* the release rather than only
+through it: `class_names` is a surface R forwards to. The four fixes above are defects an R
+user meets **through the pin moving and by nothing else** - `#341` above all, since
+`?platypus_spec` carries the same promise. §1 records that distinction at `0.8.0a47`.
+
 ## [0.8.0a57] - 2026-10-29
 
 **Four findings from the reviewer's second pass, and three of them are places the code argued
