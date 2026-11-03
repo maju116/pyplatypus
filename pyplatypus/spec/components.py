@@ -86,12 +86,16 @@ class _Loss(SpecModel):
 
 
 class IouLoss(_Loss):
-    """Dice's harsher twin: the same ordering, a lower number.
+    """Dice's harsher twin: the same coefficient, a lower number.
 
     Without smoothing the coefficient is exactly `dice / (2 - dice)`, which is strictly
-    increasing - measured here over twelve predictions, the two rank them identically. So
-    the choice is about which number you want to read, not which model you get. As a loss
-    the gradients still differ, and whether that changes a trained model is not measured.
+    increasing - so **per class and per image** the two order predictions alike.
+
+    **Averaged over classes they can disagree**, which this docstring said they could not
+    until `pyplatypus#360`: the mean of a convex function is not that function of the mean,
+    and over 121 predictions of one three-class fixture 204 pairs swap places. The claim
+    that stood here rested on twelve predictions that happened not to cross. As a loss the
+    gradients differ too, and whether that changes a trained model is still not measured.
     """
 
     name: Literal["iou"] = Field("iou", description=_LOSS_NAME)
@@ -637,11 +641,23 @@ _METRIC_NAME = (
 
 
 class IouMetric(_Overlap):
-    """The same ordering as Dice, on the scale papers outside medicine use.
+    """Dice's coefficient on the scale papers outside medicine use.
 
-    Without smoothing it is exactly `dice / (2 - dice)`, measured here, so it adds no
-    information to a report that already carries Dice - it is the convention of the
-    audience rather than a second opinion.
+    Without smoothing the **coefficient** is exactly `dice / (2 - dice)`, measured here and
+    asserted elementwise by `test_iou_is_exactly_a_function_of_dice_per_class`.
+
+    **What a report carries is not that coefficient**, and this docstring claimed the wrong
+    thing until `pyplatypus#360`. `SegmentationMetric.reduce` ends in `per_class.mean()`,
+    and `d / (2 - d)` is convex, so the mean of the IoUs is not that function of the mean
+    Dice: two models whose per-class scores are spread differently can be ordered one way
+    by Dice and the other by IoU. Measured over 121 predictions of one three-class fixture,
+    **204 pairs rank the other way round** - and applying the identity to a reported Dice of
+    0.6000 predicts 0.5000 where the metric reports 0.6000.
+
+    So this is a harsher restatement of the same coefficient and the conventional number
+    for an audience outside medicine. It is not a second opinion, and it is not the same
+    answer either: `early_stopping` watching `val_iou` and one watching `val_dice` can
+    select different epochs on one run.
     """
 
     name: Literal["iou"] = Field("iou", description=_METRIC_NAME)
@@ -651,8 +667,13 @@ class DiceMetric(_Overlap):
     """The number to report unless there is a reason not to.
 
     Scored on the mask rather than on the objective, so a Dice-trained and a focal-trained
-    model are comparable. It ranks models identically to `iou`, so reporting both is one
-    result twice; `smooth` and `include_background` are what make it flatter or honest.
+    model are comparable. `smooth` and `include_background` are what make it flatter or
+    honest.
+
+    **It does not rank models identically to `iou`**, which this docstring said until
+    `pyplatypus#360`: the identity between the two holds per class and per image, and a
+    report is a mean over both. See `IouMetric` for the measurement and for what that costs
+    a reader who was told the two are one result twice.
     """
 
     name: Literal["dice"] = Field("dice", description=_METRIC_NAME)

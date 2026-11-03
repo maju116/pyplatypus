@@ -119,6 +119,43 @@ def test_a_different_seed_gives_a_different_run(tiny_root):
     assert final_loss(tiny_root, 7) != final_loss(tiny_root, 8)
 
 
+def test_a_detection_run_that_augments_is_reproducible_too(detection_config):
+    """The construction seed of the BOX pipeline, which nothing held. `pyplatypus#362`.
+
+    `#341` repaired augmentation seeding and gave segmentation
+    `test_the_same_seed_gives_the_same_run_when_the_model_augments`. The test below is
+    detection's twin and **configures no augmentation**, which is `#341`'s own sentence -
+    *"none of its configurations augmented anything"* - one task over. The two worker tests
+    further down run at `num_workers = 2`, where the hook reseeds each worker from
+    `torch.initial_seed()`, so they cannot see the construction seed either.
+
+    Measured: removing `seed=seed` from `AlbumentationsBoxAugmenter`'s `Compose` left the
+    whole suite green - 2748 passed - while removing it from the image augmenter's failed.
+    Two fits of this configuration then gave train_loss 79.00900 and 45.98642 where the
+    shipped code gives 58.24984 twice.
+
+    `num_workers` is left at the engine's default of 0 on purpose: that is where the
+    construction seed is the only thing in play, and it is what an R user gets unless they
+    ask otherwise.
+    """
+    from pyplatypus import build_engine
+
+    detection_config["models"][0]["epochs"] = 1
+    detection_config["models"][0]["augmentation"] = [
+        {"name": "Affine", "params": {"rotate": [-40, 40], "p": 1.0}}
+    ]
+
+    def once(seed):
+        config = {**detection_config, "seed": seed}
+        return build_engine(from_dict(config), device="cpu").fit()["d"].records[-1]["train_loss"]
+
+    assert once(1) == once(1), "two augmented detection runs at one seed differ"
+
+    # The control: an assertion of equality passes on a pipeline that does nothing at all,
+    # so a different seed has to give a different answer.
+    assert once(1) != once(2), "the seed changed nothing, so this test is asserting nothing"
+
+
 def test_a_detection_run_is_reproducible_too(detection_config):
     """Including the anchors, which are fitted rather than given and so are part of what a
     seed has to pin down."""
@@ -313,7 +350,9 @@ def _four_detection_hashes(root, detection_classes, *, workers: int, seed: int =
     engine = build_engine(from_dict(config), device="cpu")
     base = engine.dataset(engine.spec.models[0], "train", augmented=True)
     loader = make_detection_loader(base, batch_size=1, num_workers=workers)
-    return [hashlib.sha1(images.numpy().tobytes()).hexdigest()[:8] for images, _ in loader]
+    # Three things since `pyplatypus#359`: the image's boxes travel beside the targets,
+    # because the ignore mask cannot be built from what the target could hold.
+    return [hashlib.sha1(images.numpy().tobytes()).hexdigest()[:8] for images, _, _ in loader]
 
 
 def test_two_detection_workers_do_not_draw_the_same_augmentations(

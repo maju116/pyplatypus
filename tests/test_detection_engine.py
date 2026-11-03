@@ -502,7 +502,7 @@ def test_augmentation_moves_the_boxes_with_the_image(detection_config):
     plain = engine.dataset(model, "train")
     flipped = engine.dataset(model, "train", augmented=True)
 
-    image, _ = flipped[0]
+    image, _, _ = flipped[0]
     reference = plain.read(0)
     assert not np.allclose(image, reference.image), "nothing was augmented"
 

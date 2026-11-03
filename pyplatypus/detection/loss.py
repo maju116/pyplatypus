@@ -165,7 +165,7 @@ class Yolo3Loss(nn.Module):
         self.strides = strides
         self.shapes = grid_shapes(self.input_shape, scales=len(self.anchors), strides=strides)
 
-    def forward(self, predictions, targets) -> LossParts:
+    def forward(self, predictions, targets, boxes=None) -> LossParts:
         if len(predictions) != len(self.anchors):
             raise DetectionError(
                 f"{len(predictions)} grids predicted but the anchors describe {len(self.anchors)}"
@@ -180,10 +180,28 @@ class Yolo3Loss(nn.Module):
         coordinates, objectness, no_object, classes = zero, zero, zero, zero
         per_grid: list[GridParts] = []
 
-        # Every truth box in the batch, per image, recovered from the targets themselves -
-        # which works because `encode` and `decode` are exact inverses, and means the loss
-        # needs nothing the model's own target does not already carry.
-        truth = self._truth_boxes(targets)
+        # THE IMAGE'S OWN BOXES, when the loader carried them, and the targets as the
+        # fallback. The difference is not cosmetic: `encode` cannot place a box whose cell
+        # and slot an earlier box of the same shape already took - it counts that one as
+        # `unplaced` and moves on - so the targets hold a SUBSET of the truth, and an
+        # ignore mask built from them punishes a correct prediction of whatever did not
+        # fit. This module's own docstring calls that the thing the mask exists to prevent:
+        # "Training it towards zero objectness teaches the model to suppress correct
+        # answers". `pyplatypus#359`.
+        #
+        # The comment that stood here said the targets carry "every truth box in the batch
+        # ... because `encode` and `decode` are exact inverses". The inverse half is true;
+        # the word *every* was not.
+        #
+        # The fallback is kept because a caller with targets and no boxes is a real caller
+        # - `_truth_boxes`' own tests, and anything reconstructing a loss from a saved
+        # target - and for those the subset is the only truth there is. It is weaker and
+        # says so rather than being silently equivalent.
+        truth = (
+            self._normalised_boxes(boxes, device=device, dtype=predictions[0].dtype)
+            if boxes is not None
+            else self._truth_boxes(targets)
+        )
 
         for grid, (prediction, target) in enumerate(zip(predictions, targets, strict=True)):
             if prediction.shape != target.shape:
@@ -420,6 +438,22 @@ class Yolo3Loss(nn.Module):
             ],
             dim=-1,
         )
+
+    def _normalised_boxes(self, boxes, *, device, dtype) -> list[torch.Tensor]:
+        """The loader's per-image boxes, in the normalised corner form the mask compares in.
+
+        `_decode_boxes` returns fractions of the input, and so does `_truth_boxes`, so the
+        pixels the dataset carries have to be divided by the input shape here - in the one
+        place that knows it - rather than at the dataset, which would make its output read
+        in different units from every other box in this package.
+        """
+        height, width = self.input_shape
+        scale = torch.tensor([width, height, width, height], dtype=dtype, device=device)
+        out = []
+        for image_boxes in boxes:
+            array = torch.as_tensor(image_boxes, dtype=dtype, device=device).reshape(-1, 4)
+            out.append(array / scale)
+        return out
 
     def _truth_boxes(self, targets) -> list[torch.Tensor]:
         """The batch's true boxes in normalised corner form, read back out of the targets."""

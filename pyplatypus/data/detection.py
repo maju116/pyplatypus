@@ -256,10 +256,20 @@ class DetectionDataset:
 
     # ------------------------------------------------------------------ examples
     def __getitem__(self, index: int):
-        """(image, (target_coarse, target_medium, target_fine)), all channels-last."""
+        """(image, (target_coarse, target_medium, target_fine), boxes), all channels-last.
+
+        **The boxes are returned as well as encoded**, in the model's frame and after
+        augmentation - the same numbers `encode` was given. They are what the ignore mask
+        has to be built from: `encode` cannot place a box whose cell and slot an earlier
+        one took, so the targets are a *subset* of the truth, and a mask built from them
+        punishes a correct prediction of whatever did not fit. `pyplatypus#359`.
+
+        `only_images` returns `(image, None, None)`: no annotations, so nothing to encode
+        and nothing to ignore.
+        """
         example = self.read(index)
         if self.only_images:
-            return example.image, None
+            return example.image, None, None
 
         image, boxes, labels = example.image, example.boxes, example.labels
         if self.augmenter is not None:
@@ -277,7 +287,7 @@ class DetectionDataset:
             input_shape=self.input_shape,
             n_class=self.data.n_class,
         )
-        return image, tuple(encoded.targets)
+        return image, tuple(encoded.targets), boxes
 
     # ------------------------------------------------------------------ surveying
     def survey(self) -> TargetSurvey:

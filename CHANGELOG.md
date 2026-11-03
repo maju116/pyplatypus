@@ -1,6 +1,117 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a61] - 2026-11-03
+
+**The reviewer's sixth pass. Six findings, and the thread through them is a reader being
+told something the code does not do** - two docstrings, a listing, a monitor set, an
+annotation format and a mask built from the wrong half of the truth.
+
+### Fixed
+
+ - **A LabelMe `circle` became the box from its centre to one point on its rim.**
+   `pyplatypus#357`. `read_labelme` took the bounding box of a shape's points whatever
+   `shape_type` said, and nothing in the engine read that field at all - `grep -rn
+   shape_type pyplatypus` returned nothing.
+
+   LabelMe stores a circle as **two points, the centre and a point on the circumference**;
+   its own `getCircleRectFromLine` draws `centre ± d`. The extent of those two points has
+   area `|dx dy|` against the true `4d²`, so **at most an eighth** of the object - exactly
+   an eighth at 45°, and **zero** when the rim point is level with the centre, where
+   `drop_degenerate` then removed the object and `TargetSurvey` counted it under the
+   letterbox. Measured on a 200 x 200 frame: a circle at (100, 100) with its rim at
+   (107, 106) read as `[100, 100, 107, 106]`, area 42 of 340.
+
+   `shape_type` is read now. A circle is `centre ± radius`, and `point` and `points` -
+   which mark a position rather than an extent - are **refused by name** rather than
+   becoming zero-area boxes that vanish into a `dropped` count. A file with no
+   `shape_type` still reads, because LabelMe's own default is `polygon`.
+
+ - **A detection run accepted a callback watching `val_foreground`, which it never reports,
+   and died with a bare `KeyError` at the end of its first epoch.** `pyplatypus#358`.
+   `terminate_on_collapse`'s default monitor is exactly that. `ClassificationModel` had
+   overridden `monitorable` for this reason one task earlier, in a docstring that names the
+   symptom; detection was the third task and kept the base set.
+
+   And the refusal misled in both directions: it offered `val_foreground`, which never
+   arrives, and hid the eight term figures that do. `val_coordinates`, `val_objectness`,
+   `val_no_object` and `val_classes` are watchable now, which is the half the crash
+   concealed - a run whose coordinate loss falls while its objectness does not is a
+   different failure from the reverse.
+
+   **The term list has one definition and three readers**, in the specification layer
+   because that is the layer that cannot import torch: the epoch writes them, `monitorable`
+   offers them, and a third test holds the list itself to `LossParts`' scalar fields. The
+   pair over the first two cannot see a change to the list - both move together - which is
+   why the third exists rather than a sentence in a docstring explaining the limit.
+
+ - **The ignore mask was built from the truths the target could HOLD rather than from the
+   image's boxes.** `pyplatypus#359`. `encode` cannot place a box whose cell and slot an
+   earlier one took - it counts that one `unplaced` - so a prediction matching whatever did
+   not fit was supervised towards zero objectness, which this module's docstring calls
+   teaching the model "to suppress correct answers".
+
+   The boxes travel with the batch now: the dataset returns them, the collate keeps them as
+   a list because their count varies per image, the trainer forwards them and the loss uses
+   them. The old route stays as a documented fallback for a caller holding targets alone.
+
+   **And the window it bites in is narrower than the mechanism suggests, which is worth
+   more than the fix.** A collision needs both centres in one cell, so the two boxes are
+   close - and if they are too close, a prediction of the one that did not fit overlaps the
+   one that did and the mask covers it anyway. Over the offsets one 8-pixel cell allows,
+   for two 18-pixel boxes:
+
+        offset 2   IoU 0.653   both routes ignore it
+        offset 3   IoU 0.532   both routes ignore it
+        offset 4   IoU 0.434   only the image's boxes ignore it
+        offset 5   IoU 0.353   only the image's boxes ignore it
+
+ - **A float32 TIFF label map was truncated rather than rounded.** `pyplatypus#361`.
+   `label_map` promises that "a 32-bit TIFF keeps the values it stores", and `convert("I")`
+   truncates towards zero: a mask holding 0.9999 for class 1 read as 0, one class down,
+   with every voxel still matching something and the mask check reporting **0.0 unmatched**.
+   `labels_to_classes` compares to within half a unit for exactly this and never got the
+   chance. `"F"` joins `_STORED_VALUE_MODES` and a float label map is rounded, which agrees
+   with what the tolerance would have decided on every value either resolves.
+
+### Changed
+
+ - **`dice` and `iou` do not rank models identically**, which three docstrings said they
+   did. `pyplatypus#360`. The identity `iou == dice / (2 - dice)` holds for **one
+   coefficient**; a report is `per_class.mean()`, and `d / (2 - d)` is convex, so two models
+   whose per-class scores are spread differently can swap places. Over 121 predictions of
+   one three-class fixture, **204 pairs rank the other way round** - and the identity
+   applied to a reported Dice of 0.6000 predicts 0.5000 where the metric reports 0.6000.
+
+   The test that asserted the claim had two halves and neither was it: an elementwise
+   identity, which is true and is a different statement, and twelve random tensors sorted by
+   their means, which happened not to cross. It asserts the per-class identity and the
+   possible disagreement now, so a change that really did make the two agree fails and gets
+   read.
+
+ - **`available_callbacks()` said "the same set for either task"** and listed
+   `terminate_on_collapse` for all four, while classification refuses it and detection
+   crashed on it. Every task does accept every callback; what they may *watch* differs, and
+   the listing says so and sends a reader to the model.
+
+### Added
+
+ - **A test for the detector's construction seed**, which nothing held: removing `seed` from
+   the box pipeline's `Compose` left the whole suite green while removing the image
+   pipeline's failed. `pyplatypus#362`. `#341` gave segmentation
+   `test_the_same_seed_gives_the_same_run_when_the_model_augments`; detection's twin
+   configured no augmentation, which is `#341`'s own sentence one task over. At
+   `num_workers = 0` - the engine's default - the construction seed is the only thing that
+   makes an augmented detection run repeat.
+
+### The R half
+
+**The pin, and one documentation fix.** None of the six is a surface an R user calls, so
+they reach an R user through the pin moving and by nothing else - `#357` above all, since a
+LabelMe dataset read from R goes through this reader. `maju116/rplatypus#266` is separate
+and is R's own: `read_images(label_map = TRUE)` on a volume returns rescaled values unless
+`nearest = TRUE` is passed too, which the engine documents and R's `@return` does not.
+
 ## [0.8.0a60] - 2026-11-03
 
 **The reviewer's fifth pass. Three findings, and all three are places a FIX left a case

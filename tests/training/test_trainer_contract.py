@@ -142,7 +142,16 @@ def build_detection(batches: int = 4, accumulate: int = 1):
         callbacks=[],
         accumulate=accumulate,
     )
-    loader = [(torch.zeros(1, 3, DETECTION_SIZE, DETECTION_SIZE), targets)] * batches
+    # Three things per batch since `pyplatypus#359`: the image's own boxes travel beside
+    # the targets, because the ignore mask cannot be built from what the target could hold.
+    # The same boxes that were encoded above, as `_collate_detection` hands them over - a
+    # list, because the count varies per image.
+    boxes = [
+        torch.tensor(
+            [[10, 10, 170, 170], [200, 40, 250, 90], [300, 300, 318, 318]], dtype=torch.float32
+        )
+    ]
+    loader = [(torch.zeros(1, 3, DETECTION_SIZE, DETECTION_SIZE), targets, boxes)] * batches
     return trainer, loader
 
 

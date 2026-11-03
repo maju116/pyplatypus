@@ -27,7 +27,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from pyplatypus.detection.loss import Yolo3Loss
-from pyplatypus.spec.detection import DetectionModel
+from pyplatypus.spec.detection import DETECTION_TERMS, DetectionModel
 from pyplatypus.training.callbacks import (
     Callback,
     TrainingState,
@@ -47,7 +47,14 @@ GRADIENT_CLIP = 10.0
 
 #: The four terms an epoch pools, in the order `LossParts` declares them. `loss` is not
 #: among them: it is their weighted sum and is rebuilt from them rather than pooled.
-TERMS = ("coordinates", "objectness", "no_object", "classes")
+#:
+#: **Read from the specification layer rather than written here**, because
+#: `DetectionModel.monitorable` needs the same four to say which of them a callback may
+#: watch, and that layer must not import torch while this one must. So the one copy lives
+#: where both readers can reach it and the import runs one way. `pyplatypus#358` is what a
+#: second copy would have cost in the other direction: detection had no `monitorable` of
+#: its own, offered a `foreground` this module never writes, and hid these four.
+TERMS = DETECTION_TERMS
 
 
 class DetectionTrainer:
@@ -102,10 +109,13 @@ class DetectionTrainer:
             self.optimizer.zero_grad(set_to_none=True)
 
         with torch.set_grad_enabled(train):
-            for images, targets in loader:
+            for images, targets, boxes in loader:
                 images = images.to(self.device, non_blocking=True)
                 targets = [t.to(self.device, non_blocking=True) for t in targets]
-                parts = self.loss_fn(self.model(images), targets)
+                # The image's own boxes, which the ignore mask needs and the targets
+                # cannot supply: `encode` drops a box whose cell and slot are taken.
+                # `pyplatypus#359`.
+                parts = self.loss_fn(self.model(images), targets, boxes)
 
                 if train:
                     # Divided by the accumulation so the gradient is the mean over the

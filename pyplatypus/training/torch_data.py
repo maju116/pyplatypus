@@ -292,28 +292,41 @@ class TorchDetectionDataset(Dataset):
         return len(self.base)
 
     def __getitem__(self, index: int):
-        image, targets = self.base[index]
+        image, targets, boxes = self.base[index]
         if targets is None:
             return to_channels_first(image)
         # The targets stay as they are: a YOLOv3 target is (rows, cols, anchors, 5 +
         # classes), where the last axis is not channels but a record per anchor. Moving
         # it would be meaningless, and the loss indexes it where it is.
-        return (to_channels_first(image), tuple(torch.from_numpy(t) for t in targets))
+        #
+        # The boxes travel beside them, in input pixels, because the loss's ignore mask
+        # must not be built from the targets alone - `pyplatypus#359`. A float32 tensor
+        # even when empty, so the collate below has one shape to stack.
+        return (
+            to_channels_first(image),
+            tuple(torch.from_numpy(t) for t in targets),
+            torch.as_tensor(boxes, dtype=torch.float32).reshape(-1, 4),
+        )
 
 
 def _collate_detection(batch):
-    """Stack the images and each grid separately.
+    """Stack the images and each grid separately, and keep the boxes as a list.
 
-    torch's default collate would do this, but it recurses through the tuple and the
-    message when something is the wrong shape names no grid. Three lines here beats
-    reading a traceback out of `default_collate`.
+    torch's default collate would stack the first two, but it recurses through the tuple
+    and the message when something is the wrong shape names no grid. Three lines here beats
+    reading a traceback out of `default_collate` - and it could not do the third at all,
+    because a per-image box count makes that axis ragged.
     """
     if torch.is_tensor(batch[0]):
         return torch.stack(batch)
     images = torch.stack([row[0] for row in batch])
     grids = len(batch[0][1])
     targets = [torch.stack([row[1][grid] for row in batch]) for grid in range(grids)]
-    return images, targets
+    # A LIST rather than a stacked tensor: the number of boxes varies per image, and
+    # padding them to the longest would make the pad values look like boxes at the origin
+    # to anything that forgot to mask them. `pyplatypus#359`.
+    boxes = [row[2] for row in batch]
+    return images, targets, boxes
 
 
 def make_detection_loader(
