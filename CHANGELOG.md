@@ -1,6 +1,116 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a62] - 2026-11-03
+
+**The reviewer's seventh pass, which closed the remainder of what six passes had deferred.
+Three findings here, and two of them are about guards rather than about behaviour** - one
+defect that a test named after its own rule could not see, and three links of `#359`'s
+thread that nothing held.
+
+### Fixed
+
+ - **A `difficult` truth was deleted before matching, so a detection of it was scored as a
+   false positive** - the opposite of the Pascal VOC rule the code's own comment cited.
+   `pyplatypus#364`.
+
+   Measured, one image with two truths of one class, the second `difficult`, both detected
+   and the hard one ranked first:
+
+        both detected, the difficult one first   AP 0.500   1 false positive
+        control: only the ordinary one predicted AP 1.000   0 false positives
+        control: nothing marked difficult        AP 1.000   0 false positives
+
+   So a model that **found** the hard object scored below one that **missed** it, and the
+   penalty landed at the top of the ranking, which is the costliest place on a
+   precision-recall curve.
+
+   `match_detections` now takes `difficult_boxes=` and returns a fourth array, `ignored`.
+   Three decisions in it rather than one: a difficult truth is **never consumed**, so every
+   detection of one is set aside and not just the first; the **best overlap decides and the
+   flag is asked second**, which is `voc_eval`'s order, so a prediction fitting a difficult
+   truth better than an ordinary one is set aside rather than scored; and a **tie goes to
+   the truth that scores**, so a difficult object cannot absorb a detection that fits an
+   ordinary one just as well.
+
+   The reports carry the count rather than hiding the subtraction. A per-class row and a
+   per-image row both gain `ignored`, `spurious` becomes
+   `n_predicted - matched - ignored`, and per-class `precision` divides by what was judged
+   - `true_positives + false_positives` - instead of by `n_predicted`, which the two now
+   differ from. **The R half is the pin plus the two columns**, since `rplatypus` pins the
+   per-image column list exactly.
+
+   **Why nothing caught it**, which is worth more than the fix:
+   `test_difficult_objects_are_left_out_as_pascal_voc_leaves_them_out` existed and could
+   not fail on it. It predicted only the ordinary object, so `n_truth == 1` and an average
+   precision of 1 were true of the broken code and of a correct one alike. The fixture
+   never contained a detection of the difficult object - in the test named after the rule.
+
+   `bccd-yolo3` is unaffected: BCCD marks no object `difficult`, so the published card does
+   not move.
+
+ - **Two parts of `#357` behaved other than the docstring said.** `pyplatypus#365`.
+   - A LabelMe `point` holds exactly one pair, and the point-count check ran **before** the
+     `shape_type` dispatch - so the by-name refusal written for somebody who labelled a cell
+     with the point tool could only ever be reached by `points`. The type is read first now.
+     The test that had asserted the generic message for a `point` was pinning the defect in
+     place and is now the count check's own test, on a type that bounds its points.
+   - A circle against an edge gave a box reaching past the frame - `centre ± radius` is not
+     clipped by `read`, `drop_degenerate` or `encode`, where a polygon's points are inside
+     by construction. A configured augmenter clipped it and an unaugmented run did not, so
+     one annotation gave two different targets. The circle's box is clipped to the annotated
+     frame: centre (4, 50) with radius 10 reads `[0, 40, 14, 60]` rather than
+     `[-6, 40, 14, 60]`.
+
+### Tests
+
+ - **Three links of `#359`'s thread had no test that could fail.** `pyplatypus#366`.
+   Mutating each link, identity control first, over the four files that cover the thread:
+
+        T0 identity (the control)                         95 passed
+        T1 forward() ignores the boxes it was handed       2 failed
+        T3 the dataset returns the UN-augmented boxes     95 passed
+        T4 _normalised_boxes divides by (height, width)   95 passed
+        T5 the collate reverses the batch's box lists     95 passed
+
+   T3 is the costly one: the ignore mask would be built in a different frame from the image
+   and the targets, which under a flip mirrors every truth away from the predictions - the
+   mis-supervision `#359` removed. T4 is invisible because every fixture in this package is
+   square. T5 hands each image another image's objects.
+
+   The guards written for `#359` sat at `forward` and at the trainer, which is where the fix
+   was read rather than where a later change can cut it. Three route-level tests now cover
+   the rest: an augmented sample returns what `encode` was given, under a flip that moves
+   it; a non-square input's mask agrees with the targets' route where every box is placed,
+   with a transposed frame as the control; and the real collate keeps each image's own
+   boxes, with an epoch-level assertion beside it so the correspondence is not held only
+   where it is implemented.
+
+   Two measurements came out of writing them. At the default `ignore_threshold` of 0.5 the
+   mask does not bite on either new fixture - all three arms agree at 2.48954487 - so both
+   tests set 0.2, where the gap is 6.7e-02 and 7.4e-03 against tolerances of 1e-6 and 1e-4.
+   And two *colliding* fixtures one pixel apart give the same answer whichever image's boxes
+   they get: the swap question is where the objects are, not whether one failed to be
+   placed.
+
+ - **One mutation of the twelve passed, and it was the mutation that was wrong.** The
+   batch's *"a difficult truth is consumed by the first hit"* case set
+   `absorbing[position] = -1.0`, which zeroes the row of the prediction being handled and
+   is followed immediately by `continue` - so it changed nothing. It asserted that the
+   edit had landed, and the edit had: it simply did not say what it claimed. Consuming the
+   truth is marking its **column**, `absorbing[:, argmax] = -1.0`, and expressed that way
+   it fails `test_a_difficult_truth_absorbs_every_detection_of_it_rather_than_one`.
+
+   So **checked as applied is not expresses what it claims**, which is one step past this
+   project's existing rule about a mutation that never applied. Twelve mutations, identity
+   first on both file sets, and every one fails the test written for it.
+
+### Changed
+
+ - `GridParts.objects`' own comment still called the count **clamped**, which it has not
+   been since `#352` removed the `clamp(min=1)`. It now says what it holds and why the clamp
+   protected nothing.
+
 ## [0.8.0a61] - 2026-11-03
 
 **The reviewer's sixth pass. Six findings, and the thread through them is a reader being

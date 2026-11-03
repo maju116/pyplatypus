@@ -279,3 +279,53 @@ def test_the_coordinate_convention_moves_every_box(tmp_path, voc_sample):
     assert voc_box == pytest.approx([10.0, 12.0, 50.0, 60.0])
     assert zero_box == pytest.approx([11.0, 13.0, 50.0, 60.0])
     assert (zero_box[2] - zero_box[0]) < (voc_box[2] - voc_box[0])
+
+
+def test_the_boxes_a_sample_returns_are_the_ones_ENCODE_was_given(
+    tmp_path, voc_sample, monkeypatch
+):
+    """`pyplatypus#366`: the first link of `#359`'s thread, which nothing held.
+
+    `#359` made `__getitem__` return the image's own boxes so the loss can build its
+    ignore mask from them. Returning the UN-augmented boxes instead would put the mask in
+    a different frame from the image and the targets - under a flip, every truth mirrored
+    away from where the predictions are, which is the mis-supervision `#359` removed.
+
+    Measured before this test existed: that mutation passed 95 tests. The guards written
+    for `#359` sat at `forward` and at the trainer, which is where the fix was read rather
+    than where a later change can cut it - §4's *a guard one level below the change*.
+
+    So the assertion is positional: whatever `encode` was handed is what the sample
+    returns, and the flip is there to make the two differ.
+    """
+    import pyplatypus.data.detection as detection_module
+    from pyplatypus.data.augmentation import build_box_augmenter
+    from pyplatypus.spec.components import AugmentationStep
+
+    augmenter = build_box_augmenter(
+        [AugmentationStep(name="HorizontalFlip", params={"p": 1.0})],
+        input_shape=(128, 128),
+        seed=1,
+    )
+    voc_sample(tmp_path, "one", [(20, 24, 60, 64)], [0])
+    dataset = build(tmp_path)
+    dataset.augmenter = augmenter
+
+    given = {}
+    real_encode = detection_module.encode
+
+    def spy(boxes, labels, **kwargs):
+        given["boxes"] = np.array(boxes, dtype=float, copy=True)
+        return real_encode(boxes, labels, **kwargs)
+
+    monkeypatch.setattr(detection_module, "encode", spy)
+
+    _, _, returned = dataset[0]
+    assert given, "encode was not called, so this test measured nothing"
+    np.testing.assert_allclose(np.asarray(returned, dtype=float), given["boxes"])
+
+    # The control that the flip moved something: the un-augmented boxes are a different
+    # answer, so an assertion against them would have failed. Without this, a dataset that
+    # never augmented would satisfy the comparison above.
+    source = np.asarray(dataset.read(0).boxes, dtype=float)
+    assert not np.allclose(np.sort(source, axis=0), np.sort(given["boxes"], axis=0))

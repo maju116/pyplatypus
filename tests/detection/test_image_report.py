@@ -226,3 +226,44 @@ def test_an_impossible_threshold_is_refused():
     truths = [truth([], [])]
     with pytest.raises(DetectionError, match="above 0 and at most 1"):
         image_report(preds, truths, labels=CLASSES, iou_threshold=0.0)
+
+
+def test_a_difficult_truth_takes_a_prediction_out_of_BOTH_columns():
+    """`matched` would claim a find the benchmark set aside; `spurious` would charge for it.
+
+    So the row carries `ignored` and the three counts sum to `n_predicted` through it. The
+    column exists rather than the subtraction being silent, because a reader checks that
+    arithmetic and `pyplatypus#364` is what happens when it does not close.
+    """
+    truth = {
+        "boxes": [[0, 0, 10, 10], [50, 50, 60, 60]],
+        "labels": [0, 0],
+        "difficult": [False, True],
+    }
+    predicted = {
+        "boxes": [[0, 0, 10, 10], [50, 50, 60, 60]],
+        "labels": [0, 0],
+        "scores": [0.9, 0.8],
+    }
+    row = image_report([predicted], [truth])[0]
+    assert (row["n_truth"], row["matched"], row["missed"]) == (1, 1, 0)
+    assert (row["ignored"], row["spurious"]) == (1, 0)
+    assert row["n_predicted"] == row["matched"] + row["ignored"] + row["spurious"]
+
+    # The control: nothing marked difficult, and the same boxes are two ordinary hits with
+    # the column at zero.
+    plain = dict(truth, difficult=[False, False])
+    ordinary = image_report([predicted], [plain])[0]
+    assert (ordinary["matched"], ordinary["ignored"], ordinary["spurious"]) == (2, 0, 0)
+
+
+def test_a_class_whose_only_truths_are_difficult_still_absorbs():
+    """The guard that skips a class with no truth has to ask about both sets.
+
+    Asking only about the scoring truths would skip the class, and then the prediction
+    falls through to `spurious` - the defect `#364` fixed, in a second costume.
+    """
+    truth = {"boxes": [[0, 0, 10, 10]], "labels": [0], "difficult": [True]}
+    predicted = {"boxes": [[0, 0, 10, 10]], "labels": [0], "scores": [0.9]}
+    row = image_report([predicted], [truth])[0]
+    assert (row["n_truth"], row["matched"], row["ignored"], row["spurious"]) == (0, 0, 1, 0)

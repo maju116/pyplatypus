@@ -429,3 +429,47 @@ def test_a_prediction_of_an_unplaced_truth_is_ignored_rather_than_punished():
         unplaced_one, _, ignored_one = ignored([second], through_boxes=through)
         assert unplaced_one == 0
         assert ignored_one, f"a prediction of the only box was punished (through_boxes={through})"
+
+
+def test_the_images_boxes_are_normalised_by_the_INPUT_SHAPE_on_a_non_square_input():
+    """`pyplatypus#366`: the second link of `#359`'s thread, which nothing held.
+
+    `_normalised_boxes` divides pixel boxes by `(width, height, width, height)`. Swapping
+    those to `(height, width, ...)` passed 95 tests, because **every fixture in this
+    package is square** and `DetectionModel` accepts any `input_shape` whose sides divide
+    by 32.
+
+    The assertion compares the two ROUTES rather than calling the helper: with every box
+    placed, the truths the loss gets from the image and the truths it recovers from the
+    targets are the same boxes, so the two must give the same answer. A normalisation that
+    transposes the frame makes the image's route disagree, and only on a frame where the
+    two sides differ.
+    """
+    height, width = 128, 64
+    boxes = [[8, 20, 40, 100]]
+    encoded = encode(boxes, [1], anchors=ANCHORS, input_shape=(height, width), n_class=3)
+    assert encoded.unplaced == 0, "the fixture must place its box, or the routes differ honestly"
+    targets = [torch.from_numpy(target)[None] for target in encoded.targets]
+
+    torch.manual_seed(0)
+    predictions = [torch.randn_like(target) for target in targets]
+    # The threshold is lowered deliberately, and the measurement is the reason: at the
+    # default 0.5 no cell's decoded box overlaps this truth enough for the mask to bite, so
+    # all three arms below agree at 2.48954487 and the test would pass on a transposed
+    # frame. At 0.2 the image's route and the targets' route agree at 2.53733063 while a
+    # transposed box gives 2.46997356 - a gap of 6.7e-02 against a tolerance of 1e-6.
+    loss = Yolo3Loss(anchors=ANCHORS, n_class=3, input_shape=(height, width), ignore_threshold=0.2)
+
+    from_image = loss(predictions, targets, [torch.tensor(boxes, dtype=torch.float32)]).as_dict()
+    from_targets = loss(predictions, targets).as_dict()
+    for term, value in from_targets.items():
+        assert from_image[term] == pytest.approx(value, rel=1e-6), term
+
+    # The control: the frame is genuinely not square, so a transposed normalisation is a
+    # different number. Without this the comparison above would hold on any square fixture
+    # and prove nothing about the units.
+    assert height != width
+    transposed = [torch.tensor([[20, 8, 100, 40]], dtype=torch.float32)]
+    assert loss(predictions, targets, transposed).as_dict()["no_object"] != pytest.approx(
+        from_targets["no_object"], rel=1e-6
+    )

@@ -61,26 +61,26 @@ def truth(*boxes):
 
 
 def test_a_prediction_over_a_truth_is_a_hit():
-    _, hit, _ = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, hit, _, _ignored = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
     assert hit.tolist() == [True]
 
 
 def test_a_prediction_below_the_threshold_is_a_miss():
     # IoU 1/3, threshold 0.5.
-    _, hit, _ = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, hit, _, _ignored = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
     assert hit.tolist() == [False]
 
 
 def test_a_second_prediction_on_the_same_object_is_a_false_positive():
     """Which is what makes non-maximum suppression worth doing."""
-    _, hit, _ = match_detections(
+    _, hit, _, _ignored = match_detections(
         [[0, 0, 10, 10], [0, 0, 10, 10]], [0.9, 0.8], truth([0, 0, 10, 10])
     )
     assert hit.tolist() == [True, False]
 
 
 def test_the_higher_scoring_prediction_claims_the_truth():
-    order, hit, _ = match_detections(
+    order, hit, _, _ignored = match_detections(
         [[5, 5, 15, 15], [0, 0, 10, 10]], [0.3, 0.9], truth([0, 0, 10, 10])
     )
     # Sorted by score, so the good box comes first and takes it.
@@ -90,16 +90,18 @@ def test_the_higher_scoring_prediction_claims_the_truth():
 
 def test_among_candidates_the_best_overlap_wins():
     """Two truths in reach; the prediction should take the one it fits, not the first."""
-    _, hit, _ = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10], [10, 0, 20, 10]))
+    _, hit, _, _ignored = match_detections(
+        [[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10], [10, 0, 20, 10])
+    )
     assert hit.tolist() == [True]
     # And the one it took is the better fit: with only the poor truth present, it misses.
-    _, poor, _ = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, poor, _, _ignored = match_detections([[9, 0, 20, 10]], [0.9], truth([0, 0, 10, 10]))
     assert poor.tolist() == [False]
 
 
 def test_ties_in_score_keep_the_input_order():
     """So a report is reproducible rather than dependent on the sort's internals."""
-    order, _, _ = match_detections(
+    order, _, _, _ignored = match_detections(
         [[0, 0, 1, 1], [2, 2, 3, 3], [4, 4, 5, 5]], [0.5, 0.5, 0.5], truth()
     )
     assert order.tolist() == [0, 1, 2]
@@ -218,14 +220,93 @@ def test_a_declared_class_the_data_never_contained_is_reported_not_scored():
     assert report.mean_average_precision == pytest.approx(1.0)
 
 
+HARD = [[0, 0, 10, 10], [50, 50, 60, 60]]
+
+
+def one_hard_one_not(boxes=None):
+    """Two truths of one class, the second marked `difficult`."""
+    return {"boxes": HARD if boxes is None else boxes, "labels": [0, 0], "difficult": [False, True]}
+
+
 def test_difficult_objects_are_left_out_as_pascal_voc_leaves_them_out():
-    truths = [
-        {"boxes": [[0, 0, 10, 10], [50, 50, 60, 60]], "labels": [0, 0], "difficult": [False, True]}
-    ]
     preds = [one_image([[0, 0, 10, 10]], [0], [0.9])]
-    report = detection_report(preds, truths, labels=["a"])
+    report = detection_report(preds, [one_hard_one_not()], labels=["a"])
     assert report.per_class[0]["n_truth"] == 1
     assert report.mean_average_precision == pytest.approx(1.0)
+
+
+def test_finding_a_difficult_object_is_not_punished_for_finding_it():
+    """The case the test above cannot contain, which is why it missed `pyplatypus#364`.
+
+    It predicts only the ordinary object, so `n_truth == 1` and an average precision of 1
+    are true whether a difficult truth is set aside or deleted. The difference appears the
+    moment a detection lands on the difficult one - and before `#364` that detection had
+    nothing to match and was scored as a false positive, so a model that found the hard
+    object did WORSE than one that missed it.
+    """
+    # The difficult object detected, and ranked first, which is the costliest place on the
+    # curve for a false positive to sit.
+    preds = [one_image([[50, 50, 60, 60], [0, 0, 10, 10]], [0, 0], [0.9, 0.8])]
+    report = detection_report(preds, [one_hard_one_not()], labels=["a"])
+    row = report.per_class[0]
+    assert report.mean_average_precision == pytest.approx(1.0)
+    assert (row["true_positives"], row["false_positives"], row["ignored"]) == (1, 0, 1)
+    # `n_predicted` still counts it, so the arithmetic closes through `ignored` rather
+    # than by hiding the prediction.
+    assert row["n_predicted"] == row["true_positives"] + row["false_positives"] + row["ignored"]
+    assert row["precision"] == pytest.approx(1.0)
+
+    # The control that says this is about the flag and not about two boxes: with nothing
+    # marked difficult, the same prediction is an ordinary pair of hits.
+    plain = {"boxes": HARD, "labels": [0, 0], "difficult": [False, False]}
+    ordinary = detection_report(preds, [plain], labels=["a"]).per_class[0]
+    assert (ordinary["true_positives"], ordinary["ignored"], ordinary["n_truth"]) == (2, 0, 2)
+
+
+def test_a_duplicate_of_an_ORDINARY_truth_is_still_a_false_positive():
+    """The other control: setting difficult truths aside must not soften the usual rule."""
+    preds = [one_image([[0, 0, 10, 10], [0, 0, 10, 10]], [0, 0], [0.9, 0.8])]
+    row = detection_report(preds, [one_hard_one_not()], labels=["a"]).per_class[0]
+    assert (row["true_positives"], row["false_positives"], row["ignored"]) == (1, 1, 0)
+
+
+def test_the_best_overlap_decides_and_the_difficult_flag_is_asked_second():
+    """`voc_eval`'s order: a detection fitting a difficult truth better is set aside.
+
+    The prediction overlaps the ordinary truth at 0.6 and the difficult one at 0.9, so a
+    reading that looked for any admissible ordinary truth first would score it.
+    """
+    truth = {
+        "boxes": [[0, 0, 100, 60], [0, 0, 100, 90]],
+        "labels": [0, 0],
+        "difficult": [False, True],
+    }
+    preds = [one_image([[0, 0, 100, 100]], [0], [0.9])]
+    row = detection_report(preds, [truth], labels=["a"]).per_class[0]
+    assert (row["true_positives"], row["false_positives"], row["ignored"]) == (0, 0, 1)
+
+    _, hit, _, ignored = match_detections(
+        [[0, 0, 100, 100]], [0.9], [[0, 0, 100, 60]], difficult_boxes=[[0, 0, 100, 90]]
+    )
+    assert not hit[0] and ignored[0]
+
+
+def test_a_tie_goes_to_the_truth_that_scores():
+    """Equal overlap, so a difficult object must not absorb a detection that fits both."""
+    box = [[0, 0, 10, 10]]
+    _, hit, _, ignored = match_detections(box, [0.9], box, difficult_boxes=box)
+    assert hit[0] and not ignored[0]
+
+
+def test_a_difficult_truth_absorbs_every_detection_of_it_rather_than_one():
+    """VOC never marks a difficult truth as detected: the region is not being judged.
+
+    So two guesses at one difficult object are both set aside, where a truth that scores
+    would have taken the first and made a false positive of the second.
+    """
+    both = [[0, 0, 10, 10], [1, 1, 11, 11]]
+    _, hit, _, ignored = match_detections(both, [0.9, 0.8], [], difficult_boxes=[[0, 0, 10, 10]])
+    assert not hit.any() and ignored.all()
 
 
 def test_the_conventions_used_travel_with_the_result():
@@ -380,13 +461,13 @@ def test_the_reference_problems_are_not_trivial():
 def test_matching_reports_the_overlap_it_matched_at():
     """The threshold throws this away: a box matching at 0.52 and one at 0.97 are both a
     hit, and only one of them is well placed."""
-    _, hit, overlap = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, hit, overlap, _ignored = match_detections([[0, 0, 10, 10]], [0.9], truth([0, 0, 10, 10]))
     assert hit.tolist() == [True]
     assert overlap[0] == pytest.approx(1.0)
 
     # A looser fit: 0.5 of the way across, IoU 1/3 - below the default threshold, so no hit
     # and no overlap recorded.
-    _, hit, overlap = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
+    _, hit, overlap, _ignored = match_detections([[5, 0, 15, 10]], [0.9], truth([0, 0, 10, 10]))
     assert hit.tolist() == [False]
     assert overlap[0] == 0.0
 

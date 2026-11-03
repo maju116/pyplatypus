@@ -139,20 +139,45 @@ def iou_matrix(a: Any, b: Any) -> np.ndarray:
 
 
 def match_detections(
-    pred_boxes: Any, pred_scores: Any, truth_boxes: Any, *, iou_threshold: float = 0.5
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    pred_boxes: Any,
+    pred_scores: Any,
+    truth_boxes: Any,
+    *,
+    difficult_boxes: Any | None = None,
+    iou_threshold: float = 0.5,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Which predictions hit a truth, in descending order of score, and how well.
 
-    Returns `(order, hit, overlap)`: the indices that sort the predictions by score, a
-    boolean per prediction in that order, and the IoU at which each hit matched - zero
-    where it did not. A truth already claimed by a higher-scoring prediction cannot be
-    claimed again, so a duplicate box is a false positive.
+    Returns `(order, hit, overlap, ignored)`: the indices that sort the predictions by
+    score, a boolean per prediction in that order, the IoU at which each hit matched -
+    zero where it did not - and which predictions were set aside rather than judged. A
+    truth already claimed by a higher-scoring prediction cannot be claimed again, so a
+    duplicate box is a false positive.
 
     The overlap is returned because the threshold throws it away: a box matching at 0.52
     and one matching at 0.97 are both a hit, and only one of them is well placed.
+
+    `difficult_boxes` are truths that **absorb** a match without scoring it, which is what
+    Pascal VOC does with an object marked `difficult`: a detection attributed to one is
+    neither a true positive nor a false positive. Three details decide what that means,
+    and each is a choice rather than an implementation accident:
+
+    - **They are never consumed.** Several detections of one difficult object are all
+      ignored, because VOC never marks such a truth as detected - the point is that the
+      region is not being judged, not that one guess at it is free.
+    - **The best overlap decides, and the flag is asked second.** A prediction overlapping
+      an ordinary truth at 0.6 and a difficult one at 0.9 is ignored rather than scored,
+      which is the order `voc_eval` uses.
+    - **A tie goes to the scoring truth.** At equal overlap the ordinary truth wins, so a
+      difficult object cannot absorb a detection that fits an ordinary one just as well.
+
+    `pyplatypus#364`: before it, the difficult truths were deleted before matching, so a
+    detection of one had nothing to match and counted against the model - the opposite of
+    the rule the deletion was written for.
     """
     predictions = _as_boxes(pred_boxes, what="pred_boxes")
     truths = _as_boxes(truth_boxes, what="truth_boxes")
+    hard = _as_boxes([] if difficult_boxes is None else difficult_boxes, what="difficult_boxes")
     scores = np.asarray(pred_scores, dtype=float).ravel()
     if len(scores) != len(predictions):
         raise DetectionError(
@@ -165,20 +190,34 @@ def match_detections(
     order = np.argsort(-scores, kind="stable")
     hit = np.zeros(len(order), dtype=bool)
     matched_at = np.zeros(len(order), dtype=float)
-    if len(truths) == 0 or len(predictions) == 0:
-        return order, hit, matched_at
+    ignored = np.zeros(len(order), dtype=bool)
+    if len(predictions) == 0 or (len(truths) == 0 and len(hard) == 0):
+        return order, hit, matched_at, ignored
 
-    overlaps = iou_matrix(predictions[order], truths)
+    ordered = predictions[order]
+    overlaps = iou_matrix(ordered, truths) if len(truths) else np.zeros((len(order), 0))
+    absorbing = iou_matrix(ordered, hard) if len(hard) else np.zeros((len(order), 0))
     taken = np.zeros(len(truths), dtype=bool)
     for position in range(len(order)):
-        candidates = np.where(~taken & (overlaps[position] >= iou_threshold))[0]
-        if candidates.size == 0:
+        best, best_overlap = None, -np.inf
+        if overlaps.shape[1]:
+            candidates = np.where(~taken & (overlaps[position] >= iou_threshold))[0]
+            if candidates.size:
+                best = candidates[np.argmax(overlaps[position, candidates])]
+                best_overlap = overlaps[position, best]
+        # Strictly greater, so an exact tie leaves the detection scoring against the
+        # ordinary truth rather than disappearing into the difficult one.
+        if absorbing.shape[1]:
+            absorbed = absorbing[position].max()
+            if absorbed >= iou_threshold and absorbed > best_overlap:
+                ignored[position] = True
+                continue
+        if best is None:
             continue
-        best = candidates[np.argmax(overlaps[position, candidates])]
         taken[best] = True
         hit[position] = True
-        matched_at[position] = overlaps[position, best]
-    return order, hit, matched_at
+        matched_at[position] = best_overlap
+    return order, hit, matched_at, ignored
 
 
 def average_precision(
@@ -273,22 +312,32 @@ def detection_report(
         pooled_overlaps: list[np.ndarray] = []
         n_truth = 0
         n_predicted = 0
+        n_ignored = 0
 
         for predicted, truth in zip(predictions, truths, strict=True):
             p_boxes, p_scores = _of_class_predicted(predicted, index, score_threshold)
-            t_boxes = _of_class_truth(truth, index)
+            t_boxes, t_difficult = _of_class_truth(truth, index)
             n_truth += len(t_boxes)
             n_predicted += len(p_boxes)
             if len(p_boxes) == 0:
                 continue
             for threshold in thresholds:
-                order, hit, overlap = match_detections(
-                    p_boxes, p_scores, t_boxes, iou_threshold=threshold
+                order, hit, overlap, ignored = match_detections(
+                    p_boxes,
+                    p_scores,
+                    t_boxes,
+                    difficult_boxes=t_difficult,
+                    iou_threshold=threshold,
                 )
-                pooled_hits[threshold].append(hit)
+                # An ignored prediction leaves the ranking entirely rather than entering it
+                # as a miss: it is not evidence either way, and a curve that carried it
+                # would charge the model for finding the object the benchmark set aside.
+                keep = ~ignored
+                pooled_hits[threshold].append(hit[keep])
                 if threshold == thresholds[0]:
-                    pooled_scores.append(np.asarray(p_scores, dtype=float)[order])
-                    pooled_overlaps.append(overlap[hit])
+                    pooled_scores.append(np.asarray(p_scores, dtype=float)[order][keep])
+                    pooled_overlaps.append(overlap[keep][hit[keep]])
+                    n_ignored += int(ignored.sum())
 
         # Pooled, then re-sorted by score across images: the curve is one ranking over the
         # dataset, so per-image order would make it depend on which image came first.
@@ -339,7 +388,18 @@ def detection_report(
                 "true_positives": true_positives,
                 "false_positives": false_positives,
                 "false_negatives": false_negatives,
-                "precision": (true_positives / n_predicted) if n_predicted else None,
+                # Predictions attributed to a `difficult` truth, which are in neither of
+                # the two counts above. `n_predicted` still counts them, so this is what
+                # closes the arithmetic rather than a figure anybody watches.
+                "ignored": n_ignored,
+                # Over what was judged, not over what was predicted: the two differ by
+                # `ignored`, and dividing by `n_predicted` would charge the model for
+                # predictions this report declined to score.
+                "precision": (
+                    (true_positives / (true_positives + false_positives))
+                    if (true_positives + false_positives)
+                    else None
+                ),
                 "recall": (true_positives / n_truth) if n_truth else None,
             }
         )
@@ -412,17 +472,26 @@ def image_report(
     classes = _classes_present(predictions, truths, labels)
     rows: list[dict[str, Any]] = []
     for position, (predicted, truth) in enumerate(zip(predictions, truths, strict=True)):
-        n_truth = n_predicted = matched = 0
+        n_truth = n_predicted = matched = ignored_here = 0
         overlaps: list[float] = []
         for index in classes:
             boxes, scores = _of_class_predicted(predicted, index, score_threshold)
-            truth_boxes = _of_class_truth(truth, index)
+            truth_boxes, difficult_boxes = _of_class_truth(truth, index)
             n_truth += len(truth_boxes)
             n_predicted += len(boxes)
-            if not len(boxes) or not len(truth_boxes):
+            # A class with only difficult truths still has something to absorb a match,
+            # so the second half of this guard asks about both sets rather than one.
+            if not len(boxes) or not (len(truth_boxes) or len(difficult_boxes)):
                 continue
-            _, hit, at = match_detections(boxes, scores, truth_boxes, iou_threshold=iou_threshold)
+            _, hit, at, ignored = match_detections(
+                boxes,
+                scores,
+                truth_boxes,
+                difficult_boxes=difficult_boxes,
+                iou_threshold=iou_threshold,
+            )
             matched += int(hit.sum())
+            ignored_here += int(ignored.sum())
             overlaps.extend(float(value) for value in at[hit])
 
         key = (
@@ -437,7 +506,13 @@ def image_report(
                 "n_predicted": n_predicted,
                 "matched": matched,
                 "missed": n_truth - matched,
-                "spurious": n_predicted - matched,
+                # A prediction attributed to a `difficult` truth is in neither column:
+                # `matched` would claim it found something the benchmark set aside, and
+                # `spurious` would charge it for the same thing. So the three counts sum
+                # to `n_predicted` only once `ignored` is added - which is why it is a
+                # column rather than a subtraction nobody can see. `pyplatypus#364`.
+                "ignored": ignored_here,
+                "spurious": n_predicted - matched - ignored_here,
                 "mean_matched_iou": float(np.mean(overlaps)) if overlaps else None,
             }
         )
@@ -478,7 +553,7 @@ def _of_class_predicted(entry: dict[str, Any], index: int, score_threshold: floa
     return boxes[keep], scores[keep]
 
 
-def _of_class_truth(entry: dict[str, Any], index: int) -> np.ndarray:
+def _of_class_truth(entry: dict[str, Any], index: int) -> tuple[np.ndarray, np.ndarray]:
     boxes = _as_boxes(entry.get("boxes", []), what="truth boxes")
     labels = np.asarray(entry.get("labels", []), dtype=int).ravel()
     if len(boxes) != len(labels):
@@ -486,9 +561,12 @@ def _of_class_truth(entry: dict[str, Any], index: int) -> np.ndarray:
             f"an image's truth has {len(boxes)} boxes and {len(labels)} labels; they must agree"
         )
     # Pascal VOC marks some objects `difficult` and its own evaluation leaves them out.
-    # Honoured when present, because counting them makes a model look worse than the
-    # benchmark it is being compared against.
+    # They are returned SEPARATELY rather than deleted: a detection of one is set aside by
+    # `match_detections` instead of counting against the model, which is what leaving an
+    # object out of the benchmark means. Deleting them here made the opposite happen -
+    # `pyplatypus#364`.
     difficult = np.asarray(entry.get("difficult", np.zeros(len(boxes))), dtype=bool).ravel()
     if len(difficult) != len(boxes):
         raise DetectionError(f"`difficult` has {len(difficult)} entries for {len(boxes)} boxes")
-    return boxes[(labels == index) & ~difficult]
+    mine = labels == index
+    return boxes[mine & ~difficult], boxes[mine & difficult]
