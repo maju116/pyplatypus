@@ -257,3 +257,78 @@ def test_the_labelme_reader_is_reachable_from_the_directory_reader(tmp_path):
     )
     out = read_annotations(tmp_path, LABELS, annotation_format="labelme")
     assert len(out) == 1 and out[0].labels.tolist() == [0]
+
+
+def test_a_labelme_circle_is_boxed_from_its_centre_and_radius(tmp_path):
+    """`pyplatypus#357`: LabelMe stores a circle as its centre and one point on the rim.
+
+    `getCircleRectFromLine` in LabelMe's own `shape.py` unpacks `(c, point)` and draws
+    `c ± d` where `d` is the distance between them. Taking the extent of those two points
+    instead - which this reader did for every shape type, because it read none of them -
+    gives a box from the centre to the rim: area `|dx dy|` against the true `4d²`, so at
+    most **an eighth** of the object and exactly zero when the rim point is level with the
+    centre.
+
+    Two circles, because the two failure shapes are different: one axis-aligned, where the
+    old reading was degenerate and `drop_degenerate` removed the object altogether, and one
+    diagonal, where it was a plausible small box.
+    """
+    # rim point level with the centre: the old reading had zero height
+    flat = labelme_file(
+        tmp_path / "flat.json",
+        [{"label": "WBC", "shape_type": "circle", "points": [[50, 50], [60, 50]]}],
+    )
+    assert read_labelme(flat, LABELS).boxes[0].tolist() == [40, 40, 60, 60]
+
+    # and a diagonal one, where the old reading was a plausible eighth of the object
+    slanted = labelme_file(
+        tmp_path / "slanted.json",
+        [{"label": "WBC", "shape_type": "circle", "points": [[100, 100], [103, 104]]}],
+    )
+    box = read_labelme(slanted, LABELS).boxes[0].tolist()
+    assert box == pytest.approx([95.0, 95.0, 105.0, 105.0]), box  # radius 5 exactly
+
+    # The control: the types whose points DO bound the shape are unchanged, so this is a
+    # circle fix rather than a new reading of every annotation.
+    bounded = labelme_file(
+        tmp_path / "bounded.json",
+        [
+            {"label": "WBC", "shape_type": "rectangle", "points": [[10, 20], [50, 60]]},
+            {
+                "label": "RBC",
+                "shape_type": "polygon",
+                "points": [[150, 150], [170, 160], [155, 175]],
+            },
+        ],
+    )
+    assert read_labelme(bounded, LABELS).boxes.tolist() == [[10, 20, 50, 60], [150, 150, 170, 175]]
+
+
+def test_a_labelme_shape_with_no_extent_is_refused_by_name(tmp_path):
+    """A `point` marks a position, and a box made from it has no area.
+
+    Before `#357` it became a zero-area box, which `drop_degenerate` then removed and
+    `TargetSurvey` counted under the letterbox - so labelling a cell with the wrong tool
+    lost it silently. The refusal names the type and says what to draw instead.
+    """
+    marked = labelme_file(
+        tmp_path / "point.json",
+        [{"label": "WBC", "shape_type": "point", "points": [[70, 70], [70, 70]]}],
+    )
+    with pytest.raises(DetectionError, match="type 'point'"):
+        read_labelme(marked, LABELS)
+
+    # and a circle drawn with the wrong number of points is refused rather than averaged
+    broken = labelme_file(
+        tmp_path / "broken.json",
+        [{"label": "WBC", "shape_type": "circle", "points": [[1, 1], [2, 2], [3, 3]]}],
+    )
+    with pytest.raises(DetectionError, match="circle"):
+        read_labelme(broken, LABELS)
+
+    # The control: a type with no `shape_type` at all still reads, as LabelMe's own default
+    # is `polygon` - so an older file does not start failing.
+    legacy = labelme_file(
+        tmp_path / "legacy.json", [{"label": "WBC", "points": [[10, 20], [50, 60]]}]
+    )
+    assert read_labelme(legacy, LABELS).boxes[0].tolist() == [10, 20, 50, 60]

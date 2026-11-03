@@ -155,30 +155,66 @@ def test_tversky_at_alpha_half_is_dice_at_twice_the_smoothing():
     assert not torch.allclose(tversky, f.dice_coefficient(probs, target, smooth=1.0), atol=1e-6)
 
 
-def test_iou_is_a_monotone_function_of_dice_so_the_two_rank_alike():
-    """`iou`'s description claims the same ordering and a lower number. Without smoothing
-    the coefficient is exactly dice / (2 - dice), which is strictly increasing on [0, 1]."""
+def test_iou_is_exactly_a_function_of_dice_per_class():
+    """The identity `iou == dice / (2 - dice)`, which holds for ONE coefficient.
+
+    Asserted elementwise, which is the only scope on which it is true: the per-class vector
+    before any reduction. `IouMetric`'s docstring names this test, so renaming one means
+    renaming both.
+    """
     logits, target = _probe()
     probs = f.probabilities(logits)
     dice = f.dice_coefficient(probs, target, smooth=0.0)
     iou = f.iou_coefficient(probs, target, smooth=0.0)
     assert torch.allclose(iou, dice / (2 - dice), atol=1e-6)
 
-    torch.manual_seed(12)
-    candidates = [torch.randn(1, 3, 16, 16) for _ in range(12)]
-    by_dice = sorted(
-        range(12),
-        key=lambda i: (
-            f.dice_coefficient(f.probabilities(candidates[i]), target[:1], 1.0).mean().item()
-        ),
+
+def test_dice_and_iou_can_rank_one_report_differently():
+    """And the claim that stood here instead, which was false. `pyplatypus#360`.
+
+    This test used to sort twelve random tensors by each metric's `.mean()` and assert the
+    orders agreed. They did, and that is all it measured: `d / (2 - d)` is convex, so the
+    mean of the IoUs is not that function of the mean Dice, and two models whose per-class
+    scores are spread differently can swap places. Twelve draws happened not to cross.
+
+    Asserted as the property rather than as a warning, so that a future change which really
+    did make the two agree - a different reduction, say - fails here and gets read rather
+    than being taken as a silent improvement. The fixture is a strip with a large class and
+    a small one, because the spread between classes is the whole mechanism.
+    """
+    strip = [0] * 30 + [1] * 20 + [2] * 10
+    target = f.as_onehot(torch.tensor(strip).reshape(1, 1, -1), 3)
+
+    def logits_for(rows):
+        value = torch.full((1, 3, 1, len(rows)), -10.0)
+        for position, klass in enumerate(rows):
+            value[0, klass, 0, position] = 10.0
+        return value
+
+    def reported(rows):
+        probs = f.probabilities(logits_for(rows))
+        # `[:, 1:]`, not `[1:]`: the coefficient comes back as (batch, class), so slicing
+        # the first axis drops the batch and leaves an empty tensor whose mean is NaN.
+        # Background is dropped because `include_background=False` is what a report uses.
+        dice = f.dice_coefficient(probs, target, smooth=0.0)[:, 1:].mean().item()
+        iou = f.iou_coefficient(probs, target, smooth=0.0)[:, 1:].mean().item()
+        return dice, iou
+
+    # A finds the small class and misses the large one; B splits its effort.
+    a_dice, a_iou = reported([0] * 30 + [0] * 20 + [2] * 6 + [0] * 4)
+    b_dice, b_iou = reported([0] * 30 + [1] * 2 + [0] * 18 + [2] * 4 + [0] * 6)
+
+    assert (a_dice - b_dice) * (a_iou - b_iou) < 0, (
+        "dice and iou agreed on this pair, so either the reduction changed or the fixture "
+        f"stopped separating them: dice {a_dice:.4f} vs {b_dice:.4f}, iou {a_iou:.4f} vs {b_iou:.4f}"
     )
-    by_iou = sorted(
-        range(12),
-        key=lambda i: (
-            f.iou_coefficient(f.probabilities(candidates[i]), target[:1], 1.0).mean().item()
-        ),
-    )
-    assert by_dice == by_iou
+
+    # The control: the identity still holds per class on the same prediction, so the
+    # disagreement is the reduction and not a broken coefficient.
+    probs = f.probabilities(logits_for([0] * 30 + [0] * 20 + [2] * 6 + [0] * 4))
+    dice = f.dice_coefficient(probs, target, smooth=0.0)
+    iou = f.iou_coefficient(probs, target, smooth=0.0)
+    assert torch.allclose(iou, dice / (2 - dice), atol=1e-6)
 
 
 def test_focal_at_gamma_zero_is_cross_entropy():

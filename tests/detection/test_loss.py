@@ -7,6 +7,7 @@ the two things that actually characterise a correct objective: the gradient vani
 optimum, and the loss falls monotonically towards it.
 """
 
+import numpy as np
 import pytest
 import torch
 from torch.nn import functional as F
@@ -348,3 +349,83 @@ def test_an_unclipped_step_can_make_it_worse():
     optimiser.step()
     after = loss(model(image), targets).total.item()
     assert after > before.total.item()
+
+
+# --- the ignore mask is built from the image's boxes, not from what fitted ---------------
+
+
+def test_a_prediction_of_an_unplaced_truth_is_ignored_rather_than_punished():
+    """`pyplatypus#359`: the mask was built from the targets, which are a SUBSET.
+
+    `encode` cannot place a box whose cell and slot an earlier box of the same shape
+    already took - it counts that one as `unplaced` and moves on. So a mask built from the
+    targets does not know the second object exists, and a prediction that matches it
+    exactly is supervised towards zero objectness by `no_object`: this module's docstring
+    calls that teaching the model "to suppress correct answers".
+
+    Two 6.4-pixel boxes whose centres fall in one cell of the fine grid, so the second
+    cannot be placed, and a coarse-grid prediction built to decode **exactly** to the one
+    that did not fit.
+
+    Both controls are here and both matter. The **fallback** arm is the old behaviour,
+    which must still punish - that is what says the boxes are the thing that changed the
+    answer rather than the threshold or the decode. And the **one-box** arm must be ignored
+    on either route, which is what says the mask works at all.
+    """
+    size = 64
+    anchors = (((0.5, 0.5),), ((0.25, 0.25),), ((0.1, 0.1),))
+    strides = (32, 16, 8)
+    first = [6.3, 6.3, 12.7, 12.7]
+    second = [11.3, 11.3, 17.7, 17.7]
+
+    loss = Yolo3Loss(anchors=anchors, n_class=1, input_shape=(size, size), strides=strides)
+
+    def prediction_of(box):
+        grid_h, grid_w = loss.shapes[0]
+        pred = torch.zeros(1, grid_h, grid_w, 1, 6)
+        centre_x = (box[0] + box[2]) / 2 / size
+        centre_y = (box[1] + box[3]) / 2 / size
+        pred[0, 0, 0, 0, 0] = torch.logit(torch.tensor(centre_x * grid_w).clamp(1e-6, 1 - 1e-6))
+        pred[0, 0, 0, 0, 1] = torch.logit(torch.tensor(centre_y * grid_h).clamp(1e-6, 1 - 1e-6))
+        pred[0, 0, 0, 0, 2] = float(np.log((box[2] - box[0]) / size / anchors[0][0][0]))
+        pred[0, 0, 0, 0, 3] = float(np.log((box[3] - box[1]) / size / anchors[0][0][1]))
+        return pred
+
+    def ignored(boxes, *, through_boxes):
+        encoded = encode(
+            np.asarray(boxes, dtype=float),
+            np.zeros(len(boxes), dtype=int),
+            anchors=anchors,
+            input_shape=(size, size),
+            n_class=1,
+            strides=strides,
+        )
+        targets = [torch.from_numpy(t)[None].float() for t in encoded.targets]
+        pred = prediction_of(second)
+        if through_boxes:
+            truth = loss._normalised_boxes(
+                [torch.tensor(boxes, dtype=torch.float32)], device=pred.device, dtype=pred.dtype
+            )
+        else:
+            truth = loss._truth_boxes(targets)
+        return encoded.unplaced, len(truth[0]), bool(loss._ignore_mask(0, pred, truth)[0, 0, 0, 0])
+
+    unplaced, seen, was_ignored = ignored([first, second], through_boxes=True)
+    assert unplaced == 1, "the fixture did not crowd the two boxes into one slot"
+    assert seen == 2, f"the mask saw {seen} truths where the image has 2"
+    assert was_ignored, "a correct prediction of the unplaced object was punished"
+
+    # The control that says it is the boxes and not the geometry: the same prediction
+    # against the targets alone is still punished, which is what `#359` measured.
+    _, seen_fallback, fallback_ignored = ignored([first, second], through_boxes=False)
+    assert seen_fallback == 1
+    assert not fallback_ignored, (
+        "the fallback route no longer reproduces the defect, so this test is not measuring "
+        "the difference the boxes make"
+    )
+
+    # And the control that the mask works at all: one box, ignored on either route.
+    for through in (True, False):
+        unplaced_one, _, ignored_one = ignored([second], through_boxes=through)
+        assert unplaced_one == 0
+        assert ignored_one, f"a prediction of the only box was punished (through_boxes={through})"

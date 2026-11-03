@@ -150,6 +150,23 @@ class DetectionData(DataSpec):
         return self.coordinates or "voc"
 
 
+#: The four terms a detection epoch reports, beside `loss`, which is their weighted sum.
+#:
+#: **Declared in the specification layer because that is the layer that cannot import
+#: torch**, and both readers need it: `DetectionTrainer` writes `f"{prefix}_{term}"` for
+#: each of these every epoch, and `DetectionModel.monitorable` says which of them a
+#: callback may watch. A second copy of this tuple is what §3F is a list of, and the
+#: direction of the import decides where the one copy sits: the trainer already imports
+#: this module, and this module must never import the trainer.
+#:
+#: `pyplatypus#358`: before this existed, detection inherited `ModelSpec.monitorable` and
+#: so offered `train_foreground` and `val_foreground`, which a detection epoch never
+#: writes - a callback watching either was accepted by the validator and killed the run
+#: with a bare `KeyError` at the end of its first epoch. It also hid these four, so a user
+#: wanting to watch the box loss had no way to learn from the refusal that they could.
+DETECTION_TERMS = ("coordinates", "objectness", "no_object", "classes")
+
+
 class DetectionModel(ModelSpec):
     """One detector.
 
@@ -270,6 +287,35 @@ class DetectionModel(ModelSpec):
             "what is computed at all, this one decides where on the curve to stand."
         ),
     )
+
+    @property
+    def monitorable(self) -> set[str]:
+        """The loss, the four terms, and not `foreground`.
+
+        `ModelSpec.monitorable` offers `train_foreground` and `val_foreground` because a
+        segmentation epoch reports the share of the prediction that is not background.
+        **A detection epoch reports no such number**, so a callback watching one was
+        accepted here and then killed the run with a `KeyError` out of `state.logs` at the
+        end of its first epoch - which is what `ClassificationModel.monitorable` was
+        written to prevent for its own task, in these words, one task earlier. Detection
+        was the third and kept the base set. `pyplatypus#358`.
+
+        **And the four terms are watchable, which is the half the crash hid.** A detection
+        epoch writes `val_coordinates`, `val_objectness`, `val_no_object` and
+        `val_classes`, and the refusal naming what is available had been offering a number
+        that never arrives while omitting four that do. A run whose coordinate loss falls
+        while its objectness does not is a different failure from the reverse, which is
+        what `LossParts` exists to say - so a `model_checkpoint` watching one of them is a
+        reasonable thing to write.
+
+        No `_worst`: that is `summarise_cases`'s figure over scored cases, and a detection
+        epoch pools loss terms rather than per-case scores.
+        """
+        return (
+            {"train_loss", "val_loss"}
+            | {f"train_{term}" for term in DETECTION_TERMS}
+            | {f"val_{term}" for term in DETECTION_TERMS}
+        )
 
     def weights_fingerprint(self) -> dict:
         """`anchors_per_grid` rather than `blocks` and `filters`: it is what sets the

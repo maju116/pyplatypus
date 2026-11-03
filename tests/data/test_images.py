@@ -238,3 +238,55 @@ def test_a_bilevel_label_map_reads_0_and_1_rather_than_0_and_255(tmp_path):
 
     read = read_image(tmp_path / "b.png", channels=1, nearest=True, label_map=True)
     assert read[..., 0].tolist() == values.tolist()
+
+
+def test_a_float_label_map_is_rounded_rather_than_truncated(tmp_path):
+    """`pyplatypus#361`: `convert("I")` truncates towards zero.
+
+    `label_map`'s own docstring promises that *"a 16-bit PNG or a 32-bit TIFF keeps the
+    values it stores"*, and a float32 TIFF is a 32-bit TIFF. It kept them by truncation, so
+    a class written as 0.9999 by whatever produced the file became 0 - one class down, with
+    every voxel still matching something and the mask check reporting **0.0 unmatched**.
+    That is `#346`'s silent costume on the mode its fix did not reach.
+
+    `labels_to_classes` compares to within half a unit for exactly this, and never got the
+    chance: the truncation happens in the reader.
+    """
+    from PIL import Image
+
+    values = np.array([[0.0, 0.9999, 1.9999, 2.0001]], dtype=np.float32)
+    Image.fromarray(values, mode="F").save(tmp_path / "f.tif")
+    assert Image.open(tmp_path / "f.tif").mode == "F", "the fixture is not a float TIFF"
+
+    read = read_image(tmp_path / "f.tif", channels=1, nearest=True, label_map=True)
+    assert read[..., 0].tolist() == [[0, 1, 2, 2]]
+
+    # THE CONTROL HAS TO HOLD THE INTENDED CLASSES. Writing `values.astype(np.int32)`
+    # truncates before saving, so the file would already hold [0, 0, 1, 2] and would read
+    # back "correctly" for the wrong reason - which is what the first version of this
+    # probe did.
+    Image.fromarray(np.array([[0, 1, 2, 2]], dtype=np.int32), mode="I").save(tmp_path / "i.tif")
+    control = read_image(tmp_path / "i.tif", channels=1, nearest=True, label_map=True)
+    assert control[..., 0].tolist() == [[0, 1, 2, 2]]
+
+
+def test_the_two_readings_of_one_float_label_map_agree(tmp_path):
+    """The reader's answer and the tolerance's answer, on the same four values.
+
+    A volume carries floats all the way to `labels_to_classes`, which resolves them by its
+    half-unit tolerance; a float TIFF is resolved in the reader. Those are two rules for one
+    question, so the thing worth asserting is that they agree - which is the whole argument
+    for rounding rather than reading the file as float and widening the dtype.
+    """
+    from PIL import Image
+
+    from pyplatypus.data.masks import labels_to_classes
+
+    values = np.array([[0.0, 0.9999, 1.9999, 2.0001]], dtype=np.float32)
+    Image.fromarray(values, mode="F").save(tmp_path / "f.tif")
+
+    read = read_image(tmp_path / "f.tif", channels=1, nearest=True, label_map=True)
+    through_the_reader, _ = labels_to_classes(read, [0, 1, 2])
+    through_the_tolerance, _ = labels_to_classes(values.reshape(1, -1, 1), [0, 1, 2])
+
+    assert through_the_reader.ravel().tolist() == through_the_tolerance.ravel().tolist()

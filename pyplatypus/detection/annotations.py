@@ -111,12 +111,44 @@ def read_voc(
     )
 
 
+#: The LabelMe shape types this reader turns into boxes, and how.
+#:
+#: LabelMe's own `Shape.shape_type` accepts eight values - `polygon`, `rectangle`, `point`,
+#: `line`, `circle`, `linestrip`, `points` and `mask` - and until `pyplatypus#357` this
+#: reader took the bounding box of a shape's points **whatever the type said**, because
+#: nothing here read the field at all.
+#:
+#: That is right for `rectangle`, `polygon`, `linestrip` and `mask`, whose points bound the
+#: thing they describe. It is wrong for `circle`, which LabelMe stores as **two points, the
+#: centre and one point on the circumference**: `getCircleRectFromLine` in its own
+#: `shape.py` draws `centre ± d` where `d` is the distance between them, so the bounding box
+#: of the two points runs from the centre to the rim. That box has area `|dx dy|` against
+#: the true `4d²`, which is at most **an eighth** of the object - at 45° exactly, and zero
+#: when the rim point is level with or directly above the centre, where `drop_degenerate`
+#: then removes it and `TargetSurvey` counts it under the letterbox.
+#:
+#: And it is meaningless for `point` and `points`, which have no extent: those became
+#: zero-area boxes that the same guard removed, so an annotation made with the wrong tool
+#: vanished with its only trace a `dropped` count.
+_BOUNDED_SHAPES = frozenset({"rectangle", "polygon", "linestrip", "mask"})
+_CIRCLE_SHAPE = "circle"
+#: Types with no extent to turn into a box. Refused by name rather than dropped, because a
+#: user who labelled a cell with the point tool should hear about it before training.
+_EXTENTLESS_SHAPES = frozenset({"point", "points"})
+
+
 def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Annotation:
     """One LabelMe JSON file.
 
     LabelMe draws polygons as well as rectangles. **A polygon becomes its bounding box**,
     which is the only reading detection can use and is stated here because it is a loss:
     the shape is discarded and only its extent survives.
+
+    **`shape_type` is read**, which it was not until `pyplatypus#357`. A `circle` is the
+    centre and a rim point, so its box is `centre ± radius` rather than the extent of those
+    two points - which was an eighth of the object at best and a degenerate sliver at
+    worst. A `point` or `points` shape is refused by name, having no extent to box. A
+    `line` is taken as its extent, which is what it is.
     """
     file = Path(path)
     try:
@@ -147,9 +179,36 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
             )
         # LabelMe's coordinates are already continuous, and its two rectangle points are
         # opposite corners in no guaranteed order.
-        boxes.append(
-            [points[:, 0].min(), points[:, 1].min(), points[:, 0].max(), points[:, 1].max()]
-        )
+        kind = str(shape.get("shape_type") or "polygon").strip()
+        if kind in _EXTENTLESS_SHAPES:
+            raise DetectionError(
+                f"'{file}' has a shape labelled '{name}' of type '{kind}', which marks a "
+                "position rather than an extent and cannot become a box. Re-draw it as a "
+                "rectangle, a polygon or a circle."
+            )
+        if kind == _CIRCLE_SHAPE:
+            # Two points, the centre and one on the circumference, which is LabelMe's own
+            # reading - `getCircleRectFromLine` draws `centre ± d`. Taking their extent
+            # instead gave a box from the centre to the rim. `pyplatypus#357`.
+            if points.shape[0] != 2:
+                raise DetectionError(
+                    f"'{file}' has a circle labelled '{name}' with {points.shape[0]} points; "
+                    "LabelMe stores a circle as its centre and one point on the rim"
+                )
+            centre, rim = points[0], points[1]
+            radius = float(np.hypot(*(rim - centre)))
+            boxes.append(
+                [
+                    centre[0] - radius,
+                    centre[1] - radius,
+                    centre[0] + radius,
+                    centre[1] + radius,
+                ]
+            )
+        else:
+            boxes.append(
+                [points[:, 0].min(), points[:, 1].min(), points[:, 0].max(), points[:, 1].max()]
+            )
         indices.append(labels.index(name))
         names.append(name)
 

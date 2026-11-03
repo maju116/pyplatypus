@@ -40,20 +40,36 @@ _LABEL_MODE = "I"
 #: pixel, and `convert` scales it to 0 and 255, so a mask storing 0 and 1 arrived as 0 and
 #: 255 - which `labels: [0, 1]` then reads as one class present and one absent.
 #:
-#: `_LABEL_MODE` alone was not enough for either: `#346` widened the conversion and these
-#: two are mangled *before* any width is involved. `pyplatypus#353`.
-_STORED_VALUE_MODES = frozenset({"P", "1"})
+#: `"F"` is 32-bit float, and `convert("I")` **truncates towards zero** rather than
+#: rounding: a mask storing 0.9999 for class 1 read as 0, one class down, at an unmatched
+#: share of exactly 0.0. `labels_to_classes` compares values to within half a unit for
+#: precisely this reason and never got the chance, because the truncation happens first.
+#: The docstring promising that "a 32-bit TIFF keeps the values it stores" covers a float
+#: TIFF, and did not. `pyplatypus#361`.
+#:
+#: `_LABEL_MODE` alone was not enough for any of the three: `#346` widened the conversion
+#: and these are reinterpreted *before* any width is involved. `pyplatypus#353`.
+_STORED_VALUE_MODES = frozenset({"P", "1", "F"})
 
 
 def _stored_values(handle: Image.Image) -> Image.Image:
     """The file's own numbers as an integer image, for a mode `convert` would reinterpret.
 
     Built rather than converted, so the resize and the `asarray` below are reached by one
-    path for every mode. `np.asarray` on a `"P"` handle gives the indices and on a `"1"`
-    handle gives booleans; int32 is `_LABEL_MODE`'s own width, so nothing is clipped on the
-    way through.
+    path for every mode. `np.asarray` on a `"P"` handle gives the indices, on a `"1"` handle
+    gives booleans, and on an `"F"` handle gives float32; int32 is `_LABEL_MODE`'s own
+    width, so nothing is clipped on the way through.
+
+    **A float label map is ROUNDED, not truncated**, which is the whole of `pyplatypus#361`:
+    a class written as 0.9999 by whatever produced the file is class 1, and `astype` alone
+    would make it 0. Rounding here rather than reading it as float and leaving the half-unit
+    tolerance to `labels_to_classes` keeps the dtype this function promises, and the two
+    agree on every value either of them resolves.
     """
-    return Image.fromarray(np.asarray(handle).astype(np.int32), mode="I")
+    array = np.asarray(handle)
+    if np.issubdtype(array.dtype, np.floating):
+        array = np.rint(array)
+    return Image.fromarray(array.astype(np.int32), mode="I")
 
 
 #: The formats `Image.open` is allowed to dispatch to, and the reason there is a list at all:

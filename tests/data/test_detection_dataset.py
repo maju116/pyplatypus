@@ -120,7 +120,7 @@ def test_a_box_covers_the_object_it_labels(tmp_path, voc_sample):
 
 def test_one_sample_is_one_example_with_three_grids(tmp_path, voc_sample):
     voc_sample(tmp_path, "one", [(20, 24, 60, 64)], [0])
-    image, targets = build(tmp_path)[0]
+    image, targets, _ = build(tmp_path)[0]
 
     assert image.shape == (128, 128, 3)
     assert len(targets) == 3
@@ -135,7 +135,7 @@ def test_one_sample_is_one_example_with_three_grids(tmp_path, voc_sample):
 def test_the_target_holds_the_object(tmp_path, voc_sample):
     """Objectness somewhere, and in exactly one slot: a box is placed once."""
     voc_sample(tmp_path, "one", [(20, 24, 60, 64)], [0])
-    _, targets = build(tmp_path)[0]
+    _, targets, _ = build(tmp_path)[0]
     placed = sum(int((target[..., 4] > 0.5).sum()) for target in targets)
     assert placed == 1
 

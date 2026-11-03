@@ -480,7 +480,15 @@ def available_optimizers() -> list[dict[str, Any]]:
 
 
 def available_callbacks() -> list[dict[str, Any]]:
-    """The callbacks you can name under `callbacks`. The same set for either task.
+    """The callbacks you can name under `callbacks`. The same set for every task.
+
+    **What they may WATCH is not the same set**, which this docstring implied and
+    `pyplatypus#358` paid for. Every task accepts every callback here, and each model's
+    `monitorable` decides which quantities its `monitor` and `when` may name: a
+    segmentation epoch reports `foreground` and a classification or detection epoch does
+    not, so `terminate_on_collapse` - whose default monitor is `val_foreground` - is listed
+    here and refused by both of those. Ask the model rather than this listing before
+    writing a `monitor`.
 
     Returns:
         One row per callback: the name, the arguments it accepts, and what it is for.
