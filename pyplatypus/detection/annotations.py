@@ -147,8 +147,10 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
     **`shape_type` is read**, which it was not until `pyplatypus#357`. A `circle` is the
     centre and a rim point, so its box is `centre ± radius` rather than the extent of those
     two points - which was an eighth of the object at best and a degenerate sliver at
-    worst. A `point` or `points` shape is refused by name, having no extent to box. A
-    `line` is taken as its extent, which is what it is.
+    worst, and it is **clipped to the frame**, which a polygon or a rectangle never needs.
+    A `point` or `points` shape is refused by name, having no extent to box - and the type
+    is read before the point count, or that refusal is unreachable for a one-point `point`.
+    A `line` is taken as its extent, which is what it is.
     """
     file = Path(path)
     try:
@@ -171,20 +173,26 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
                     f"list {labels}. Add it, or pass strict_labels=False."
                 )
             continue
-        points = np.asarray(shape.get("points", []), dtype=float)
-        if points.ndim != 2 or points.shape[0] < 2 or points.shape[1] != 2:
-            raise DetectionError(
-                f"'{file}' has a shape labelled '{name}' with points of shape "
-                f"{points.shape}; a box needs at least two (x, y) pairs"
-            )
         # LabelMe's coordinates are already continuous, and its two rectangle points are
         # opposite corners in no guaranteed order.
+        #
+        # THE TYPE IS READ BEFORE THE POINT COUNT, and that order is the whole of
+        # `pyplatypus#365`: a LabelMe `point` holds exactly ONE pair, so a count check
+        # first refused it as a malformed box and the by-name refusal below could only
+        # ever be reached by `points`. The reader this message is written for - somebody
+        # who labelled a cell with the point tool - is the one who never saw it.
         kind = str(shape.get("shape_type") or "polygon").strip()
         if kind in _EXTENTLESS_SHAPES:
             raise DetectionError(
                 f"'{file}' has a shape labelled '{name}' of type '{kind}', which marks a "
                 "position rather than an extent and cannot become a box. Re-draw it as a "
                 "rectangle, a polygon or a circle."
+            )
+        points = np.asarray(shape.get("points", []), dtype=float)
+        if points.ndim != 2 or points.shape[0] < 2 or points.shape[1] != 2:
+            raise DetectionError(
+                f"'{file}' has a shape labelled '{name}' with points of shape "
+                f"{points.shape}; a box needs at least two (x, y) pairs"
             )
         if kind == _CIRCLE_SHAPE:
             # Two points, the centre and one on the circumference, which is LabelMe's own
@@ -197,12 +205,19 @@ def read_labelme(path, labels: list[str], *, strict_labels: bool = True) -> Anno
                 )
             centre, rim = points[0], points[1]
             radius = float(np.hypot(*(rim - centre)))
+            # CLIPPED to the annotated frame, unlike a polygon or a rectangle, whose
+            # points are inside it by construction. `centre ± radius` is not: a circle
+            # drawn against an edge reaches past it, and nothing downstream clips a truth
+            # - `drop_degenerate` only removes a box with no area and `encode` places
+            # whatever it is given. Without this, a configured augmenter clipped it and an
+            # unaugmented run did not, so one annotation gave two different targets.
+            # `pyplatypus#365`.
             boxes.append(
                 [
-                    centre[0] - radius,
-                    centre[1] - radius,
-                    centre[0] + radius,
-                    centre[1] + radius,
+                    max(centre[0] - radius, 0.0),
+                    max(centre[1] - radius, 0.0),
+                    min(centre[0] + radius, float(width)),
+                    min(centre[1] + radius, float(height)),
                 ]
             )
         else:

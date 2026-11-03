@@ -220,8 +220,15 @@ def test_labelme_coordinates_are_left_alone(tmp_path):
 
 
 def test_a_labelme_shape_with_one_point_is_refused(tmp_path):
+    """A BOUNDED type with too few points, which is what the count check is for.
+
+    This test asked the same question of `shape_type: "point"` until `pyplatypus#365`, and
+    passed - because the count check ran first and refused it generically. So the test was
+    holding the defect in place: it asserted the message the reader should not have got,
+    for the one shape `_EXTENTLESS_SHAPES` names.
+    """
     file = labelme_file(
-        tmp_path / "a.json", [{"label": "RBC", "points": [[10, 10]], "shape_type": "point"}]
+        tmp_path / "a.json", [{"label": "RBC", "points": [[10, 10]], "shape_type": "polygon"}]
     )
     with pytest.raises(DetectionError, match="at least two"):
         read_labelme(file, LABELS)
@@ -332,3 +339,65 @@ def test_a_labelme_shape_with_no_extent_is_refused_by_name(tmp_path):
         tmp_path / "legacy.json", [{"label": "WBC", "points": [[10, 20], [50, 60]]}]
     )
     assert read_labelme(legacy, LABELS).boxes[0].tolist() == [10, 20, 50, 60]
+
+
+def test_a_one_point_point_shape_is_refused_BY_NAME(tmp_path):
+    """The order of two checks, which is all `pyplatypus#365` is.
+
+    LabelMe's `point` holds exactly one pair, so a point-count check ahead of the
+    `shape_type` dispatch refused it as a malformed box - and the by-name message, written
+    for somebody who labelled a cell with the point tool, was reachable only through
+    `points`. The type is read first now.
+    """
+    one = labelme_file(
+        tmp_path / "one.json",
+        [{"label": "RBC", "shape_type": "point", "points": [[50, 50]]}],
+    )
+    with pytest.raises(DetectionError, match="marks a position rather than an extent"):
+        read_labelme(one, LABELS)
+
+    # The control: `points`, which has enough pairs to survive the count check, was always
+    # refused this way and still is - so the fix is the order and not the message.
+    several = labelme_file(
+        tmp_path / "several.json",
+        [{"label": "RBC", "shape_type": "points", "points": [[50, 50], [60, 60]]}],
+    )
+    with pytest.raises(DetectionError, match="marks a position rather than an extent"):
+        read_labelme(several, LABELS)
+
+    # The second control is `test_a_labelme_shape_with_one_point_is_refused` above: a
+    # bounded type with one point still fails on the count, so this is the order of two
+    # checks rather than "every short shape is extentless".
+
+
+def test_a_circle_against_the_edge_is_clipped_to_the_frame(tmp_path):
+    """`centre ± radius` reaches outside the image, where a polygon's points cannot.
+
+    Nothing downstream clips a truth, so an unaugmented run trained on the overhang while
+    a configured augmenter clipped it - one annotation, two targets. `pyplatypus#365`.
+    """
+    edge = labelme_file(
+        tmp_path / "edge.json",
+        [{"label": "RBC", "shape_type": "circle", "points": [[4, 50], [14, 50]]}],
+        width=100,
+        height=100,
+    )
+    assert read_labelme(edge, LABELS).boxes[0].tolist() == [0, 40, 14, 60]
+
+    far = labelme_file(
+        tmp_path / "far.json",
+        [{"label": "RBC", "shape_type": "circle", "points": [[96, 50], [106, 50]]}],
+        width=100,
+        height=100,
+    )
+    assert read_labelme(far, LABELS).boxes[0].tolist() == [86, 40, 100, 60]
+
+    # The control: a circle with room on every side is untouched, so this is a clip and
+    # not a rescaling of every circle.
+    inside = labelme_file(
+        tmp_path / "inside.json",
+        [{"label": "RBC", "shape_type": "circle", "points": [[50, 50], [60, 50]]}],
+        width=100,
+        height=100,
+    )
+    assert read_labelme(inside, LABELS).boxes[0].tolist() == [40, 40, 60, 60]

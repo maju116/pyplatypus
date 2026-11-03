@@ -584,3 +584,63 @@ def test_the_term_list_is_what_the_loss_actually_breaks_out():
     assert TERMS == declared[1:], (
         f"the term list and what the loss breaks out disagree: {TERMS} against {declared[1:]}"
     )
+
+
+def test_the_collate_keeps_each_IMAGE_S_own_boxes():
+    """`pyplatypus#366`: the third link of `#359`'s thread, which nothing held.
+
+    `_collate_detection` builds `boxes` as a list because the count is ragged per image,
+    and the list is positional - element `i` is image `i`'s truth. Reversing it passed 95
+    tests, and what it would do is hand every image another image's objects, so the ignore
+    mask protects the wrong cells in every batch of more than one.
+
+    The real collate is used rather than this file's `batched` helper, because the helper
+    is a second implementation of the same correspondence and would agree with itself.
+    """
+    from pyplatypus.training.torch_data import _collate_detection
+
+    left = encoded_image([[10, 10, 40, 40]], [0])
+    right = encoded_image([[200, 200, 260, 260]], [1])
+    rows = [
+        (torch.zeros(3, SIZE, SIZE), tuple(one.targets[grid][0] for grid in range(3)), one.boxes)
+        for one in (left, right)
+    ]
+
+    _, _, boxes = _collate_detection(rows)
+    assert len(boxes) == 2
+    torch.testing.assert_close(boxes[0], left.boxes)
+    torch.testing.assert_close(boxes[1], right.boxes)
+    # The control: the two images' boxes are different, so a reversal has somewhere wrong
+    # to put them. Without it, two fixtures with equal truths would satisfy the above.
+    assert not torch.equal(left.boxes, right.boxes)
+
+
+def test_an_epoch_notices_when_the_boxes_belong_to_the_other_image():
+    """The same link one level up, so a future change cannot move the order past a helper.
+
+    Two images whose objects are in different corners, so swapping the two box lists
+    changes which cells the ignore mask covers in each - and therefore `no_object`.
+    Without this, the correspondence would be asserted only where it is implemented.
+
+    Measured while writing it: two *colliding* fixtures one pixel apart, which is what this
+    test was built on first, give the same number either way. The question is where the
+    objects are, not whether a box failed to be placed.
+    """
+    left = encoded_image([[10, 10, 40, 40]], [0])
+    right = encoded_image([[200, 200, 260, 260]], [1])
+    _, targets, boxes = batched([left, right])
+
+    torch.manual_seed(0)
+    prediction = [torch.randn_like(target) for target in targets]
+    # 0.2 rather than the default, measured: two images this far apart give a gap of
+    # 7.4e-03 at 0.2 and 4.5e-06 at 0.5, where the mask barely bites and the test would
+    # rest on the last digits of a float.
+    loss = Yolo3Loss(anchors=ANCHORS, n_class=3, ignore_threshold=0.2)
+
+    in_order = loss(prediction, targets, boxes).as_dict()["no_object"]
+    swapped = loss(prediction, targets, list(reversed(boxes))).as_dict()["no_object"]
+    assert in_order != pytest.approx(swapped, rel=1e-4)
+
+    # The control: the objects really are in different places, which is what makes a swap
+    # a different question rather than a different arrangement of the same answer.
+    assert not torch.equal(left.boxes, right.boxes)

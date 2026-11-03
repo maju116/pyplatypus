@@ -65,7 +65,11 @@ class GridParts:
     objectness: float
     no_object: float
     classes: float
-    #: The clamped object count this grid divided `coordinates`, `objectness` and `classes` by.
+    #: The objects this grid divided `coordinates`, `objectness` and `classes` by. It was
+    #: described here as *clamped* until `pyplatypus#362` - the `clamp(min=1)` was removed
+    #: in `#352`, because every division by this count happens inside `if has_object.any()`
+    #: where the sum is at least one by construction, so the clamp protected nothing and
+    #: made a batch with an empty grid report a loss that depended on `batch_size`.
     objects: float
     #: The punished cells `no_object` was averaged over. Zero when the grid punished none,
     #: in which case that term is zero too and contributes nothing either way.
