@@ -29,6 +29,33 @@ _PIL_MODE = {1: "L", 3: "RGB", 4: "RGBA"}
 #: this way would stop being normalised. `pyplatypus#346`.
 _LABEL_MODE = "I"
 
+#: The modes whose stored numbers are **indices rather than brightness**, so `convert` would
+#: answer a question about the palette or the bit depth instead of about the file. For these
+#: a label map is read from the raw pixels and converted afterwards.
+#:
+#: `"P"` stores one palette index per pixel, which for a segmentation mask IS the class -
+#: Pascal VOC's masks are stored this way and several annotation tools write them so.
+#: `convert` expands the palette first and returns the luminance of each index's colour, so
+#: indices 0, 1, 2 came back as 0, 38, 75 against a VOC-like palette. `"1"` is one bit per
+#: pixel, and `convert` scales it to 0 and 255, so a mask storing 0 and 1 arrived as 0 and
+#: 255 - which `labels: [0, 1]` then reads as one class present and one absent.
+#:
+#: `_LABEL_MODE` alone was not enough for either: `#346` widened the conversion and these
+#: two are mangled *before* any width is involved. `pyplatypus#353`.
+_STORED_VALUE_MODES = frozenset({"P", "1"})
+
+
+def _stored_values(handle: Image.Image) -> Image.Image:
+    """The file's own numbers as an integer image, for a mode `convert` would reinterpret.
+
+    Built rather than converted, so the resize and the `asarray` below are reached by one
+    path for every mode. `np.asarray` on a `"P"` handle gives the indices and on a `"1"`
+    handle gives booleans; int32 is `_LABEL_MODE`'s own width, so nothing is clipped on the
+    way through.
+    """
+    return Image.fromarray(np.asarray(handle).astype(np.int32), mode="I")
+
+
 #: The formats `Image.open` is allowed to dispatch to, and the reason there is a list at all:
 #: PIL identifies a file by its CONTENT and not by its name, so without this every decoder it
 #: ships is reachable from any path a specification names. One of them, the EPS plugin, hands
@@ -142,7 +169,12 @@ def read_image(
 
     try:
         with Image.open(path, formats=READABLE_FORMATS) as handle:
-            picture = handle.convert(mode)
+            source = (
+                _stored_values(handle)
+                if label_map and handle.mode in _STORED_VALUE_MODES
+                else handle
+            )
+            picture = source.convert(mode)
             if size is not None:
                 if len(size) != 2:
                     raise ImageError(f"2D readers take a (height, width), got {tuple(size)}")

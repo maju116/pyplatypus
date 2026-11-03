@@ -265,3 +265,181 @@ def test_two_worker_runs_at_one_seed_still_agree(tiny_root_for_workers):
     assert _four_hashes(tiny_root_for_workers, workers=2) == _four_hashes(
         tiny_root_for_workers, workers=2
     )
+
+
+@pytest.fixture
+def detection_root_for_workers(tmp_path, voc_sample):
+    """Four **identical** annotated images, for the detector's half of the same question.
+
+    `detection_root` varies its boxes by index on purpose - anchors need shapes to fit -
+    which is exactly what a test about two workers drawing one sequence must not do.
+    """
+    for split in ("train", "valid"):
+        for n in range(4):
+            voc_sample(tmp_path / split, f"s{n}", [(10, 10, 50, 50), (96, 20, 130, 34)], [0, 1])
+    return tmp_path
+
+
+def _four_detection_hashes(root, detection_classes, *, workers: int, seed: int = 3):
+    """The detector's `_four_hashes`: one epoch's images, hashed, through `workers` processes."""
+    import hashlib
+
+    from pyplatypus import build_engine
+    from pyplatypus.training.torch_data import make_detection_loader
+
+    config = {
+        "task": "object_detection",
+        "seed": seed,
+        "data": {
+            "train_path": str(root / "train"),
+            "validation_path": str(root / "valid"),
+            "classes": list(detection_classes),
+        },
+        "models": [
+            {
+                "name": "d",
+                "input_shape": [128, 128],
+                "epochs": 1,
+                "batch_size": 1,
+                "anchors_per_grid": 2,
+                "optimizer": {"name": "adam", "learning_rate": 1e-3},
+                # Always fires, and it moves the pixels rather than their values: a
+                # transform with `p < 1` would make an unaugmented sample look like a
+                # worker drawing the same thing as its neighbour.
+                "augmentation": [{"name": "Affine", "params": {"rotate": [-40, 40], "p": 1}}],
+            }
+        ],
+    }
+    engine = build_engine(from_dict(config), device="cpu")
+    base = engine.dataset(engine.spec.models[0], "train", augmented=True)
+    loader = make_detection_loader(base, batch_size=1, num_workers=workers)
+    return [hashlib.sha1(images.numpy().tobytes()).hexdigest()[:8] for images, _ in loader]
+
+
+def test_two_detection_workers_do_not_draw_the_same_augmentations(
+    detection_root_for_workers, detection_classes
+):
+    """The half of `pyplatypus#341`'s worker fix the detector was left out of.
+
+    `reseed_augmentation_in_worker` asks the augmenter for a `reseed` by name and returns
+    silently when there is none. `AlbumentationsBoxAugmenter` had none, so the hook was
+    attached to `make_detection_loader` and did nothing for every release from `0.8.0a58`
+    to `0.8.0a59`, and **no test in the suite could fail on it**: removing the hook from
+    this loader left all 2731 tests green. `pyplatypus#351`.
+
+    Measured on four identical images at `num_workers = 2`: before the method existed the
+    four outputs arrived as two identical pairs - `39af39b6, 39af39b6, fabb8142, fabb8142` -
+    because the loader hands alternating indices to the two workers and each drew from the
+    same generator state. The zero-worker reading is the control that the rotation is what
+    varies them at all.
+    """
+    one = _four_detection_hashes(detection_root_for_workers, detection_classes, workers=0)
+    assert len(set(one)) == 4, "the box pipeline did not vary within one process"
+
+    two = _four_detection_hashes(detection_root_for_workers, detection_classes, workers=2)
+    assert len(set(two)) == 4, f"two detection workers drew the same sequence: {two}"
+
+
+def test_two_detection_worker_runs_at_one_seed_still_agree(
+    detection_root_for_workers, detection_classes
+):
+    """And the detector repeats, which is what stops the test above being satisfied by a clock."""
+    assert _four_detection_hashes(
+        detection_root_for_workers, detection_classes, workers=2
+    ) == _four_detection_hashes(detection_root_for_workers, detection_classes, workers=2)
+
+
+def test_a_reseed_keeps_the_boxes_on_the_object(detection_classes):
+    """A reseed must not leave the box processor behind, which is not free to assume.
+
+    The box pipeline is built with `bbox_params` inside a `warnings.catch_warnings()`, so
+    a reseed that reset the image transform's generator and not the processor's state
+    would move the picture and leave the boxes where they were - a silent mislabelling
+    rather than a crash. Asserted by giving one object a frame to sit in and demanding that
+    the returned box still contains the pixels that moved.
+    """
+    from pyplatypus.data.augmentation import build_box_augmenter
+    from pyplatypus.spec.components import AugmentationStep
+
+    augmenter = build_box_augmenter(
+        [AugmentationStep(name="HorizontalFlip", params={"p": 1.0})],
+        input_shape=(64, 64),
+        seed=1,
+    )
+    image = np.zeros((64, 64, 3), np.uint8)
+    image[10:20, 4:14] = 255  # one bright square near the left edge
+    boxes = np.array([[4, 10, 14, 20]], dtype=np.float32)
+    labels = np.array([0], dtype=np.int64)
+
+    augmenter.reseed(99)
+    out_image, out_boxes, out_labels = augmenter(image, boxes, labels)
+
+    x0, y0, x1, y1 = (round(float(v)) for v in out_boxes[0])
+    inside = out_image[y0:y1, x0:x1]
+    assert inside.max() == 255, "the box no longer covers the object after a reseed"
+    # The control: a flip did happen, so this is not passing because nothing moved.
+    assert x0 >= 32, f"HorizontalFlip did not move the box, it is still at {out_boxes[0]}"
+    assert list(out_labels) == [0]
+
+
+@pytest.fixture
+def labelled_root_for_workers(tmp_path):
+    """One directory per class, four **identical** pictures in each."""
+    picture = np.arange(24 * 24 * 3, dtype=np.uint8).reshape(24, 24, 3)
+    for name in ("benign", "malignant"):
+        where = tmp_path / name
+        where.mkdir(parents=True)
+        for n in range(4):
+            Image.fromarray(picture).save(where / f"{n:04d}.png")
+    return tmp_path
+
+
+def _classification_hashes(root, *, workers: int, seed: int = 3):
+    """The classifier's `_four_hashes`. Eight identical pictures, one rotation, batch of one."""
+    import hashlib
+
+    from pyplatypus.classification_engine import ClassificationEngine
+    from pyplatypus.training.torch_data import make_classification_loader
+
+    config = {
+        "task": "classification",
+        "seed": seed,
+        "data": {
+            "train_path": str(root),
+            "classes": ["benign", "malignant"],
+            "split": {"fractions": [0.75, 0.25], "group_by": None, "seed": 0},
+        },
+        "models": [
+            {
+                "name": "c",
+                "input_shape": [16, 16],
+                "blocks": 2,
+                "filters": 4,
+                "epochs": 1,
+                "batch_size": 1,
+                "optimizer": {"name": "adam", "learning_rate": 0.01},
+                "augmentation": [{"name": "Rotate", "params": {"limit": 90, "p": 1.0}}],
+            }
+        ],
+    }
+    engine = ClassificationEngine(from_dict(config))
+    base = engine.dataset("c", "train", augment=True)
+    loader = make_classification_loader(base, batch_size=1, num_workers=workers)
+    return [hashlib.sha1(images.numpy().tobytes()).hexdigest()[:8] for images, _ in loader]
+
+
+def test_two_classification_workers_do_not_draw_the_same_augmentations(
+    labelled_root_for_workers,
+):
+    """The third loader carrying the hook, and the third one nothing held.
+
+    `AlbumentationsAugmenter` does have `reseed`, so this path was never broken - and it
+    was never asserted either: removing `worker_init_fn` from `make_classification_loader`
+    left the whole suite green, exactly as it did for the detector. A working mechanism with
+    no test is one release away from the detector's case. `pyplatypus#351`.
+    """
+    one = _classification_hashes(labelled_root_for_workers, workers=0)
+    assert len(set(one)) == len(one), "the pipeline did not vary within one process"
+
+    two = _classification_hashes(labelled_root_for_workers, workers=2)
+    assert len(set(two)) == len(two), f"two classification workers drew the same sequence: {two}"

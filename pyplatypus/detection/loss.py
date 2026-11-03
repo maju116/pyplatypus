@@ -287,13 +287,27 @@ class Yolo3Loss(nn.Module):
         # `punish` is computed above the branch, so it is in scope either way: when nothing
         # was punished its sum is zero, which is the honest denominator for a term that is
         # also zero and contributes nothing to either pooling.
+        #
+        # THE OBJECT COUNT IS THE UNCLAMPED ONE, for exactly that reason, and recording
+        # `count` here instead was `pyplatypus#352`: a batch with no object at this scale
+        # contributed 0 to the numerator and **1** to the denominator, so every reported
+        # term - and the `val_loss` three callbacks watch - was deflated by
+        # `objects / (objects + empty batch-grids)` and became a function of `batch_size`.
+        # Measured through `fit()` on a frozen model, two images each occupying one scale:
+        # `val_loss` 6.58010 at `batch_size 1` against 11.04327 at 2. With a box at every
+        # scale in every image the same probe gives 16.46951 against 16.46593, which is the
+        # control that says this was the clamp rather than the batching.
+        #
+        # The clamp stays where it divides and protects nothing there either: `count` is a
+        # divisor only inside `if has_object.any()`, where the sum is at least 1 by
+        # construction. It could never have prevented a division by zero.
         cells = float(punish.sum().item())
         counted = GridParts(
             coordinates=float(coordinates.detach().item()),
             objectness=float(objectness.detach().item()),
             no_object=float(no_object.detach().item()),
             classes=float(classes.detach().item()),
-            objects=float(count.item()),
+            objects=float(has_object.sum().item()),
             cells=cells,
         )
         return coordinates, objectness, no_object, classes, counted

@@ -179,3 +179,57 @@ def test_the_mask_check_sees_a_class_above_255(wide_label_root):
     assert report.unmatched == 0.0
     assert report.present_classes == [0, 1, 2]
     assert report.missing_classes == []
+
+
+@pytest.fixture
+def palettised_label_root(tmp_path):
+    """One sample whose mask is a mode-`P` PNG with class indices 0, 1 and 2.
+
+    The shape a VOC-style mask arrives in, and the one `#346`'s widening could not reach:
+    the palette is expanded before any width matters. The colours are deliberately nothing
+    like the indices, so a luminance read cannot agree for the wrong reason.
+    """
+    from PIL import Image
+
+    root = tmp_path / "data" / "s0"
+    (root / "images").mkdir(parents=True)
+    (root / "masks").mkdir(parents=True)
+    Image.fromarray(np.zeros((64, 64, 3), np.uint8)).save(root / "images" / "i.png")
+
+    indices = np.zeros((64, 64), np.uint8)
+    indices[:20] = 1
+    indices[20:40] = 2
+    handle = Image.fromarray(indices, mode="P")
+    palette: list[int] = []
+    for index in range(256):
+        palette += [(index * 37) % 256, (index * 17) % 256, (index * 97) % 256]
+    handle.putpalette(palette)
+    handle.save(root / "masks" / "m.png")
+    return tmp_path / "data"
+
+
+def test_a_palettised_label_map_reaches_the_target_as_three_classes(palettised_label_root):
+    """The way a user reaches it, which is what `#353` owed beyond the reader's own test.
+
+    Before the fix the three bands read as 0, 37 and 74 - the palette's luminance - so with
+    `labels = [0, 1, 2]` two of the three classes were absent and the band that should have
+    been class 1 matched nothing.
+    """
+    from pyplatypus.spec.data import SegmentationData
+
+    data = SegmentationData(
+        train_path=str(palettised_label_root),
+        validation_path=str(palettised_label_root),
+        labels=[0, 1, 2],
+    )
+    samples = discover(palettised_label_root, data).samples
+    dataset = SegmentationDataset(samples, make_model(), data)
+
+    _, mask = dataset[0]
+    assert mask.shape == (64, 64, 3)
+    assert mask[:20, :, 1].all() and mask[20:40, :, 2].all() and mask[40:, :, 0].all()
+
+    report = dataset.inspect_masks()
+    assert report.unmatched == 0.0
+    assert report.present_classes == [0, 1, 2]
+    assert report.missing_classes == []

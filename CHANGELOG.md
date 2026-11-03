@@ -1,6 +1,96 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a60] - 2026-11-03
+
+**The reviewer's fifth pass. Three findings, and all three are places a FIX left a case
+behind - two of them `0.8.0a58`'s and `0.8.0a59`'s own.**
+
+### Fixed
+
+ - **Every detection loader worker drew the same augmentation sequence**, because
+   `AlbumentationsBoxAugmenter` had no `reseed` for the worker hook to call.
+   `pyplatypus#351`. `reseed_augmentation_in_worker` asks with
+   `getattr(augmenter, "reseed", None)` and returns silently when there is none, so the
+   hook `0.8.0a58` attached to `make_detection_loader` did nothing - and its own docstring
+   names exactly this as the thing it prevents.
+
+   Measured on four **identical** images through the real `make_detection_loader` at
+   `batch_size 1`, so a difference between samples can only be the augmentation:
+
+        0 workers:  cfc3f34b  64642260  27dfd7dc  550d94f4    4 distinct (the control)
+        2 workers:  39af39b6  39af39b6  fabb8142  fabb8142    2 distinct, in lockstep pairs
+
+   The control that the hook itself was sound is the classification loader, whose augmenter
+   does have the method: 12 distinct of 12 at two workers.
+
+   **`reseed` is DECLARED on both protocols now, which is the part that outlives this
+   release.** The hook asks for a method by name, so an augmenter without one was never a
+   type error - it was a run that quietly drew one sequence in every worker. `Augmenter`
+   and `BoxAugmenter` both name it, and the docstring says why it is declared rather than
+   only implemented.
+
+   And three tests where there was one: the detector's lockstep, the detector's
+   reproducibility at one seed, and the **classification** half, which was never broken and
+   was never asserted either - removing its hook left the whole suite green, exactly as the
+   detector's did. A working mechanism with no test is one release from the detector's case.
+
+ - **A detection epoch's reported loss depended on `batch_size` whenever a grid was empty
+   in some batch.** `pyplatypus#352`. `GridParts.objects` recorded
+   `has_object.sum().clamp(min=1)`, so a batch with no object at one scale contributed 0 to
+   that grid's numerator and **1** to its denominator.
+
+   Measured through `fit()` with `learning_rate = 1e-12`, so the weights never move and both
+   runs score the same model on the same two images, each occupying one scale:
+
+        term            batch_size 1   batch_size 2   ratio
+        train_loss         7.99074       11.60114     1.4518
+        val_loss           6.58010       11.04327     1.6783
+
+   The control, with a box at every scale in every image so no grid is ever empty:
+   16.46951 against 16.46593, which is 0.02% and says the clamp was the mechanism rather
+   than the batching.
+
+   **The clamp protected nothing and the file said as much two lines below.** `count` is a
+   divisor only inside `if has_object.any()`, where the sum is at least 1 by construction;
+   the sibling denominator `cells` already recorded an honest zero, with a comment calling
+   it *"the honest denominator for a term that is also zero"*. And the trainer was already
+   written for it - its pooling skips a zero divisor and says why.
+
+   **Why nothing caught it is the part that transfers**: the invariance test for this exact
+   property existed, and the limitation was written into the test module's own docstring and
+   designed around - `three_sizes` gives every image a box at every scale *"so no grid is
+   ever empty"*. A limitation stated in a docstring is not a limitation that had to exist.
+   The new test puts an empty grid in some batch and carries the control that the case is
+   present, because without it the test passes on any fixture whose grids happen to be full.
+
+ - **A palettised or bilevel mask read as a label map returned palette luminance or 0 and
+   255 rather than the file's own values.** `pyplatypus#353`. `_LABEL_MODE` widened the
+   conversion in `0.8.0a59` and these two modes are reinterpreted *before* any width is
+   involved: `convert` expands a palette first, and scales one bit per pixel to the full
+   range.
+
+        mode P    stored 0, 1, 2, 15  ->  read 0, 32, 64, 182      the palette's luminance
+        mode 1    stored 0, 0, 1, 1   ->  read 0, 0, 255, 255      the bit depth
+        mode L, I, I;16               ->  read exactly              the controls
+
+   A mode-`P` mask with class indices is what Pascal VOC ships and what several annotation
+   tools write; `rplatypus` carries that palette as `voc_colormap`. The bilevel case was
+   **not in the report** - it came out of scanning the modes while scoping the fix, and it
+   predates `#346` rather than arriving with it.
+
+   `_STORED_VALUE_MODES` names the two and a label map is read from the raw pixels for them.
+   The `colormap` route is untouched and asserted per pixel: a `colormap` user's file is a
+   picture of classes and the palette is how it says which is which.
+
+### The R half
+
+**The pin, and nothing else.** All three are defects an R user meets **through the pin moving
+and by nothing else** - `#351` above all, since `platypus_fit(num_workers = "auto")` resolves
+to `min(4, cores - 1)`, so an augmented detector trained from R drew a quarter of the
+transforms it believed it drew. R's `read_masks(labels = )` already forwards `label_map`, so
+`#353` reaches it with no R change. §1 records that distinction at `0.8.0a47`.
+
 ## [0.8.0a59] - 2026-11-02
 
 **The reviewer's fourth pass: the four gates, then the data readers one floor below

@@ -65,6 +65,19 @@ class Augmenter(Protocol):
         self, image: np.ndarray, mask: np.ndarray | None = None
     ) -> tuple[np.ndarray, np.ndarray | None]: ...
 
+    def reseed(self, seed: int) -> None:
+        """Start this augmenter's sequence again from `seed`.
+
+        DECLARED here rather than only implemented, because the loader's worker hook asks
+        for it with `getattr(augmenter, "reseed", None)` and does nothing when it is
+        absent - so an augmenter without it is not a type error, it is a run that quietly
+        draws one sequence in every worker. That is what `pyplatypus#351` was: the box
+        augmenter never had the method, the hook was attached to the detection loader, and
+        nothing failed. A protocol that names it is the only thing here that makes the
+        omission visible before a measurement does.
+        """
+        ...
+
 
 class BoxAugmenter(Protocol):
     """Takes an image and its boxes, returns both transformed."""
@@ -72,6 +85,10 @@ class BoxAugmenter(Protocol):
     def __call__(
         self, image: np.ndarray, boxes: np.ndarray, labels: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
+
+    def reseed(self, seed: int) -> None:
+        """Start this augmenter's sequence again from `seed`. See `Augmenter.reseed`."""
+        ...
 
 
 class AlbumentationsAugmenter:
@@ -330,6 +347,27 @@ class AlbumentationsBoxAugmenter:
             # `pyplatypus#341`. See `build_box_augmenter` for the measurement.
             self._pipeline = albumentations.Compose(built, bbox_params=self._params, seed=seed)
         _refuse_transforms_without_boxes(albumentations, steps, built, self._params, input_shape)
+
+    def reseed(self, seed: int) -> None:
+        """Start the pipeline's sequence again from `seed`.
+
+        The same method `AlbumentationsAugmenter` carries and for the same reason, which is
+        the half of `pyplatypus#341` this class was left out of: a loader worker is forked
+        with a copy of this object, generator state included, so without this every worker
+        draws the **same** sequence. `reseed_augmentation_in_worker` asks for this method by
+        name and returns silently when it is absent, so the detector's hook was attached and
+        did nothing for every release between `0.8.0a58` and `0.8.0a59`. `pyplatypus#351`.
+
+        Measured on four identical images through `make_detection_loader` at `batch_size 1`:
+        two workers drew 2 distinct augmentations of 4 before this existed and 4 of 4 after,
+        against 4 of 4 with no workers either way.
+
+        The boxes travel with the pixels across a reseed, which is not free to assume: the
+        pipeline is built with `bbox_params`, so a reseed that left the box processor behind
+        would move the picture and not the boxes. `test_a_reseed_keeps_the_boxes_on_the_object`
+        is that assertion.
+        """
+        self._pipeline.set_random_seed(seed)
 
     def __call__(
         self, image: np.ndarray, boxes: np.ndarray, labels: np.ndarray
