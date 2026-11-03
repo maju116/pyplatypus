@@ -11,11 +11,20 @@ So the epoch pools by what the loss divided by, and the property that buys is th
 tests assert: **the same examples report the same epoch however they are grouped into
 batches.**
 
-One subtlety decides the fixtures below. The object count is `clamp(min=1)`, so a batch with
-no object in some grid contributes a denominator of 1 rather than 0 - and then regrouping
-*can* move the total. Exact invariance therefore holds when every batch has something in
-every grid, which is what `three_sizes` is for: one small, one medium and one large box per
-image, so each lands in a different scale.
+One subtlety used to decide the fixtures below, and it was a defect rather than a subtlety.
+This docstring said: *the object count is `clamp(min=1)`, so a batch with no object in some
+grid contributes a denominator of 1 rather than 0 - and then regrouping can move the total.
+Exact invariance therefore holds when every batch has something in every grid, which is what
+`three_sizes` is for.* So the limitation was written down and designed around: `three_sizes`
+gives every image a box at every scale **so no grid is ever empty**, and the invariance test
+below could not see the one case where invariance failed.
+
+`pyplatypus#352` removed it. The clamp protected nothing - `count` is a divisor only inside
+`if has_object.any()`, where the sum is at least 1 by construction - so the recorded count is
+the true one now and an empty grid contributes nothing to either side of the pooling.
+`test_an_epoch_is_the_same_when_a_grid_is_empty_in_some_batch` is the case the old fixture
+avoided, and `three_sizes` stays because a fixture where two denominators are proportional
+cannot tell which one the code used.
 """
 
 import pytest
@@ -259,3 +268,52 @@ def test_one_batch_reproduces_the_loss_exactly():
             f"computed {direct[term]}"
         )
     assert epoch["val_loss"] == pytest.approx(direct["loss"], rel=1e-6)
+
+
+def one_scale(offset: int, side: int) -> list[torch.Tensor]:
+    """One image with a single box, so it occupies ONE grid and leaves the other two empty.
+
+    The fixture `three_sizes` was written to avoid; `pyplatypus#352` is what it was avoiding.
+    """
+    boxes = [[offset + 10, offset + 10, offset + 10 + side, offset + 10 + side]]
+    encoded = encode(boxes, [0], anchors=ANCHORS, input_shape=(SIZE, SIZE), n_class=3)
+    return [torch.from_numpy(t)[None] for t in encoded.targets]
+
+
+def occupied_grids(image: list[torch.Tensor]) -> list[int]:
+    """Which grids this image actually has an object in, counted the way the loss counts."""
+    return [index for index, target in enumerate(image) if bool((target[..., 4] > 0.5).any())]
+
+
+def test_an_epoch_is_the_same_when_a_grid_is_empty_in_some_batch():
+    """The case the invariance above was calibrated to avoid. `pyplatypus#352`.
+
+    A batch with no object at some scale used to contribute 0 to that grid's numerator and
+    **1** to its denominator, because the recorded object count was `clamp(min=1)`. So every
+    reported term was deflated by `objects / (objects + empty batch-grids)` and the epoch
+    became a function of `batch_size` - the exact property these tests exist to deny, on the
+    exact data their fixture excluded.
+
+    Measured through `fit()` on a frozen model before the fix, two images each occupying one
+    scale: `val_loss` 6.58010 at `batch_size 1` against 11.04327 at 2. With a box at every
+    scale in every image the same probe gave 16.46951 against 16.46593, which is the control
+    that said this was the clamp and not the batching.
+    """
+    coarse = one_scale(0, 160)
+    fine = one_scale(40, 18)
+
+    # THE CONTROL THAT THE CASE IS PRESENT. Without this the test passes on any fixture
+    # whose grids all happen to be occupied, which is how the invariance test above stayed
+    # green through the defect for as long as it existed.
+    assert occupied_grids(coarse) != occupied_grids(fine), (
+        "both images occupy the same grids, so no batching leaves one empty and this test "
+        f"is asking nothing: {occupied_grids(coarse)} and {occupied_grids(fine)}"
+    )
+
+    apart = epoch_over([[coarse], [fine]])
+    together = epoch_over([[coarse, fine]])
+
+    for key in apart:
+        assert apart[key] == pytest.approx(together[key], rel=1e-6), (
+            f"{key} moved with the batching on an empty grid: {apart[key]} against {together[key]}"
+        )

@@ -162,3 +162,79 @@ def test_a_label_map_with_several_channels_is_refused(tmp_path):
     write_png(tmp_path / "p.png", np.zeros((4, 4, 3)))
     with pytest.raises(ImageError, match="label map has one channel"):
         read_image(tmp_path / "p.png", channels=3, label_map=True)
+
+
+def _voc_like_palette() -> list[int]:
+    """A palette whose colours are nothing like the indices, which is the whole point.
+
+    A palette where entry `k` happens to be grey `(k, k, k)` would make a luminance read
+    agree with an index read, and then nothing below could fail.
+    """
+    palette: list[int] = []
+    for index in range(256):
+        palette += [(index * 37) % 256, (index * 17) % 256, (index * 97) % 256]
+    return palette
+
+
+def _write_palettised(path, indices):
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = Image.fromarray(indices, mode="P")
+    handle.putpalette(_voc_like_palette())
+    handle.save(path)
+    return handle
+
+
+def test_a_palettised_label_map_reads_its_indices_rather_than_its_palette(tmp_path):
+    """A mode-`P` mask stores one index per pixel and the index IS the class.
+
+    Pascal VOC's segmentation masks are stored this way and `rplatypus` ships that palette
+    as `voc_colormap`, so this is the format a reader meets rather than a corner of PIL.
+    `convert` expands the palette before widening anything, so `#346`'s fix did not reach
+    it: indices 0, 1, 2, 15 came back as 0, 32, 64, 182 against the palette below.
+    `pyplatypus#353`.
+    """
+    indices = np.array([[0, 1, 2, 15], [20, 255, 0, 1]], dtype=np.uint8)
+    _write_palettised(tmp_path / "p.png", indices)
+
+    read = read_image(tmp_path / "p.png", channels=1, nearest=True, label_map=True)
+    assert read[..., 0].tolist() == indices.tolist()
+
+
+def test_the_colormap_route_still_expands_a_palette(tmp_path):
+    """The control for the test above, and the thing its fix must not break.
+
+    A `colormap` user's file is a picture of classes and the palette is how it says which
+    is which, so that route has to keep returning colours. Asserted per pixel rather than
+    on the first one, which is index 0 and black in most palettes - a reading that agrees
+    for the wrong reason.
+    """
+    indices = np.array([[0, 1], [2, 3]], dtype=np.uint8)
+    _write_palettised(tmp_path / "p.png", indices)
+    palette = _voc_like_palette()
+
+    rgb = read_image(tmp_path / "p.png", channels=3, nearest=True)
+    for row in range(2):
+        for column in range(2):
+            index = int(indices[row, column])
+            assert rgb[row, column].tolist() == palette[3 * index : 3 * index + 3]
+
+
+def test_a_bilevel_label_map_reads_0_and_1_rather_than_0_and_255(tmp_path):
+    """One bit per pixel, which `convert` scales to the full range.
+
+    A binary mask written as a 1-bit PNG - which is what several tools do to save space -
+    stores 0 and 1 and arrived as 0 and 255, so `labels: [0, 1]` read class 1 as absent on
+    every row. Found while scoping `#353`'s fix rather than in the report: the mode was
+    mangled before `#346` too, by `convert("L")`, so it is the same defect on a mode
+    nobody had looked at.
+    """
+    from PIL import Image
+
+    values = np.array([[0, 1], [1, 0]], dtype=np.uint8)
+    Image.fromarray(values * 255, mode="L").convert("1").save(tmp_path / "b.png")
+    assert Image.open(tmp_path / "b.png").mode == "1", "the fixture is not bilevel"
+
+    read = read_image(tmp_path / "b.png", channels=1, nearest=True, label_map=True)
+    assert read[..., 0].tolist() == values.tolist()
