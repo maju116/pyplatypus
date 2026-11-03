@@ -1768,7 +1768,7 @@
     },
     "DiceMetric": {
       "additionalProperties": false,
-      "description": "The number to report unless there is a reason not to.\n\nScored on the mask rather than on the objective, so a Dice-trained and a focal-trained\nmodel are comparable. It ranks models identically to `iou`, so reporting both is one\nresult twice; `smooth` and `include_background` are what make it flatter or honest.",
+      "description": "The number to report unless there is a reason not to.\n\nScored on the mask rather than on the objective, so a Dice-trained and a focal-trained\nmodel are comparable. `smooth` and `include_background` are what make it flatter or\nhonest.\n\n**It does not rank models identically to `iou`**, which this docstring said until\n`pyplatypus#360`: the identity between the two holds per class and per image, and a\nreport is a mean over both. See `IouMetric` for the measurement and for what that costs\na reader who was told the two are one result twice.",
       "properties": {
         "include_background": {
           "default": true,
@@ -2817,7 +2817,7 @@
     },
     "IouLoss": {
       "additionalProperties": false,
-      "description": "Dice's harsher twin: the same ordering, a lower number.\n\nWithout smoothing the coefficient is exactly `dice / (2 - dice)`, which is strictly\nincreasing - measured here over twelve predictions, the two rank them identically. So\nthe choice is about which number you want to read, not which model you get. As a loss\nthe gradients still differ, and whether that changes a trained model is not measured.",
+      "description": "Dice's harsher twin: the same coefficient, a lower number.\n\nWithout smoothing the coefficient is exactly `dice / (2 - dice)`, which is strictly\nincreasing - so **per class and per image** the two order predictions alike.\n\n**Averaged over classes they can disagree**, which this docstring said they could not\nuntil `pyplatypus#360`: the mean of a convex function is not that function of the mean,\nand over 121 predictions of one three-class fixture 204 pairs swap places. The claim\nthat stood here rested on twelve predictions that happened not to cross. As a loss the\ngradients differ too, and whether that changes a trained model is still not measured.",
       "properties": {
         "name": {
           "const": "iou",
@@ -2839,7 +2839,7 @@
     },
     "IouMetric": {
       "additionalProperties": false,
-      "description": "The same ordering as Dice, on the scale papers outside medicine use.\n\nWithout smoothing it is exactly `dice / (2 - dice)`, measured here, so it adds no\ninformation to a report that already carries Dice - it is the convention of the\naudience rather than a second opinion.",
+      "description": "Dice's coefficient on the scale papers outside medicine use.\n\nWithout smoothing the **coefficient** is exactly `dice / (2 - dice)`, measured here and\nasserted elementwise by `test_iou_is_exactly_a_function_of_dice_per_class`.\n\n**What a report carries is not that coefficient**, and this docstring claimed the wrong\nthing until `pyplatypus#360`. `SegmentationMetric.reduce` ends in `per_class.mean()`,\nand `d / (2 - d)` is convex, so the mean of the IoUs is not that function of the mean\nDice: two models whose per-class scores are spread differently can be ordered one way\nby Dice and the other by IoU. Measured over 121 predictions of one three-class fixture,\n**204 pairs rank the other way round** - and applying the identity to a reported Dice of\n0.6000 predicts 0.5000 where the metric reports 0.6000.\n\nSo this is a harsher restatement of the same coefficient and the conventional number\nfor an audience outside medicine. It is not a second opinion, and it is not the same\nanswer either: `early_stopping` watching `val_iou` and one watching `val_dice` can\nselect different epochs on one run.",
       "properties": {
         "include_background": {
           "default": true,

@@ -1001,7 +1001,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="pyplatypus.available_callbacks" class="level1">
 <h1>available_callbacks</h1>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>available_callbacks()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The callbacks you can name under <code>callbacks</code>. The same set for either task.</p>
+<p>The callbacks you can name under <code>callbacks</code>. The same set for every task.</p>
+<p><strong>What they may WATCH is not the same set</strong>, which this docstring implied and <code>pyplatypus#358</code> paid for. Every task accepts every callback here, and each model’s <code>monitorable</code> decides which quantities its <code>monitor</code> and <code>when</code> may name: a segmentation epoch reports <code>foreground</code> and a classification or detection epoch does not, so <code>terminate_on_collapse</code> - whose default monitor is <code>val_foreground</code> - is listed here and refused by both of those. Ask the model rather than this listing before writing a <code>monitor</code>.</p>
 <section id="returns" class="level2 doc-section doc-section-returns">
 <h2 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h2>
 <table class="caption-top table">
