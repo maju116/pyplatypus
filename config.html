@@ -1432,6 +1432,11 @@ A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave 
 <code>true</code> or <code>false</code> — <code>false</code>
 Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
 </dd>
+<dt><code>normalise</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — unset
+Normalise the input with the backbone’s own ImageNet statistics. Defaults to <code>pretrained</code>, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH <code>pretrained: false</code>, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone’s configuration and need no download, while the weights themselves are yours. Setting it false with <code>pretrained: true</code> is the other direction and is allowed for the same reason - it is recorded in the weights’ fingerprint either way, so a mismatch is refused by name rather than silently predicting something else.
+</dd>
 <dt><code>encoder_learning_rate</code></dt>
 <dd>
 a number — unset
@@ -1737,6 +1742,11 @@ A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave 
 <code>true</code> or <code>false</code> — <code>false</code>
 Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
 </dd>
+<dt><code>normalise</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — unset
+Normalise the input with the backbone’s own ImageNet statistics. Defaults to <code>pretrained</code>, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH <code>pretrained: false</code>, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone’s configuration and need no download, while the weights themselves are yours. Setting it false with <code>pretrained: true</code> is the other direction and is allowed for the same reason - it is recorded in the weights’ fingerprint either way, so a mismatch is refused by name rather than silently predicting something else.
+</dd>
 <dt><code>encoder_learning_rate</code></dt>
 <dd>
 a number — unset
@@ -2010,6 +2020,11 @@ A timm backbone to use as the contracting path, e.g.&nbsp;‘resnet34’. Leave 
 <dd>
 <code>true</code> or <code>false</code> — <code>false</code>
 Load the encoder’s ImageNet weights. Separate from <code>encoder</code> on purpose: naming a backbone builds that architecture, and this is the flag that reaches the network, which matters where there is no network.
+</dd>
+<dt><code>normalise</code></dt>
+<dd>
+<code>true</code> or <code>false</code> — unset
+Normalise the input with the backbone’s own ImageNet statistics. Defaults to <code>pretrained</code>, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH <code>pretrained: false</code>, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone’s configuration and need no download, while the weights themselves are yours. Setting it false with <code>pretrained: true</code> is the other direction and is allowed for the same reason - it is recorded in the weights’ fingerprint either way, so a mismatch is refused by name rather than silently predicting something else.
 </dd>
 <dt><code>encoder_learning_rate</code></dt>
 <dd>
