@@ -275,15 +275,33 @@ def _fetch_sidecar(repo_id: str, path: str, revision: str) -> dict | None:
     them for that would make the `hf://` form useless. Ours always carry it.
     """
     from huggingface_hub import hf_hub_download
-    from huggingface_hub.errors import EntryNotFoundError
+    from huggingface_hub.errors import EntryNotFoundError, LocalEntryNotFoundError
 
     stem = path.rsplit(".", 1)[0]
     name = f"{stem}{SIDECAR_SUFFIX}"
     try:
         local = hf_hub_download(repo_id=repo_id, filename=name, revision=revision)
+    except LocalEntryNotFoundError as error:
+        # **BEFORE the clause below, and the order is the whole fix.** In
+        # `huggingface_hub` 2.4.0 this class's MRO is `LocalEntryNotFoundError,
+        # FileNotFoundError, OSError, EntryNotFoundError, …` - so it IS an
+        # `EntryNotFoundError`, and catching that first read "I could not reach the file
+        # and it is not cached" as "this repository publishes no description". That is the
+        # one case `pyplatypus#371` was written for, and it was the one case `#371` could
+        # not see. `pyplatypus#379`.
+        raise WeightsError(
+            f"the weights for '{repo_id}/{path}' are here but '{name}' beside them could "
+            f"not be fetched and is not in the cache: {error}. That file is what says which "
+            f"classes and colormap these weights are for, so loading without it would skip "
+            f"the checks that catch weights trained for a different meaning. If this is a "
+            f"deliberately offline run, fetch the sidecar once with a network - every name "
+            f"in this registry publishes one, so its absence here is never the repository's "
+            f"answer."
+        ) from None
     except EntryNotFoundError:
         # The repository genuinely carries no description. That is the case this function
-        # is optional for, and the only one.
+        # is optional for, and the only one - somebody else's weights, not following our
+        # convention. Reached only when the hub answered and said the file is not there.
         return None
     except Exception as error:  # noqa: BLE001 - the hub client raises many things
         # NOT the same thing. A timeout or a 5xx on the JSON, after the weights themselves

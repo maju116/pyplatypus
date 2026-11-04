@@ -4,7 +4,7 @@ The naive version of this function is one line - `yaml.safe_dump(spec.to_dict())
 produces a file that looks like the original and quietly stops doing what the original did.
 A model given `weights` and no `architecture` adopts the architecture from the weights
 sidecar, and the adoption fires on `architecture` **not being in** `model_fields_set`
-(`engine.py`, `detection_engine.py`). Dumping defaults sets all 29 fields, so it can never
+(`engine.py`, `detection_engine.py`). Dumping defaults sets all 30 fields, so it can never
 fire again.
 
 So the test that matters is not "the file parses". It is that `model_fields_set` survives,
@@ -116,12 +116,12 @@ def test_the_adoption_a_naive_dump_would_break(tmp_path: Path):
 
 
 def test_what_the_two_modes_write(tmp_path: Path):
-    """The measurement in platypus#120 and in the docstring: two fields against 29."""
+    """The measurement in platypus#120 and in the docstring: two fields against 30."""
     spec = minimal()
     lean = yaml.safe_load(save_spec(spec, tmp_path / "lean.yaml").read_text())
     frozen = yaml.safe_load(save_spec(spec, tmp_path / "frozen.yaml", defaults=True).read_text())
     assert sorted(lean["models"][0]) == ["input_shape", "name"]
-    assert len(frozen["models"][0]) == 29
+    assert len(frozen["models"][0]) == 30
     assert lean["task"] == frozen["task"] == "semantic_segmentation"
 
 

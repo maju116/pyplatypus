@@ -13,6 +13,7 @@ import pytest
 from pyplatypus.detection import (
     COCO_THRESHOLDS,
     average_precision,
+    decode,
     detection_report,
     iou_matrix,
     match_detections,
@@ -589,3 +590,47 @@ def test_a_duplicate_may_claim_the_NEXT_unclaimed_truth_which_is_COCOS_rule_not_
     # difficult. The control is a duplicate with no second truth to fall back on.
     _, alone, _, _ = match_detections([claiming, duplicate], [0.9, 0.8], [first], iou_threshold=0.5)
     assert list(alone) == [True, False]
+
+
+def test_a_box_is_dropped_by_the_score_it_is_REPORTED_with_not_by_its_objectness():
+    """`pyplatypus#382`. `score_threshold`'s description in both packages says "discard a
+    predicted box below this confidence", and `decode` gated `sigmoid(objectness)` while
+    reporting `sigmoid(objectness) * max(class sigmoid)` - a smaller number. So `predict()`
+    returned boxes scored below the threshold the caller asked for.
+
+    The second cut loses nothing: `max(class) <= 1`, so the score never exceeds the
+    objectness and the gate is an exact prefilter rather than a different question.
+    Measured on the published `bccd-yolo3` over its 72 held-out images: 2,771 predictions
+    become 2,537 and `map_50` is 0.857075 either way, to six decimals.
+    """
+
+    def logit(p):
+        return float(np.log(p / (1 - p)))
+
+    def one_cell(objectness, best_class):
+        raw = np.zeros((1, 1, 1, 6), dtype=np.float32)
+        raw[0, 0, 0] = [0.0, 0.0, 0.0, 0.0, logit(objectness), logit(best_class)]
+        return [raw]
+
+    def decoded(objectness, best_class, threshold=0.5):
+        _, scores, _ = decode(
+            one_cell(objectness, best_class),
+            anchors=(((0.5, 0.5),),),
+            input_shape=(32, 32),
+            n_class=1,
+            objectness=threshold,
+            strides=(32,),
+            raw=True,
+        )
+        return scores
+
+    # The case: objectness clears the threshold, the reported score does not.
+    assert decoded(0.6, 0.1).size == 0
+    # The control that this is a cut and not a refusal of everything: a box whose reported
+    # score clears the threshold survives, and is reported with that score.
+    kept = decoded(0.9, 0.8)
+    assert kept.size == 1
+    assert kept[0] == pytest.approx(0.72, abs=1e-6)
+    # And the prefilter is lossless rather than merely cheap: at a threshold below the
+    # product, the same cell comes back.
+    assert decoded(0.6, 0.1, threshold=0.05).size == 1

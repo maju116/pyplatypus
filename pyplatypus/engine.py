@@ -1301,6 +1301,7 @@ def _encoder_for(spec: SegmentationModel) -> PretrainedEncoder | None:
         blocks=spec.blocks,
         filters=spec.filters,
         pretrained=spec.pretrained,
+        normalise=spec.normalise,
         rank=spec.rank,
         width=spec.block_width,
         batch_norm=spec.batch_normalization,

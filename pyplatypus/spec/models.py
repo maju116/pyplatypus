@@ -350,6 +350,21 @@ class EncoderModel(ModelSpec):
             "reaches the network, which matters where there is no network."
         ),
     )
+    normalise: bool | None = Field(
+        None,
+        description=(
+            "Normalise the input with the backbone's own ImageNet statistics. Defaults to "
+            "`pretrained`, which is what it meant before it was a field, so leaving it "
+            "unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, "
+            "which is the only way to reload weights you exported from a pretrained "
+            "encoder without a network: the statistics come from the backbone's "
+            "configuration and need no download, while the weights themselves are yours. "
+            "Setting it false with `pretrained: true` is the other direction and is "
+            "allowed for the same reason - it is recorded in the weights' fingerprint "
+            "either way, so a mismatch is refused by name rather than silently predicting "
+            "something else."
+        ),
+    )
 
     encoder_learning_rate: float | None = Field(
         None,
@@ -373,6 +388,20 @@ class EncoderModel(ModelSpec):
         ),
     )
 
+    @property
+    def normalises_input(self) -> bool:
+        """Whether the built encoder normalises its input, as one question with one answer.
+
+        `normalise` defaults to `pretrained` so that every specification written before the
+        field existed resolves to what it did then - and an encoder is needed either way,
+        because the statistics belong to a backbone. This is what the fingerprint records,
+        so a reload has to agree about the *effect* rather than about how it was asked for:
+        `pretrained: false, normalise: true` is the offline reload `pyplatypus#381` exists
+        for, and it matches a file exported under `pretrained: true`.
+        """
+        asked = self.pretrained if self.normalise is None else self.normalise
+        return bool(asked and self.encoder is not None)
+
     def weights_fingerprint(self) -> dict:
         """Adds the two settings that change what the network computes without changing a shape.
 
@@ -391,7 +420,7 @@ class EncoderModel(ModelSpec):
         return {
             **super().weights_fingerprint(),
             "activation": getattr(self.activation, "value", self.activation),
-            "input_normalised": bool(self.pretrained and self.encoder is not None),
+            "input_normalised": self.normalises_input,
         }
 
     @model_validator(mode="after")

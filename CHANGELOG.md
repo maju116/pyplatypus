@@ -1,6 +1,94 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a65] - 2026-11-04
+
+**The reviewer's ninth pass. Two of its four findings are defects the eighth pass's own
+fixes carried in, which is the second release running with that shape.**
+
+### Fixed
+
+ - **The sidecar fix was undone offline, by one line of class hierarchy.**
+   `pyplatypus#379`.
+
+   `#371` separated "this repository publishes no description" from "the description could
+   not be fetched" so that the second raises. In `huggingface_hub` 2.4.0,
+   `LocalEntryNotFoundError`'s MRO is `LocalEntryNotFoundError, FileNotFoundError, OSError,
+   **EntryNotFoundError**, …` - so the benign clause caught the offline error first and the
+   raise never saw it. Reproduced with the real client, an empty `HF_HOME` and
+   `HF_HUB_OFFLINE=1`: the fetch raises `LocalEntryNotFoundError`, `_fetch_sidecar` returns
+   `None`, and a `colormap` of `[[9,9,9],[1,2,3]]` loads without a word. So the fix was
+   undone for precisely the user it was written for.
+
+   Caught before `EntryNotFoundError` now, with the subclass relationship asserted in the
+   test rather than assumed - if it ever stops being true, the test passes for the wrong
+   reason otherwise.
+
+ - **The multi-frame refusal read only the header.** `pyplatypus#380`.
+
+   `#372` refused on `NumberOfFrames`. A file whose **pixel data** holds frames while the
+   tag is absent or says 1 went down the old path and came back as the picture `#372` was
+   about: four 8x8 frames as a `(4, 8, 1)` image whose rows read 0, 21845, 43690, 65535.
+   pydicom warns that the data is bigger than the tag claims and hands the array over
+   anyway, so the reader was proceeding on data it had been told was suspect.
+
+   Decided from the array now: three dimensions with one sample per pixel is frames
+   whatever the header says, and three dimensions with three samples is one colour frame,
+   which is the control. The header still goes in the message, because somebody fixing
+   their file needs to know what it claims.
+
+ - **`score_threshold` cut on objectness while the box was reported with
+   `objectness x max(class)`.** `pyplatypus#382`.
+
+   The field's description, in this package and in R's `@param`, says *"discard a predicted
+   box below this confidence"*. Measured on one cell at `score_threshold = 0.5`: objectness
+   0.6 with best class 0.10 was **kept and reported at 0.0600**, while objectness 0.4 with
+   best class 0.99 - which would report 0.3960 - was dropped.
+
+   **The repair is exact rather than a trade**, and that is the part worth keeping: since
+   `max(class) <= 1`, the score never exceeds the objectness, so the existing gate is a
+   lossless prefilter and the only thing missing was the second cut on the reported score.
+   Nothing extra is computed and no box that should survive is lost.
+
+   **Measured on the published figure before shipping**, because `bccd-yolo3`'s card quotes
+   `mAP@0.5 0.857` and `_reports` builds it from `predict` at the default threshold of
+   0.01. The published weights over their own 72 held-out images:
+
+        predictions kept     2771  ->  2537      234 dropped, 8.4%
+        map_50               0.857075  ->  0.857075
+        map_50_95            0.500337  ->  0.500337
+        mean_matched_iou     0.805806  ->  0.805806
+
+   Identical to six decimals, which is the strong form of what the issue could only guess
+   at: the boxes this drops are in the tail that the precision-recall envelope ignores.
+
+### Added
+
+ - **`normalise`, so that weights exported from a pretrained encoder can be reloaded
+   without a network.** `pyplatypus#381`.
+
+   `#370` made `input_normalised` part of the fingerprint, which stopped a silent reload
+   into a model that does not normalise - and left no third option, because the
+   normalisation existed only under `pretrained: true`. Reloading your own weights then
+   meant downloading ImageNet weights to overwrite them, and offline it could not be done
+   at all.
+
+   The field defaults to `pretrained`, so every specification written before it resolves to
+   what it did then, and the fingerprint records the **effect** rather than how it was asked
+   for. `pretrained: false, normalise: true` is the offline reload, and it matches a file
+   exported under `pretrained: true`.
+
+   What makes it cheap is measured rather than assumed: the statistics come from the
+   backbone's configuration and not from its weights. Offline, with an empty `HF_HOME`,
+   `PretrainedEncoder("resnet18", pretrained=False, normalise=True)` gives mean
+   `0.485/0.456/0.406` and std `0.229/0.224/0.225`, and the old default still does not
+   normalise.
+
+### The R half
+
+ - Nothing beyond the pin. `#382` changes what `predict()` returns, which an R user meets
+   through the pin, and `#381` adds a field R forwards without needing to know about.
+
 ## [0.8.0a64] - 2026-11-04
 
 **Two things the eighth pass's day named and deliberately left until the pass was over.**
