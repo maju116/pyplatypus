@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a63"
+version = "0.8.0a64"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -95,16 +95,43 @@ dependencies = [
     # figure most readers never see, which is exactly how the weights registry once could
     # not work from R at all.
     "matplotlib>=3.7",
-    # No upper bound on purpose. torch 2.8+ ships CUDA 13 builds, which dropped the
-    # Maxwell, Pascal and Volta generations - a GTX 10-series card needs a CUDA 12.x
-    # build and therefore torch 2.7.x. That is a property of somebody's hardware, not of
-    # this package, so it lives in the `pascal` extra instead of being forced on everyone.
+    # No upper bound on purpose, and the floor **would like to be 2.10 and cannot be**.
+    # CVE-2026-24747 is torch's `weights_only=True` unpickler failing to validate pickle
+    # opcodes and storage metadata below 2.10, which is the call `weights.read_state` reads
+    # a torch archive with - so the honest floor is 2.10 and `pyplatypus#376` is why it is
+    # not here: it would make `pyplatypus[pascal]` unsatisfiable, and removing that cap
+    # instead hands every Pascal user a build with no GPU. `read_state` warns at the moment
+    # it matters instead, which is also the only thing that reaches R's route, where torch
+    # is a transitive dependency and a floor binds nobody.
+    #
+    # **The sentence that stood here was false and the way it was false is worth keeping.**
+    # It said torch 2.8+ ships CUDA 13 builds which dropped Maxwell, Pascal and Volta, so a
+    # GTX 10-series card needs torch 2.7.x. Measured on the cu126 index: wheels exist for
+    # 2.8.0 through 2.14.1, and `2.14.1+cu126` on a GTX 1070 reports `sm_50 sm_60 sm_70
+    # sm_75 sm_80 sm_86 sm_90`, `is_available()` True, the card by name, and a matmul
+    # agreeing with the processor to 9.9e-05. The card is `sm_61` and **no** build lists it;
+    # a cubin serves higher minor revisions of its own generation, so `sm_60` is what
+    # matters. What actually pins the Pascal route is which build PyPI serves **by
+    # default** - see the `pascal` extra.
     "torch>=2.7",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=9.1.1", "pytest-cov", "build", "twine"]
-# For a Pascal-generation GPU (GTX 10-series): the last torch built against CUDA 12.
+# For a Pascal-generation GPU (GTX 10-series). The cap is **not** the last torch that
+# supports Pascal - it is the last torch whose *default PyPI wheel* does, which is a
+# different claim and the true one. An extra can name a version and not an index, and
+# `py_require()` takes no index argument either, so this is the only lever R's route has.
+# Read off PyTorch's `CUDA_STABLE`, with this machine's PyPI-resolved `2.7.1+cu126` as the
+# control: 2.7.1 defaults to CUDA 12.6, 2.9.1 and 2.10.0 to 12.8 - which dropped sm_50 to
+# sm_70 - and 2.14.1 to 13.0. Raising this cap was tried and measured: the next resolution
+# produced `2.14.1+cu130`, `is_available()` False, an arch list starting at `sm_75`, and a
+# silent loss of the GPU.
+#
+# **So this route is knowingly on a torch with CVE-2026-24747**, and the escape is an
+# explicit install rather than a declaration: `torch==2.14.1` from
+# https://download.pytorch.org/whl/cu126 is patched and measured to work on that card.
+# `pyplatypus#376`.
 pascal = ["torch>=2.7,<2.8"]
 # Only needed to fetch published weights by name. Most runs never do, and an air-gapped
 # install cannot, so it is not part of the base install.

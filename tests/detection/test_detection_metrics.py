@@ -319,14 +319,6 @@ def test_the_conventions_used_travel_with_the_result():
     assert report.interpolation == "101"
 
 
-def test_rows_carry_an_overall_line_for_r():
-    truths = [one_image([[0, 0, 10, 10]], [0])]
-    preds = [one_image([[0, 0, 10, 10]], [0], [0.9])]
-    rows = detection_report(preds, truths, labels=["a"]).as_rows()
-    assert rows[-1]["label"] == "all"
-    assert rows[-1]["average_precision"] == pytest.approx(1.0)
-
-
 def test_mismatched_image_counts_are_refused():
     with pytest.raises(DetectionError, match="they must line up"):
         detection_report([one_image([], [], [])], [], labels=["a"])

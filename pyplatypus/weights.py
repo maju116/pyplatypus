@@ -401,7 +401,22 @@ def read_state(path: str | Path) -> dict:
         # dispatch on. Measured: torch 2.7.1 does not do this and CI's 2.14.1 does, which
         # is why every matrix job failed on a suite that was green here.
         #
-        # weights_only=True so that loading a file cannot execute code that came with it.
+        # `weights_only=True` so that the *unpickler* refuses anything but tensors and the
+        # containers around them. **That is not the same as a file being safe to load, and
+        # below torch 2.10 it is not even true**: CVE-2026-24747 is that unpickler failing
+        # to validate pickle opcodes and storage metadata, so `SETITEM` against a
+        # non-dictionary or a storage whose declared length disagrees with the archive can
+        # corrupt the heap and reach code execution. The comment here used to say that this
+        # argument means a file cannot execute code that came with it; it says what the
+        # argument asks for instead. `pyplatypus#376`.
+        #
+        # The warning rather than a refusal is deliberate and the reason is provenance:
+        # `model_checkpoint` writes a torch archive, so refusing one would take away the
+        # reload of a user's own checkpoint - and on a Pascal card the floor cannot be
+        # raised past the vulnerable range at all, because no torch from 2.8 onwards has a
+        # *default* PyPI wheel that serves `sm_60`. Which file is trustworthy is a question
+        # about where it came from, and this function cannot answer it for anybody.
+        _warn_if_unpickler_is_unpatched(torch.__version__, source)
         with source.open("rb") as archive:
             return torch.load(archive, map_location="cpu", weights_only=True)
     if head[_SAFETENSORS_HEADER:] == b"{":
@@ -417,6 +432,44 @@ def read_state(path: str | Path) -> dict:
         f"'{source}' is not weights this package can read: it begins with {head[:8]!r}, "
         "which is neither a safetensors header nor the 'PK' of a torch archive. Both are "
         "recognised by their contents here, so renaming the file will not help."
+    )
+
+
+#: The release that fixed CVE-2026-24747. Below it `weights_only=True` is a request rather
+#: than a guarantee, and `read_state` says so when it reads a torch archive.
+UNPICKLER_PATCHED_IN = (2, 10)
+
+
+def _warn_if_unpickler_is_unpatched(version: str, source: Path) -> None:
+    """Say so when the torch doing the unpickling is one the guarantee does not hold on.
+
+    Asked of the **running** torch rather than left to the version floor, because the floor
+    binds only a caller that names torch: from R's route it is a transitive dependency
+    resolved by uv, and an environment that already holds an older torch is never asked to
+    change. So the only honest place to raise this is the moment a torch archive is actually
+    being read.
+
+    A malformed version string is not a reason to refuse or to stay silent about a real
+    file, so it is treated as unknown and left alone: anything this cannot parse is not a
+    version this package has an opinion about.
+    """
+    try:
+        parts = tuple(int(piece) for piece in version.split("+")[0].split(".")[:2])
+    except ValueError:  # pragma: no cover - a torch that does not number itself
+        return
+    if len(parts) < 2 or parts >= UNPICKLER_PATCHED_IN:
+        return
+    warnings.warn(
+        f"reading '{source.name}' as a torch archive on torch {version}, where "
+        f"`weights_only=True` is not the guarantee it looks like: CVE-2026-24747 is that "
+        f"unpickler failing to validate pickle opcodes and storage metadata, fixed in "
+        f"2.10.0. A crafted checkpoint can corrupt memory and may reach code execution, so "
+        f"load one from somewhere you trust - everything this package publishes is "
+        f"safetensors, which has no such surface - or upgrade torch. On a Pascal card the "
+        f"patched build is `torch==2.14.1` from "
+        f"https://download.pytorch.org/whl/cu126, which PyPI's default wheel is not.",
+        UserWarning,
+        stacklevel=3,
     )
 
 

@@ -1,6 +1,69 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a64] - 2026-11-04
+
+**Two things the eighth pass's day named and deliberately left until the pass was over.**
+One is a CVE in torch that makes a comment in this package false; the other is a method
+nothing calls, whose overall row had quietly stopped matching the rows it summarises.
+
+### Fixed
+
+ - **`read_state` said `weights_only=True` means a file cannot execute code that came with
+   it. CVE-2026-24747 is that sentence being false below torch 2.10**, and the comment now
+   says what the argument actually asks for. `pyplatypus#376`.
+
+   The unpickler did not validate pickle opcodes or storage metadata, so `SETITEM` against a
+   non-dictionary, or a storage whose declared length disagrees with the archive, can corrupt
+   the heap and may reach code execution. CVSS 8.8. This package reads a torch archive -
+   anything beginning `PK`, which is what `model_checkpoint` writes - through exactly that
+   call, and it is reachable by loading somebody else's `.pth` from a path or an `hf://`
+   reference. Everything published here is safetensors, which has no such surface.
+
+   **A warning rather than a refusal, and asked of the running torch rather than left to the
+   version floor.** Refusing would take away the reload of a user's own checkpoint, and which
+   file is trustworthy is a question about where it came from that this function cannot answer
+   for anybody. The floor would not reach the case either: from R's route torch is a
+   *transitive* dependency resolved by uv, so a floor binds nobody there, and an environment
+   that already holds an older torch is never asked to change.
+
+   **The floor stays at `>=2.7` on a measurement, and the manifest's reason for it was
+   wrong.** It claimed torch 2.8+ ships only CUDA 13 builds, dropping Maxwell, Pascal and
+   Volta, so a GTX 10-series card needs 2.7.x. The cu126 index carries 2.8.0 through 2.14.1,
+   and `2.14.1+cu126` on a GTX 1070 reports `sm_50 sm_60 sm_70 sm_75 sm_80 sm_86 sm_90`,
+   `is_available()` True, the card by name, and a 512x512 matmul agreeing with the processor
+   to 9.9e-05 - the card is `sm_61`, no build lists it, and `sm_60` serves it. What really
+   pins that route is which build **PyPI serves by default**: 2.7.1 defaults to CUDA 12.6,
+   2.9.1 and 2.10.0 to 12.8 (which dropped sm_50 to sm_70) and 2.14.1 to 13.0. Raising the
+   floor was tried and measured: the next resolution produced `2.14.1+cu130`,
+   `is_available()` False, an arch list starting at `sm_75`, and a silently lost GPU. So the
+   `pascal` extra keeps its `<2.8` cap, both comments now carry the measurement, and the
+   escape for that hardware is an explicit `--index-url
+   https://download.pytorch.org/whl/cu126` install of `torch==2.14.1`.
+
+### Removed
+
+ - **`DetectionMetrics.as_rows()`.** `pyplatypus#377`.
+
+   `0.8.0a62` added `ignored` to every per-class row of a detection report and not to the
+   overall row this method appends, so a frame built from it carried a missing value in the
+   `all` line. Nothing noticed because **nothing calls the method**: its only caller was the
+   test written for it, and that test was named `test_rows_carry_an_overall_line_for_r` while
+   its docstring said *"the shape R wants"* - and R asks the shim for `evaluate_classes`,
+   which is `DetectionReport.per_class()`, a different projection built field by field.
+
+   Deleted rather than completed. Completing the row leaves a second shape that has to track
+   the first for ever with nothing able to notice when it stops, which is exactly what
+   happened in the only field it ever gained; deleting it makes that drift impossible instead
+   of guarding it. The sentence in `evaluate_classes`' docstring citing it goes with it; the
+   decision it cited - no precision or recall in an overall row - is stated in the paragraph
+   above and stays.
+
+### The R half
+
+ - Nothing beyond the pin. `#376`'s warning is a message an R user sees through the bridge
+   and `#377` removes a surface R never reached.
+
 ## [0.8.0a63] - 2026-11-04
 
 **The reviewer's eighth pass, which read the complement: the four networks, the weights
