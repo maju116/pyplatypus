@@ -957,3 +957,62 @@ def test_a_sidecar_that_fails_to_DOWNLOAD_is_not_a_repo_without_one(fake_hub, mo
     monkeypatch.setattr("huggingface_hub.hf_hub_download", flaky)
     with pytest.raises(WeightsError, match=r"downloaded but 'flaky.json' beside them did not"):
         resolve_weights("hf://someone/else/flaky.safetensors@deadbee")
+
+
+def torch_archive(path, state=None):
+    """A `.pth` the way `model_checkpoint` writes one: a zip, not safetensors."""
+    torch.save(state or {"w": torch.zeros(2)}, path)
+    return path
+
+
+def test_reading_a_torch_archive_on_an_unpatched_torch_says_the_guarantee_does_not_hold(
+    tmp_path, monkeypatch
+):
+    """`pyplatypus#376`, CVE-2026-24747. `weights_only=True` asks the unpickler to refuse
+    anything but tensors, and below torch 2.10 that unpickler does not validate pickle
+    opcodes or storage metadata - so a crafted checkpoint can corrupt memory and may reach
+    code execution. The comment beside this call used to promise the opposite.
+
+    Asked of the **running** torch rather than left to the version floor: from R's route
+    torch is a transitive dependency resolved by uv, and an environment that already holds
+    an older one is never asked to change, so a floor would not reach either."""
+    path = torch_archive(tmp_path / "checkpoint.pth")
+    monkeypatch.setattr(torch, "__version__", "2.7.1+cu126")
+    with pytest.warns(UserWarning, match=r"CVE-2026-24747"):
+        state = read_state(path)
+    # The file still loads. A refusal would take away the reload of a user's own
+    # checkpoint, and on a Pascal card the floor cannot be raised past the vulnerable
+    # range at all.
+    assert set(state) == {"w"}
+
+
+def test_a_patched_torch_reads_the_same_archive_in_SILENCE(tmp_path, monkeypatch):
+    """The other direction, and the reason the warning is not noise: on 2.10.0 and after,
+    `weights_only=True` means what the code says, and a check that fires on correct content
+    is as useless as one that passes on wrong."""
+    path = torch_archive(tmp_path / "checkpoint.pth")
+    for version in ("2.10.0", "2.14.1+cu126", "3.0.0"):
+        monkeypatch.setattr(torch, "__version__", version)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert set(read_state(path)) == {"w"}
+
+
+def test_a_safetensors_file_is_never_warned_about_whatever_torch_is_running(trained, monkeypatch):
+    """The format that has no such surface at all, which is what every published name here
+    uses. The warning belongs to the archive branch and nowhere else."""
+    _, _, path = trained
+    monkeypatch.setattr(torch, "__version__", "2.7.1+cu126")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert read_state(path)
+
+
+def test_a_torch_that_does_not_number_itself_is_left_alone(tmp_path, monkeypatch):
+    """A version string this cannot parse is not a version this package has an opinion
+    about, and a nightly's name is not a reason to refuse a real file or to shout about it."""
+    path = torch_archive(tmp_path / "checkpoint.pth")
+    monkeypatch.setattr(torch, "__version__", "2.dev-nightly")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert set(read_state(path)) == {"w"}

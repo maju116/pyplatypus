@@ -70,26 +70,6 @@ class DetectionMetrics:
     #: this says so in one number instead of through the difference between two.
     mean_matched_iou: float | None = None
 
-    def as_rows(self) -> list[dict[str, Any]]:
-        """One row per class plus an overall row, which is the shape R wants."""
-        rows = list(self.per_class)
-        rows.append(
-            {
-                "label": "all",
-                "class": None,
-                "average_precision": self.mean_average_precision,
-                "n_truth": sum(row["n_truth"] for row in self.per_class),
-                "n_predicted": sum(row["n_predicted"] for row in self.per_class),
-                "true_positives": sum(row["true_positives"] for row in self.per_class),
-                "false_positives": sum(row["false_positives"] for row in self.per_class),
-                "false_negatives": sum(row["false_negatives"] for row in self.per_class),
-                "precision": None,
-                "recall": None,
-                "mean_matched_iou": self.mean_matched_iou,
-            }
-        )
-        return rows
-
 
 def _as_boxes(boxes: Any, *, what: str) -> np.ndarray:
     """An (n, 4) float array, or a readable refusal."""

@@ -748,8 +748,7 @@ class DetectionEngine(EngineBase):
         is a different claim: summed over BCCD's 4155 red cells, 372 white and 361
         platelets, a single precision is a statement about red cells wearing the costume
         of a statement about the model. They are in `evaluate_classes`, per class, which
-        is the only form in which they mean anything. `DetectionMetrics.as_rows` made the
-        same decision - its "all" row leaves both as None.
+        is the only form in which they mean anything.
 
         Args:
             split: Which data to score on.
