@@ -61,6 +61,7 @@ def _encoder_for(spec: ClassificationModel) -> Encoder:
         spec.encoder,
         in_channels=spec.channels,
         pretrained=spec.pretrained,
+        normalise=spec.normalise,
         rank=spec.rank,
         bottleneck_only=True,
     )

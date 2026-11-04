@@ -258,6 +258,7 @@ class PretrainedEncoder(nn.Module):
         blocks: int | None = None,
         filters: int | None = None,
         pretrained: bool = False,
+        normalise: bool | None = None,
         rank: int = 2,
         bottleneck_only: bool = False,
         **stem_options,
@@ -369,9 +370,15 @@ class PretrainedEncoder(nn.Module):
         # A pretrained backbone was fitted on ImageNet-normalised input; windowed medical
         # data is scaled to [0, 1] and nowhere near those statistics. Skipping this
         # throws away much of the transfer and nothing reports it but a worse score.
-        # Applied only with the weights that expect it - on a from-scratch run these
-        # numbers mean nothing.
-        mean, std = self._statistics(self.backbone, in_channels) if pretrained else (None, None)
+        #
+        # **Asked for separately from `pretrained`, and defaulting to it**, because the
+        # statistics come from the backbone's own configuration and not from its weights -
+        # `timm.create_model(name, pretrained=False)` carries them. So they can be applied
+        # with no network, which is the only way to reload weights exported from a
+        # pretrained encoder on a machine that has none: `pyplatypus#381`. On a
+        # from-scratch run the default is still False, where these numbers mean nothing.
+        wanted = pretrained if normalise is None else normalise
+        mean, std = self._statistics(self.backbone, in_channels) if wanted else (None, None)
         self.normalises = mean is not None
         if self.normalises:
             self.register_buffer("mean", mean, persistent=False)

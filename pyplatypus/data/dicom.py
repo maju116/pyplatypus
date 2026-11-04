@@ -101,11 +101,27 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
     # as `(height, width, channels)`: four frames of 8x8 came back as a 4x8 picture whose
     # rows were the frames and whose columns had been averaged away, with no word said.
     # `NumberOfFrames` was in the header the whole time. `pyplatypus#372`.
-    frames = int(getattr(dataset, "NumberOfFrames", 1) or 1)
+    # **Decided from the ARRAY and not from the header**, which is the half `#372` got
+    # wrong: a file whose pixel data holds several frames while `NumberOfFrames` is absent
+    # or says 1 went down the old path and came back as a picture whose rows were the
+    # frames. pydicom warns about the mismatch and hands the array over anyway, so the
+    # reader was proceeding on data it had been told was suspect. `pyplatypus#380`.
+    #
+    # Three dimensions with one sample per pixel is frames; three with three samples is one
+    # colour frame and is what the channel logic below is for. The header still goes in the
+    # message, because somebody fixing their file needs to know what it claims.
+    samples = int(getattr(dataset, "SamplesPerPixel", 1) or 1)
+    declared = int(getattr(dataset, "NumberOfFrames", 1) or 1)
+    frames = stored.shape[0] if (stored.ndim == 3 and samples == 1) else declared
     if frames > 1:
+        says = (
+            f"NumberOfFrames={declared}"
+            if declared > 1
+            else f"NumberOfFrames={declared}, which the pixel data contradicts"
+        )
         raise DicomError(
-            f"'{path}' holds {frames} frames in one file (NumberOfFrames={frames}, "
-            f"SamplesPerPixel={int(getattr(dataset, 'SamplesPerPixel', 1) or 1)}). This "
+            f"'{path}' holds {frames} frames in one file ({says}, "
+            f"SamplesPerPixel={samples}). This "
             f"reader returns one 2D image, and the frames of an enhanced or cine file are "
             f"a volume rather than the channels of a picture: read them with "
             f"`read_dicom_series`, which takes a directory of slices, or split the file "

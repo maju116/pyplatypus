@@ -1016,3 +1016,93 @@ def test_a_torch_that_does_not_number_itself_is_left_alone(tmp_path, monkeypatch
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         assert set(read_state(path)) == {"w"}
+
+
+def test_a_sidecar_that_cannot_be_REACHED_is_not_a_repository_without_one(fake_hub, monkeypatch):
+    """`pyplatypus#379`, and the reason is one line of class hierarchy.
+
+    `#371` separated "published without a description" from "the description could not be
+    fetched" by catching `EntryNotFoundError` and raising on everything else. In
+    `huggingface_hub` 2.4.0 the offline error's MRO is `LocalEntryNotFoundError,
+    FileNotFoundError, OSError, EntryNotFoundError, …` - so it **is** an
+    `EntryNotFoundError`, the first clause caught it, and the fix was undone for exactly
+    the user it was written for: somebody with no network, where the shapes agree and the
+    meanings do not."""
+    from huggingface_hub.errors import EntryNotFoundError, LocalEntryNotFoundError
+
+    # The premise, asserted rather than assumed: if this stops being true the test below
+    # passes for the wrong reason.
+    assert issubclass(LocalEntryNotFoundError, EntryNotFoundError)
+
+    served, _ = fake_hub
+    spec = model_spec()
+    export_weights(build_model(spec, n_class=2), spec, served / "offline.safetensors")
+    real = __import__("huggingface_hub", fromlist=["hf_hub_download"]).hf_hub_download
+
+    def unreachable(repo_id, filename, revision=None, **kwargs):
+        if filename.endswith(".json"):
+            raise LocalEntryNotFoundError("no network and nothing cached")
+        return real(repo_id=repo_id, filename=filename, revision=revision, **kwargs)
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", unreachable)
+    with pytest.raises(WeightsError, match=r"could not be fetched and is not in the cache"):
+        resolve_weights("hf://someone/else/offline.safetensors@deadbee")
+
+
+def test_a_repository_that_really_has_no_sidecar_is_still_fine(fake_hub):
+    """The other direction, and the one the clause order has to preserve: the hub answered,
+    and the answer is that the file is not there. That is the case an optional sidecar
+    exists for - somebody else's weights, not following this convention."""
+    served, _ = fake_hub
+    spec = model_spec()
+    export_weights(build_model(spec, n_class=2), spec, served / "bare2.safetensors")
+    (served / "bare2.json").unlink()
+    assert Path(resolve_weights("hf://someone/else/bare2.safetensors@deadbee")).exists()
+
+
+def test_normalise_is_recorded_as_its_EFFECT_so_an_offline_reload_matches(trained):
+    """`pyplatypus#381`. `#370` made a pretrained encoder's export refuse to load into a
+    model that does not normalise - right, and it left no third option: the normalisation
+    existed only under `pretrained: true`, which downloads ImageNet weights to overwrite
+    them and cannot be done at all without a network.
+
+    `normalise` defaults to `pretrained`, so nothing changes for a specification written
+    before it existed, and `pretrained: false, normalise: true` is the reload."""
+    assert model_spec(encoder="resnet18", pretrained=True).normalises_input is True
+    assert model_spec(encoder="resnet18").normalises_input is False
+    # The pair that makes the offline reload possible: the same recorded effect, asked for
+    # the other way round.
+    offline = model_spec(encoder="resnet18", normalise=True)
+    assert offline.normalises_input is True
+    assert offline.weights_fingerprint()["input_normalised"] is True
+    assert (
+        model_spec(encoder="resnet18", pretrained=True).weights_fingerprint()["input_normalised"]
+        is True
+    )
+    # And the statistics belong to a backbone, so asking for them without one is not a
+    # thing this can promise.
+    assert model_spec(normalise=True).normalises_input is False
+
+
+def test_the_statistics_need_no_DOWNLOAD_which_is_what_makes_the_offline_reload_work(
+    monkeypatch, tmp_path
+):
+    """The measurement `#381` rests on: timm carries a backbone's `default_cfg` without its
+    weights, so `normalise: true` can be honoured with no network. Asserted against the
+    published ImageNet figures, which are what a reader would check."""
+    pytest.importorskip("timm")
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "empty"))
+    from pyplatypus.models.encoders import PretrainedEncoder
+
+    asked = PretrainedEncoder(
+        "resnet18", in_channels=3, blocks=2, filters=8, pretrained=False, normalise=True
+    )
+    assert asked.normalises
+    assert [round(float(v), 3) for v in asked.mean.flatten()] == [0.485, 0.456, 0.406]
+    assert [round(float(v), 3) for v in asked.std.flatten()] == [0.229, 0.224, 0.225]
+    # The control: the old default still does not normalise, so this is a new route rather
+    # than a changed one.
+    assert not PretrainedEncoder(
+        "resnet18", in_channels=3, blocks=2, filters=8, pretrained=False
+    ).normalises

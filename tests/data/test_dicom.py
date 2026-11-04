@@ -311,6 +311,88 @@ def multi_frame(path, frames: int, rows: int = 8, columns: int = 8, samples: int
     return path
 
 
+def frames_the_header_denies(path, frames: int, says, rows: int = 8, columns: int = 8):
+    """Several frames of pixel data under a `NumberOfFrames` that is absent or wrong.
+
+    Malformed, and a real writer produces it: pydicom warns that the pixel data is big
+    enough for more frames than the tag claims, and hands the array over anyway.
+    """
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid
+
+    dataset = Dataset()
+    dataset.file_meta = FileMetaDataset()
+    dataset.file_meta.MediaStorageSOPClassUID = CTImageStorage
+    dataset.file_meta.MediaStorageSOPInstanceUID = generate_uid()
+    dataset.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    dataset.SOPClassUID = CTImageStorage
+    dataset.SOPInstanceUID = generate_uid()
+    dataset.Modality = "CT"
+    dataset.PhotometricInterpretation = "MONOCHROME2"
+    dataset.Rows, dataset.Columns = rows, columns
+    dataset.SamplesPerPixel = 1
+    dataset.BitsAllocated = dataset.BitsStored = 16
+    dataset.HighBit = 15
+    dataset.PixelRepresentation = 0
+    dataset.RescaleIntercept, dataset.RescaleSlope = 0, 1
+    if says is not None:
+        dataset.NumberOfFrames = says
+    pixels = np.zeros((frames, rows, columns), dtype=np.uint16)
+    for frame in range(frames):
+        pixels[frame] = (frame + 1) * 1000
+    dataset.PixelData = pixels.tobytes()
+    dataset.save_as(path, enforce_file_format=True)
+    return path
+
+
+@pytest.mark.filterwarnings("ignore:The number of bytes of pixel data")
+@pytest.mark.parametrize("says", [None, 1], ids=["tag absent", "tag says 1"])
+def test_frames_in_the_data_are_refused_even_when_the_header_denies_them(tmp_path, says):
+    """`pyplatypus#380`. `#372` read `NumberOfFrames` and refused on it; a file whose pixel
+    data holds frames while the tag is absent or says 1 went down the old path and came
+    back as the `(4, 8, 1)` picture whose rows were the frames - the exact result `#372`
+    was about. The decision is made from the array now, and the header goes in the message
+    because somebody fixing their file needs to know what it claims."""
+    path = frames_the_header_denies(tmp_path / f"denied-{says}.dcm", frames=4, says=says)
+    with pytest.raises(DicomError, match=r"holds 4 frames in one file"):
+        read_dicom(path)
+    with pytest.raises(DicomError, match=r"which the pixel data contradicts"):
+        read_dicom(path)
+
+
+def test_a_colour_frame_is_three_samples_and_not_three_frames(tmp_path):
+    """The control for reading the array rather than the header: three dimensions are
+    frames only when there is one sample per pixel. An RGB frame is also three-dimensional
+    and is a picture, which is what the channel logic exists for - and `multi_frame` writes
+    one frame's worth of pixels, so this one is written here with three samples of it."""
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
+
+    dataset = Dataset()
+    dataset.file_meta = FileMetaDataset()
+    dataset.file_meta.MediaStorageSOPClassUID = SecondaryCaptureImageStorage
+    dataset.file_meta.MediaStorageSOPInstanceUID = generate_uid()
+    dataset.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    dataset.SOPClassUID = SecondaryCaptureImageStorage
+    dataset.SOPInstanceUID = generate_uid()
+    dataset.Modality = "OT"
+    dataset.PhotometricInterpretation = "RGB"
+    dataset.PlanarConfiguration = 0
+    dataset.Rows, dataset.Columns = 8, 8
+    dataset.SamplesPerPixel = 3
+    dataset.BitsAllocated = dataset.BitsStored = 8
+    dataset.HighBit = 7
+    dataset.PixelRepresentation = 0
+    pixels = np.zeros((8, 8, 3), dtype=np.uint8)
+    pixels[..., 0] = 200
+    dataset.PixelData = pixels.tobytes()
+    path = tmp_path / "rgb.dcm"
+    dataset.save_as(path, enforce_file_format=True)
+
+    assert read_dicom(path, channels=3).shape == (8, 8, 3)
+    assert read_dicom(path, channels=1).shape == (8, 8, 1)
+
+
 def test_a_multi_frame_file_is_refused_by_name_rather_than_read_as_a_picture(tmp_path):
     """`pyplatypus#372`: it used to come back as an image whose ROWS were the frames.
 

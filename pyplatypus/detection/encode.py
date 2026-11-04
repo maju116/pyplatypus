@@ -247,7 +247,23 @@ def decode(
 
     if not boxes:
         return (np.zeros((0, 4)), np.zeros(0), np.zeros(0, dtype=int))
-    return (np.concatenate(boxes), np.concatenate(scores), np.concatenate(labels).astype(int))
+    kept_boxes = np.concatenate(boxes)
+    kept_scores = np.concatenate(scores)
+    kept_labels = np.concatenate(labels).astype(int)
+
+    # **The threshold is applied again, on the score a box is REPORTED with.** The gate
+    # above reads objectness alone, and the reported score is `objectness * max(class)`,
+    # which is smaller - so a box whose own score is below the threshold used to survive
+    # it, and one above it could be dropped. `score_threshold`'s description in both
+    # packages says "discard a predicted box below this confidence", and this is the line
+    # that makes that true. `pyplatypus#382`.
+    #
+    # Nothing is lost by keeping the gate as well: since `max(class) <= 1`, the score never
+    # exceeds the objectness, so any box that clears the threshold on its score has already
+    # cleared it on objectness. The gate is an exact prefilter and this is the second cut,
+    # not a replacement for it.
+    above = kept_scores >= objectness
+    return (kept_boxes[above], kept_scores[above], kept_labels[above])
 
 
 def _flatten_anchors(anchors) -> tuple[np.ndarray, int]:

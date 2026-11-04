@@ -191,10 +191,10 @@ def save_spec(spec: PlatypusSpec, path: str | Path, *, defaults: bool = False) -
     assembled in R or Python can become the file somebody else runs.
 
     **It writes the fields that were set.** Not the fields the object holds, which on a
-    two-field model is 29 of them - and the difference is not verbosity. A model given
+    two-field model is 30 of them - and the difference is not verbosity. A model given
     `weights` and no `architecture` adopts the architecture from the weights sidecar, and that
     adoption fires on `architecture` *not being in* `model_fields_set`. Dump the defaults into
-    the file and the reloaded specification has all 29 set, so the adoption can never fire
+    the file and the reloaded specification has all 30 set, so the adoption can never fire
     again: the file would look like the original and quietly stop doing what it did. R paid
     for this once already in the other direction (`JOURNAL.md` §4aa) and dropped its own
     defaults for the same reason.
@@ -234,7 +234,7 @@ def save_spec(spec: PlatypusSpec, path: str | Path, *, defaults: bool = False) -
     ['input_shape', 'name']
     >>> frozen = save_spec(spec, path.with_name("frozen.yaml"), defaults=True)
     >>> len(yaml.safe_load(frozen.read_text())["models"][0])
-    29
+    30
     """
     path = Path(path)
     full = spec.model_dump(mode="json")
