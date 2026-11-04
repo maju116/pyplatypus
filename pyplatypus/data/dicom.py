@@ -95,6 +95,23 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
     except Exception as error:  # noqa: BLE001 - pydicom raises many things
         raise DicomError(f"could not read '{path}': {error}") from None
 
+    # A multi-frame file is refused HERE, from the header, rather than being inferred from
+    # the array's shape later. pydicom gives a multi-frame single-sample file as
+    # `(frames, rows, columns)`, which the channel logic at the end of this function reads
+    # as `(height, width, channels)`: four frames of 8x8 came back as a 4x8 picture whose
+    # rows were the frames and whose columns had been averaged away, with no word said.
+    # `NumberOfFrames` was in the header the whole time. `pyplatypus#372`.
+    frames = int(getattr(dataset, "NumberOfFrames", 1) or 1)
+    if frames > 1:
+        raise DicomError(
+            f"'{path}' holds {frames} frames in one file (NumberOfFrames={frames}, "
+            f"SamplesPerPixel={int(getattr(dataset, 'SamplesPerPixel', 1) or 1)}). This "
+            f"reader returns one 2D image, and the frames of an enhanced or cine file are "
+            f"a volume rather than the channels of a picture: read them with "
+            f"`read_dicom_series`, which takes a directory of slices, or split the file "
+            f"first. Reading it here would turn the frames into rows."
+        )
+
     # Stored values to real-world units. For CT this is the step that produces Hounsfield
     # units; for modalities without a rescale it is the identity, and costs nothing.
     values = np.asarray(apply_modality_lut(stored, dataset), dtype=np.float32)

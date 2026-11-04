@@ -512,3 +512,88 @@ def test_nothing_matched_means_the_overlap_is_unknown_not_zero():
     report = detection_report(preds, truths, labels=["a"])
     assert report.per_class[0]["mean_matched_iou"] is None
     assert report.mean_matched_iou is None
+
+
+def test_each_IOU_THRESHOLD_scores_its_own_ranking_when_a_difficult_truth_absorbs_a_prediction():
+    """`pyplatypus#368`: one ordering was built at the lowest threshold and used at all of them.
+
+    Absorption is `absorbed >= iou_threshold`, so a prediction covering a difficult object
+    at IoU 0.8 leaves the ranking at 0.50 to 0.80 and stays in it at 0.85 to 0.95. The
+    scores were pooled only at the first threshold, so at the higher ones the flag array
+    was longer than the permutation indexing it - no error, and a curve built from the
+    wrong predictions. `map_50_95` is where a user meets it.
+    """
+    difficult = {"boxes": [[0, 0, 10, 10]], "labels": [0], "difficult": [True]}
+    on_it = {"boxes": [[0, 0, 10, 8]], "labels": [0], "scores": [0.9]}  # IoU 0.8
+    ordinary = {"boxes": [[100, 100, 110, 110]], "labels": [0], "difficult": [False]}
+    found = {"boxes": [[100, 100, 110, 110]], "labels": [0], "scores": [0.8]}
+    predictions, truths = [on_it, found], [difficult, ordinary]
+
+    thresholds = tuple(round(0.5 + 0.05 * step, 2) for step in range(10))
+    one_at_a_time = [
+        detection_report(
+            predictions, truths, labels=["a"], iou_thresholds=(threshold,)
+        ).mean_average_precision
+        for threshold in thresholds
+    ]
+    # The absorption holds up to 0.80 and stops: 1.0 while the prediction is set aside,
+    # 0.5 once it is judged and ranks first as a false positive.
+    assert one_at_a_time == [1.0] * 7 + [0.5] * 3
+
+    together = detection_report(
+        predictions, truths, labels=["a"], iou_thresholds=thresholds
+    ).mean_average_precision
+    assert together == pytest.approx(sum(one_at_a_time) / len(one_at_a_time))
+    assert together == pytest.approx(0.85)
+
+    # Two thresholds are enough, and the pair is what the defect answered 0.5 to.
+    pair = detection_report(
+        predictions, truths, labels=["a"], iou_thresholds=(0.5, 0.85)
+    ).mean_average_precision
+    assert pair == pytest.approx(0.75)
+
+    # The control: with nothing marked difficult no prediction ever leaves a ranking, so
+    # one ordering serves every threshold and the two routes agreed even before the fix.
+    plain = [dict(difficult, difficult=[False]), ordinary]
+    assert detection_report(
+        predictions, plain, labels=["a"], iou_thresholds=thresholds
+    ).mean_average_precision == pytest.approx(
+        sum(
+            detection_report(
+                predictions, plain, labels=["a"], iou_thresholds=(threshold,)
+            ).mean_average_precision
+            for threshold in thresholds
+        )
+        / len(thresholds)
+    )
+
+
+def test_a_duplicate_may_claim_the_NEXT_unclaimed_truth_which_is_COCOS_rule_not_VOCS():
+    """The decision `pyplatypus#369` writes down, so that changing it fails a test by name.
+
+    `voc_eval` takes the argmax over *all* of an image's truths: a detection whose best
+    overlap is a truth another prediction already claimed is a false positive there, full
+    stop. Here it may claim the next unclaimed truth above the threshold instead, which is
+    what COCO does and what `map_50_95` is defined against. Both are defensible; only one
+    of them is this package's, and the docstring cited the other one for a while.
+    """
+    first = [0.0, 0, 10, 10]
+    second = [3.0, 0, 13, 10]  # IoU 0.538 with `first`
+    claiming = [0.0, 0, 10, 10]  # exactly `first`
+    duplicate = [1.0, 0, 11, 10]  # 0.818 with `first`, 0.667 with `second`
+
+    order, hit, overlap, ignored = match_detections(
+        [claiming, duplicate], [0.9, 0.8], [first, second], iou_threshold=0.5
+    )
+    assert list(order) == [0, 1]
+    # Both are true positives: the second one's best overlap is the claimed truth, and it
+    # matches the unclaimed one instead rather than being refused.
+    assert list(hit) == [True, True]
+    assert overlap[1] == pytest.approx(0.6667, abs=1e-4)
+    assert not ignored.any()
+
+    # The same scene under VOC's rule would score the duplicate as a false positive, so
+    # this is the one place the two conventions give different numbers with nothing marked
+    # difficult. The control is a duplicate with no second truth to fall back on.
+    _, alone, _, _ = match_detections([claiming, duplicate], [0.9, 0.8], [first], iou_threshold=0.5)
+    assert list(alone) == [True, False]

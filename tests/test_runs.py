@@ -18,6 +18,7 @@ import numpy as np
 from PIL import Image
 
 from pyplatypus import Engine, build_engine, from_dict, read_record
+from pyplatypus.runs import write_record
 
 
 def tiny_segmentation(root, output_dir=None):
@@ -189,3 +190,40 @@ def test_the_record_is_plain_json(tmp_path, detection_config):
     json.loads(text)
     assert "array(" not in text
     assert "np." not in text
+
+
+def test_a_record_holding_a_NAN_is_written_as_null_so_R_can_read_it(tmp_path):
+    """`pyplatypus#373`. A history legitimately holds a NaN - `dice` with `smooth: 0` on a
+    class no image in the batch contains is 0/0, and `terminate_on_nan` exists to watch for
+    it - and `json.dumps` writes the bare token `NaN` for it by extension. Python reads that
+    back, which is why nothing here noticed; `jsonlite::fromJSON` refuses it outright, so
+    the record of the one run anybody wants to inspect was the one R could not open.
+    """
+    spec = tiny_segmentation(tmp_path / "data", output_dir=tmp_path / "runs")
+    path = write_record(
+        spec,
+        "m",
+        history=[
+            {"epoch": 1, "val_dice": float("nan"), "train_loss": 0.5},
+            {"epoch": 2, "val_dice": np.float32("nan"), "train_loss": float("inf")},
+        ],
+    )
+
+    text = path.read_text()
+    # The token itself, which is what R's parser stops on. Anchored, because `NaN` is a
+    # substring of nothing else here but a bare search would also match a key called it.
+    assert ": NaN" not in text
+    assert ": Infinity" not in text and ": -Infinity" not in text
+    # What replaced it, written out: the specification itself carries nulls for every
+    # field nobody set, so the count is taken on the two keys this test is about.
+    assert text.count('"val_dice": null') == 2
+    assert '"train_loss": null' in text
+
+    back = read_record(path)
+    assert back["history"][0]["val_dice"] is None
+    assert back["history"][1]["val_dice"] is None
+    assert back["history"][1]["train_loss"] is None
+    # The finite neighbour is untouched: a sanitiser that flattened every number would
+    # pass the assertions above and destroy the record.
+    assert back["history"][0]["train_loss"] == 0.5
+    assert back["history"][0]["epoch"] == 1

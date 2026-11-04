@@ -373,6 +373,27 @@ class EncoderModel(ModelSpec):
         ),
     )
 
+    def weights_fingerprint(self) -> dict:
+        """Adds the two settings that change what the network computes without changing a shape.
+
+        `load_state_dict` is the guard for everything that changes a tensor's shape, and it
+        is a loud one. These two are invisible to it: `activation` is one word in a
+        configuration, and a pretrained encoder normalises its input with the backbone's
+        own statistics, held in buffers that are deliberately not saved. So a published
+        file loads with every key matched into a model that applies a different
+        nonlinearity, or that no longer normalises at all, and the result is a confident
+        wrong answer rather than a refusal. `pyplatypus#370`.
+
+        `input_normalised` rather than `pretrained`: at load time nobody cares where the
+        weights started, and the normalisation is the part of that flag which outlives the
+        training.
+        """
+        return {
+            **super().weights_fingerprint(),
+            "activation": getattr(self.activation, "value", self.activation),
+            "input_normalised": bool(self.pretrained and self.encoder is not None),
+        }
+
     @model_validator(mode="after")
     def pretrained_needs_an_encoder(self):
         """`pretrained` on its own has nothing to load into: the built-in encoder is ours

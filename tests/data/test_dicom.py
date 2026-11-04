@@ -274,3 +274,62 @@ def test_the_window_reaches_the_pipeline(tmp_path):
         return SegmentationDataset(samples, model, data)[0][0]
 
     assert not np.allclose(first_image("lung"), first_image("bone"))
+
+
+def multi_frame(path, frames: int, rows: int = 8, columns: int = 8, samples: int = 1):
+    """A single-file multi-frame study, which is how enhanced CT/MR and cine loops arrive.
+
+    Written here rather than fetched: pydicom ships no multi-frame file, and the point of
+    the test is the header, not the pixels.
+    """
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import CTImageStorage, ExplicitVRLittleEndian, generate_uid
+
+    dataset = Dataset()
+    dataset.file_meta = FileMetaDataset()
+    dataset.file_meta.MediaStorageSOPClassUID = CTImageStorage
+    dataset.file_meta.MediaStorageSOPInstanceUID = generate_uid()
+    dataset.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    dataset.SOPClassUID = CTImageStorage
+    dataset.SOPInstanceUID = generate_uid()
+    dataset.Modality = "CT"
+    dataset.PhotometricInterpretation = "MONOCHROME2"
+    dataset.Rows, dataset.Columns = rows, columns
+    dataset.SamplesPerPixel = samples
+    dataset.BitsAllocated = dataset.BitsStored = 16
+    dataset.HighBit = 15
+    dataset.PixelRepresentation = 0
+    dataset.RescaleIntercept, dataset.RescaleSlope = 0, 1
+    if frames > 1:
+        dataset.NumberOfFrames = frames
+    shape = (frames, rows, columns) if frames > 1 else (rows, columns)
+    pixels = np.zeros(shape, dtype=np.uint16)
+    for frame in range(frames):
+        pixels[frame if frames > 1 else slice(None)] = (frame + 1) * 1000
+    dataset.PixelData = pixels.tobytes()
+    dataset.save_as(path, enforce_file_format=True)
+    return path
+
+
+def test_a_multi_frame_file_is_refused_by_name_rather_than_read_as_a_picture(tmp_path):
+    """`pyplatypus#372`: it used to come back as an image whose ROWS were the frames.
+
+    pydicom gives a multi-frame single-sample file as `(frames, rows, columns)`, and the
+    channel logic at the end of the reader took the last axis for channels: four 8x8 frames
+    became a 4x8 picture with the columns averaged away, silently, while
+    `NumberOfFrames = 4` sat in the header unread. The frames of such a file are a volume,
+    so the refusal names the other reader rather than guessing.
+    """
+    path = multi_frame(tmp_path / "cine.dcm", frames=4)
+    with pytest.raises(DicomError, match=r"holds 4 frames in one file"):
+        read_dicom(path)
+    with pytest.raises(DicomError, match=r"read_dicom_series"):
+        read_dicom(path, channels=3)
+
+
+def test_a_single_frame_file_written_the_same_way_still_reads(tmp_path):
+    """The control. Without it the refusal above could be matching the writer rather than
+    the frame count, and a reader that refuses everything passes that test too."""
+    path = multi_frame(tmp_path / "one.dcm", frames=1)
+    assert read_dicom(path).shape == (8, 8, 1)
+    assert read_dicom(path, channels=3).shape == (8, 8, 3)
