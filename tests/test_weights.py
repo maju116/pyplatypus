@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from pathlib import Path
 
 import pytest
@@ -852,3 +853,107 @@ def test_the_hc18_entry_leads_with_millimetres_and_warns_off_the_dice():
         "the control is broken - if another entry reports millimetres too, these assertions "
         "are not about what makes this one different"
     )
+
+
+def test_the_fingerprint_carries_what_changes_the_FUNCTION_without_changing_a_shape():
+    """`pyplatypus#370`. `load_state_dict` guards every field that moves a tensor's
+    dimensions, loudly. These two move none, so nothing guarded them: a file trained with
+    `relu` loaded into an `elu` model with every key matched, and a model whose encoder
+    normalised its input with ImageNet statistics reloaded without them, because those
+    buffers are deliberately not saved."""
+    fingerprint = model_spec().weights_fingerprint()
+    assert fingerprint["activation"] == "relu"
+    assert fingerprint["input_normalised"] is False
+    assert model_spec(activation="elu").weights_fingerprint()["activation"] == "elu"
+    # `input_normalised` is derived rather than copied: `pretrained` without an encoder is
+    # refused by the specification, and it is the normalisation that outlives training.
+    assert "pretrained" not in fingerprint
+
+
+def test_weights_trained_under_another_ACTIVATION_are_refused_by_name(trained):
+    _, _, path = trained
+    with pytest.raises(WeightsError, match=r"activation: weights say relu, the model says elu"):
+        load_into(
+            build_model(model_spec(activation="elu"), n_class=2),
+            str(path),
+            model_spec(activation="elu"),
+            extra={"n_class": 2},
+        )
+
+
+def test_weights_whose_encoder_normalised_its_input_are_refused_by_name(trained):
+    """The reload that needs nothing unusual: own weights, no network, so `pretrained: false`."""
+    _, _, path = trained
+    sidecar = path.with_suffix(".json")
+    sidecar.write_text(json.dumps({**json.loads(sidecar.read_text()), "input_normalised": True}))
+    with pytest.raises(
+        WeightsError, match=r"input_normalised: weights say True, the model says False"
+    ):
+        load_into(
+            build_model(model_spec(), n_class=2), str(path), model_spec(), extra={"n_class": 2}
+        )
+
+
+def test_a_sidecar_written_before_these_fields_says_so_rather_than_passing_silently(trained):
+    """A sidecar with no record of a field is skipped by the comparison - which is what
+    keeps the five published names loading, and was the whole of the old silence. So the
+    skip gets a word, and only when the model asks for something the default would not
+    have given."""
+    _, _, path = trained
+    sidecar = path.with_suffix(".json")
+    written = json.loads(sidecar.read_text())
+    sidecar.write_text(
+        json.dumps(
+            {k: v for k, v in written.items() if k not in ("activation", "input_normalised")}
+        )
+    )
+
+    with pytest.warns(UserWarning, match=r"no record of activation=elu"):
+        load_into(
+            build_model(model_spec(activation="elu"), n_class=2),
+            str(path),
+            model_spec(activation="elu"),
+            extra={"n_class": 2},
+        )
+
+
+def test_an_old_sidecar_is_SILENT_when_the_model_asks_for_what_the_default_would_give(trained):
+    """The other direction, and the reason the warning is not noise: every published file
+    predates these fields, and a model at the defaults is exactly what they were trained
+    with. A check that fires on correct content is as useless as one that passes on wrong."""
+    _, _, path = trained
+    sidecar = path.with_suffix(".json")
+    written = json.loads(sidecar.read_text())
+    sidecar.write_text(
+        json.dumps(
+            {k: v for k, v in written.items() if k not in ("activation", "input_normalised")}
+        )
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        load_into(
+            build_model(model_spec(), n_class=2), str(path), model_spec(), extra={"n_class": 2}
+        )
+
+
+def test_a_sidecar_that_fails_to_DOWNLOAD_is_not_a_repo_without_one(fake_hub, monkeypatch):
+    """`pyplatypus#371`. `except Exception: return None` collapsed two different states into
+    one answer: a file published without a description, which is allowed, and a timeout on
+    a description that exists. In the second case the weights loaded and every check only
+    the sidecar can make - colormap, labels, class count, the anchors' provenance - was
+    skipped, with the shapes still agreeing."""
+    served, _ = fake_hub
+    spec = model_spec()
+    export_weights(build_model(spec, n_class=2), spec, served / "flaky.safetensors")
+
+    real = __import__("huggingface_hub", fromlist=["hf_hub_download"]).hf_hub_download
+
+    def flaky(repo_id, filename, revision=None, **kwargs):
+        if filename.endswith(".json"):
+            raise ConnectionError("read timed out")
+        return real(repo_id=repo_id, filename=filename, revision=revision, **kwargs)
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", flaky)
+    with pytest.raises(WeightsError, match=r"downloaded but 'flaky.json' beside them did not"):
+        resolve_weights("hf://someone/else/flaky.safetensors@deadbee")

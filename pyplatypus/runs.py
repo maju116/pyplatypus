@@ -18,6 +18,7 @@ than a summary. A summary is for reading; a specification is for running again.
 from __future__ import annotations
 
 import json
+import math
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -72,7 +73,15 @@ def write_record(
         "history": getattr(history, "records", history) or [],
     }
     path = directory / "run.json"
-    path.write_text(json.dumps(record, indent=2, default=_plain) + "\n")
+    # `allow_nan=False` after `_without_nonfinite` has already replaced every NaN and
+    # infinity with `null`: the walk handles the case a run really produces, and the flag
+    # turns any route it missed into a loud failure here rather than a file that cannot be
+    # read later. `json.dumps` otherwise writes the bare token `NaN`, which Python reads
+    # back and `jsonlite` refuses outright - so the record of the one run somebody wants
+    # to inspect, the one that went to NaN, was the one R could not open.
+    # `pyplatypus#373`.
+    text = json.dumps(_without_nonfinite(record), indent=2, default=_plain, allow_nan=False)
+    path.write_text(text + "\n")
     return path
 
 
@@ -103,3 +112,30 @@ def _plain(value):
     if isinstance(value, (set, frozenset)):
         return sorted(value)
     return str(value)
+
+
+def _without_nonfinite(value):
+    """The record with every NaN and infinity replaced by `None`, which JSON writes as `null`.
+
+    A history legitimately holds a NaN: `dice` with `smooth: 0` on a class no image in the
+    batch contains is 0/0, and that is what `terminate_on_nan` watches for. JSON has no
+    literal for it, so `json.dumps` writes the bare token `NaN` by extension. Python reads
+    that back, which is why nothing here noticed; `jsonlite::fromJSON` refuses it with a
+    lexical error, so `read_record()` on the R side could not open the record at all.
+
+    `null` reads as `NA` in R and as `None` in Python, which is what a number that is not
+    a number should look like to a reader. numpy scalars are unwrapped on the way, because
+    a `float32` NaN is not an instance of `float`.
+    """
+    if isinstance(value, dict):
+        return {key: _without_nonfinite(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_without_nonfinite(item) for item in value]
+    if hasattr(value, "item") and not isinstance(value, (str, bytes)):
+        try:
+            value = value.item()
+        except (AttributeError, ValueError):  # pragma: no cover - not a scalar
+            return value
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value

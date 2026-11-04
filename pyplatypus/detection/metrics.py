@@ -166,10 +166,25 @@ def match_detections(
       ignored, because VOC never marks such a truth as detected - the point is that the
       region is not being judged, not that one guess at it is free.
     - **The best overlap decides, and the flag is asked second.** A prediction overlapping
-      an ordinary truth at 0.6 and a difficult one at 0.9 is ignored rather than scored,
-      which is the order `voc_eval` uses.
+      an ordinary truth at 0.6 and a difficult one at 0.9 is ignored rather than scored.
     - **A tie goes to the scoring truth.** At equal overlap the ordinary truth wins, so a
       difficult object cannot absorb a detection that fits an ordinary one just as well.
+
+    **The ordinary truth it is compared against is the best UNCLAIMED one, which is COCO's
+    rule and not `voc_eval`'s.** This bullet cited `voc_eval` for the order until
+    `pyplatypus#369`, and that was wrong: `voc_eval` takes the argmax over *all* of an
+    image's truths, claimed or not, and a detection whose argmax is an already-claimed
+    ordinary truth is a false positive there. Here it may still claim the next unclaimed
+    truth above the threshold, or be absorbed by a difficult one. The module docstring
+    above states this rule honestly; only the citation was wrong.
+
+    The divergence is not about `difficult` at all and does not need it: measured against a
+    transcription of `voc_eval` over 2,000 scenes where predictions are jittered copies of
+    the truths, the two disagree in 38 with nothing marked difficult and in 26 with about
+    30% marked, and **this module is the higher one in every single case** - by 0.140 of AP
+    on average and 0.333 at most. That is the price of the unclaimed rule on a model that
+    emits duplicates, and it is paid knowingly: `map_50_95` is COCO's metric, so COCO's
+    matching is what makes the two halves of a report describe one convention.
 
     `pyplatypus#364`: before it, the difficult truths were deleted before matching, so a
     detection of one had nothing to match and counted against the model - the opposite of
@@ -308,7 +323,12 @@ def detection_report(
 
     for index in classes:
         pooled_hits: dict[float, list[np.ndarray]] = {t: [] for t in thresholds}
-        pooled_scores: list[np.ndarray] = []
+        # Scores are pooled PER THRESHOLD, not once. A prediction absorbed by a difficult
+        # truth leaves the ranking at the thresholds where the absorption holds and stays
+        # in it at the others, so each threshold has its own set of judged predictions and
+        # its own ordering of them. One ordering shared across thresholds indexed the
+        # wrong rows - `pyplatypus#368`.
+        pooled_scores: dict[float, list[np.ndarray]] = {t: [] for t in thresholds}
         pooled_overlaps: list[np.ndarray] = []
         n_truth = 0
         n_predicted = 0
@@ -334,16 +354,14 @@ def detection_report(
                 # would charge the model for finding the object the benchmark set aside.
                 keep = ~ignored
                 pooled_hits[threshold].append(hit[keep])
+                pooled_scores[threshold].append(np.asarray(p_scores, dtype=float)[order][keep])
                 if threshold == thresholds[0]:
-                    pooled_scores.append(np.asarray(p_scores, dtype=float)[order][keep])
                     pooled_overlaps.append(overlap[keep][hit[keep]])
                     n_ignored += int(ignored.sum())
 
         # Pooled, then re-sorted by score across images: the curve is one ranking over the
-        # dataset, so per-image order would make it depend on which image came first.
-        scores = np.concatenate(pooled_scores) if pooled_scores else np.zeros(0)
-        across = np.argsort(-scores, kind="stable") if scores.size else np.zeros(0, int)
-
+        # dataset, so per-image order would make it depend on which image came first. The
+        # sort happens inside the loop because the ranking belongs to the threshold.
         per_threshold: list[float | None] = []
         for threshold in thresholds:
             flags = (
@@ -351,6 +369,17 @@ def detection_report(
                 if pooled_hits[threshold]
                 else np.zeros(0, dtype=bool)
             )
+            scores = (
+                np.concatenate(pooled_scores[threshold])
+                if pooled_scores[threshold]
+                else np.zeros(0)
+            )
+            if len(flags) != len(scores):  # pragma: no cover - the defect this replaces
+                raise DetectionError(
+                    f"{len(flags)} judged predictions against {len(scores)} scores at IoU "
+                    f"{threshold}; they are pooled together and must line up"
+                )
+            across = np.argsort(-scores, kind="stable") if scores.size else np.zeros(0, int)
             per_threshold.append(
                 average_precision(
                     flags[across] if flags.size else flags, n_truth, interpolation=interpolation

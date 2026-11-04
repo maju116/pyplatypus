@@ -1,6 +1,120 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a63] - 2026-11-04
+
+**The reviewer's eighth pass, which read the complement: the four networks, the weights
+registry and the pin - 3,301 lines no previous pass had opened. Six findings here, and two
+of them rode in with yesterday's own fix.**
+
+### Fixed
+
+ - **`map_50_95` was computed on misaligned rankings whenever a `difficult` truth absorbed
+   a prediction at some IoU thresholds and not others.** `pyplatypus#368`, and a regression
+   of `#364` from the day before.
+
+   The scores were pooled once, at the lowest threshold, and that one ordering indexed every
+   threshold's hit flags. Absorption is `absorbed >= iou_threshold`, so a prediction covering
+   a difficult object at IoU 0.8 leaves the ranking at 0.50 to 0.80 and stays in it at 0.85
+   to 0.95 - and at those thresholds the flag array is *longer* than the permutation, so
+   `flags[across]` silently takes the first rows of a permutation built for other
+   predictions. Measured on two images, one difficult truth with a prediction on it at IoU
+   0.8 and score 0.9, one ordinary truth predicted exactly:
+
+        ten separate single-threshold calls   1.0 at 0.50-0.80, 0.5 at 0.85-0.95   mean 0.85
+        one call over the same ten            0.70
+        one call over (0.5, 0.85)             0.50          against 0.75 separately
+        control, nothing marked difficult     0.775 both ways
+
+   Scores are pooled and sorted **per threshold** now, because the set of judged predictions
+   belongs to the threshold. A length check beside it makes any future divergence a refusal
+   rather than a number. `map_50`, the two counts and `mean_matched_iou` were never affected -
+   they read the first threshold only - and no published figure is: `bccd-yolo3`'s card
+   quotes mAP@0.5, and BCCD marks 0 of its 4,888 objects difficult.
+
+ - **A weights file loaded silently under another `activation`, and a pretrained encoder's
+   ImageNet normalisation was lost on reload.** `pyplatypus#370`.
+
+   `load_state_dict` is a loud guard for everything that changes a tensor's shape. These two
+   change what the network *computes* with every key still matching, and neither was in the
+   fingerprint. On the published `dsbowl-unet`, one fixed random 256x256 input:
+
+        activation relu (what it was trained with)   loaded, foreground share 0.1117
+        activation elu                               loaded without a word, 0.0303
+        activation tanh                              loaded without a word, 0.0439
+        max |probability difference| relu vs elu     0.9939
+
+   The normalisation case needs nothing unusual: `PretrainedEncoder` applies it from buffers
+   registered `persistent=False`, so they never reach the file, and `pretrained: false` is
+   the natural reload when the weights are your own and there is no network. On `resnet18`'s
+   deepest feature map that is a maximum difference of 1.25, relative 0.77, against 0.0 with
+   the statistics restored.
+
+   The fingerprint carries `activation` and `input_normalised` now - the second named for
+   the consequence rather than for `pretrained`, because at load time nobody cares where the
+   weights started. **And the skip that kept this silent is itself the thing to say out
+   loud:** `_refuse_mismatch` passes over any field a sidecar does not carry, which is
+   exactly what lets the five published names keep loading. So when a sidecar cannot answer
+   *and* the model asks for something the default would not have given, the load warns and
+   names the field. A model at the defaults stays silent, because that is what every
+   published file was trained with.
+
+ - **A sidecar that failed to download was indistinguishable from a repository that has
+   none, and every check only a sidecar can make was then skipped.** `pyplatypus#371`.
+
+   `except Exception: return None` sat beside `except EntryNotFoundError: return None`. The
+   first case is the one the optional sidecar exists for; the second is a timeout or a 5xx on
+   the JSON after the weights themselves arrived, and `load_into` then skipped the colormap,
+   the labels, `n_class` and the anchors' provenance while the shapes still agreed. Measured
+   with the JSON fetch raising `ConnectionError`: a `colormap` of `[[9,9,9],[1,2,3]]` loaded
+   without a word, against a refusal naming `colormap` with the sidecar readable.
+
+ - **A multi-frame DICOM file was read as one 2D image whose rows were the frames.**
+   `pyplatypus#372`.
+
+   pydicom gives a multi-frame single-sample file - enhanced CT or MR, a cine loop,
+   tomosynthesis - as `(frames, rows, columns)`, and the channel logic took the last axis for
+   channels. Four 8x8 frames of constant 1000, 2000, 3000 and 4000 came back as a `(4, 8, 1)`
+   picture whose rows read 0, 21845, 43690 and 65535: the frame index had become the vertical
+   axis and the columns were averaged away. `NumberOfFrames` was in the header throughout.
+   Refused by name now, from the header rather than from the array's shape, pointing at
+   `read_dicom_series` - the frames of such a file are a volume rather than the channels of a
+   picture. Reading them is `pyplatypus#374` and needs the per-frame functional groups.
+
+ - **A run record holding a NaN could not be read from R.** `pyplatypus#373`.
+
+   `json.dumps` writes the bare token `NaN` by extension; Python reads it back, which is why
+   nothing here noticed, and `jsonlite::fromJSON` refuses it outright. A history legitimately
+   holds one - `dice` with `smooth: 0` on a class absent from the batch is 0/0, and
+   `terminate_on_nan` watches for exactly that - so the record of the one run anybody wants to
+   inspect was the one R could not open. Non-finite values are written as `null` now, which
+   reads as `NA` in R and `None` in Python, with `allow_nan=False` behind the walk so that any
+   route it misses fails at write time instead of producing an unreadable file.
+
+### Changed
+
+ - **`match_detections` no longer cites `voc_eval` for a rule that is COCO's.**
+   `pyplatypus#369`.
+
+   The ordinary truth a detection is compared against is the best **unclaimed** one, so a
+   duplicate of an already-claimed truth may claim the next one above the threshold instead.
+   `voc_eval` takes the argmax over *all* of an image's truths and counts that detection as a
+   false positive. Against a transcription of `voc_eval` over 2,000 scenes whose predictions
+   are jittered copies of the truths, the two differ in 38 with **nothing** marked difficult
+   and in 26 with about 30% marked - and this module is the higher one in every single case,
+   by 0.140 of AP on average and 0.333 at most.
+
+   The rule stays, because `map_50_95` is COCO's metric and one convention should describe
+   both halves of a report. What changes is that the docstring says which rule it is and how
+   far it diverges, and a test holds the decision so that moving it to VOC's rule fails by
+   name rather than quietly shifting every score.
+
+### The R half
+
+ - Nothing beyond the pin. All six are defects an R user meets **through the pin moving and
+   by nothing else** - `#373` is the one R needed something from, and what it needed was for
+   the engine to stop writing a token R's parser rejects.
+
 ## [0.8.0a62] - 2026-11-03
 
 **The reviewer's seventh pass, which closed the remainder of what six passes had deferred.

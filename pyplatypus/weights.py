@@ -26,12 +26,21 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
 from pyplatypus.errors import PlatypusError
 
 SIDECAR_SUFFIX = ".json"
+
+#: Fingerprint fields that a sidecar written before `0.8.0a63` cannot carry, with the
+#: value that is harmless when it is missing. `_refuse_mismatch` skips any field the
+#: sidecar does not hold - which is what keeps the five published names loading - so for
+#: these two the skip is the whole of the old silence. A model asking for something other
+#: than the value here cannot be checked against such a file, and says so once.
+#: `pyplatypus#370`.
+UNANSWERABLE_IF_ABSENT = {"activation": "relu", "input_normalised": False}
 HF_PATTERN = re.compile(
     r"^hf://(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?P<path>.+?)(?:@(?P<revision>[^@/]+))?$"
 )
@@ -269,14 +278,28 @@ def _fetch_sidecar(repo_id: str, path: str, revision: str) -> dict | None:
     from huggingface_hub.errors import EntryNotFoundError
 
     stem = path.rsplit(".", 1)[0]
+    name = f"{stem}{SIDECAR_SUFFIX}"
     try:
-        local = hf_hub_download(
-            repo_id=repo_id, filename=f"{stem}{SIDECAR_SUFFIX}", revision=revision
-        )
+        local = hf_hub_download(repo_id=repo_id, filename=name, revision=revision)
     except EntryNotFoundError:
+        # The repository genuinely carries no description. That is the case this function
+        # is optional for, and the only one.
         return None
-    except Exception:  # noqa: BLE001 - a missing description must not fail a download
-        return None
+    except Exception as error:  # noqa: BLE001 - the hub client raises many things
+        # NOT the same thing. A timeout or a 5xx on the JSON, after the weights themselves
+        # arrived, used to return `None` here - which made a flaky network
+        # indistinguishable from a file published without a description, and then
+        # `load_into` skipped every check that only the sidecar can make: the colormap,
+        # the labels, the class count, the anchors' provenance. Shapes still agreed, so
+        # the weights loaded and meant something else. `pyplatypus#371`.
+        raise WeightsError(
+            f"the weights for '{repo_id}/{path}' downloaded but '{name}' beside them did "
+            f"not: {type(error).__name__}: {error}. That file is what says which classes "
+            f"and colormap these weights are for, so loading without it would skip the "
+            f"checks that catch weights trained for a different meaning. A repository that "
+            f"publishes no description at all is a different case and is allowed; this one "
+            f"has one and it could not be read, so it is worth retrying."
+        ) from None
     return json.loads(Path(local).read_text())
 
 
@@ -434,9 +457,12 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str, *, extra: dict | None 
     colormap with the same class count. Those load cleanly and predict nonsense.
     """
     problems = []
+    unanswerable = []
     for field, mine in {**spec.weights_fingerprint(), **(extra or {})}.items():
         theirs = sidecar.get(field)
         if theirs is None:
+            if field in UNANSWERABLE_IF_ABSENT and mine != UNANSWERABLE_IF_ABSENT[field]:
+                unanswerable.append(f"{field}={mine}")
             continue
         if isinstance(mine, list):
             # Compared as lists, because that is what JSON gives back, but rendered as
@@ -450,6 +476,19 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str, *, extra: dict | None 
             continue
         if theirs != mine:
             problems.append(f"{field}: weights say {theirs}, the model says {mine}")
+
+    if unanswerable and not problems:
+        asked = ", ".join(sorted(unanswerable))
+        warnings.warn(
+            f"'{reference}' has no record of {asked}, because its description was written "
+            f"before this package recorded those. They change what the network computes "
+            f"without changing any tensor's shape, so the load below cannot be checked "
+            f"against them: if these weights were trained with other values, every key "
+            f"will still match and the predictions will be wrong. Weights exported from "
+            f"this version onwards carry them.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if problems:
         listed = "\n  - ".join(problems)
