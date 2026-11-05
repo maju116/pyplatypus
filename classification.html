@@ -1154,12 +1154,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>No <code>encoder</code>, so the contracting path is this package’s own; <code>block_width</code> rather than another level, because halving a 96-pixel crop four times leaves a platelet with nothing, and a crop of one cell is the case that lever is for.</p>
 <p><code>ClassificationEngine.balance()</code> is worth reading before the fit rather than after it, because the prevalence is what every later decision turns on: 81.1% RBC, 7.3% WBC, 7.2% Platelets, 4.4% nothing, and the engine’s own remark under the table says that below about 10% a metric read off the hard prediction stops telling a model from a collapse. That is why <code>auc</code> is the default here and <code>accuracy</code> is offered rather than chosen.</p>
-<p>Training AUC reaches 0.9971 against a validation AUC of 0.8816, and the loss is the clearer half: the training loss falls to 0.047 while the validation loss <strong>rises</strong> from 1.54 to 1.94. The model is memorising crops. Early stopping restored epoch 29 of 44 - the best <code>val_auc</code>, which is what it was told to watch.</p>
-<p><strong>The <code>best_epoch</code> the scoring table reports is 18 instead</strong>, because that column is the lowest validation <em>loss</em>, read off the history whatever the callback was watching. The scores in that row are the restored epoch’s and the column names another one; <code>pyplatypus#398</code> asks which of the two it should be.</p>
+<p>Training AUC reaches 0.9972 against a validation AUC of 0.8829, and the loss is the clearer half: the training loss falls to 0.047 while the validation loss <strong>rises</strong> from 1.53 to 1.87. The model is memorising crops. Early stopping restored epoch 29 of 44 - the best <code>val_auc</code>, which is what it was told to watch.</p>
+<p><strong>The scoring table’s <code>best_epoch</code> says 29 too, and this page is why it does.</strong> That column was the lowest validation <em>loss</em>, read off the history whatever the callback was watching, so on a run like this one - loss rising from the first epoch while the AUC keeps improving - the row named one epoch and scored another. Writing this page printed the two side by side, which is how anybody noticed; <code>pyplatypus#398</code> fixed it in <code>0.8.0a68</code>.</p>
 </section>
 <section id="scoring-per-class-because-the-mean-is-the-commonest-class" class="level2">
 <h2 class="anchored" data-anchor-id="scoring-per-class-because-the-mean-is-the-commonest-class">Scoring per class, because the mean is the commonest class</h2>
-<p><code>evaluate("test")</code> reports AUC 0.8727, balanced accuracy 0.7284 and F1 0.6817, and an accuracy of 0.730 - against <strong>0.588 for a model that answers <code>RBC</code> to everything</strong>. That pair is the whole argument for the default metric: a reader told only the first would believe something had been learned about all four classes.</p>
+<p><code>evaluate("test")</code> reports AUC 0.8781, balanced accuracy 0.7210 and F1 0.6784, and an accuracy of 0.729 - against <strong>0.588 for a model that answers <code>RBC</code> to everything</strong>. That pair is the whole argument for the default metric: a reader told only the first would believe something had been learned about all four classes.</p>
 <p>The confusion says where it went, with the truth down the side:</p>
 <table class="caption-top table">
 <thead>
@@ -1174,10 +1174,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tbody>
 <tr class="odd">
 <td><strong>RBC</strong></td>
-<td>637</td>
+<td>638</td>
 <td>0</td>
 <td>0</td>
-<td>1</td>
+<td>0</td>
 </tr>
 <tr class="even">
 <td><strong>WBC</strong></td>
@@ -1190,19 +1190,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td><strong>Platelets</strong></td>
 <td>0</td>
 <td>1</td>
-<td>52</td>
-<td>11</td>
+<td>50</td>
+<td>13</td>
 </tr>
 <tr class="even">
 <td><strong>nothing</strong></td>
-<td>253</td>
+<td>254</td>
 <td>5</td>
-<td>22</td>
+<td>21</td>
 <td>32</td>
 </tr>
 </tbody>
 </table>
-<p>The three cell types are nearly perfect. The fourth class is a rout: 32 of 312, with 253 of them called a red cell.</p>
+<p>The three cell types are nearly perfect. The fourth class is a rout: 32 of 312, with 254 of them called a red cell.</p>
 <section id="two-things-that-do-not-help-measured-rather-than-assumed" class="level3">
 <h3 class="anchored" data-anchor-id="two-things-that-do-not-help-measured-rather-than-assumed">Two things that do not help, measured rather than assumed</h3>
 <p>A second seed of the same recipe, and the loss that exists for exactly this problem - focal cross-entropy, which loses interest in what it already gets right:</p>
@@ -1218,30 +1218,30 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tbody>
 <tr class="odd">
 <td>seed 1</td>
-<td>0.8727</td>
-<td>0.7284</td>
+<td>0.8781</td>
+<td>0.7210</td>
 <td>0.103</td>
 </tr>
 <tr class="even">
 <td>seed 2</td>
-<td>0.8657</td>
-<td>0.7459</td>
-<td>0.093</td>
+<td>0.8668</td>
+<td>0.7152</td>
+<td>0.125</td>
 </tr>
 <tr class="odd">
 <td>focal</td>
-<td>0.8803</td>
-<td>0.7238</td>
-<td>0.051</td>
+<td>0.8783</td>
+<td>0.7464</td>
+<td>0.109</td>
 </tr>
 </tbody>
 </table>
-<p>Two seeds of one recipe differ by 0.0071 of AUC and focal loss moves it by 0.0076, which are the same order of magnitude - and <strong>two runs are not a spread</strong>, so neither figure is worth a conclusion on its own. The column that can carry one is the last: the share of the detector’s unmatched boxes that the model rejects runs from 0.05 to 0.10 across all three, which is to say that none of them does it.</p>
+<p>Two seeds of one recipe differ by 0.0112 of AUC and focal loss moves it by 0.0003, two orders apart in this run and the same order in the one before it - and <strong>two runs are not a spread</strong>, so neither figure is worth a conclusion on its own. The column that can carry one is the last: the share of the detector’s unmatched boxes that the model rejects runs from 0.10 to 0.13 across all three, which is to say that none of them does it.</p>
 </section>
 </section>
 <section id="the-class-that-is-not-a-picture-of-anything" class="level2">
 <h2 class="anchored" data-anchor-id="the-class-that-is-not-a-picture-of-anything">The class that is not a picture of anything</h2>
-<p>The obvious repair is not to make the classifier choose but to ask it for a probability - <code>predict()</code> returns one row per image and one column per class - and reject a crop when <code>nothing</code> is likely enough. The threshold is a decision about cost, so it is chosen on the validation split and only then read on the test split. Precision before any of it is 0.7124, the share of what the detector hands over that is an annotated object; the best any threshold buys on the test split is 0.7482, at the cost of 4.3% of the real cells. <strong>A gain of 0.036 of precision for 33 cells, from a second model, a second dataset and a second training run.</strong></p>
+<p>The obvious repair is not to make the classifier choose but to ask it for a probability - <code>predict()</code> returns one row per image and one column per class - and reject a crop when <code>nothing</code> is likely enough. The threshold is a decision about cost, so it is chosen on the validation split and only then read on the test split. Precision before any of it is 0.7124, the share of what the detector hands over that is an annotated object; the best any threshold buys on the test split is 0.7409, at the cost of 4.9% of the real cells. <strong>A gain of 0.028 of precision for 38 cells, from a second model, a second dataset and a second training run.</strong></p>
 <p>And a second model has to be worth more than the one number the first one already has. Scoring the detector’s own boxes at a range of <code>operating_point</code>s, with nothing trained:</p>
 <table class="caption-top table">
 <thead>
@@ -1291,7 +1291,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
-<p>The first row reproduces the 1,085 crops, which is the control that this is the same set of predictions read a second way. At 0.8 the detector keeps 0.955 of the cells against the classifier’s 0.957, at a precision of 0.7455 against 0.7482. <strong>A number that is already in the specification is on the same curve as a second model</strong>, and that is the comparison a page like this owes before it recommends anything.</p>
+<p>The first row reproduces the 1,085 crops, which is the control that this is the same set of predictions read a second way. At 0.8 the detector keeps 0.955 of the cells against the classifier’s 0.951, at a precision of 0.7455 against 0.7409. <strong>A number that is already in the specification is on the same curve as a second model</strong>, and that is the comparison a page like this owes before it recommends anything.</p>
 <p>So the rejector does not work, and the interesting question is why not. It is not the threshold and not the loss. It is the label. Of the 312 unmatched boxes on the test split, 92 overlap no annotated object whatsoever, 182 barely touch one, 31 are off their object and 7 are a second box on an object some higher-scoring box already took. And they are not guesses: their median score is 0.9864, against 0.9999 for the boxes that do match.</p>
 <p>Looking at them settles it. They are cells - red cells whole and overlapping, out-of-focus smudges of exactly the kind the platelet class is made of, and patches of the purple a white cell is stained with. <strong><code>nothing</code> is not a picture of anything; it is a statement about the annotation</strong>, and the question <em>is this cell written down in the XML</em> is not answerable from a picture of the cell.</p>
 <p>One photograph makes the point better than the table does: on <code>BloodImage_00327</code> the annotation has 2 objects and the detector finds 16 above its operating point, and on <code>BloodImage_00249</code> it is 3 against 16. The extra boxes are red cells. BCCD annotates a subset of what is in some of its photographs, and a model trained on 205 images of it learned to find cells rather than to find annotations - which is the right thing to have learned and the reason a quarter of its output scores as wrong.</p>
