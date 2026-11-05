@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="description" content="A detector’s crops, a classifier on top of them, and the class that is a statement about the annotation rather than about the picture.">
+
+<title>Naming what a detector found – pyplatypus</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./assets/hexsticker.png" rel="icon" type="image/png">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-0d03878fed8da18bf6c52072959b97e8.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-4c32c6d34817a83bec6f7f8287961574.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-0d03878fed8da18bf6c52072959b97e8.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-6a61a096c58657be10ddd1f1a2304406.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-6a61a096c58657be10ddd1f1a2304406.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-6a61a096c58657be10ddd1f1a2304406.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark" aria-label="Site">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">pyplatypus</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/maju116/pyplatypus"> <i class="bi bi-github" role="img" aria-label="pyplatypus on GitHub">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+            <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Articles</a></li><li class="breadcrumb-item"><a href="./classification.html">Naming what a detector found</a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto" aria-label="Section">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Home</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">Articles</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./guide.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Writing a configuration</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./data-science-bowl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Finding nuclei in microscopy images</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Telling touching nuclei apart</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./retinal-vessels.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retinal vessels, tiled</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./blood-cells.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Counting cells in blood smears</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./classification.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Naming what a detector found</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./volumes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Segmenting volumes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./fetal-head.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">A head circumference in millimetres</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./config.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Every configuration field</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-controls="quarto-sidebar-section-2" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-2-label">Reference</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-2" aria-labelledby="quarto-sidebar-section-2-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-controls="quarto-sidebar-section-3" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-3-label">A specification</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-3" aria-labelledby="quarto-sidebar-section-3-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/from_dict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_dict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/from_yaml.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">from_yaml</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_spec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_spec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/SegmentationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">SegmentationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/PlatypusSpec.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusSpec</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Task.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Task</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Separation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Separation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/spec_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">spec_schema</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/write_schema.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_schema</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-controls="quarto-sidebar-section-4" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-4-label">What a model is made of</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-4" aria-labelledby="quarto-sidebar-section-4-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_tasks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_tasks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_models</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_losses.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_losses</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_metrics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_metrics</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_optimizers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_optimizers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_callbacks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_callbacks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_decodings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_decodings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_separations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_separations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_transforms.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_transforms</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-5" aria-controls="quarto-sidebar-section-5" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-5-label">The data on disk</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-5" aria-labelledby="quarto-sidebar-section-5-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/read_image.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_image</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/split_dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/split_samples.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">split_samples</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/stratified_split.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">stratified_split</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.dataset.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.dataset</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.loader.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.loader</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.balance.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.balance</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-6" aria-controls="quarto-sidebar-section-6" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-6-label">Training</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-6" aria-labelledby="quarto-sidebar-section-6-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/device_report.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">device_report</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/build_engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">build_engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.fit_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.fit_anchors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.fit.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.fit</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationRun.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationRun</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-7" aria-controls="quarto-sidebar-section-7" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-7-label">Predicting and scoring</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-7" aria-labelledby="quarto-sidebar-section-7-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.predict_stream.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.predict_stream</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/summarise_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">summarise_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.predict_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.predict_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.evaluate_cases.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.evaluate_cases</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate_classes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_classes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.evaluate_images.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.evaluate_images</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.crops.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.crops</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionReport.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionReport</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.report.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.report</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.anchor_coverage.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.anchor_coverage</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.box_shapes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.box_shapes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.split_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.split_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.model_names.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.model_names</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.predict.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.predict</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.predict_labels.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.predict_labels</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.answers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.answers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.evaluate.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.evaluate</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.best_model.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.best_model</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ClassificationEngine.write_history.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ClassificationEngine.write_history</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-8" aria-controls="quarto-sidebar-section-8" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-8-label">Weights</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-8" aria-labelledby="quarto-sidebar-section-8-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/available_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">available_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/resolve_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">resolve_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/Engine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Engine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/InstanceEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">InstanceEngine.export_weights</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/DetectionEngine.export_weights.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">DetectionEngine.export_weights</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-9" aria-controls="quarto-sidebar-section-9" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-9-label">Records</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-9" aria-labelledby="quarto-sidebar-section-9-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/write_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">write_record</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/read_record.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">read_record</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-10" aria-controls="quarto-sidebar-section-10" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-10-label">Looking at the results</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-10" aria-labelledby="quarto-sidebar-section-10-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_masks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_boxes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_boxes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/plot_anchors.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">plot_anchors</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_mask.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_mask</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instances.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instances</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/overlay_instance_agreement.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">overlay_instance_agreement</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/flow_to_colours.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">flow_to_colours</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/drawing_style.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">drawing_style</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-11" aria-controls="quarto-sidebar-section-11" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-11-label">Masks and volumes</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-11" aria-labelledby="quarto-sidebar-section-11-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/mask_volume.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">mask_volume</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/instance_sizes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">instance_sizes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/instance_shapes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">instance_shapes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/largest_filled_object.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">largest_filled_object</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ellipse_axes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ellipse_axes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ellipse_circumference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ellipse_circumference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_class_masks.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_class_masks</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_volumes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_volumes</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/save_class_volumes.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">save_class_volumes</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-12" aria-controls="quarto-sidebar-section-12" aria-expanded="false">
+ <span class="menu-text" id="quarto-sidebar-section-12-label">When something is wrong</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-12" aria-labelledby="quarto-sidebar-section-12-label" class="collapse list-unstyled sidebar-section depth2 ">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/PlatypusError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">PlatypusError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/ConfigError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">ConfigError</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./reference/WeightsError.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">WeightsError</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+      </ul>
+  </li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-13" aria-controls="quarto-sidebar-section-13" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-13-label">About</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-13" aria-labelledby="quarto-sidebar-section-13-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CHANGELOG.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Changelog</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CODE_OF_CONDUCT.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Code of conduct</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="https://github.com/maju116/pyplatypus/blob/main/LICENSE" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Licence</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./CITATION.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Citation</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#cutting-the-objects-out-which-is-a-decision-about-the-data" id="toc-cutting-the-objects-out-which-is-a-decision-about-the-data" class="nav-link active" data-scroll-target="#cutting-the-objects-out-which-is-a-decision-about-the-data">Cutting the objects out, which is a decision about the data</a>
+  <ul class="collapse">
+  <li><a href="#a-crop-needs-a-label-and-the-label-is-a-decision" id="toc-a-crop-needs-a-label-and-the-label-is-a-decision" class="nav-link" data-scroll-target="#a-crop-needs-a-label-and-the-label-is-a-decision">A crop needs a label, and the label is a decision</a></li>
+  </ul></li>
+  <li><a href="#what-the-detector-already-answers" id="toc-what-the-detector-already-answers" class="nav-link" data-scroll-target="#what-the-detector-already-answers">What the detector already answers</a></li>
+  <li><a href="#the-classifier-and-the-metric-that-is-not-accuracy" id="toc-the-classifier-and-the-metric-that-is-not-accuracy" class="nav-link" data-scroll-target="#the-classifier-and-the-metric-that-is-not-accuracy">The classifier, and the metric that is not accuracy</a></li>
+  <li><a href="#scoring-per-class-because-the-mean-is-the-commonest-class" id="toc-scoring-per-class-because-the-mean-is-the-commonest-class" class="nav-link" data-scroll-target="#scoring-per-class-because-the-mean-is-the-commonest-class">Scoring per class, because the mean is the commonest class</a>
+  <ul class="collapse">
+  <li><a href="#two-things-that-do-not-help-measured-rather-than-assumed" id="toc-two-things-that-do-not-help-measured-rather-than-assumed" class="nav-link" data-scroll-target="#two-things-that-do-not-help-measured-rather-than-assumed">Two things that do not help, measured rather than assumed</a></li>
+  </ul></li>
+  <li><a href="#the-class-that-is-not-a-picture-of-anything" id="toc-the-class-that-is-not-a-picture-of-anything" class="nav-link" data-scroll-target="#the-class-that-is-not-a-picture-of-anything">The class that is not a picture of anything</a></li>
+  <li><a href="#what-this-does-not-do" id="toc-what-this-does-not-do" class="nav-link" data-scroll-target="#what-this-does-not-do">What this does not do</a></li>
+  <li><a href="#notes-on-the-machine" id="toc-notes-on-the-machine" class="nav-link" data-scroll-target="#notes-on-the-machine">Notes on the machine</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./guide.html">Articles</a></li><li class="breadcrumb-item"><a href="./classification.html">Naming what a detector found</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Naming what a detector found</h1>
+</div>
+
+<div>
+  <div class="description">
+    A detector’s crops, a classifier on top of them, and the class that is a statement about the annotation rather than about the picture.
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>A detector answers <em>how many objects are there and where</em>. A classifier answers <em>what is this one picture of</em>. Putting them in that order - find the objects, cut them out, hand the pieces to something that knows more classes than the detector does - is the second thing people ask for after boxes, and it is the one join this package deliberately leaves to you.</p>
+<p>This article is that join, on <a href="https://github.com/Shenggan/BCCD_Dataset">BCCD</a>, the same 364 photographs of blood smears <a href="./blood-cells.html">the detection article</a> uses. The detector is published, so nothing here has to find the cells again.</p>
+<p><strong>It does not end where it was meant to.</strong> The classifier learns the three cell types almost perfectly and fails completely at the one job it was added for, and the measurement that says why is the most useful thing on the page.</p>
+<p><strong>Where the numbers come from.</strong> Every figure below was produced by R’s <code>vignette("classification")</code>, which runs this same sequence through <code>rplatypus</code> on one machine; by <code>maju116/rplatypus#117</code> that vignette is the source and this article is the copy, so the two walk the same sections and reach them by different routes - a configuration here, constructors there.</p>
+<section id="cutting-the-objects-out-which-is-a-decision-about-the-data" class="level2">
+<h2 class="anchored" data-anchor-id="cutting-the-objects-out-which-is-a-decision-about-the-data">Cutting the objects out, which is a decision about the data</h2>
+<p><code>DetectionEngine.crops()</code> returns arrays, and a classification run reads a directory or a CSV. The step in between - writing the crops out - is not in this package, and <code>crops()</code>’s own docstring says why: <em>which crops are worth keeping is a decision about the data rather than about either model.</em></p>
+<p>BCCD arrives in Pascal VOC’s layout, one flat directory of images beside one flat directory of XML, so a CSV per split is the only wrangling - the detection article has those dozen lines. With them, the published detector loads rather than trains:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pyplatypus <span class="im">as</span> pp</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>published <span class="op">=</span> pp.from_dict(</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">"task"</span>: <span class="st">"object_detection"</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="st">"data"</span>: {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            <span class="st">"train_path"</span>: <span class="st">"bccd-train.csv"</span>,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>            <span class="st">"validation_path"</span>: <span class="st">"bccd-val.csv"</span>,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>            <span class="st">"test_path"</span>: <span class="st">"bccd-test.csv"</span>,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>            <span class="st">"classes"</span>: [<span class="st">"RBC"</span>, <span class="st">"WBC"</span>, <span class="st">"Platelets"</span>],</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">"mode"</span>: <span class="st">"config_file"</span>,</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        },</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">"models"</span>: [</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>            {</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>                <span class="st">"name"</span>: <span class="st">"cells"</span>,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                <span class="st">"architecture"</span>: <span class="st">"yolo3"</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                <span class="st">"input_shape"</span>: [<span class="dv">416</span>, <span class="dv">416</span>],</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>                <span class="st">"weights"</span>: <span class="st">"bccd-yolo3"</span>,</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>                <span class="st">"fit"</span>: <span class="va">False</span>,</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        ],</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>detector <span class="op">=</span> pp.build_engine(published)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>detector.fit()</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>records <span class="op">=</span> detector.crops(<span class="st">"cells"</span>, <span class="st">"test"</span>, size<span class="op">=</span>(<span class="dv">96</span>, <span class="dv">96</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>One record per image, with <code>key</code>, <code>crops</code>, <code>boxes</code>, <code>scores</code>, <code>labels</code>, <code>names</code> and <code>dropped</code>. <strong><code>size</code> letterboxes rather than stretches</strong>, so a tall box keeps its shape - and it also throws away the one thing that separates these three classes most cleanly. The median side of an annotated object on the test split is 41 pixels for a platelet, 103 for a red cell and 182 for a white one, a factor of four; brought to 96 x 96 they are all the same size.</p>
+<section id="a-crop-needs-a-label-and-the-label-is-a-decision" class="level3">
+<h3 class="anchored" data-anchor-id="a-crop-needs-a-label-and-the-label-is-a-decision">A crop needs a label, and the label is a decision</h3>
+<p>Each crop is labelled by what it overlaps: the best unclaimed annotated object at an overlap of at least 0.5 gives its class, and a crop that matches nothing gets a fourth class. Naming that class rather than dropping those crops is the decision, and <code>ClassificationData</code> argues for naming - there is no background entry, so a picture of nothing in particular is a class somebody has to name. Dropping them would train a classifier that believes every crop it will ever see is a cell.</p>
+<p>Written out as one directory per class, following the dataset’s own three-way split, that is:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>split</th>
+<th>RBC</th>
+<th>WBC</th>
+<th>Platelets</th>
+<th>nothing</th>
+<th>crops</th>
+<th>nothing</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>train</td>
+<td>2367</td>
+<td>214</td>
+<td>209</td>
+<td>129</td>
+<td>2919</td>
+<td>4.4%</td>
+</tr>
+<tr class="even">
+<td>validation</td>
+<td>787</td>
+<td>87</td>
+<td>76</td>
+<td>380</td>
+<td>1330</td>
+<td>28.6%</td>
+</tr>
+<tr class="odd">
+<td>test</td>
+<td>638</td>
+<td>71</td>
+<td>64</td>
+<td>312</td>
+<td>1085</td>
+<td>28.8%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Read the last column before anything else.</strong> On the images the detector trained on, 4.4% of its crops match no annotated object; on the two splits it has never seen, 28.6% and 28.8%. A detector’s output on its own training images is not the output it will give you, and the factor here is about six.</p>
+</section>
+</section>
+<section id="what-the-detector-already-answers" class="level2">
+<h2 class="anchored" data-anchor-id="what-the-detector-already-answers">What the detector already answers</h2>
+<p>Before training anything it is worth asking what a second model could add. Of the crops that <strong>do</strong> match an annotated object, how often was the detector’s own class right? 2790 of 2790 on the training split, 950 of 950 on validation, 772 of 773 on test.</p>
+<p><strong>One wrong out of 1,723 on the two splits the detector never trained on.</strong> A detector’s class head sees the object at the scale it occurs, with the whole photograph around it; a classifier sees a 96 x 96 crop with the scale normalised away. So naming the three cell types again is not work worth doing, and what is left is the other column: between a quarter and a third of what the detector hands over matches no annotated object at all. <strong>The question this page can usefully ask is not <em>what is this crop</em> but <em>is this crop anything</em>.</strong></p>
+</section>
+<section id="the-classifier-and-the-metric-that-is-not-accuracy" class="level2">
+<h2 class="anchored" data-anchor-id="the-classifier-and-the-metric-that-is-not-accuracy">The classifier, and the metric that is not accuracy</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">task</span><span class="kw">:</span><span class="at"> classification</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">train_path</span><span class="kw">:</span><span class="at"> crops/train</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">validation_path</span><span class="kw">:</span><span class="at"> crops/valid</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">test_path</span><span class="kw">:</span><span class="at"> crops/test</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">mode</span><span class="kw">:</span><span class="at"> nested_dirs</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">classes</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">RBC</span><span class="kw">,</span><span class="at"> WBC</span><span class="kw">,</span><span class="at"> Platelets</span><span class="kw">,</span><span class="at"> nothing</span><span class="kw">]</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> cells</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">input_shape</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">96</span><span class="kw">,</span><span class="at"> </span><span class="dv">96</span><span class="kw">]</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">blocks</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">filters</span><span class="kw">:</span><span class="at"> </span><span class="dv">16</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">block_width</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">epochs</span><span class="kw">:</span><span class="at"> </span><span class="dv">60</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">batch_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">32</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">optimizer</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> adam</span><span class="kw">,</span><span class="at"> </span><span class="fu">learning_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.001</span><span class="kw">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">augmentation</span><span class="kw">:</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> HorizontalFlip</span><span class="kw">,</span><span class="at"> </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">}}</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> VerticalFlip</span><span class="kw">,</span><span class="at"> </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">}}</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> RandomRotate90</span><span class="kw">,</span><span class="at"> </span><span class="fu">params</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">p</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">}}</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">metrics</span><span class="kw">:</span><span class="at"> </span><span class="kw">[{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> auc</span><span class="kw">},</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> balanced_accuracy</span><span class="kw">},</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> f1</span><span class="kw">}]</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">callbacks</span><span class="kw">:</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> cosine_annealing</span><span class="kw">}</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">name</span><span class="kw">:</span><span class="at"> early_stopping</span><span class="kw">,</span><span class="at"> </span><span class="fu">monitor</span><span class="kw">:</span><span class="at"> val_auc</span><span class="kw">,</span><span class="at"> </span><span class="fu">patience</span><span class="kw">:</span><span class="at"> </span><span class="dv">15</span><span class="kw">,</span><span class="at"> </span><span class="fu">restore_best</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="kw">}</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>No <code>encoder</code>, so the contracting path is this package’s own; <code>block_width</code> rather than another level, because halving a 96-pixel crop four times leaves a platelet with nothing, and a crop of one cell is the case that lever is for.</p>
+<p><code>ClassificationEngine.balance()</code> is worth reading before the fit rather than after it, because the prevalence is what every later decision turns on: 81.1% RBC, 7.3% WBC, 7.2% Platelets, 4.4% nothing, and the engine’s own remark under the table says that below about 10% a metric read off the hard prediction stops telling a model from a collapse. That is why <code>auc</code> is the default here and <code>accuracy</code> is offered rather than chosen.</p>
+<p>Training AUC reaches 0.9971 against a validation AUC of 0.8816, and the loss is the clearer half: the training loss falls to 0.047 while the validation loss <strong>rises</strong> from 1.54 to 1.94. The model is memorising crops. Early stopping restored epoch 29 of 44 - the best <code>val_auc</code>, which is what it was told to watch.</p>
+<p><strong>The <code>best_epoch</code> the scoring table reports is 18 instead</strong>, because that column is the lowest validation <em>loss</em>, read off the history whatever the callback was watching. The scores in that row are the restored epoch’s and the column names another one; <code>pyplatypus#398</code> asks which of the two it should be.</p>
+</section>
+<section id="scoring-per-class-because-the-mean-is-the-commonest-class" class="level2">
+<h2 class="anchored" data-anchor-id="scoring-per-class-because-the-mean-is-the-commonest-class">Scoring per class, because the mean is the commonest class</h2>
+<p><code>evaluate("test")</code> reports AUC 0.8727, balanced accuracy 0.7284 and F1 0.6817, and an accuracy of 0.730 - against <strong>0.588 for a model that answers <code>RBC</code> to everything</strong>. That pair is the whole argument for the default metric: a reader told only the first would believe something had been learned about all four classes.</p>
+<p>The confusion says where it went, with the truth down the side:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th></th>
+<th>RBC</th>
+<th>WBC</th>
+<th>Platelets</th>
+<th>nothing</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>RBC</strong></td>
+<td>637</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td><strong>WBC</strong></td>
+<td>0</td>
+<td>71</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="odd">
+<td><strong>Platelets</strong></td>
+<td>0</td>
+<td>1</td>
+<td>52</td>
+<td>11</td>
+</tr>
+<tr class="even">
+<td><strong>nothing</strong></td>
+<td>253</td>
+<td>5</td>
+<td>22</td>
+<td>32</td>
+</tr>
+</tbody>
+</table>
+<p>The three cell types are nearly perfect. The fourth class is a rout: 32 of 312, with 253 of them called a red cell.</p>
+<section id="two-things-that-do-not-help-measured-rather-than-assumed" class="level3">
+<h3 class="anchored" data-anchor-id="two-things-that-do-not-help-measured-rather-than-assumed">Two things that do not help, measured rather than assumed</h3>
+<p>A second seed of the same recipe, and the loss that exists for exactly this problem - focal cross-entropy, which loses interest in what it already gets right:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>arm</th>
+<th>auc</th>
+<th>balanced accuracy</th>
+<th>share of alarms rejected</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>seed 1</td>
+<td>0.8727</td>
+<td>0.7284</td>
+<td>0.103</td>
+</tr>
+<tr class="even">
+<td>seed 2</td>
+<td>0.8657</td>
+<td>0.7459</td>
+<td>0.093</td>
+</tr>
+<tr class="odd">
+<td>focal</td>
+<td>0.8803</td>
+<td>0.7238</td>
+<td>0.051</td>
+</tr>
+</tbody>
+</table>
+<p>Two seeds of one recipe differ by 0.0071 of AUC and focal loss moves it by 0.0076, which are the same order of magnitude - and <strong>two runs are not a spread</strong>, so neither figure is worth a conclusion on its own. The column that can carry one is the last: the share of the detector’s unmatched boxes that the model rejects runs from 0.05 to 0.10 across all three, which is to say that none of them does it.</p>
+</section>
+</section>
+<section id="the-class-that-is-not-a-picture-of-anything" class="level2">
+<h2 class="anchored" data-anchor-id="the-class-that-is-not-a-picture-of-anything">The class that is not a picture of anything</h2>
+<p>The obvious repair is not to make the classifier choose but to ask it for a probability - <code>predict()</code> returns one row per image and one column per class - and reject a crop when <code>nothing</code> is likely enough. The threshold is a decision about cost, so it is chosen on the validation split and only then read on the test split. Precision before any of it is 0.7124, the share of what the detector hands over that is an annotated object; the best any threshold buys on the test split is 0.7482, at the cost of 4.3% of the real cells. <strong>A gain of 0.036 of precision for 33 cells, from a second model, a second dataset and a second training run.</strong></p>
+<p>And a second model has to be worth more than the one number the first one already has. Scoring the detector’s own boxes at a range of <code>operating_point</code>s, with nothing trained:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>operating_point</th>
+<th>boxes</th>
+<th>cells kept</th>
+<th>precision</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0.50</td>
+<td>1085</td>
+<td>1.000</td>
+<td>0.7124</td>
+</tr>
+<tr class="even">
+<td>0.70</td>
+<td>1028</td>
+<td>0.972</td>
+<td>0.7305</td>
+</tr>
+<tr class="odd">
+<td>0.80</td>
+<td>990</td>
+<td>0.955</td>
+<td>0.7455</td>
+</tr>
+<tr class="even">
+<td>0.90</td>
+<td>942</td>
+<td>0.928</td>
+<td>0.7611</td>
+</tr>
+<tr class="odd">
+<td>0.95</td>
+<td>907</td>
+<td>0.899</td>
+<td>0.7663</td>
+</tr>
+<tr class="even">
+<td>0.99</td>
+<td>773</td>
+<td>0.811</td>
+<td>0.8111</td>
+</tr>
+</tbody>
+</table>
+<p>The first row reproduces the 1,085 crops, which is the control that this is the same set of predictions read a second way. At 0.8 the detector keeps 0.955 of the cells against the classifier’s 0.957, at a precision of 0.7455 against 0.7482. <strong>A number that is already in the specification is on the same curve as a second model</strong>, and that is the comparison a page like this owes before it recommends anything.</p>
+<p>So the rejector does not work, and the interesting question is why not. It is not the threshold and not the loss. It is the label. Of the 312 unmatched boxes on the test split, 92 overlap no annotated object whatsoever, 182 barely touch one, 31 are off their object and 7 are a second box on an object some higher-scoring box already took. And they are not guesses: their median score is 0.9864, against 0.9999 for the boxes that do match.</p>
+<p>Looking at them settles it. They are cells - red cells whole and overlapping, out-of-focus smudges of exactly the kind the platelet class is made of, and patches of the purple a white cell is stained with. <strong><code>nothing</code> is not a picture of anything; it is a statement about the annotation</strong>, and the question <em>is this cell written down in the XML</em> is not answerable from a picture of the cell.</p>
+<p>One photograph makes the point better than the table does: on <code>BloodImage_00327</code> the annotation has 2 objects and the detector finds 16 above its operating point, and on <code>BloodImage_00249</code> it is 3 against 16. The extra boxes are red cells. BCCD annotates a subset of what is in some of its photographs, and a model trained on 205 images of it learned to find cells rather than to find annotations - which is the right thing to have learned and the reason a quarter of its output scores as wrong.</p>
+<p><strong>What this costs beyond this page</strong>: a precision measured against an incomplete annotation is a lower bound rather than an estimate, so the per-class precision in <a href="./blood-cells.html">the detection article</a> understates the detector by an unknown amount.</p>
+</section>
+<section id="what-this-does-not-do" class="level2">
+<h2 class="anchored" data-anchor-id="what-this-does-not-do">What this does not do</h2>
+<p><strong>It does not show a classifier earning its place.</strong> On this dataset the detector already names its objects correctly 99.94% of the time, so the second model has nothing to add. Where one does earn its place is where the classes are <strong>finer than the detector’s</strong>: a detector that finds cells and a classifier that names twenty kinds of them, trained on crops whose labels come from somewhere other than the boxes. The surface is the same one; only the labels would differ.</p>
+<p><strong>It is not a measurement of the annotation.</strong> That a detector finds cells no annotation mentions says the annotation is incomplete on those images; how incomplete, on which images and for which class is a question somebody would have to answer by looking, and nothing here did.</p>
+<p><strong>The crops lose the scale.</strong> Every one is 96 x 96 whatever it was cut from, so the single most separable property of these three classes is gone before the classifier sees anything. <code>size=None</code> keeps each crop as cut, and then they cannot be stacked into one batch without a decision of your own.</p>
+<p><strong>It is one small collection.</strong> 205 training photographs at one magnification, stained one way, and the three classes it holds are easy to tell apart by eye. <strong>It is not a diagnostic tool</strong>, and a result from it is not a laboratory result.</p>
+</section>
+<section id="notes-on-the-machine" class="level2">
+<h2 class="anchored" data-anchor-id="notes-on-the-machine">Notes on the machine</h2>
+<p>A GTX 1070: the detector is loaded rather than trained, cutting and writing 5,334 crops takes about a minute, and each of the three classifiers is about two minutes. <code>answers()</code> returns a row per image with the label and the chosen class, <code>predict_labels()</code> the labels alone and <code>predict()</code> the probability matrix the thresholds above are read from.</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+          if (!link.classList.contains('no-external-icon')) {
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
