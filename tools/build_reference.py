@@ -188,6 +188,7 @@ def main() -> None:
                 "instances.qmd",
                 "retinal-vessels.qmd",
                 "blood-cells.qmd",
+                "classification.qmd",
                 "volumes.qmd",
                 "fetal-head.qmd",
                 "config.qmd",
@@ -257,6 +258,15 @@ def main() -> None:
                             {
                                 "text": "Counting cells in blood smears",
                                 "file": "blood-cells.qmd",
+                            },
+                            # Mirrors R's `vignette("classification")`. Directly after the
+                            # detector, because it is that page continued: it cuts the same
+                            # published detector's boxes out and hands them to a second
+                            # model. Reading it before the detection one would be reading
+                            # about crops of boxes nobody had found yet.
+                            {
+                                "text": "Naming what a detector found",
+                                "file": "classification.qmd",
                             },
                             # Mirrors R's `vignette("volumes")`. After the detector and
                             # last of the five, because it is the only one whose data does

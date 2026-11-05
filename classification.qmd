@@ -1,0 +1,273 @@
+---
+title: "Naming what a detector found"
+description: "A detector's crops, a classifier on top of them, and the class that is a statement about the annotation rather than about the picture."
+mirrors: classification
+---
+
+A detector answers *how many objects are there and where*. A classifier answers *what is
+this one picture of*. Putting them in that order - find the objects, cut them out, hand the
+pieces to something that knows more classes than the detector does - is the second thing
+people ask for after boxes, and it is the one join this package deliberately leaves to you.
+
+This article is that join, on [BCCD](https://github.com/Shenggan/BCCD_Dataset), the same 364
+photographs of blood smears [the detection article](blood-cells.qmd) uses. The detector is
+published, so nothing here has to find the cells again.
+
+**It does not end where it was meant to.** The classifier learns the three cell types almost
+perfectly and fails completely at the one job it was added for, and the measurement that says
+why is the most useful thing on the page.
+
+**Where the numbers come from.** Every figure below was produced by R's
+`vignette("classification")`, which runs this same sequence through `rplatypus` on one
+machine; by `maju116/rplatypus#117` that vignette is the source and this article is the copy,
+so the two walk the same sections and reach them by different routes - a configuration here,
+constructors there.
+
+## Cutting the objects out, which is a decision about the data
+
+`DetectionEngine.crops()` returns arrays, and a classification run reads a directory or a
+CSV. The step in between - writing the crops out - is not in this package, and `crops()`'s
+own docstring says why: *which crops are worth keeping is a decision about the data rather
+than about either model.*
+
+BCCD arrives in Pascal VOC's layout, one flat directory of images beside one flat directory
+of XML, so a CSV per split is the only wrangling - the detection article has those dozen
+lines. With them, the published detector loads rather than trains:
+
+```python
+import pyplatypus as pp
+
+published = pp.from_dict(
+    {
+        "task": "object_detection",
+        "data": {
+            "train_path": "bccd-train.csv",
+            "validation_path": "bccd-val.csv",
+            "test_path": "bccd-test.csv",
+            "classes": ["RBC", "WBC", "Platelets"],
+            "mode": "config_file",
+        },
+        "models": [
+            {
+                "name": "cells",
+                "architecture": "yolo3",
+                "input_shape": [416, 416],
+                "weights": "bccd-yolo3",
+                "fit": False,
+            }
+        ],
+    }
+)
+detector = pp.build_engine(published)
+detector.fit()
+
+records = detector.crops("cells", "test", size=(96, 96))
+```
+
+One record per image, with `key`, `crops`, `boxes`, `scores`, `labels`, `names` and
+`dropped`. **`size` letterboxes rather than stretches**, so a tall box keeps its shape - and
+it also throws away the one thing that separates these three classes most cleanly. The median
+side of an annotated object on the test split is 41 pixels for a platelet, 103 for a red cell
+and 182 for a white one, a factor of four; brought to 96 x 96 they are all the same size.
+
+### A crop needs a label, and the label is a decision
+
+Each crop is labelled by what it overlaps: the best unclaimed annotated object at an overlap
+of at least 0.5 gives its class, and a crop that matches nothing gets a fourth class. Naming
+that class rather than dropping those crops is the decision, and `ClassificationData` argues
+for naming - there is no background entry, so a picture of nothing in particular is a class
+somebody has to name. Dropping them would train a classifier that believes every crop it will
+ever see is a cell.
+
+Written out as one directory per class, following the dataset's own three-way split, that is:
+
+| split | RBC | WBC | Platelets | nothing | crops | nothing |
+|---|---|---|---|---|---|---|
+| train | 2367 | 214 | 209 | 129 | 2919 | 4.4% |
+| validation | 787 | 87 | 76 | 380 | 1330 | 28.6% |
+| test | 638 | 71 | 64 | 312 | 1085 | 28.8% |
+
+**Read the last column before anything else.** On the images the detector trained on, 4.4% of
+its crops match no annotated object; on the two splits it has never seen, 28.6% and 28.8%. A
+detector's output on its own training images is not the output it will give you, and the
+factor here is about six.
+
+## What the detector already answers
+
+Before training anything it is worth asking what a second model could add. Of the crops that
+**do** match an annotated object, how often was the detector's own class right? 2790 of 2790
+on the training split, 950 of 950 on validation, 772 of 773 on test.
+
+**One wrong out of 1,723 on the two splits the detector never trained on.** A detector's class
+head sees the object at the scale it occurs, with the whole photograph around it; a classifier
+sees a 96 x 96 crop with the scale normalised away. So naming the three cell types again is
+not work worth doing, and what is left is the other column: between a quarter and a third of
+what the detector hands over matches no annotated object at all. **The question this page can
+usefully ask is not *what is this crop* but *is this crop anything*.**
+
+## The classifier, and the metric that is not accuracy
+
+```yaml
+task: classification
+data:
+  train_path: crops/train
+  validation_path: crops/valid
+  test_path: crops/test
+  mode: nested_dirs
+  classes: [RBC, WBC, Platelets, nothing]
+models:
+  - name: cells
+    input_shape: [96, 96]
+    blocks: 3
+    filters: 16
+    block_width: 2
+    epochs: 60
+    batch_size: 32
+    optimizer: {name: adam, learning_rate: 0.001}
+    augmentation:
+      - {name: HorizontalFlip, params: {p: 0.5}}
+      - {name: VerticalFlip, params: {p: 0.5}}
+      - {name: RandomRotate90, params: {p: 0.5}}
+    metrics: [{name: auc}, {name: balanced_accuracy}, {name: f1}]
+    callbacks:
+      - {name: cosine_annealing}
+      - {name: early_stopping, monitor: val_auc, patience: 15, restore_best: true}
+seed: 1
+```
+
+No `encoder`, so the contracting path is this package's own; `block_width` rather than another
+level, because halving a 96-pixel crop four times leaves a platelet with nothing, and a crop
+of one cell is the case that lever is for.
+
+`ClassificationEngine.balance()` is worth reading before the fit rather than after it, because
+the prevalence is what every later decision turns on: 81.1% RBC, 7.3% WBC, 7.2% Platelets,
+4.4% nothing, and the engine's own remark under the table says that below about 10% a metric
+read off the hard prediction stops telling a model from a collapse. That is why `auc` is the
+default here and `accuracy` is offered rather than chosen.
+
+Training AUC reaches 0.9971 against a validation AUC of 0.8816, and the loss is the clearer
+half: the training loss falls to 0.047 while the validation loss **rises** from 1.54 to 1.94.
+The model is memorising crops. Early stopping restored epoch 29 of 44 - the best `val_auc`,
+which is what it was told to watch.
+
+**The `best_epoch` the scoring table reports is 18 instead**, because that column is the
+lowest validation *loss*, read off the history whatever the callback was watching. The scores
+in that row are the restored epoch's and the column names another one;
+`pyplatypus#398` asks which of the two it should be.
+
+## Scoring per class, because the mean is the commonest class
+
+`evaluate("test")` reports AUC 0.8727, balanced accuracy 0.7284 and F1 0.6817, and an
+accuracy of 0.730 - against **0.588 for a model that answers `RBC` to everything**. That pair
+is the whole argument for the default metric: a reader told only the first would believe
+something had been learned about all four classes.
+
+The confusion says where it went, with the truth down the side:
+
+| | RBC | WBC | Platelets | nothing |
+|---|---|---|---|---|
+| **RBC** | 637 | 0 | 0 | 1 |
+| **WBC** | 0 | 71 | 0 | 0 |
+| **Platelets** | 0 | 1 | 52 | 11 |
+| **nothing** | 253 | 5 | 22 | 32 |
+
+The three cell types are nearly perfect. The fourth class is a rout: 32 of 312, with 253 of
+them called a red cell.
+
+### Two things that do not help, measured rather than assumed
+
+A second seed of the same recipe, and the loss that exists for exactly this problem - focal
+cross-entropy, which loses interest in what it already gets right:
+
+| arm | auc | balanced accuracy | share of alarms rejected |
+|---|---|---|---|
+| seed 1 | 0.8727 | 0.7284 | 0.103 |
+| seed 2 | 0.8657 | 0.7459 | 0.093 |
+| focal | 0.8803 | 0.7238 | 0.051 |
+
+Two seeds of one recipe differ by 0.0071 of AUC and focal loss moves it by 0.0076, which are
+the same order of magnitude - and **two runs are not a spread**, so neither figure is worth a
+conclusion on its own. The column that can carry one is the last: the share of the detector's
+unmatched boxes that the model rejects runs from 0.05 to 0.10 across all three, which is to
+say that none of them does it.
+
+## The class that is not a picture of anything
+
+The obvious repair is not to make the classifier choose but to ask it for a probability -
+`predict()` returns one row per image and one column per class - and reject a crop when
+`nothing` is likely enough. The threshold is a decision about cost, so it is chosen on the
+validation split and only then read on the test split. Precision before any of it is 0.7124,
+the share of what the detector hands over that is an annotated object; the best any threshold
+buys on the test split is 0.7482, at the cost of 4.3% of the real cells. **A gain of 0.036 of
+precision for 33 cells, from a second model, a second dataset and a second training run.**
+
+And a second model has to be worth more than the one number the first one already has.
+Scoring the detector's own boxes at a range of `operating_point`s, with nothing trained:
+
+| operating_point | boxes | cells kept | precision |
+|---|---|---|---|
+| 0.50 | 1085 | 1.000 | 0.7124 |
+| 0.70 | 1028 | 0.972 | 0.7305 |
+| 0.80 | 990 | 0.955 | 0.7455 |
+| 0.90 | 942 | 0.928 | 0.7611 |
+| 0.95 | 907 | 0.899 | 0.7663 |
+| 0.99 | 773 | 0.811 | 0.8111 |
+
+The first row reproduces the 1,085 crops, which is the control that this is the same set of
+predictions read a second way. At 0.8 the detector keeps 0.955 of the cells against the
+classifier's 0.957, at a precision of 0.7455 against 0.7482. **A number that is already in
+the specification is on the same curve as a second model**, and that is the comparison a page
+like this owes before it recommends anything.
+
+So the rejector does not work, and the interesting question is why not. It is not the
+threshold and not the loss. It is the label. Of the 312 unmatched boxes on the test split, 92
+overlap no annotated object whatsoever, 182 barely touch one, 31 are off their object and 7
+are a second box on an object some higher-scoring box already took. And they are not guesses:
+their median score is 0.9864, against 0.9999 for the boxes that do match.
+
+Looking at them settles it. They are cells - red cells whole and overlapping, out-of-focus
+smudges of exactly the kind the platelet class is made of, and patches of the purple a white
+cell is stained with. **`nothing` is not a picture of anything; it is a statement about the
+annotation**, and the question *is this cell written down in the XML* is not answerable from a
+picture of the cell.
+
+One photograph makes the point better than the table does: on `BloodImage_00327` the
+annotation has 2 objects and the detector finds 16 above its operating point, and on
+`BloodImage_00249` it is 3 against 16. The extra boxes are red cells. BCCD annotates a subset
+of what is in some of its photographs, and a model trained on 205 images of it learned to find
+cells rather than to find annotations - which is the right thing to have learned and the
+reason a quarter of its output scores as wrong.
+
+**What this costs beyond this page**: a precision measured against an incomplete annotation is
+a lower bound rather than an estimate, so the per-class precision in
+[the detection article](blood-cells.qmd) understates the detector by an unknown amount.
+
+## What this does not do
+
+**It does not show a classifier earning its place.** On this dataset the detector already
+names its objects correctly 99.94% of the time, so the second model has nothing to add. Where
+one does earn its place is where the classes are **finer than the detector's**: a detector
+that finds cells and a classifier that names twenty kinds of them, trained on crops whose
+labels come from somewhere other than the boxes. The surface is the same one; only the labels
+would differ.
+
+**It is not a measurement of the annotation.** That a detector finds cells no annotation
+mentions says the annotation is incomplete on those images; how incomplete, on which images
+and for which class is a question somebody would have to answer by looking, and nothing here
+did.
+
+**The crops lose the scale.** Every one is 96 x 96 whatever it was cut from, so the single
+most separable property of these three classes is gone before the classifier sees anything.
+`size=None` keeps each crop as cut, and then they cannot be stacked into one batch without a
+decision of your own.
+
+**It is one small collection.** 205 training photographs at one magnification, stained one
+way, and the three classes it holds are easy to tell apart by eye. **It is not a diagnostic
+tool**, and a result from it is not a laboratory result.
+
+## Notes on the machine
+
+A GTX 1070: the detector is loaded rather than trained, cutting and writing 5,334 crops takes
+about a minute, and each of the three classifiers is about two minutes. `answers()` returns a
+row per image with the label and the chosen class, `predict_labels()` the labels alone and
+`predict()` the probability matrix the thresholds above are read from.
