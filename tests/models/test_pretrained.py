@@ -280,3 +280,130 @@ def test_a_classification_run_s_own_encoder_route_carries_normalise(asked, expec
     built = _encoder_for(model_spec)
     assert built.normalises is expected
     assert model_spec.weights_fingerprint()["input_normalised"] is expected
+
+
+# --- pretrained, and the one route that decides whether a backbone is transferred at all --
+#
+# `maju116/pyplatypus#395`. The tenth pass said *"all thirteen arguments of that call are
+# unheld here, `pretrained=` included"*; `0.8.0a66` closed one of the thirteen and the
+# eleventh pass measured what the rest cost. `pretrained` is the one with a consequence: with
+# the forward gone, `SegmentationModel(encoder="resnet18", pretrained=True)` reports
+# `weights_fingerprint()["input_normalised"] == True` while the backbone is randomly
+# initialised and **no download is attempted**. The fingerprint records a transfer that did
+# not happen.
+#
+# A spy rather than a download: the question is whether the flag arrives, and timm's own
+# behaviour on arrival is timm's.
+
+
+@pytest.mark.parametrize("asked", [True, False])
+@pytest.mark.parametrize("route", ["segmentation", "classification"])
+def test_pretrained_arrives_at_timm_through_both_encoder_routes(monkeypatch, route, asked):
+    """Spied at `timm.create_model`, which is the only place the flag can mean anything."""
+    import timm
+
+    seen = []
+    real = timm.create_model
+
+    def spy(name, *args, **kwargs):
+        # `verify_encoder` probes with `pretrained=False` before the real build, so only
+        # the call that builds the backbone is recorded - the one carrying `in_chans`.
+        if "in_chans" in kwargs:
+            seen.append(kwargs.get("pretrained"))
+        return real(name, *args, **{**kwargs, "pretrained": False})
+
+    # `encoders` imports timm lazily inside `_import_timm()`, so the spy goes on the module
+    # that function returns rather than on an attribute of `encoders`.
+    monkeypatch.setattr(timm, "create_model", spy)
+
+    if route == "segmentation":
+        from pyplatypus.engine import _encoder_for
+
+        built = _encoder_for(spec(encoder="resnet18", pretrained=asked, blocks=2, filters=8))
+    else:
+        from pyplatypus.models.classifier import _encoder_for
+        from pyplatypus.spec.classification import ClassificationModel
+
+        built = _encoder_for(
+            ClassificationModel(
+                name="c", input_shape=(64, 64), channels=3, encoder="resnet18", pretrained=asked
+            )
+        )
+
+    assert built is not None
+    assert seen == [asked], f"timm was asked for pretrained={seen}, the spec said {asked}"
+
+
+def test_the_fingerprint_and_the_backbone_agree_about_being_transferred(monkeypatch):
+    """The pair the forward exists for, which is what made this worth a test rather than a
+    note: a fingerprint saying the input was normalised with ImageNet statistics, over a
+    network that never loaded any."""
+    import timm
+
+    from pyplatypus.engine import _encoder_for
+
+    real = timm.create_model
+    monkeypatch.setattr(
+        timm,
+        "create_model",
+        lambda name, *a, **k: real(name, *a, **{**k, "pretrained": False}),
+    )
+
+    asked = spec(encoder="resnet18", pretrained=True, blocks=2, filters=8)
+    built = _encoder_for(asked)
+    # `pretrained: true` is what makes both of these true, and the defect is either one of
+    # them being true alone.
+    assert asked.weights_fingerprint()["input_normalised"] is True
+    assert built.normalises is True
+
+
+# --- the encoder route's own thirteen arguments, enumerated --------------------------------
+#
+# `maju116/pyplatypus#395`. `_encoder_for` forwards thirteen fields and **no test executes
+# it** except the ones written for `normalise` and `pretrained` above - which is why the
+# tenth pass's sentence was *"all thirteen arguments of that call are unheld"*. The two
+# builder routes are enumerated in `tests/models/test_field_delivery.py`; this is the third
+# route, and the same question: does a non-default change the built encoder at all?
+
+
+#: field -> (non-default, companions needed to make it reachable)
+ENCODER_ROUTE_FIELDS = {
+    "block_width": (3, {}),
+    "activation": ("gelu", {}),
+    "batch_normalization": (False, {}),
+    "separable_conv": (True, {}),
+    "dropout": (0.5, {}),
+    "spatial_dropout": (False, {"dropout": 0.5}),
+}
+
+
+def _encoder_fingerprint(built):
+    kinds = tuple(sorted(type(module).__name__ for module in built.modules()))
+    state = tuple(
+        (name, tuple(t.shape), round(float(t.detach().sum()), 6))
+        for name, t in sorted(built.state_dict().items())
+    )
+    return kinds, state
+
+
+def _through_the_route(**overrides):
+    from pyplatypus.engine import _encoder_for
+
+    torch.manual_seed(0)
+    return _encoder_for(spec(encoder="resnet18", blocks=2, filters=8, **overrides))
+
+
+@pytest.mark.parametrize("field", sorted(ENCODER_ROUTE_FIELDS))
+def test_a_field_reaches_the_encoder_the_route_builds(field):
+    value, companions = ENCODER_ROUTE_FIELDS[field]
+    default = _encoder_fingerprint(_through_the_route(**companions))
+    asked = _encoder_fingerprint(_through_the_route(**companions, **{field: value}))
+    assert default != asked, (
+        f"`{field}={value!r}` builds the same encoder as the default through `_encoder_for`"
+    )
+
+
+def test_two_builds_of_one_specification_agree_through_the_route():
+    """The control, as in the builder enumeration: the fingerprint reads parameter values,
+    so two builds of the same spec must agree or every row above reads the draw."""
+    assert _encoder_fingerprint(_through_the_route()) == _encoder_fingerprint(_through_the_route())

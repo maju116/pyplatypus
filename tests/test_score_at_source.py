@@ -43,6 +43,11 @@ def spec_for_with(root, size, metrics):
     return from_dict(
         {
             "task": "semantic_segmentation",
+            # Seeded, because two tests in this file used to decide on the draw: an unseeded
+            # one-epoch fit gives a different clDice every run, and one assertion here was a
+            # bound on how far apart the draw happened to put the cases.
+            # `maju116/pyplatypus#394`.
+            "seed": 1,
             "data": {
                 "train_path": str(root),
                 "validation_path": str(root),
@@ -68,6 +73,7 @@ def spec_for(root, size):
     return from_dict(
         {
             "task": "semantic_segmentation",
+            "seed": 1,  # `#394`: nothing in this file should decide on the draw
             "data": {
                 "train_path": str(root),
                 "validation_path": str(root),
@@ -316,21 +322,64 @@ def test_a_grouped_source_score_pools_the_COUNTS_and_not_one_case(widening_engin
     )
 
 
-def test_a_whole_mask_metric_at_source_is_the_MEAN_over_the_group_not_its_BEST(widening_engine):
+def _chosen_stream(widths):
+    """A `predict_stream` whose per-case scores are decided here rather than by training.
+
+    `#394`: the first version of the test below asked this question of a one-epoch
+    **unseeded** fit, so how far apart the cases' clDice landed was a draw - and the
+    assertion that they were far enough apart was a bound nothing had measured. The
+    question is whether the group's figure is the mean or the best, and that is a question
+    about pooling: the inputs can be chosen.
+    """
+
+    def stream(model_name, split, space="source"):
+        for case, kept in enumerate(widths):
+            probabilities = np.zeros((64, 64, 2), np.float32)
+            probabilities[20 : 20 + kept, 8:56, 1] = 1.0
+            probabilities[..., 0] = 1.0 - probabilities[..., 1]
+            yield f"grp0{case}", probabilities
+
+    return stream
+
+
+def test_a_whole_mask_metric_at_source_is_the_MEAN_over_the_group_not_its_BEST(
+    widening_engine, monkeypatch
+):
     """The non-accumulating branch: a skeleton has no counts to add, so the group's figure
     is the mean of the images' per-class vectors. `.max(dim=0)` in place of `.mean(dim=0)`
-    reports the group's best case and survived the whole suite."""
+    reports the group's best case and survived the whole suite.
+
+    **Asked of chosen predictions**, so the separation is a construction rather than a draw:
+    the first case is predicted exactly and the other three as a single row, which puts the
+    best case at 1.0 and the mean near 0.27. A `.max` would report 1.0 for the group.
+    """
     engine = widening_engine
+    # The fixture's bars are 2, 3, 4 and 6 rows; predicting the first exactly and the rest
+    # as one row each is what separates the four scores.
+    monkeypatch.setattr(engine, "predict_stream", _chosen_stream((2, 1, 1, 1)))
+
     cases = [row["cldice"] for row in engine.evaluate_cases("at64", at="source")]
+    monkeypatch.setattr(engine, "predict_stream", _chosen_stream((2, 1, 1, 1)))
     grouped = engine.evaluate_cases("at64", group_by=r"^(grp)\d+$", at="source")[0]["cldice"]
 
+    # Both ends of the construction are stated, so neither assertion rests on the other:
+    # the exact case scores 1.0 and the mean of the four is near 0.27.
+    assert max(cases) == pytest.approx(1.0, abs=1e-6)
     assert grouped == pytest.approx(sum(cases) / len(cases), abs=1e-7)
-    # The cases differ enough that the best is not the mean, which is what makes the line
-    # above able to fail at all.
-    assert max(cases) - grouped > 1e-3
-    assert grouped == pytest.approx(
-        engine.evaluate_cases("at64", group_by=r"^(grp)\d+$")[0]["cldice"], abs=1e-7
-    )
+    assert grouped == pytest.approx(0.271291, abs=1e-4)
+    # And the two are far enough apart that `.max` cannot be mistaken for `.mean` - 0.73
+    # by construction, against the 1e-3 this line used to carry against a trained model.
+    assert max(cases) - grouped > 0.5
+
+
+def test_the_two_grouped_implementations_agree_on_a_whole_mask_metric(widening_engine):
+    """The pair, on the trained model: at 64 nothing is resized, so the source-grid pooling
+    and the model-grid one must give the same number. Deterministic now that the fixture
+    carries a seed, which is the other half of `#394`."""
+    engine = widening_engine
+    at_source = engine.evaluate_cases("at64", group_by=r"^(grp)\d+$", at="source")[0]["cldice"]
+    on_model = engine.evaluate_cases("at64", group_by=r"^(grp)\d+$")[0]["cldice"]
+    assert at_source == pytest.approx(on_model, abs=1e-7)
 
 
 def test_a_stream_out_of_step_with_the_samples_is_REFUSED(thin, monkeypatch):

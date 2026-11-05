@@ -852,3 +852,10 @@ def test_an_instance_run_WRITES_its_record_and_it_reads_back(instance_config, tm
     assert set(record) >= {"specification", "history", "model", "pyplatypus", "written"}
     assert record["specification"]["task"] == "instance_segmentation"
     assert len(record["history"]) == 1
+
+
+def test_batch_size_reaches_the_instance_loader(instance_config):
+    """`maju116/pyplatypus#395`, the same shape as the detection and classification loaders:
+    the read was unheld because every test here used the default."""
+    engine = build_engine(spec_of(instance_config, batch_size=3))
+    assert engine.loader(engine.spec.models[0], "train").batch_size == 3

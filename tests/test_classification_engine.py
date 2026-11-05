@@ -193,6 +193,11 @@ def test_the_loader_is_ordered_and_complete_unless_the_caller_asks_otherwise(tmp
         asked = engine.loader(None, split_name)
         assert isinstance(asked.sampler, SequentialSampler), split_name
         assert asked.drop_last is False, split_name
+    # `== 8` is the field's own DEFAULT, so this line is satisfied by a read replaced with
+    # that default - which is how the eleventh review pass measured this loader's
+    # `batch_size` as unheld. The reading lives in its own test below
+    # (`maju116/pyplatypus#395`), because a non-default here flips `drop_last`: the engine
+    # keeps it only while `len(split) > batch_size`, so one number cannot serve both claims.
     assert engine.loader(None, "train").batch_size == 8
 
     # And the capability `fit` asks for still exists, which is the half that makes the
@@ -855,3 +860,13 @@ def test_fit_is_the_only_caller_that_asks_to_shuffle_and_to_drop(tmp_path):
     quiet.loader = watching
     quiet.fit()
     assert ("train", False) in seen, seen
+
+
+def test_batch_size_reaches_the_classification_loader(tmp_path):
+    """`maju116/pyplatypus#395`. Its own test rather than a stronger line in the one above,
+    because `drop_last` is kept only while the split is larger than the batch - so a
+    non-default batch size changes two claims at once and the other test is about the
+    other one."""
+    root = tree(tmp_path / "set", {"benign": 20, "malignant": 20})
+    engine = engine_for(data(root, split=split()), [model(batch_size=3)], seed=0)
+    assert engine.loader(None, "train").batch_size == 3

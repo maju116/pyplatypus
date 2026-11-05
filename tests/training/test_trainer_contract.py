@@ -420,3 +420,65 @@ def test_the_callback_written_for_the_fourth_hook_now_averages_on_a_detector():
     control_history = segmentation.fit(segmentation_loader, epochs=2)
     assert control._folded == folding._folded
     assert control_history.records[-1]["ema_steps"] == history.records[-1]["ema_steps"]
+
+
+# --- encoder_learning_rate, at the level the field is delivered ---------------------------
+#
+# `maju116/pyplatypus#395`, and this block exists because the first repair was written one
+# level too low. `tests/training/test_optimizers.py` now holds `parameter_groups`' own
+# branch - and with that in place, **both trainers' forwards of the field still survived**:
+# replacing `spec.encoder_learning_rate` with `None` left 50 tests passing. §4's *a guard one
+# level below the change is a guard the change can be removed under*, paid by its own author
+# in the hour he was closing other instances of it.
+#
+# So the question is asked of the optimiser a trainer built from a spec, which is the only
+# place `encoder_learning_rate` can arrive.
+
+
+@pytest.mark.parametrize("task", ["segmentation", "classification"])
+def test_encoder_learning_rate_reaches_the_optimiser_the_trainer_builds(task):
+    model = WithTransfer(segmentation=task == "segmentation")
+    if task == "segmentation":
+        spec = SegmentationModel(
+            name="s",
+            input_shape=(8, 8),
+            blocks=1,
+            filters=2,
+            encoder="resnet34",
+            encoder_learning_rate=1e-5,
+            metrics=[],
+        )
+        trainer = training.Trainer(model, spec, device="cpu", callbacks=[])
+    else:
+        spec = ClassificationModel(
+            name="c",
+            input_shape=(32, 32),
+            encoder="resnet34",
+            encoder_learning_rate=1e-5,
+            metrics=[],
+        )
+        trainer = ClassificationTrainer(model, spec, n_class=2, device="cpu", callbacks=[])
+
+    rates = [group.get("lr") for group in trainer.optimizer.param_groups]
+    assert len(rates) == 2, f"a transferred part and the rest, got {rates}"
+    assert 1e-5 in rates, f"the spec asked for 1e-5 and the optimiser carries {rates}"
+    # The other group keeps the optimiser's own rate, which is what makes the two different
+    # rather than merely present.
+    assert spec.optimizer.learning_rate in rates
+
+
+@pytest.mark.parametrize("task", ["segmentation", "classification"])
+def test_leaving_it_unset_builds_one_group(task):
+    """The control: without the field there is nothing to split, so a trainer that always
+    produced two groups would pass the test above for the wrong reason."""
+    model = WithTransfer(segmentation=task == "segmentation")
+    if task == "segmentation":
+        spec = SegmentationModel(
+            name="s", input_shape=(8, 8), blocks=1, filters=2, encoder="resnet34", metrics=[]
+        )
+        trainer = training.Trainer(model, spec, device="cpu", callbacks=[])
+    else:
+        spec = ClassificationModel(name="c", input_shape=(32, 32), encoder="resnet34", metrics=[])
+        trainer = ClassificationTrainer(model, spec, n_class=2, device="cpu", callbacks=[])
+
+    assert len(trainer.optimizer.param_groups) == 1

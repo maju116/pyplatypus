@@ -867,3 +867,92 @@ def test_the_nms_threshold_a_specification_names_is_the_one_PREDICT_uses(trained
         trained.predict("d", "validation")
         assert seen, "predict never reached non_max_suppression"
         assert set(seen) == {asked}
+
+
+# --- the three remaining detection fields the eleventh pass measured as unheld ------------
+#
+# `maju116/pyplatypus#395`. Each is read once, decides which boxes come back or where
+# precision is read, and changes no module - so the question is asked at the call the field
+# is forwarded through, as `#386`'s `nms_threshold` spy does. A default-valued constant in
+# place of the read is the mutation, so each test asks for a non-default.
+
+
+def test_score_threshold_is_the_objectness_predict_decodes_with(trained, monkeypatch):
+    import pyplatypus.detection_engine as module
+
+    run = trained.runs["d"]
+    seen = []
+    real = module.decode
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("objectness"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(module, "decode", spy)
+    for asked in (0.2, 0.7):
+        seen.clear()
+        monkeypatch.setattr(run, "spec", run.spec.model_copy(update={"score_threshold": asked}))
+        trained.predict("d", "validation")
+        assert seen, "predict never reached decode"
+        assert set(seen) == {asked}
+
+
+def test_operating_point_is_the_cut_crops_and_the_report_read(trained, monkeypatch):
+    """Three readers, and the one test asks two of them, because what the field decides is
+    the same number in both: which boxes count as predictions."""
+    run = trained.runs["d"]
+    low = run.spec.model_copy(update={"operating_point": 0.01})
+    high = run.spec.model_copy(update={"operating_point": 0.99})
+
+    # `crops()` returns one entry per IMAGE, each carrying the boxes that survived the cut,
+    # so the entries are the same four either way and what the field moves is inside them.
+    # Counting the entries is the mistake this comment exists to stop: it reports 4 and 4.
+    monkeypatch.setattr(run, "spec", low)
+    many = sum(len(entry["crops"]) for entry in trained.crops("d", "validation"))
+
+    monkeypatch.setattr(run, "spec", high)
+    few = sum(len(entry["crops"]) for entry in trained.crops("d", "validation"))
+
+    # A cut at 0.99 cannot keep more than a cut at 0.01, and on this detector it keeps
+    # strictly fewer - which is what a constant in place of the read would flatten.
+    assert few < many, f"0.99 kept {few} crops and 0.01 kept {many}"
+
+
+def test_min_visibility_reaches_the_box_augmenter(detection_config, monkeypatch):
+    """Read at the dataset builder, so asked there: the augmenter the engine builds has to
+    carry the number the specification named."""
+    import pyplatypus.detection_engine as module
+
+    seen = []
+    real = module.build_box_augmenter
+
+    def spy(*args, **kwargs):
+        seen.append(kwargs.get("min_visibility"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(module, "build_box_augmenter", spy)
+
+    config = {
+        **detection_config,
+        "models": [
+            {
+                **detection_config["models"][0],
+                "min_visibility": 0.6,
+                "augmentation": [{"name": "HorizontalFlip", "params": {"p": 1.0}}],
+            }
+        ],
+    }
+    engine = build_engine(from_dict(config), device="cpu")
+    engine.dataset(engine.spec.models[0], "train", anchors=None, augmented=True)
+    assert seen == [0.6], f"the spec said 0.6 and the augmenter got {seen}"
+
+
+def test_batch_size_reaches_the_detection_loader(detection_config):
+    """`#395`: the read was measured as unheld because every test here used the default.
+    A non-default is what makes the assertion a reading rather than a restatement."""
+    config = {
+        **detection_config,
+        "models": [{**detection_config["models"][0], "batch_size": 3}],
+    }
+    engine = build_engine(from_dict(config), device="cpu")
+    assert engine.loader(engine.spec.models[0], "train").batch_size == 3
