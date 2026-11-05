@@ -27,6 +27,7 @@ project:
   - instances.qmd
   - retinal-vessels.qmd
   - blood-cells.qmd
+  - classification.qmd
   - volumes.qmd
   - fetal-head.qmd
   - config.qmd
@@ -64,6 +65,8 @@ website:
         file: retinal-vessels.qmd
       - text: Counting cells in blood smears
         file: blood-cells.qmd
+      - text: Naming what a detector found
+        file: classification.qmd
       - text: Segmenting volumes
         file: volumes.qmd
       - text: A head circumference in millimetres
