@@ -1,5 +1,6 @@
 """Many models from one spec - the reason the YAML path exists at all."""
 
+import copy
 import warnings
 
 import numpy as np
@@ -61,6 +62,42 @@ def test_the_evaluation_table_has_one_row_per_model(two_model_config):
         assert row["parameters"] > 0
         assert row["epochs_run"] == 2
         assert 0.0 <= row["dice"] <= 1.0
+
+
+def test_best_epoch_is_the_epoch_the_row_s_own_scores_came_from(two_model_config):
+    """`pyplatypus#398`, at the table rather than at the trainer.
+
+    The column used to be the lowest `val_loss` whatever the run was watching, so a row of
+    scores produced by one epoch's weights could name another. Here `restore_best` is
+    pinned to epoch 1 by `min_delta`, and the row has to say 1.
+
+    The second half is the control for the first: a run that selected no epoch reports
+    None rather than falling back to a number, and without it this test would pass on an
+    implementation that always answered 1.
+    """
+    config = copy.deepcopy(two_model_config)
+    for model in config["models"]:
+        model["callbacks"] = [
+            {
+                "name": "early_stopping",
+                "monitor": "train_loss",
+                "patience": 99,
+                "min_delta": 1e9,
+                "restore_best": True,
+            }
+        ]
+    engine = Engine(from_dict(config), device="cpu")
+    engine.fit()
+    for row in engine.evaluate():
+        assert row["best_epoch"] == 1, f"{row['model']} reports {row['best_epoch']}"
+
+    bare = Engine(from_dict(two_model_config), device="cpu")
+    bare.fit()
+    for row in bare.evaluate():
+        assert row["best_epoch"] is None, (
+            f"{row['model']} named an epoch although nothing selected one - its weights "
+            "are the last epoch's, which `epochs_run` already says"
+        )
 
 
 def test_the_table_is_plain_data_for_the_trip_into_r(two_model_config):

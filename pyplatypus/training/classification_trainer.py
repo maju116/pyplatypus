@@ -273,6 +273,9 @@ class ClassificationTrainer:
                 break
 
         finish_training(self.callbacks, state)
+        # After, never before: the weight-replacers run in there, and which of them ran
+        # last is what decides whether these weights are an epoch's at all.
+        history.weights_epoch = state.weights_epoch
         return history
 
     # -------------------------------------------------------------- scoring, answering

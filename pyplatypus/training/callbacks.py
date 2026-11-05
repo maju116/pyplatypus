@@ -95,6 +95,13 @@ class TrainingState:
     logs: dict[str, float] = field(default_factory=dict)
     history: list[dict[str, float]] = field(default_factory=list)
     stop_reason: str | None = None
+    #: The epoch the weights the run ends on came from, or None when they are not any one
+    #: epoch's - an average, or simply the last. Written in `on_train_end` by whichever
+    #: callback replaced them, which `finish_training` runs in a fixed order, so the last
+    #: writer is the one that decided. Nothing reads `logs` or `history` to work this out
+    #: because it is not a fact about any epoch's numbers: `pyplatypus#398` is the row that
+    #: reported the lowest `val_loss` beside scores that came from the monitor's best.
+    weights_epoch: int | None = None
     #: What the run is training on. Only `swa` needs it, and it needs it for the one step
     #: that is easy to leave out: averaged weights carry batch-normalisation statistics
     #: from whichever epoch happened to be last, and recomputing them takes a pass over
@@ -204,6 +211,7 @@ class EarlyStopping(_Watcher):
         self.waited = 0
         self._from = 1
         self._best_weights: dict[str, torch.Tensor] | None = None
+        self._best_epoch: int | None = None
 
     def on_train_begin(self, state: TrainingState) -> None:
         self._from = first_epoch(self.start, self.start_epoch, state.total_epochs)
@@ -217,6 +225,7 @@ class EarlyStopping(_Watcher):
                 self._best_weights = {
                     k: v.detach().clone() for k, v in state.model.state_dict().items()
                 }
+                self._best_epoch = state.epoch
             return False
         # The best is recorded above whatever the warm-up says; only the counting waits.
         # An epoch before the warm-up ends is still the best weights this run has if it
@@ -235,6 +244,11 @@ class EarlyStopping(_Watcher):
     def on_train_end(self, state: TrainingState) -> None:
         if self.restore_best and self._best_weights is not None:
             state.model.load_state_dict(self._best_weights)
+            # Beside the weights, which epoch they are of. Without this the table's
+            # `best_epoch` was the lowest `val_loss` whatever this callback was watching,
+            # so a run monitored on anything else reported one epoch and scored another -
+            # `pyplatypus#398`, found by a page that printed both and disagreed with itself.
+            state.weights_epoch = self._best_epoch
 
 
 class ModelCheckpoint(_Watcher):
@@ -508,6 +522,10 @@ class Swa(Callback):
             return
 
         state.model.load_state_dict(self._averaged.module.state_dict())
+        # And these weights are no single epoch's. Set after the load rather than on the
+        # way in, so the early return above - a run that ended before averaging began -
+        # leaves whatever `restore_best` recorded standing, which is then the truth.
+        state.weights_epoch = None
         # Into the last record, not `state.logs`: by the time `on_train_end` runs the
         # per-epoch logs have already been written, so a number put there reaches nobody.
         # Found by looking for it in `training_history()` and not finding it.
@@ -617,6 +635,8 @@ class Ema(Callback):
             # reasoning `swa` applies to a run that ended before averaging began.
             return
         state.model.load_state_dict(self._averaged.module.state_dict())
+        # No single epoch's, as in `Swa.on_train_end` and for the same reason.
+        state.weights_epoch = None
         if state.history:
             state.history[-1]["ema_steps"] = float(self._folded)
 

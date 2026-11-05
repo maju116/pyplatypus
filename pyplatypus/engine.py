@@ -735,6 +735,14 @@ class Engine(EngineBase):
     def evaluate(self, split: str = "validation", *, at: str = "model") -> list[dict[str, Any]]:
         """One row per model: the comparison table the whole multi-model idea is for.
 
+        **`best_epoch` is the epoch these very scores came from**, which is what a reader
+        of a row of scores takes it for, and it is `None` when they came from no single
+        epoch - an average, or a run that selected nothing and therefore ended on its last
+        epoch, which `epochs_run` already names. It was the lowest `val_loss` whatever the
+        run was watching until `pyplatypus#398`, so a run monitored on anything else named
+        one epoch and scored another. The epoch that was best by some *other* quantity is
+        `History.best(key)`, which is now the only way to ask that question.
+
         Args:
             split: Which data to score on.
             at: Which grid to score on. `"model"` is each model's own `load_shape` and the
@@ -847,7 +855,6 @@ class Engine(EngineBase):
                 scores = run.trainer.evaluate(
                     self.loader(run.spec, split), self._case_names(run.spec, split)
                 )
-            best = run.history.best("val_loss")
             table.append(
                 {
                     "model": run.name,
@@ -871,7 +878,7 @@ class Engine(EngineBase):
                         else " x ".join(str(size) for size in run.spec.load_shape)
                     ),
                     "epochs_run": len(run.history),
-                    "best_epoch": best["epoch"] if best else None,
+                    "best_epoch": run.history.weights_epoch,
                     **{key.removeprefix("val_"): value for key, value in scores.items()},
                 }
             )

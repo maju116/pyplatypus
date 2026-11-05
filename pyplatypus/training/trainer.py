@@ -71,6 +71,11 @@ class History:
 
     records: list[dict[str, float]] = field(default_factory=list)
     stop_reason: str | None = None
+    #: The epoch the model's final weights came from, or None when they are not any one
+    #: epoch's. A run-level fact rather than a column, which is why it sits here beside
+    #: `stop_reason` rather than in `records` - and it is what the score tables report as
+    #: `best_epoch`, since those scores are produced by exactly these weights.
+    weights_epoch: int | None = None
 
     def __len__(self) -> int:
         return len(self.records)
@@ -86,7 +91,11 @@ class History:
         return (min if lower_is_better else max)(self.records, key=lambda r: r[key])
 
     def to_dict(self) -> dict[str, Any]:
-        return {"records": self.records, "stop_reason": self.stop_reason}
+        return {
+            "records": self.records,
+            "stop_reason": self.stop_reason,
+            "weights_epoch": self.weights_epoch,
+        }
 
 
 def seed_everything(seed: int | None, *, deterministic: bool = False) -> None:
@@ -464,6 +473,9 @@ class Trainer:
                 break
 
         finish_training(self.callbacks, state)
+        # After, never before: the weight-replacers run in there, and which of them ran
+        # last is what decides whether these weights are an epoch's at all.
+        history.weights_epoch = state.weights_epoch
         return history
 
     @torch.no_grad()
