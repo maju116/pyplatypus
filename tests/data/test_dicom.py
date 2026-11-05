@@ -5,6 +5,8 @@ when they are wrong: stored values that were never converted to real units, a wi
 depends on the image it is applied to, and an inverted photometric interpretation.
 """
 
+import warnings
+
 import numpy as np
 import pydicom
 import pytest
@@ -420,7 +422,7 @@ def test_a_single_frame_file_written_the_same_way_still_reads(tmp_path):
 # --- a palette is a table, not an intensity ----------------------------------------------
 
 
-def _palette_file(path, *, bits=8):
+def _palette_file(path, *, bits=8, top=None):
     """An 8x8 PALETTE COLOR file: index 0 on the left maps to red, index 1 to blue.
 
     `bits` is the table's own depth, because pydicom returns uint8 for an 8-bit table and
@@ -449,7 +451,7 @@ def _palette_file(path, *, bits=8):
     indices[:, 4:] = 1
     dataset.PixelData = indices.tobytes()
 
-    top = (1 << bits) - 1
+    top = (1 << bits) - 1 if top is None else top
     width = bits // 8
     for colour, entries in (("Red", (top, 0)), ("Green", (0, 0)), ("Blue", (0, top))):
         setattr(dataset, f"{colour}PaletteColorLookupTableDescriptor", [2, 0, bits])
@@ -500,3 +502,45 @@ def test_a_palette_whose_table_cannot_be_applied_says_so(tmp_path):
 
     with pytest.raises(DicomError, match="lookup table could not be applied"):
         read_dicom(broken, channels=3)
+
+
+def test_a_16_bit_palette_holding_8_bit_values_is_scaled_by_what_it_HOLDS(tmp_path):
+    """`pyplatypus#396`, and it is `#392`'s own fix dividing by the wrong number.
+
+    pydicom documents 8-bit values in a 16-bit lookup table as a writer quirk, so such a
+    file is not malformed - and `np.iinfo(dtype).max` divides by 65535, which turns red and
+    blue into 0.0039. Almost black, and a model trained on it learns from nothing.
+    """
+    path = _palette_file(tmp_path / "quirk.dcm", bits=16, top=255)
+    with pytest.warns(UserWarning, match=r"8-bit in a wider table"):
+        picture = read_dicom(path, channels=3)
+
+    assert np.allclose(picture[0, 0], [1.0, 0.0, 0.0], atol=1e-4)
+    assert np.allclose(picture[0, 7], [0.0, 0.0, 1.0], atol=1e-4)
+
+
+@pytest.mark.parametrize(("bits", "top"), [(16, 65535), (8, 255)])
+def test_an_ordinary_palette_is_untouched_and_says_nothing(tmp_path, bits, top):
+    """The controls, and they are what make the row above a reading: a table that uses its
+    own range must neither be rescaled nor warned about."""
+    path = _palette_file(tmp_path / f"ok{bits}.dcm", bits=bits, top=top)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        picture = read_dicom(path, channels=3)
+    assert np.allclose(picture[0, 0], [1.0, 0.0, 0.0], atol=1e-4)
+    assert np.allclose(picture[0, 7], [0.0, 0.0, 1.0], atol=1e-4)
+
+
+def test_a_window_on_a_palette_file_is_announced_rather_than_dropped(tmp_path):
+    """`#396`'s other half. The table's output is the picture, so there is nothing to
+    window - and a caller who passed one is working on a wrong premise about their data.
+    Silence is the outcome `#392` was written against."""
+    path = _palette_file(tmp_path / "windowed.dcm")
+    with pytest.warns(UserWarning, match=r"window='soft_tissue' is ignored"):
+        windowed = read_dicom(path, channels=3, window="soft_tissue")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        plain = read_dicom(path, channels=3)
+    # Ignored means ignored: the warning is the whole of the change.
+    assert np.allclose(windowed, plain)

@@ -1,6 +1,94 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a67] - 2026-11-05
+
+**The reviewer's eleventh pass, and the one that bounded the class the tenth found.** Of 40
+engine read sites measured across the two passes, 21 were held by nothing; this release holds
+every one the pass named, and the repair is **one enumerating test per route** rather than one
+test per field - because every survivor in both passes was a read nobody enumerated.
+
+### Fixed
+
+ - **A 16-bit palette lookup table holding 8-bit values read as almost black.**
+   `pyplatypus#396`.
+
+   `#392` scaled by `np.iinfo(dtype).max`, which divides by 65535 - so a table whose entries
+   reach 255, a writer quirk pydicom documents rather than a malformed file, came back at
+   0.0039:
+
+       16-bit descriptor, entries reach 255      left [0.0039 0 0]   right [0 0 0.0039]
+       16-bit descriptor, full range (control)   left [1 0 0]        right [0 0 1]
+       8-bit descriptor (control)                left [1 0 0]        right [0 0 1]
+
+   Scaled by what the table **holds** now, and **announced**: a reader needs to know the file
+   was unusual rather than merely that the picture came out right, because silence is the
+   outcome `#392` was written against. An ordinary palette is neither rescaled nor warned
+   about, which is the control.
+
+ - **`window=` on a palette file was dropped in silence** and now warns by name. The table's
+   output is already the picture, so there is nothing to window - and a caller who passed one
+   is working on a wrong premise about their data. `pyplatypus#396`.
+
+ - **Two tests decided on the draw rather than on the code.** `pyplatypus#394`.
+
+   `tests/test_score_at_source.py`'s whole-mask test failed about one run in twenty on an
+   unseeded one-epoch fit, and `test_the_returned_mask_covers_the_anatomy_in_the_source_scan`
+   failed twice of two when run after the 114 tests that execute `parameter_groups` while
+   passing 9 of 9 alone. Both are **guards**, which is where the cost is: a flake there
+   trains people to re-run rather than to read.
+
+   Both specs carry a seed now - three different global RNG preludes give figures identical
+   to ten decimals - and the whole-mask test asks its question of **chosen predictions**
+   instead of a trained model, so the separation is a construction: the exact case scores
+   1.0, the group 0.271291, 0.73 apart where the old bound was 1e-3 against a measured
+   spread of 0.0057 to 0.2352. The bound was never calibrated, which is §4's own rule in a
+   test written the day it was being re-read.
+
+### Changed
+
+ - **The field-delivery class, closed on the sites the pass measured.** `pyplatypus#395`,
+   and this is `#386` finished: the tenth pass said *"all thirteen arguments of that call
+   are unheld, `pretrained=` included"* and `0.8.0a66` closed one of the thirteen.
+
+   **Three enumerating tests, one per route**, each asking the weakest question that cannot
+   be satisfied by accident - *does a non-default value change the built object at all?*
+
+       tests/models/test_field_delivery.py   the two model builders, 18 rows
+       tests/models/test_pretrained.py       the encoder route's own forwards, 6 rows
+
+   Each carries a completeness half that is the point of the shape: the table is checked
+   against the fields the builders **actually read**, by AST, so a field added next month
+   either gets a row or is named with a reason. A planted new read fails it. And each
+   carries the control that two builds of one specification agree, because the fingerprint
+   reads parameter values - `initialiser` changes nothing structural.
+
+   Three fields needed their own thing beside the enumeration, and one of them taught the
+   positional lesson again:
+
+   - **`pretrained`**, spied at `timm.create_model` through both encoder routes, with no
+     download. Forced to `False` it leaves `weights_fingerprint()["input_normalised"]` at
+     `True` over a randomly initialised backbone - the silence `#370` exists to refuse.
+   - **`encoder_learning_rate`**, whose `parameter_groups` branch coverage marked
+     **UNEXECUTED** over the whole suite. Held at three levels, and the first repair was
+     written one level too low: with the function's own branch held, **both trainers'
+     forwards still survived**. §4's *a guard one level below the change is a guard the
+     change can be removed under*, paid by its own author in the hour he was closing other
+     instances of it.
+   - **the detection five** - `score_threshold`, `operating_point`, `ignore_threshold`,
+     `box_loss`, `min_visibility` - which change no module, so each is asked at the call it
+     is forwarded through or read off the built objective.
+
+   And **`batch_size` on all three loaders**, where the existing classification assertion
+   was `== 8`, the field's own default: a read replaced by its default satisfied it. A
+   non-default is what makes it a reading.
+
+### The R half
+
+ - R's request assembly drops nine of twenty forwarded fields with its whole suite green,
+   six of them with an engine-side guard that cannot see a field that never arrives.
+   `maju116/rplatypus#281`.
+
 ## [0.8.0a66] - 2026-11-05
 
 **The reviewer's tenth pass, and the first that asked whether the tests can fail rather

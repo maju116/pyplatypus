@@ -44,6 +44,7 @@ def engine_for(root, **data):
     spec = from_dict(
         {
             "task": "semantic_segmentation",
+            "seed": 1,
             "data": block,
             "models": [
                 {
@@ -136,6 +137,7 @@ def test_the_returned_mask_covers_the_anatomy_in_the_source_scan(tmp_path):
     spec = from_dict(
         {
             "task": "semantic_segmentation",
+            "seed": 1,
             "data": {
                 "train_path": str(root),
                 "validation_path": str(root),
@@ -172,9 +174,17 @@ def test_the_returned_mask_covers_the_anatomy_in_the_source_scan(tmp_path):
     # wrong place scores near zero here and passes every shape assertion there is.
     #
     # Threshold well below what this reaches - measured 0.97 at twenty epochs, 1.00 at thirty -
-    # because the point is position, not convergence, and a random initialisation should not
-    # make the test flaky. Twelve epochs reached 0.53, so the run does have to be long enough to
-    # learn something: a model that learned nothing would also fail this, for the wrong reason.
+    # because the point is position, not convergence. Twelve epochs reached 0.53, so the run
+    # does have to be long enough to learn something: a model that learned nothing would also
+    # fail this, for the wrong reason.
+    #
+    # **And "a random initialisation should not make the test flaky" was the sentence that
+    # stood here, which is the calibration taken against ONE draw.** The spec carries a seed
+    # now (`maju116/pyplatypus#394`): run unseeded after the 114 other tests that execute
+    # `parameter_groups`, this scored 0.662 twice out of two, while passing 9 of 9 alone. The
+    # gap between 0.7 and 0.97 was measured on one ordering of the global RNG, so it was never
+    # the headroom it reads as - a filtered run, a mutation harness or a different file order
+    # moved it. With the seed the 0.97 is the same 0.97 every time and the margin is real.
     intersection = int((classes.astype(bool) & truth).sum())
     dice = 2 * intersection / (int(classes.astype(bool).sum()) + int(truth.sum()))
     assert dice > 0.7
@@ -199,6 +209,7 @@ def test_the_round_trip_keeps_a_mask_where_it_was(tmp_path):
     spec = from_dict(
         {
             "task": "semantic_segmentation",
+            "seed": 1,
             "data": {
                 "train_path": str(root),
                 "validation_path": str(root),

@@ -20,6 +20,7 @@ inverted if that is what the file says.
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -151,12 +152,42 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
                 f"{error}. Without the table the stored values are indices rather than "
                 f"intensities, and reading them as an image would invent an ordering."
             ) from None
-        ceiling = (
-            float(np.iinfo(coloured.dtype).max)
-            if np.issubdtype(coloured.dtype, np.integer)
-            else 1.0
-        )
+        # **Scaled by what the TABLE holds, not by what its type can hold.** pydicom
+        # documents 8-bit values in a 16-bit lookup table as a writer quirk, and such a
+        # file is not malformed - but dividing by 65535 turns red and blue into 0.0039,
+        # which is almost black. `pyplatypus#396`; `#392` had this as
+        # `np.iinfo(dtype).max`.
+        #
+        # The accommodation is announced rather than silent: a reader needs to know the
+        # file was unusual, not merely that the picture came out looking right. Silence is
+        # the outcome `#392` was written against.
+        if np.issubdtype(coloured.dtype, np.integer):
+            ceiling = float(np.iinfo(coloured.dtype).max)
+            highest = float(coloured.max()) if coloured.size else 0.0
+            if ceiling > 255 and highest <= 255:
+                warnings.warn(
+                    f"'{path}' declares a {coloured.dtype.itemsize * 8}-bit palette lookup "
+                    f"table whose largest entry is {highest:.0f}, so its values are 8-bit "
+                    f"in a wider table - a known writer quirk. Scaling by {highest:.0f} "
+                    f"rather than by {ceiling:.0f}, which would read this picture as "
+                    f"almost black.",
+                    stacklevel=2,
+                )
+                ceiling = max(highest, 1.0)
+        else:
+            ceiling = 1.0
         values = np.asarray(coloured, dtype=np.float32) / ceiling
+
+        # **A window on a palette file is dropped, so it says so.** The table's output IS
+        # the picture, which is why there is nothing to window - and a caller who asked
+        # for one is working on a wrong premise about their data. `pyplatypus#396`.
+        if window != "auto":
+            warnings.warn(
+                f"'{path}' is PALETTE COLOR, where the lookup table's output is already "
+                f"the picture, so window={window!r} is ignored. Windowing applies to "
+                f"stored intensities; a palette index has none.",
+                stacklevel=2,
+            )
     else:
         # Stored values to real-world units. For CT this is the step that produces Hounsfield
         # units; for modalities without a rescale it is the identity, and costs nothing.
