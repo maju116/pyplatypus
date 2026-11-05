@@ -1,6 +1,43 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a68] - 2026-11-05
+
+**One row, two epochs.** Every score table reported a `best_epoch` that was the lowest
+validation **loss**, read off the history whatever the run was watching, while the scores
+beside it came from the weights `restore_best` kept - the best **monitored** epoch. The
+default monitor is `val_loss` in all three callbacks that have one, so the two agreed in
+every run where nobody named a monitor and diverged exactly when somebody did.
+
+**The R half: None beyond the pin.** The column is forwarded rather than read, and nothing in
+`rplatypus` names it.
+
+### Fixed
+
+ - **`best_epoch` is the epoch the row's own scores came from.** `pyplatypus#398`.
+
+   Found by the classification article printing both numbers and disagreeing with itself: on
+   BCCD crops with `monitor: val_auc`, 44 epochs run, the weights kept were epoch **29**'s
+   and the table said **18**, because that run's validation loss rises from the first epoch
+   while its AUC keeps improving.
+
+   The repair is not a different history lookup. Which weights a run ends on is decided in
+   `on_train_end` by up to three callbacks, in the order `finish_training` fixes, so the
+   provenance is **recorded where it is decided**: `EarlyStopping` writes the epoch of the
+   snapshot it restores, `Ema` and `Swa` clear it after loading an average - and only after,
+   so a run that ended before averaging began keeps what `restore_best` recorded. The three
+   trainers copy it onto the `History` after `finish_training`, never before.
+
+   So the column is `None` where it used to carry a number: a run that selected no epoch
+   ended on its last one, which `epochs_run` already names. **The epoch that was best by some
+   other quantity is `History.best(key)`**, which this makes the only way to ask that
+   question, and the three docstrings say so.
+
+   Four tests, each failing on its own half of the fix: the restored epoch is the monitor's,
+   nothing selected is `None`, an average is `None`, and an averager that never averaged
+   leaves the restored epoch standing. A fifth asserts the table reports it, with a run that
+   selected nothing as its control - measured by putting the old lookup back, which fails it.
+
 ## [0.8.0a67] - 2026-11-05
 
 **The reviewer's eleventh pass, and the one that bounded the class the tenth found.** Of 40

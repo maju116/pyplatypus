@@ -330,13 +330,20 @@ class ClassificationEngine(EngineBase):
         only comparable between models trained on the same one. `architecture` is read
         plainly rather than through `.value` - for this task it is a string, `plain_cnn` or
         the backbone's name, and there is no enum to take a value off.
+
+        **`best_epoch` is the epoch these very scores came from**, which is what a reader
+        of a row of scores takes it for, and it is `None` when they came from no single
+        epoch - an average, or a run that selected nothing and therefore ended on its last
+        epoch, which `epochs_run` already names. It was the lowest `val_loss` whatever the
+        run was watching until `pyplatypus#398`, so a run monitored on anything else named
+        one epoch and scored another. The epoch that was best by some *other* quantity is
+        `History.best(key)`, which is now the only way to ask that question.
         """
         self._require_split(split)
         self._needs_labels(split, "predict")
         rows = []
         for name, run in self._trained().items():
             scored = run.trainer.evaluate(self.loader(name, split, augment=False))
-            best = run.history.best("val_loss")
             rows.append(
                 {
                     "model": name,
@@ -345,7 +352,7 @@ class ClassificationEngine(EngineBase):
                     "parameters": run.parameters,
                     "split": split,
                     "epochs_run": len(run.history),
-                    "best_epoch": best["epoch"] if best else None,
+                    "best_epoch": run.history.weights_epoch,
                     **{key.removeprefix("val_"): value for key, value in scored.items()},
                 }
             )

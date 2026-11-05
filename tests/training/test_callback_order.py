@@ -1,5 +1,9 @@
 """Which callbacks see the last epoch, and which weights a run hands back.
 
+And, since `pyplatypus#398`, whether anything can SAY which weights those are: the score
+tables report a `best_epoch`, every reader of a row of scores takes it to mean the epoch
+those scores came from, and it was `history.best("val_loss")` whatever the run was watching.
+
 Two defects from the reviewer's second pass, and they are the same defect twice: a decision
 that nothing stated, taken by where a callback happened to sit in the list.
 
@@ -231,3 +235,84 @@ def test_the_epochs_keep_the_order_that_was_written_and_only_the_ending_is_reord
         TrainingState(model=nn.Linear(1, 1), optimizer=None),
     )
     assert ended == ["early_stopping", "logger", "ema"], ended
+
+
+def test_the_epoch_a_run_reports_is_the_one_its_weights_came_from(loaders):
+    """`pyplatypus#398`: the number must follow the MONITOR, not `val_loss`.
+
+    `min_delta=1e9` makes epoch 1 the best epoch for ever by whatever is watched, which is
+    this file's own trick for pinning `restore_best` somewhere definite. The control is the
+    second assertion: if this fixture's `val_loss` is also lowest at epoch 1 then the old
+    behaviour and the new one agree here and the test proves nothing, so it says so rather
+    than passing quietly.
+    """
+    torch.manual_seed(1)
+    spec = model_spec(epochs=4)
+    stopper = EarlyStopping(monitor="train_loss", patience=99, min_delta=1e9, restore_best=True)
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu", callbacks=[stopper])
+    history = trainer.fit(loaders(spec), loaders(spec))
+
+    assert history.weights_epoch == 1, (
+        f"the run ended on epoch 1's weights and reports {history.weights_epoch}"
+    )
+    lowest_loss = history.best("val_loss")["epoch"]
+    assert lowest_loss != 1, (
+        "this fixture's val_loss is lowest at epoch 1 too, so the old behaviour and the new "
+        "one agree here and this test has nothing to see - change the fixture rather than "
+        "the assertion"
+    )
+
+
+def test_a_run_that_selected_no_epoch_reports_none_rather_than_a_number(loaders):
+    """The other half, and the reason the column can be empty.
+
+    With nothing restoring anything the weights are the last epoch's, which `epochs_run`
+    already says. Reporting the lowest `val_loss` here would name an epoch whose weights
+    were thrown away four epochs ago.
+    """
+    torch.manual_seed(1)
+    spec = model_spec(epochs=3)
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu", callbacks=[])
+    assert trainer.fit(loaders(spec), loaders(spec)).weights_epoch is None
+
+    # And the same when `restore_best` is off: it is the selecting that matters, not the
+    # presence of an `early_stopping`.
+    torch.manual_seed(1)
+    off = EarlyStopping(monitor="train_loss", patience=99, min_delta=1e9, restore_best=False)
+    trainer = Trainer(build_model(spec, n_class=2), spec, device="cpu", callbacks=[off])
+    assert trainer.fit(loaders(spec), loaders(spec)).weights_epoch is None
+
+
+def test_an_average_is_no_epoch_at_all_and_says_so(loaders):
+    """The averager wins the weights, so it has to win this too.
+
+    `0.8.0a57` settled that `ema` beside `restore_best` ends on the average; a run that
+    then reported `restore_best`'s epoch would be naming weights the model no longer has.
+    """
+    torch.manual_seed(1)
+    spec = model_spec(epochs=3)
+    stopper = EarlyStopping(monitor="train_loss", patience=99, min_delta=1e9, restore_best=True)
+    trainer = Trainer(
+        build_model(spec, n_class=2), spec, device="cpu", callbacks=[stopper, Ema(decay=0.5)]
+    )
+    history = trainer.fit(loaders(spec), loaders(spec))
+
+    assert history.records[-1].get("ema_steps"), "nothing was averaged, so this proves nothing"
+    assert history.weights_epoch is None
+
+
+def test_an_averager_that_never_averaged_leaves_the_restored_epoch_standing():
+    """The early return in `on_train_end` must not clear what it did not replace.
+
+    Built by hand rather than trained, because the case is a run that ended before
+    averaging began and the point is the ORDER of two lines inside one method.
+    """
+    state = TrainingState(model=nn.Linear(1, 1), optimizer=None, total_epochs=1, epoch=1)
+    state.weights_epoch = 7
+
+    never_folded = Ema(decay=0.5)
+    never_folded.on_train_end(state)
+
+    assert state.weights_epoch == 7, (
+        "an `ema` that never averaged cleared an epoch it did not replace"
+    )

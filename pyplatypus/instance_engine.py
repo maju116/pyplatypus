@@ -616,6 +616,14 @@ class InstanceEngine(EngineBase):
         derivation includes it: it ignores the separation signal, so it is the row the
         signal's row has to be read against.
 
+        **`best_epoch` is the epoch these very scores came from**, which is what a reader
+        of a row of scores takes it for, and it is `None` when they came from no single
+        epoch - an average, or a run that selected nothing and therefore ended on its last
+        epoch, which `epochs_run` already names. It was the lowest `val_loss` whatever the
+        run was watching until `pyplatypus#398`, so a run monitored on anything else named
+        one epoch and scored another. The epoch that was best by some *other* quantity is
+        `History.best(key)`, which is now the only way to ask that question.
+
         Args:
             split: Which data to score on.
 
@@ -651,7 +659,6 @@ class InstanceEngine(EngineBase):
             # foreground moved, the instance number moved for a reason that is not
             # separation and no decoding can say so. `pyplatypus#222`.
             scores = run.trainer.evaluate(self.loader(run.spec, split))
-            best = run.history.best("val_loss")
             decoded = self._decoded(run, split)
             for name, cases in decoded.cases.items():
                 summary = summarise_instances(score_cases(cases))
@@ -664,7 +671,7 @@ class InstanceEngine(EngineBase):
                         "loss_function": run.spec.loss.name,
                         "parameters": run.parameters,
                         "epochs_run": len(run.history),
-                        "best_epoch": best["epoch"] if best else None,
+                        "best_epoch": run.history.weights_epoch,
                         "foreground_dice": decoded.foreground_dice,
                         "average_precision": summary["mean_average_precision"],
                         "truth_objects": summary["truth_objects"],
