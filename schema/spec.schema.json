@@ -979,7 +979,7 @@
             }
           ],
           "default": null,
-          "description": "Normalise the input with the backbone's own ImageNet statistics. Defaults to `pretrained`, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone's configuration and need no download, while the weights themselves are yours. Setting it false with `pretrained: true` is the other direction and is allowed for the same reason - it is recorded in the weights' fingerprint either way, so a mismatch is refused by name rather than silently predicting something else.",
+          "description": "Normalise the input with the backbone's own ImageNet statistics. Defaults to `pretrained`, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone's configuration and need no download, while the weights themselves are yours. Setting it false with `pretrained: true` is the other direction and is allowed for the same reason - it is recorded in the weights' fingerprint either way, so a mismatch is refused by name rather than silently predicting something else. Setting it true needs `encoder`: the statistics belong to a backbone and the built-in encoder has none, so without one it is refused rather than ignored.",
           "title": "Normalise"
         },
         "optimizer": {
@@ -2650,7 +2650,7 @@
             }
           ],
           "default": null,
-          "description": "Normalise the input with the backbone's own ImageNet statistics. Defaults to `pretrained`, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone's configuration and need no download, while the weights themselves are yours. Setting it false with `pretrained: true` is the other direction and is allowed for the same reason - it is recorded in the weights' fingerprint either way, so a mismatch is refused by name rather than silently predicting something else.",
+          "description": "Normalise the input with the backbone's own ImageNet statistics. Defaults to `pretrained`, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone's configuration and need no download, while the weights themselves are yours. Setting it false with `pretrained: true` is the other direction and is allowed for the same reason - it is recorded in the weights' fingerprint either way, so a mismatch is refused by name rather than silently predicting something else. Setting it true needs `encoder`: the statistics belong to a backbone and the built-in encoder has none, so without one it is refused rather than ignored.",
           "title": "Normalise"
         },
         "optimizer": {
@@ -3836,7 +3836,7 @@
             }
           ],
           "default": null,
-          "description": "Normalise the input with the backbone's own ImageNet statistics. Defaults to `pretrained`, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone's configuration and need no download, while the weights themselves are yours. Setting it false with `pretrained: true` is the other direction and is allowed for the same reason - it is recorded in the weights' fingerprint either way, so a mismatch is refused by name rather than silently predicting something else.",
+          "description": "Normalise the input with the backbone's own ImageNet statistics. Defaults to `pretrained`, which is what it meant before it was a field, so leaving it unset changes nothing. It exists to be set TRUE WITH `pretrained: false`, which is the only way to reload weights you exported from a pretrained encoder without a network: the statistics come from the backbone's configuration and need no download, while the weights themselves are yours. Setting it false with `pretrained: true` is the other direction and is allowed for the same reason - it is recorded in the weights' fingerprint either way, so a mismatch is refused by name rather than silently predicting something else. Setting it true needs `encoder`: the statistics belong to a backbone and the built-in encoder has none, so without one it is refused rather than ignored.",
           "title": "Normalise"
         },
         "optimizer": {
