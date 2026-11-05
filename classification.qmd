@@ -145,20 +145,21 @@ the prevalence is what every later decision turns on: 81.1% RBC, 7.3% WBC, 7.2% 
 read off the hard prediction stops telling a model from a collapse. That is why `auc` is the
 default here and `accuracy` is offered rather than chosen.
 
-Training AUC reaches 0.9971 against a validation AUC of 0.8816, and the loss is the clearer
-half: the training loss falls to 0.047 while the validation loss **rises** from 1.54 to 1.94.
+Training AUC reaches 0.9972 against a validation AUC of 0.8829, and the loss is the clearer
+half: the training loss falls to 0.047 while the validation loss **rises** from 1.53 to 1.87.
 The model is memorising crops. Early stopping restored epoch 29 of 44 - the best `val_auc`,
 which is what it was told to watch.
 
-**The `best_epoch` the scoring table reports is 18 instead**, because that column is the
-lowest validation *loss*, read off the history whatever the callback was watching. The scores
-in that row are the restored epoch's and the column names another one;
-`pyplatypus#398` asks which of the two it should be.
+**The scoring table's `best_epoch` says 29 too, and this page is why it does.** That column
+was the lowest validation *loss*, read off the history whatever the callback was watching, so
+on a run like this one - loss rising from the first epoch while the AUC keeps improving - the
+row named one epoch and scored another. Writing this page printed the two side by side, which
+is how anybody noticed; `pyplatypus#398` fixed it in `0.8.0a68`.
 
 ## Scoring per class, because the mean is the commonest class
 
-`evaluate("test")` reports AUC 0.8727, balanced accuracy 0.7284 and F1 0.6817, and an
-accuracy of 0.730 - against **0.588 for a model that answers `RBC` to everything**. That pair
+`evaluate("test")` reports AUC 0.8781, balanced accuracy 0.7210 and F1 0.6784, and an
+accuracy of 0.729 - against **0.588 for a model that answers `RBC` to everything**. That pair
 is the whole argument for the default metric: a reader told only the first would believe
 something had been learned about all four classes.
 
@@ -166,12 +167,12 @@ The confusion says where it went, with the truth down the side:
 
 | | RBC | WBC | Platelets | nothing |
 |---|---|---|---|---|
-| **RBC** | 637 | 0 | 0 | 1 |
+| **RBC** | 638 | 0 | 0 | 0 |
 | **WBC** | 0 | 71 | 0 | 0 |
-| **Platelets** | 0 | 1 | 52 | 11 |
-| **nothing** | 253 | 5 | 22 | 32 |
+| **Platelets** | 0 | 1 | 50 | 13 |
+| **nothing** | 254 | 5 | 21 | 32 |
 
-The three cell types are nearly perfect. The fourth class is a rout: 32 of 312, with 253 of
+The three cell types are nearly perfect. The fourth class is a rout: 32 of 312, with 254 of
 them called a red cell.
 
 ### Two things that do not help, measured rather than assumed
@@ -181,15 +182,15 @@ cross-entropy, which loses interest in what it already gets right:
 
 | arm | auc | balanced accuracy | share of alarms rejected |
 |---|---|---|---|
-| seed 1 | 0.8727 | 0.7284 | 0.103 |
-| seed 2 | 0.8657 | 0.7459 | 0.093 |
-| focal | 0.8803 | 0.7238 | 0.051 |
+| seed 1 | 0.8781 | 0.7210 | 0.103 |
+| seed 2 | 0.8668 | 0.7152 | 0.125 |
+| focal | 0.8783 | 0.7464 | 0.109 |
 
-Two seeds of one recipe differ by 0.0071 of AUC and focal loss moves it by 0.0076, which are
-the same order of magnitude - and **two runs are not a spread**, so neither figure is worth a
-conclusion on its own. The column that can carry one is the last: the share of the detector's
-unmatched boxes that the model rejects runs from 0.05 to 0.10 across all three, which is to
-say that none of them does it.
+Two seeds of one recipe differ by 0.0112 of AUC and focal loss moves it by 0.0003, two orders
+apart in this run and the same order in the one before it - and **two runs are not a spread**,
+so neither figure is worth a conclusion on its own. The column that can carry one is the last:
+the share of the detector's unmatched boxes that the model rejects runs from 0.10 to 0.13
+across all three, which is to say that none of them does it.
 
 ## The class that is not a picture of anything
 
@@ -198,8 +199,8 @@ The obvious repair is not to make the classifier choose but to ask it for a prob
 `nothing` is likely enough. The threshold is a decision about cost, so it is chosen on the
 validation split and only then read on the test split. Precision before any of it is 0.7124,
 the share of what the detector hands over that is an annotated object; the best any threshold
-buys on the test split is 0.7482, at the cost of 4.3% of the real cells. **A gain of 0.036 of
-precision for 33 cells, from a second model, a second dataset and a second training run.**
+buys on the test split is 0.7409, at the cost of 4.9% of the real cells. **A gain of 0.028 of
+precision for 38 cells, from a second model, a second dataset and a second training run.**
 
 And a second model has to be worth more than the one number the first one already has.
 Scoring the detector's own boxes at a range of `operating_point`s, with nothing trained:
@@ -215,7 +216,7 @@ Scoring the detector's own boxes at a range of `operating_point`s, with nothing 
 
 The first row reproduces the 1,085 crops, which is the control that this is the same set of
 predictions read a second way. At 0.8 the detector keeps 0.955 of the cells against the
-classifier's 0.957, at a precision of 0.7455 against 0.7482. **A number that is already in
+classifier's 0.951, at a precision of 0.7455 against 0.7409. **A number that is already in
 the specification is on the same curve as a second model**, and that is the comparison a page
 like this owes before it recommends anything.
 
