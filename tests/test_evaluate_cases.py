@@ -358,6 +358,29 @@ def test_the_summary_reports_the_distribution_and_the_worst_case():
     assert summary["iou"]["worst_case"] == "b"
 
 
+def test_the_median_is_the_MEDIAN_and_not_the_mean():
+    """`pyplatypus#387`. The test above uses 0.9, 0.5 and 0.7, whose mean and median are
+    both 0.7 - so `np.median` replaced by `np.mean` passed it, and the median is in every
+    published sidecar's `validation` block.
+
+    A skewed distribution is the whole fixture: one case far below the rest is exactly the
+    shape this block exists to report, and it is the shape where the two figures differ."""
+    rows = [
+        {"case": "a", "dice": 0.90},
+        {"case": "b", "dice": 0.88},
+        {"case": "c", "dice": 0.92},
+        {"case": "d", "dice": 0.11},
+    ]
+    summary = summarise_cases(rows)[0]
+
+    assert summary["median"] == pytest.approx(0.89)
+    assert summary["mean"] == pytest.approx(0.7025)
+    # And the two are far enough apart that neither reading can stand in for the other,
+    # which is the argument for reporting both.
+    assert summary["median"] - summary["mean"] > 0.18
+    assert summary["worst_case"] == "d"
+
+
 def test_the_spread_of_one_case_is_unknown_rather_than_zero():
     summary = summarise_cases([{"case": "only", "dice": 0.8}])[0]
     assert summary["n"] == 1

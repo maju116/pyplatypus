@@ -838,3 +838,32 @@ def test_a_prediction_off_the_frame_is_dropped_and_counted(trained):
         assert len(record["crops"]) == len(record["boxes"])
         for x1, y1, x2, y2 in record["boxes"]:
             assert x2 - x1 >= 1 and y2 - y1 >= 1
+
+
+def test_the_nms_threshold_a_specification_names_is_the_one_PREDICT_uses(trained, monkeypatch):
+    """`pyplatypus#386`. `predict` reads `run.spec.nms_threshold` once, and forcing that
+    read to a constant survived the whole suite: `non_max_suppression` is unit-tested in
+    `detection/`, so what was unheld is the **delivery** rather than the rule.
+
+    A spy on the call rather than on the number of boxes, deliberately: how many survive
+    depends on what this tiny detector happens to emit, and a test whose assertion depends
+    on that is a test that fails for the wrong reason later. The question here is whether
+    the field arrives."""
+    import pyplatypus.detection_engine as module
+
+    run = trained.runs["d"]
+    seen = []
+    real = module.non_max_suppression
+
+    def spy(boxes, scores, labels, *, iou_threshold):
+        seen.append(iou_threshold)
+        return real(boxes, scores, labels, iou_threshold=iou_threshold)
+
+    monkeypatch.setattr(module, "non_max_suppression", spy)
+
+    for asked in (0.2, 0.8):
+        seen.clear()
+        monkeypatch.setattr(run, "spec", run.spec.model_copy(update={"nms_threshold": asked}))
+        trained.predict("d", "validation")
+        assert seen, "predict never reached non_max_suppression"
+        assert set(seen) == {asked}

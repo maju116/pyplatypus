@@ -225,3 +225,58 @@ def test_the_absence_of_timm_names_the_command_that_fixes_it():
     assert "pyplatypus[encoders]" in message
     # And it names the route that needs nothing extra and works at both ranks.
     assert "built-in encoder" in message
+
+
+# --- the delivery, rather than the two ends -----------------------------------------------
+#
+# `pyplatypus#385`. `#381`'s tests held `EncoderModel.normalises_input`, which computes the
+# fingerprint, and `PretrainedEncoder(normalise=)`, constructed **directly** - and nothing
+# held the line between them. Both forwards could be deleted with the whole suite green, and
+# the result is the silence `#370` was written to refuse: a fingerprint recording a
+# normalisation the network does not apply, every key agreeing, predictions made on
+# un-normalised input.
+#
+# So these ask the question of the function a run calls. `_encoder_for` is never otherwise
+# executed by this suite - coverage marks its `return PretrainedEncoder(` as missed - which
+# is why all thirteen of its arguments were unheld, `pretrained=` included.
+
+
+@pytest.mark.parametrize(
+    ("asked", "expected"),
+    [
+        ({"pretrained": False, "normalise": True}, True),
+        ({"pretrained": False, "normalise": None}, False),
+        ({"pretrained": False, "normalise": False}, False),
+    ],
+)
+def test_a_segmentation_run_s_own_encoder_route_carries_normalise(asked, expected):
+    """The engine's `_encoder_for`, which is the line `build_model` is handed."""
+    from pyplatypus.engine import _encoder_for
+
+    model_spec = spec(encoder="resnet34", **asked)
+    built = _encoder_for(model_spec)
+    assert built is not None
+    assert built.normalises is expected
+    # And the fingerprint agrees with what was built, which is the pair that matters: the
+    # defect is not either value, it is the two disagreeing.
+    assert model_spec.weights_fingerprint()["input_normalised"] is expected
+
+
+@pytest.mark.parametrize(
+    ("asked", "expected"),
+    [
+        ({"pretrained": False, "normalise": True}, True),
+        ({"pretrained": False, "normalise": None}, False),
+    ],
+)
+def test_a_classification_run_s_own_encoder_route_carries_normalise(asked, expected):
+    """The same question of the other builder, which resolves its encoder itself."""
+    from pyplatypus.models.classifier import _encoder_for
+    from pyplatypus.spec.classification import ClassificationModel
+
+    model_spec = ClassificationModel(
+        name="c", input_shape=(64, 64), channels=3, encoder="resnet34", **asked
+    )
+    built = _encoder_for(model_spec)
+    assert built.normalises is expected
+    assert model_spec.weights_fingerprint()["input_normalised"] is expected

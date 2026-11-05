@@ -1,6 +1,118 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a66] - 2026-11-05
+
+**The reviewer's tenth pass, and the first that asked whether the tests can fail rather
+than whether the code had been read.** Its method was positional: remove the fix, or
+replace a field's read with a constant, and see whether the whole suite goes red. Nine
+findings, three of them defects and six of them guards that were not there - and the
+largest single class it measured is **the delivery of specification fields to the objects
+they configure**, where 9 of 10 mutated reads survived.
+
+### Fixed
+
+ - **Offline, an `hf://` repository that publishes no sidecar was refused**, although the
+   hub's own cache records the file as absent. `pyplatypus#384`.
+
+   `#379` put `except LocalEntryNotFoundError` first and made it raise, which is right for
+   the five registry names and wrong for the form this function's docstring says must keep
+   working. Offline, `hf_hub_download` raises that class both for a file it could not reach
+   and for one it has already been told is not there - it never consults the `.no_exist`
+   marker it wrote itself. Measured on a cache built by hand with `HF_HUB_OFFLINE=1`:
+
+       try_to_load_from_cache(repo, "w.json", revision=rev) is _CACHED_NO_EXIST   True
+       hf_hub_download(...)                                   LocalEntryNotFoundError
+       0.8.0a64  resolve_weights("hf://someone/else/w.safetensors@<hex>")   RESOLVED
+       0.8.0a65  the same call, the same cache                              REFUSED
+
+   So `_CACHED_NO_EXIST` is read as what it is - the repository's answer - and the refusal
+   is kept for a registry name whatever the cache says, and for an `hf://` file the cache
+   has no answer for. The route is threaded through `_from_hub(published=)` because the
+   sentence *"every name in this registry publishes one"* is true of the registry and false
+   of `hf://`, and it was the half that sent a reader to fetch a file that does not exist.
+
+ - **`normalise: true` with no `encoder` was accepted and did nothing.**
+   `pyplatypus#389`.
+
+   The two validators beside it refuse exactly that shape -
+   `pretrained_needs_an_encoder` says *"silently ignoring the flag would leave someone
+   believing they had transfer learning when they had none"* - and the field's own
+   description names the backbone's ImageNet statistics, which without a backbone do not
+   exist. It is refused now, and the test that asserted the silent acceptance is the one
+   that changed: that was a decision of `#381`'s, one release old, contradicting the rule
+   its neighbours state out loud. `normalise: false` with no encoder is still accepted.
+
+ - **A `PALETTE COLOR` DICOM was read as its palette indices.** `pyplatypus#392`.
+
+   `PhotometricInterpretation` was consulted only for `MONOCHROME1`, so the lookup table
+   was never applied: an 8x8 file whose table maps index 0 to red and 1 to blue came back
+   as `[0, 0, 0]` and `[1, 1, 1]` - the indices, windowed and repeated across the channels.
+   An index carries no ordering, so a model trained on such files learns from one the file
+   never claimed, and the windowing makes it look deliberate. The table's output is the
+   picture, so it is scaled by what its own entries can hold and neither windowed nor
+   inverted, and a file that claims a palette and carries no table is refused by name.
+   Measured on both table depths, because pydicom returns uint8 for an 8-bit table and
+   uint16 for a 16-bit one.
+
+### Changed
+
+ - **Nine guards, for lines that had none.** Each was found by removing the thing it now
+   holds and watching the whole suite stay green; each is proven to fail on that same
+   removal. `pyplatypus#385`, `#386`, `#387`, `#388`, `#391`.
+
+   - **`normalise` reaching the network** (`#385`). Its two forwards - `engine._encoder_for`
+     and `models/classifier._encoder_for` - could each be deleted with 2789 tests passing,
+     and the result is the silence `#370` was written to refuse: a fingerprint recording a
+     normalisation the network does not apply. `#381`'s tests held the two **ends** and
+     nothing held the middle, because `_encoder_for` is executed by no test in this suite -
+     which left all thirteen of its arguments unheld, `pretrained=` included.
+   - **Six model fields and the NMS threshold** (`#386`). `dropout`,
+     `batch_normalization`, `spatial_dropout`, `upsample`, `initialiser`, the decoder's
+     `separable_conv` and `DetectionEngine.predict`'s `iou_threshold` were each replaceable
+     by a constant with the suite green. The tests count modules rather than assert a
+     shape, which is what the existing `test_modifiers_compose_with_every_architecture`
+     could not do. The decoder's `separable_conv` is only reachable with `upsample: true`,
+     which is why the encoder blocks' identical read was held and this one was not.
+   - **Three lines behind published numbers** (`#387`). A grouped source-grid score could
+     come from its last case, a whole-mask metric from its best case, and `summarise_cases`
+     could report the mean where it says median - which is in every published sidecar's
+     `validation` block. The grouped tests compare the two pooling implementations against
+     each other at 64, where no resizing happens, which is the pair that path never had.
+     The case-order guard now has a planted mismatch.
+   - **The instance engine's two hooks** (`#388`), which no test executed: its test-split
+     question and its run record. The §3F row that covers the first was a grep over source,
+     satisfied by the name in a comment - and `tests/test_engine_base.py`'s own docstring
+     had said the behavioural column was owed. Four columns now, named in that docstring
+     and asserted to exist.
+   - **Four example scripts with no configuration test** (`#391`): the historical defect
+     this file was written for - `task` removed, `n_class` back - passed the whole file
+     when reintroduced into any of them. A census over every script exposing
+     `specification()` is what makes a fifth script covered without anybody remembering,
+     which is `SCRIPTS`' own argument reaching the half of the file that did not get it.
+
+ - **`normalise`'s description** gains the clause about needing an encoder, which is what
+   the new refusal says.
+
+### Documentation
+
+ - **`#382`'s own prose described a loss the fix does not repair.** `pyplatypus#390`.
+
+   The comment in `decode` said *"a box whose own score is below the threshold used to
+   survive it, and one above it could be dropped"*, and its next paragraph proves the
+   second half impossible: since `max(class) <= 1` the score never exceeds the objectness,
+   so a box above the threshold on its score was above it on objectness. The 0.396 box the
+   changelog entry named was the ninth pass's **control**, and it is dropped after the fix
+   too. Measured over 3,000 random outputs with a saturated class channel in every seventh
+   case: the old gate dropped **0** boxes scoring at or above the threshold. The inequality
+   is a test now rather than a sentence, with `max(class) == 1.0` exactly as its case.
+
+### The R half
+
+ - `normalise`'s two forwards in `rplatypus` survive the whole R suite the same way, and
+   the `0.8.0a65` entry in its `NEWS.md` carries the same corrected sentence.
+   `maju116/rplatypus#278`.
+
 ## [0.8.0a65] - 2026-11-04
 
 **The reviewer's ninth pass. Two of its four findings are defects the eighth pass's own
@@ -42,8 +154,10 @@ fixes carried in, which is the second release running with that shape.**
 
    The field's description, in this package and in R's `@param`, says *"discard a predicted
    box below this confidence"*. Measured on one cell at `score_threshold = 0.5`: objectness
-   0.6 with best class 0.10 was **kept and reported at 0.0600**, while objectness 0.4 with
-   best class 0.99 - which would report 0.3960 - was dropped.
+   0.6 with best class 0.10 was **kept and reported at 0.0600**. The control was objectness
+   0.4 with best class 0.99, reporting 0.3960, which the gate dropped and the fix drops too -
+   this sentence read as though that box were a second symptom, and it is not. The defect is
+   one-directional. Corrected in `0.8.0a66`, `pyplatypus#390`.
 
    **The repair is exact rather than a trade**, and that is the part worth keeping: since
    `max(class) <= 1`, the score never exceeds the objectness, so the existing gate is a

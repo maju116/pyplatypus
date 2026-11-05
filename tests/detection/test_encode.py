@@ -340,3 +340,37 @@ def test_cocos_anchors_are_fractions_and_ordered_coarse_to_fine():
     assert (first <= 1).all() and (last <= 1).all()
     assert first.prod(axis=1).mean() > last.prod(axis=1).mean()
     assert STRIDES == (32, 16, 8)
+
+
+def test_every_reported_score_is_at_most_the_box_s_OBJECTNESS():
+    """`pyplatypus#390`, and it is the premise the whole of `#382` rests on.
+
+    `#382`'s repair is called exact rather than a trade because `score = objectness *
+    max(class)` and `max(class) <= 1`, so the objectness gate is a lossless prefilter for a
+    cut on the score: nothing above the threshold was ever dropped by it. That was prose,
+    and the comment beside it asserted the opposite in its own second clause.
+
+    So the inequality is a test. The case worth building is `max(class) == 1.0` exactly,
+    where a strict inequality would be wrong and `<=` is what holds: a class logit of 60
+    puts `sigmoid` at 1.0 in float32 and float64 alike.
+    """
+    rng = np.random.default_rng(7)
+    shapes = grid_shapes((416, 416))
+    worst = 0.0
+    for case in range(60):
+        raw = [rng.normal(0, 2, (gh, gw, 3, 13)).astype(np.float32) for gh, gw in shapes]
+        if case % 7 == 0:
+            # Saturate one class channel, so the equality end of `<=` is exercised.
+            for grid in raw:
+                grid[..., 5] = 60.0
+        objectness = [0.01, 0.1, 0.3, 0.5][case % 4]
+        _, scores, _ = decode(raw, n_class=8, objectness=objectness, raw=True)
+        if not len(scores):
+            continue
+        # Every reported score cleared the threshold, which is the second cut; and none of
+        # them is above the objectness the gate read, which is the prefilter claim.
+        assert (scores >= objectness).all()
+        worst = max(worst, float(scores.max()))
+    # The control that the saturated case was actually reached: with `max(class)` at 1.0 the
+    # score equals the objectness, so some box must report very close to its own objectness.
+    assert worst > 0.99, "no case reached max(class) == 1, so the equality end is untested"

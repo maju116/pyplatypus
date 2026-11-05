@@ -254,9 +254,17 @@ def decode(
     # **The threshold is applied again, on the score a box is REPORTED with.** The gate
     # above reads objectness alone, and the reported score is `objectness * max(class)`,
     # which is smaller - so a box whose own score is below the threshold used to survive
-    # it, and one above it could be dropped. `score_threshold`'s description in both
-    # packages says "discard a predicted box below this confidence", and this is the line
-    # that makes that true. `pyplatypus#382`.
+    # it. `score_threshold`'s description in both packages says "discard a predicted box
+    # below this confidence", and this is the line that makes that true. `pyplatypus#382`.
+    #
+    # **The defect was one-directional, and this comment said otherwise for one release.**
+    # It added "and one above it could be dropped", which the paragraph below proves
+    # impossible: since the score never exceeds the objectness, a box above the threshold
+    # on its score was above it on objectness and the gate never dropped it. Measured over
+    # 3,000 random outputs with a class logit of 60 in every seventh case, so that
+    # `sigmoid` is exactly 1.0: the old gate dropped 0 boxes scoring at or above the
+    # threshold. A sentence contradicted by the sentence under it is the shape worth
+    # noticing here. `pyplatypus#390`.
     #
     # Nothing is lost by keeping the gate as well: since `max(class) <= 1`, the score never
     # exceeds the objectness, so any box that clears the threshold on its score has already
