@@ -786,3 +786,69 @@ def test_the_decoding_is_never_adopted(instance_config, published):
     adopted = engine.runs["nuclei"].spec
     assert adopted.decode is None, "nothing was written, so nothing is in the field"
     assert [block.name for block in adopted.decodings] == ["nearest_seed", "connected_components"]
+
+
+# --- the two hooks no test executed ------------------------------------------------------
+#
+# `pyplatypus#388`, and this file's sibling says it was owed: `tests/test_engine_base.py`'s
+# own docstring records that the behavioural columns have three where the structural ones
+# have four, and *"they are a piece of work rather than a line, and they are owed"*. This
+# is that work for the instance engine, which was the one column missing.
+#
+# The row §3F calls "the header question" was held by `assert labels_in_test_split.__name__
+# in inspect.getsource(...)` - a grep, satisfied by the name in a comment. The tenth review
+# pass wrote exactly that comment, returned `True`, and the whole suite stayed green. The
+# grep still earns its place against a copy being reintroduced; what it cannot do is see a
+# body.
+
+
+def test_a_test_split_of_images_alone_reads_as_UNLABELLED_and_a_labelled_one_does_not(
+    instance_config, instance_root, tmp_path
+):
+    """The instance engine's own `_has_any_labels`, asked of two layouts.
+
+    The control is the whole test: "unlabelled" has to be this engine reading the layout
+    rather than this engine failing to find anything, so the same four images with their
+    per-object masks must read as labelled."""
+    _, valid = instance_root
+
+    images_only = tmp_path / "images_only"
+    for case in range(2):
+        image = np.zeros((SIZE, SIZE, 3), np.uint8)
+        image[5:35, 5:25] = 200
+        write_png(images_only / f"case_{case}" / "images" / f"{case}.png", image)
+
+    unlabelled = build_engine(
+        from_dict(
+            {**instance_config, "data": {**instance_config["data"], "test_path": str(images_only)}}
+        )
+    )
+    assert unlabelled._has_any_labels() is False
+    assert unlabelled.labelled == {"train", "validation"}
+    # `evaluate` would refuse it too, and that refusal needs a fit first - the layout
+    # question is answered before any training, which is the whole reason it is a hook.
+
+    labelled = build_engine(
+        from_dict({**instance_config, "data": {**instance_config["data"], "test_path": str(valid)}})
+    )
+    assert labelled._has_any_labels() is True
+    assert "test" in labelled.labelled
+
+
+def test_an_instance_run_WRITES_its_record_and_it_reads_back(instance_config, tmp_path):
+    """`write_record` in `InstanceEngine._record` was executed by no test, so the whole
+    call could be replaced by `pass` with 2789 tests passing. It works today - which is
+    what makes this a guard rather than a repair - and an instance user asking for a record
+    would have got none the day it regressed."""
+    from pyplatypus.runs import read_record
+
+    out = tmp_path / "out"
+    engine = build_engine(from_dict({**instance_config, "output_dir": str(out)}))
+    engine.fit()
+
+    written = out / "nuclei" / "run.json"
+    assert written.exists(), "an instance run with output_dir set writes no record"
+    record = read_record(written)
+    assert set(record) >= {"specification", "history", "model", "pyplatypus", "written"}
+    assert record["specification"]["task"] == "instance_segmentation"
+    assert len(record["history"]) == 1

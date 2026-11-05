@@ -11,16 +11,32 @@ for: a third engine is a third column here rather than a second test file, becau
 thing worth asserting is that the three answers are *the same answer* and a file per engine
 cannot say that.
 
-**The structural tests have four columns since `pyplatypus#320` and the behavioural ones
-still have three**, which is recorded rather than smoothed. `classification` arrived in
-`0.8.0a49` and this file never grew a column for it, and the one question it would have
-been asked here - *does this engine answer `_has_any_labels` from the shared function* -
-is the question whose answer was `return True` for two releases. The behavioural columns
-need a built engine with its own layout and a `_needs_*` wrapper this engine does not
-have, so they are a piece of work rather than a line, and they are owed.
+**The structural tests have four columns since `pyplatypus#320`, and since
+`pyplatypus#388` so do the behavioural ones** - which is the paragraph that used to stand
+here being paid rather than deleted. It said the behavioural columns *"are a piece of work
+rather than a line, and they are owed"*, and the one that was missing was the instance
+engine's; the tenth review pass found exactly that, by writing the name into a comment and
+returning `True` with this file still green.
+
+**So what the grep below can and cannot do is worth stating.** It asserts that each engine
+names the shared function, which is what catches a copy of the body being reintroduced -
+the divergence `#320` found twice. It cannot see a body at all, so it is satisfied by the
+name in a comment. The question *does this engine answer from the layout* is asked on a
+fixture, once per task, and those four tests are:
+
+    Engine                test_a_test_split_without_masks_is_not
+    DetectionEngine       test_a_test_split_without_annotations_can_be_predicted_but_not_scored
+    ClassificationEngine  test_a_test_set_of_images_alone_is_read_and_predicted
+    InstanceEngine        test_a_test_split_of_images_alone_reads_as_UNLABELLED_and_a_labelled_one_does_not
+
+By name rather than by file and line, because a line number names the place somebody went
+looking rather than the place the test is - and the four names are asserted to exist by
+`test_each_engine_s_behavioural_column_exists` below, so this list cannot quietly become
+prose about tests that were renamed.
 """
 
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -74,6 +90,9 @@ def test_discovery_is_the_base_s_and_neither_engine_has_its_own():
     # detection "answers this differently", and classification carried `return True`.
     from pyplatypus.engine import labels_in_test_split
 
+    # A grep, and knowing that is the point: it catches a copy of the body coming back and
+    # is satisfied by the name in a comment. The four behavioural columns named in this
+    # file's docstring are what hold the answers. `pyplatypus#388`.
     for engine in (Engine, DetectionEngine, InstanceEngine, ClassificationEngine):
         source = inspect.getsource(engine._has_any_labels)
         assert labels_in_test_split.__name__ in source, engine.__name__
@@ -237,3 +256,31 @@ def test_a_method_called_with_no_model_name_answers_about_the_first(config, nest
     assert [row["case"] for row in engine.evaluate_cases()] == [
         row["case"] for row in engine.evaluate_cases(name)
     ]
+
+
+def test_each_engine_s_behavioural_column_exists():
+    """The four tests this file's docstring names, asserted to be there.
+
+    The docstring is the only place that says where each engine's answer is held, and
+    `pyplatypus#388` is what happens when such a list is believed: the grep above read as
+    the guard for four engines while one of them had no behavioural test at all. A name in
+    a docstring is prose; this is the line that makes it a claim.
+    """
+    columns = {
+        "tests/test_labelled_splits.py": "test_a_test_split_without_masks_is_not",
+        "tests/test_detection_engine.py": (
+            "test_a_test_split_without_annotations_can_be_predicted_but_not_scored"
+        ),
+        "tests/test_classification_engine.py": (
+            "test_a_test_set_of_images_alone_is_read_and_predicted"
+        ),
+        "tests/test_instance_engine.py": (
+            "test_a_test_split_of_images_alone_reads_as_UNLABELLED_and_a_labelled_one_does_not"
+        ),
+    }
+    here = Path(__file__).resolve().parent.parent
+    for file, name in columns.items():
+        source = (here / file).read_text()
+        assert f"def {name}(" in source, f"{file} has no {name}"
+        # And the docstring above has to carry it, which is the half that rots.
+        assert name in __doc__, f"this file's docstring does not name {name}"

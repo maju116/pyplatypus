@@ -232,3 +232,91 @@ def test_verification_costs_one_tiny_forward_pass():
         n_class=2,
     )
     assert seen == [(1, 3, 8, 8)]
+
+
+# --- the fields actually reaching the modules ---------------------------------------------
+#
+# `pyplatypus#386`, and it is the largest unheld piece the tenth review pass measured: a field
+# is validated in `spec/`, documented in the schema and in R's `@param`, and then read **once**
+# by a builder - and until this block nothing asserted that the built object reflects it. Six
+# reads in this file could each be replaced by a constant with the whole suite green.
+#
+# `test_modifiers_compose_with_every_architecture` above is why that was invisible: it builds
+# with each modifier and asserts the output **shape**, which is unchanged by whether the
+# modifier did anything at all. These count the modules instead, which is the cheapest
+# question that can tell the two apart.
+
+
+def _kinds(net):
+    """How many modules of each class the network holds, by class name."""
+    from collections import Counter
+
+    return Counter(type(module).__name__ for module in net.modules())
+
+
+def _depthwise(net):
+    """Convolutions acting per channel, which is what `separable` builds."""
+    return sum(
+        1
+        for module in net.modules()
+        if hasattr(module, "groups") and module.groups > 1 and module.groups == module.in_channels
+    )
+
+
+def test_dropout_reaches_the_network_and_zero_builds_none():
+    with_drop = _kinds(build_model(spec(dropout=0.5), n_class=2))
+    without = _kinds(build_model(spec(dropout=0.0), n_class=2))
+    assert with_drop["Dropout2d"] > 0
+    assert without["Dropout2d"] == 0 and without["Dropout"] == 0
+
+
+def test_spatial_dropout_decides_WHICH_dropout_is_built():
+    """The field is not whether to drop but what: whole feature maps against single
+    activations. Both answers build a module, so a count of "some dropout" cannot see it."""
+    spatial = _kinds(build_model(spec(dropout=0.5, spatial_dropout=True), n_class=2))
+    plain = _kinds(build_model(spec(dropout=0.5, spatial_dropout=False), n_class=2))
+    assert spatial["Dropout2d"] > 0 and spatial["Dropout"] == 0
+    assert plain["Dropout"] > 0 and plain["Dropout2d"] == 0
+
+
+def test_batch_normalization_false_builds_no_normalisation():
+    assert _kinds(build_model(spec(batch_normalization=True), n_class=2))["BatchNorm2d"] > 0
+    assert _kinds(build_model(spec(batch_normalization=False), n_class=2))["BatchNorm2d"] == 0
+
+
+def test_upsample_decides_whether_the_decoder_LEARNS_its_upsampling():
+    """`upsample: true` asks for interpolation, which is the one that has no parameters -
+    so a transposed convolution surviving in the tree is the field being ignored."""
+    interpolated = _kinds(build_model(spec(upsample=True), n_class=2))
+    learned = _kinds(build_model(spec(upsample=False), n_class=2))
+    assert interpolated["ConvTranspose2d"] == 0 and interpolated["Upsample"] > 0
+    assert learned["ConvTranspose2d"] > 0 and learned["Upsample"] == 0
+
+
+def test_separable_conv_reaches_the_UPSAMPLING_path_too():
+    """And it is only reachable with `upsample: true`, which is why the decoder's own read
+    of this field was unheld while the encoder blocks' read was not: the learned branch
+    takes no `separable` argument at all, so every test that leaves `upsample` alone is
+    blind to this one."""
+    separable = build_model(spec(upsample=True, separable_conv=True), n_class=2)
+    plain = build_model(spec(upsample=True, separable_conv=False), n_class=2)
+    assert _depthwise(separable.ups) > 0
+    assert _depthwise(plain.ups) == 0
+
+
+def test_the_initialiser_a_specification_names_is_the_one_that_runs():
+    """Not a distribution test: two initialisers from one seed give different weights, and
+    a constant in place of the field gives the same weights twice. That is exactly the
+    mutation this is written for, and it needs no tolerance."""
+    torch.manual_seed(0)
+    he = build_model(spec(initialiser="he_normal"), n_class=2)
+    torch.manual_seed(0)
+    glorot = build_model(spec(initialiser="glorot_uniform"), n_class=2)
+
+    first = next(iter(he.encoder.state_dict()))
+    assert not torch.allclose(he.encoder.state_dict()[first], glorot.encoder.state_dict()[first])
+
+    # The control, so the comparison is not reading the seed rather than the field.
+    torch.manual_seed(0)
+    again = build_model(spec(initialiser="he_normal"), n_class=2)
+    assert torch.allclose(he.encoder.state_dict()[first], again.encoder.state_dict()[first])

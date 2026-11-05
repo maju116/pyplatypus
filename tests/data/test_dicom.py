@@ -415,3 +415,88 @@ def test_a_single_frame_file_written_the_same_way_still_reads(tmp_path):
     path = multi_frame(tmp_path / "one.dcm", frames=1)
     assert read_dicom(path).shape == (8, 8, 1)
     assert read_dicom(path, channels=3).shape == (8, 8, 3)
+
+
+# --- a palette is a table, not an intensity ----------------------------------------------
+
+
+def _palette_file(path, *, bits=8):
+    """An 8x8 PALETTE COLOR file: index 0 on the left maps to red, index 1 to blue.
+
+    `bits` is the table's own depth, because pydicom returns uint8 for an 8-bit table and
+    uint16 for a 16-bit one - and a fix that scaled by a fixed 65535 would read an 8-bit
+    palette as almost black.
+    """
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian
+
+    dataset = Dataset()
+    dataset.file_meta = FileMetaDataset()
+    dataset.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    dataset.file_meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.7"
+    dataset.file_meta.MediaStorageSOPInstanceUID = "1.2.3"
+    dataset.SOPClassUID = "1.2.840.10008.5.1.4.1.1.7"
+    dataset.SOPInstanceUID = "1.2.3"
+    dataset.Rows, dataset.Columns = 8, 8
+    dataset.SamplesPerPixel = 1
+    dataset.PhotometricInterpretation = "PALETTE COLOR"
+    dataset.BitsAllocated = 8
+    dataset.BitsStored = 8
+    dataset.HighBit = 7
+    dataset.PixelRepresentation = 0
+
+    indices = np.zeros((8, 8), np.uint8)
+    indices[:, 4:] = 1
+    dataset.PixelData = indices.tobytes()
+
+    top = (1 << bits) - 1
+    width = bits // 8
+    for colour, entries in (("Red", (top, 0)), ("Green", (0, 0)), ("Blue", (0, top))):
+        setattr(dataset, f"{colour}PaletteColorLookupTableDescriptor", [2, 0, bits])
+        setattr(
+            dataset,
+            f"{colour}PaletteColorLookupTableData",
+            b"".join(value.to_bytes(width, "little") for value in entries),
+        )
+    dataset.save_as(path, enforce_file_format=True)
+    return path
+
+
+@pytest.mark.parametrize("bits", [8, 16])
+def test_a_palette_colour_file_is_read_through_its_LOOKUP_TABLE(tmp_path, bits):
+    """`pyplatypus#392`. `PhotometricInterpretation` was consulted only for `MONOCHROME1`,
+    so a palette file came back as its indices, windowed: index 0 and index 1 became 0.0
+    and 1.0 and were repeated across the channels, which is black and white where the file
+    says red and blue.
+
+    An index carries no ordering, so a model trained on these learns from one the file
+    never claimed - and the windowing makes it look deliberate.
+    """
+    path = _palette_file(tmp_path / f"palette{bits}.dcm", bits=bits)
+    picture = read_dicom(path, channels=3)
+
+    assert picture.shape == (8, 8, 3)
+    assert np.allclose(picture[0, 0], [1.0, 0.0, 0.0], atol=1e-4), "the left half is red"
+    assert np.allclose(picture[0, 7], [0.0, 0.0, 1.0], atol=1e-4), "the right half is blue"
+
+    # The control, and it is what the defect looked like: the indices themselves, windowed
+    # to 0 and 1 and repeated. A fix that read the table but kept the windowing would still
+    # pass the two assertions above on this file, so the greyscale route is checked too.
+    grey = read_dicom(path, channels=1)
+    assert grey.shape == (8, 8, 1)
+    assert not np.allclose(np.unique(np.round(grey, 4)), [0.0, 1.0]), (
+        "a mean over red and blue is neither 0 nor 1; these are still the raw indices"
+    )
+
+
+def test_a_palette_whose_table_cannot_be_applied_says_so(tmp_path):
+    """The table is the picture, so a file that claims one and carries none is refused
+    rather than read as indices - which is the silent reading this issue was about."""
+    path = _palette_file(tmp_path / "broken.dcm")
+    dataset = pydicom.dcmread(str(path))
+    del dataset.RedPaletteColorLookupTableData
+    broken = tmp_path / "no_table.dcm"
+    dataset.save_as(broken, enforce_file_format=True)
+
+    with pytest.raises(DicomError, match="lookup table could not be applied"):
+        read_dicom(broken, channels=3)

@@ -258,3 +258,99 @@ def test_the_warning_is_silent_when_the_rows_are_comparable(thin, recwarn):
     rows = engine.evaluate(at="source")
     assert [row["load_shape"] for row in rows] == ["source", "source"]
     assert not [w for w in recwarn if "different grids" in str(w.message)]
+
+
+# --- the grouped pooling, by VALUE ---------------------------------------------------------
+#
+# `pyplatypus#387`. `test_grouping_works_on_the_source_grid_too` above asserts the group's
+# name and that no `case` key remains, and never its value - so `totals[name][slot] += ...`
+# reduced to `= ...`, which scores a whole group from its last case, survived the whole suite.
+# The `thin` fixture cannot see it either: its four cases are identical, so the last case and
+# the pooled group are the same number.
+#
+# This fixture is the same picture with four different bars, and at 64 the source grid *is*
+# the model grid - which makes the two pooling implementations comparable exactly, and that
+# comparison is the §3F pair this path never had.
+
+
+@pytest.fixture
+def widening(tmp_path):
+    """Four cases in one group, with bars of 2, 3, 4 and 6 pixels.
+
+    Narrow on purpose: clDice peels five times by default and refuses a bar it cannot
+    reduce to a centreline, so a 20-pixel bar fails the metric rather than the test.
+    """
+    root = tmp_path / "widening"
+    for case, width in enumerate((2, 3, 4, 6)):
+        mask = np.zeros((64, 64, 3), np.uint8)
+        mask[20 : 20 + width, 8:56] = 255
+        write_png(root / f"grp0{case}" / "images" / "a.png", mask // 2 + 20)
+        write_png(root / f"grp0{case}" / "masks" / "a.png", mask)
+    return root
+
+
+@pytest.fixture
+def widening_engine(widening):
+    engine = Engine(
+        spec_for_with(widening, 64, [{"name": "dice"}, {"name": "cldice"}]), device="cpu"
+    )
+    engine.fit()
+    return engine
+
+
+def test_a_grouped_source_score_pools_the_COUNTS_and_not_one_case(widening_engine):
+    engine = widening_engine
+    cases = engine.evaluate_cases("at64", at="source")
+    grouped = engine.evaluate_cases("at64", group_by=r"^(grp)\d+$", at="source")
+    assert len(cases) == 4 and len(grouped) == 1
+
+    # The pair: at 64 nothing is resized, so the two implementations of this pooling must
+    # agree, and the model-grid one is the half that already has value tests.
+    on_model = engine.evaluate_cases("at64", group_by=r"^(grp)\d+$")
+    assert grouped[0]["dice"] == pytest.approx(on_model[0]["dice"], abs=1e-7)
+
+    # And it is a pooling rather than either of the two things it could be mistaken for.
+    assert grouped[0]["dice"] != pytest.approx(cases[-1]["dice"], abs=1e-4)
+    assert grouped[0]["dice"] != pytest.approx(sum(row["dice"] for row in cases) / 4, abs=1e-5), (
+        "pooled counts are not the mean of the cases' scores, which is the whole point"
+    )
+
+
+def test_a_whole_mask_metric_at_source_is_the_MEAN_over_the_group_not_its_BEST(widening_engine):
+    """The non-accumulating branch: a skeleton has no counts to add, so the group's figure
+    is the mean of the images' per-class vectors. `.max(dim=0)` in place of `.mean(dim=0)`
+    reports the group's best case and survived the whole suite."""
+    engine = widening_engine
+    cases = [row["cldice"] for row in engine.evaluate_cases("at64", at="source")]
+    grouped = engine.evaluate_cases("at64", group_by=r"^(grp)\d+$", at="source")[0]["cldice"]
+
+    assert grouped == pytest.approx(sum(cases) / len(cases), abs=1e-7)
+    # The cases differ enough that the best is not the mean, which is what makes the line
+    # above able to fail at all.
+    assert max(cases) - grouped > 1e-3
+    assert grouped == pytest.approx(
+        engine.evaluate_cases("at64", group_by=r"^(grp)\d+$")[0]["cldice"], abs=1e-7
+    )
+
+
+def test_a_stream_out_of_step_with_the_samples_is_REFUSED(thin, monkeypatch):
+    """`pyplatypus#387`. The guard exists and its own comment says why - a disagreement
+    here scores every case after it against another case's mask, and nothing downstream
+    could tell - but no test planted the mismatch, so it could be deleted with the whole
+    suite green.
+
+    The mismatch is planted in the stream rather than in the samples, because the stream is
+    the half that is generated: `predict_stream` yields its own case names, and the sample
+    list is walked beside it."""
+    engine = Engine(spec_for(thin, 16), device="cpu")
+    engine.fit()
+
+    real = engine.predict_stream
+
+    def out_of_step(*args, **kwargs):
+        for index, (case, probabilities) in enumerate(real(*args, **kwargs)):
+            yield (f"not-{case}" if index == 1 else case), probabilities
+
+    monkeypatch.setattr(engine, "predict_stream", out_of_step)
+    with pytest.raises(EngineError, match=r"out of step and a score would be computed"):
+        engine.evaluate_cases("at16", at="source")

@@ -128,25 +128,55 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
             f"first. Reading it here would turn the frames into rows."
         )
 
-    # Stored values to real-world units. For CT this is the step that produces Hounsfield
-    # units; for modalities without a rescale it is the identity, and costs nothing.
-    values = np.asarray(apply_modality_lut(stored, dataset), dtype=np.float32)
+    photometric = str(getattr(dataset, "PhotometricInterpretation", ""))
 
-    bounds = resolve_window(dataset, window)
-    if bounds is None:
-        low, high = float(values.min()), float(values.max())
+    if photometric == "PALETTE COLOR":
+        # **The stored values are indices into a table, not intensities**, and nothing here
+        # read the table: a red-and-blue picture came back as 0 and 1 windowed to black and
+        # white, repeated across the channels. Index 1 is not "more" than index 0, so a
+        # model trained on such files learns from an ordering the file never claimed.
+        # `pyplatypus#392`.
+        #
+        # The table's output IS the picture, so there is nothing to window and nothing to
+        # invert - `MONOCHROME1` is a different photometric interpretation. It is scaled by
+        # what its own entries can hold rather than by their range, because a palette whose
+        # darkest entry is not 0 is a palette, not a contrast problem.
+        from pydicom.pixels import apply_color_lut
+
+        try:
+            coloured = apply_color_lut(stored, dataset)
+        except Exception as error:  # noqa: BLE001 - pydicom raises many things
+            raise DicomError(
+                f"'{path}' says PALETTE COLOR and its lookup table could not be applied: "
+                f"{error}. Without the table the stored values are indices rather than "
+                f"intensities, and reading them as an image would invent an ordering."
+            ) from None
+        ceiling = (
+            float(np.iinfo(coloured.dtype).max)
+            if np.issubdtype(coloured.dtype, np.integer)
+            else 1.0
+        )
+        values = np.asarray(coloured, dtype=np.float32) / ceiling
     else:
-        low, high = bounds
-    if high <= low:
-        high = low + 1.0
+        # Stored values to real-world units. For CT this is the step that produces Hounsfield
+        # units; for modalities without a rescale it is the identity, and costs nothing.
+        values = np.asarray(apply_modality_lut(stored, dataset), dtype=np.float32)
 
-    values = np.clip(values, low, high)
-    values = (values - low) / (high - low)
+        bounds = resolve_window(dataset, window)
+        if bounds is None:
+            low, high = float(values.min()), float(values.max())
+        else:
+            low, high = bounds
+        if high <= low:
+            high = low + 1.0
 
-    # MONOCHROME1 means low values are bright. Left alone, every such image trains as its
-    # own negative, which looks like nothing being wrong.
-    if getattr(dataset, "PhotometricInterpretation", "") == "MONOCHROME1":
-        values = 1.0 - values
+        values = np.clip(values, low, high)
+        values = (values - low) / (high - low)
+
+        # MONOCHROME1 means low values are bright. Left alone, every such image trains as
+        # its own negative, which looks like nothing being wrong.
+        if photometric == "MONOCHROME1":
+            values = 1.0 - values
 
     if values.ndim == 2:
         values = values[..., None]

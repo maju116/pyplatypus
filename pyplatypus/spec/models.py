@@ -362,7 +362,9 @@ class EncoderModel(ModelSpec):
             "Setting it false with `pretrained: true` is the other direction and is "
             "allowed for the same reason - it is recorded in the weights' fingerprint "
             "either way, so a mismatch is refused by name rather than silently predicting "
-            "something else."
+            "something else. Setting it true needs `encoder`: the statistics belong to a "
+            "backbone and the built-in encoder has none, so without one it is refused "
+            "rather than ignored."
         ),
     )
 
@@ -449,6 +451,28 @@ class EncoderModel(ModelSpec):
                     f"{field} needs `encoder` to name a backbone; there is nothing "
                     f"transferred for it to apply to"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def normalising_needs_an_encoder(self):
+        """`normalise` names the backbone's own ImageNet statistics, and without a backbone
+        there are none: the built-in encoder was never trained on anything, so there is no
+        mean and no standard deviation to apply.
+
+        The same rule as the two validators above, and it was missing for one release.
+        `normalise: true` with no `encoder` was accepted and did nothing -
+        `normalises_input` returned False and a test asserted that it did - which is
+        exactly what `pretrained_needs_an_encoder` exists to prevent: a flag somebody set
+        and a network that ignored it. `pyplatypus#389`.
+
+        `normalise: false` is still accepted with no encoder: it asks for nothing and gets
+        nothing, which is what leaving it unset already means.
+        """
+        if self.normalise and self.encoder is None:
+            raise ValueError(
+                "normalise=true needs `encoder` to name a backbone; it applies that "
+                "backbone's own ImageNet statistics, and the built-in encoder has none"
+            )
         return self
 
     @model_validator(mode="after")

@@ -9,12 +9,15 @@ worse than no test.
 from __future__ import annotations
 
 import json
+import os
 import re
 import warnings
 from pathlib import Path
+from unittest import mock
 
 import pytest
 import torch
+from pydantic import ValidationError
 
 from pyplatypus import from_dict
 from pyplatypus.models import build_model
@@ -1079,9 +1082,15 @@ def test_normalise_is_recorded_as_its_EFFECT_so_an_offline_reload_matches(traine
         model_spec(encoder="resnet18", pretrained=True).weights_fingerprint()["input_normalised"]
         is True
     )
-    # And the statistics belong to a backbone, so asking for them without one is not a
-    # thing this can promise.
-    assert model_spec(normalise=True).normalises_input is False
+    # And the statistics belong to a backbone, so asking for them without one is refused
+    # rather than ignored. This assertion read `normalises_input is False` for one release
+    # - the silent acceptance, written into a test, against the rule the two validators
+    # beside it state out loud. `pyplatypus#389`.
+    with pytest.raises(ValidationError, match="normalise=true needs `encoder`"):
+        model_spec(normalise=True)
+    # The other direction stays accepted: asking for nothing and getting nothing is what
+    # leaving the field unset already means.
+    assert model_spec(normalise=False).normalises_input is False
 
 
 def test_the_statistics_need_no_DOWNLOAD_which_is_what_makes_the_offline_reload_work(
@@ -1106,3 +1115,122 @@ def test_the_statistics_need_no_DOWNLOAD_which_is_what_makes_the_offline_reload_
     assert not PretrainedEncoder(
         "resnet18", in_channels=3, blocks=2, filters=8, pretrained=False
     ).normalises
+
+
+def test_the_cache_knowing_a_sidecar_is_ABSENT_is_the_repository_s_answer(fake_hub, monkeypatch):
+    """`pyplatypus#384`, and it is `#379`'s own fix undone for the form it was told not to
+    break.
+
+    Offline, `hf_hub_download` raises `LocalEntryNotFoundError` for a file it could not
+    reach **and** for one the hub already answered 404 for - it does not consult the
+    `.no_exist` marker it wrote itself. So `#379`'s refusal took away the route the `hf://`
+    form exists for: somebody else's weights, fetched once online and used offline.
+
+    The cache knows the difference, so ask it."""
+    from huggingface_hub.errors import LocalEntryNotFoundError
+
+    served, _ = fake_hub
+    spec = model_spec()
+    export_weights(build_model(spec, n_class=2), spec, served / "noexist.safetensors")
+    (served / "noexist.json").unlink()
+    real = __import__("huggingface_hub", fromlist=["hf_hub_download"]).hf_hub_download
+
+    def offline(repo_id, filename, revision=None, **kwargs):
+        if filename.endswith(".json"):
+            raise LocalEntryNotFoundError("offline, and the marker is not consulted")
+        return real(repo_id=repo_id, filename=filename, revision=revision, **kwargs)
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", offline)
+    monkeypatch.setattr(
+        "huggingface_hub.try_to_load_from_cache",
+        lambda *a, **k: __import__("huggingface_hub")._CACHED_NO_EXIST,
+    )
+    assert Path(resolve_weights("hf://someone/else/noexist.safetensors@deadbee")).exists()
+
+
+def test_a_PUBLISHED_name_is_refused_even_when_the_cache_says_the_sidecar_is_absent(
+    fake_hub, monkeypatch
+):
+    """The half `#384` must not take away, and the reason the route is threaded through at
+    all: every name in `REGISTRY` does publish a sidecar, so for one of those the marker
+    can only mean that something is wrong with the cache - never that the repository has
+    no description. The `hf://` form carries no such guarantee."""
+    from huggingface_hub.errors import LocalEntryNotFoundError
+
+    served, _ = fake_hub
+    spec = model_spec()
+    export_weights(build_model(spec, n_class=2), spec, served / "dsbowl-unet.safetensors")
+    (served / "dsbowl-unet.json").unlink()
+    real = __import__("huggingface_hub", fromlist=["hf_hub_download"]).hf_hub_download
+
+    def offline(repo_id, filename, revision=None, **kwargs):
+        if filename.endswith(".json"):
+            raise LocalEntryNotFoundError("offline")
+        return real(repo_id=repo_id, filename=filename, revision=revision, **kwargs)
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", offline)
+    monkeypatch.setattr(
+        "huggingface_hub.try_to_load_from_cache",
+        lambda *a, **k: __import__("huggingface_hub")._CACHED_NO_EXIST,
+    )
+    with pytest.raises(WeightsError, match=r"every name in this registry publishes one"):
+        resolve_weights("dsbowl-unet")
+
+
+def test_an_hf_reference_the_cache_has_no_ANSWER_for_is_still_refused(fake_hub, monkeypatch):
+    """The third state, and the one `#384` leaves refused: nothing says the sidecar is
+    absent, only that it could not be read. The message must not borrow the registry's
+    sentence, which is false here - that prose is what sent a reader to fetch a file that
+    is not there."""
+    from huggingface_hub.errors import LocalEntryNotFoundError
+
+    served, _ = fake_hub
+    spec = model_spec()
+    export_weights(build_model(spec, n_class=2), spec, served / "unknown.safetensors")
+    real = __import__("huggingface_hub", fromlist=["hf_hub_download"]).hf_hub_download
+
+    def offline(repo_id, filename, revision=None, **kwargs):
+        if filename.endswith(".json"):
+            raise LocalEntryNotFoundError("offline, nothing cached either way")
+        return real(repo_id=repo_id, filename=filename, revision=revision, **kwargs)
+
+    monkeypatch.setattr("huggingface_hub.hf_hub_download", offline)
+    monkeypatch.setattr("huggingface_hub.try_to_load_from_cache", lambda *a, **k: None)
+    with pytest.raises(WeightsError) as raised:
+        resolve_weights("hf://someone/else/unknown.safetensors@deadbee")
+    assert "every name in this registry" not in str(raised.value)
+    assert "a revision the cache has answered for once" in str(raised.value)
+
+
+def test_the_cache_s_three_ANSWERS_are_distinguishable(fake_hub, tmp_path):
+    """The premise `#384` rests on, asserted rather than assumed, because `#379` is what
+    happens when a hierarchy is assumed.
+
+    `try_to_load_from_cache` answers three ways and this fix reads only the third. A
+    release that collapsed any two of them would make `_cache_says_absent` report either
+    every uncached file or none as absent, and both are silent."""
+    from huggingface_hub import _CACHED_NO_EXIST, try_to_load_from_cache
+
+    assert _CACHED_NO_EXIST is not None
+    assert not isinstance(_CACHED_NO_EXIST, str)
+
+    home = tmp_path / "hf"
+    rev = "a" * 40
+    repo = home / "hub" / "models--someone--else"
+    (repo / "snapshots" / rev).mkdir(parents=True)
+    (repo / "snapshots" / rev / "w.safetensors").write_bytes(b"x")
+    (repo / ".no_exist" / rev).mkdir(parents=True)
+    (repo / ".no_exist" / rev / "w.json").write_text("")
+
+    with mock.patch.dict(os.environ, {"HF_HOME": str(home)}):
+        # The three answers, from one cache, read through the function the fix calls.
+        from huggingface_hub import constants
+
+        with mock.patch.object(constants, "HF_HUB_CACHE", str(home / "hub")):
+            absent = try_to_load_from_cache("someone/else", "w.json", revision=rev)
+            present = try_to_load_from_cache("someone/else", "w.safetensors", revision=rev)
+            unknown = try_to_load_from_cache("someone/else", "never-asked", revision=rev)
+
+    assert absent is _CACHED_NO_EXIST
+    assert isinstance(present, str)
+    assert unknown is None

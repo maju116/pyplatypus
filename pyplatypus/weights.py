@@ -209,7 +209,7 @@ def resolve_weights(reference: str) -> Path:
     if reference.startswith("hf://"):
         return _from_hub(reference)
     if reference in REGISTRY:
-        return _from_hub(REGISTRY[reference].reference)
+        return _from_hub(REGISTRY[reference].reference, published=True)
 
     path = Path(reference).expanduser()
     if path.exists():
@@ -229,7 +229,13 @@ def resolve_weights(reference: str) -> Path:
     )
 
 
-def _from_hub(reference: str) -> Path:
+def _from_hub(reference: str, *, published: bool = False) -> Path:
+    """Fetch an `hf://` reference, with `published` saying whether it is one of ours.
+
+    `published` is not cosmetic: a name in `REGISTRY` is guaranteed to carry a sidecar, so
+    its absence can only be a failure, while somebody else's repository may legitimately
+    have none. `_fetch_sidecar` needs that difference to decide and to say something true.
+    """
     found = HF_PATTERN.match(reference)
     if found is None:
         raise WeightsError(
@@ -262,17 +268,20 @@ def _from_hub(reference: str) -> Path:
             f"could not fetch {path} from {repo_id} at {revision}: {type(error).__name__}: {error}"
         ) from None
 
-    sidecar = _fetch_sidecar(repo_id, path, revision)
+    sidecar = _fetch_sidecar(repo_id, path, revision, published=published)
     if sidecar is not None:
         _remember_sidecar(Path(local), sidecar)
     return Path(local)
 
 
-def _fetch_sidecar(repo_id: str, path: str, revision: str) -> dict | None:
+def _fetch_sidecar(
+    repo_id: str, path: str, revision: str, *, published: bool = False
+) -> dict | None:
     """The description beside the weights, if the repo carries one.
 
     Optional on purpose: someone else's weights need not follow our convention, and refusing
-    them for that would make the `hf://` form useless. Ours always carry it.
+    them for that would make the `hf://` form useless. Ours always carry it, which is what
+    `published` says - and the difference decides what an offline run is told.
     """
     from huggingface_hub import hf_hub_download
     from huggingface_hub.errors import EntryNotFoundError, LocalEntryNotFoundError
@@ -289,14 +298,29 @@ def _fetch_sidecar(repo_id: str, path: str, revision: str) -> dict | None:
         # and it is not cached" as "this repository publishes no description". That is the
         # one case `pyplatypus#371` was written for, and it was the one case `#371` could
         # not see. `pyplatypus#379`.
+        #
+        # **And this class arrives for two different states, which `#379` read as one.**
+        # Offline, `hf_hub_download` raises it both for a file it could not reach and for
+        # one the hub has already told it does not exist - it does not consult the
+        # `.no_exist` marker it wrote itself the last time it got a 404. So ask the cache
+        # directly: `_CACHED_NO_EXIST` is the repository's answer, recorded when there was
+        # a network, and treating it as a failure took away the route this form exists for
+        # - somebody else's weights, fetched once online and used offline. `#384`.
+        if not published and _cache_says_absent(repo_id, name, revision):
+            return None
         raise WeightsError(
             f"the weights for '{repo_id}/{path}' are here but '{name}' beside them could "
             f"not be fetched and is not in the cache: {error}. That file is what says which "
             f"classes and colormap these weights are for, so loading without it would skip "
             f"the checks that catch weights trained for a different meaning. If this is a "
-            f"deliberately offline run, fetch the sidecar once with a network - every name "
-            f"in this registry publishes one, so its absence here is never the repository's "
-            f"answer."
+            f"deliberately offline run, fetch it once with a network"
+            + (
+                " - every name in this registry publishes one, so its absence here is "
+                "never the repository's answer."
+                if published
+                else ", which is also what records that this repository has none: a "
+                "revision the cache has answered for once is usable offline afterwards."
+            )
         ) from None
     except EntryNotFoundError:
         # The repository genuinely carries no description. That is the case this function
@@ -322,6 +346,27 @@ def _fetch_sidecar(repo_id: str, path: str, revision: str) -> dict | None:
 
 
 _SIDECARS: dict[str, dict] = {}
+
+
+def _cache_says_absent(repo_id: str, name: str, revision: str) -> bool:
+    """Does the hub's own cache record that this file is not in this repository?
+
+    `try_to_load_from_cache` answers three ways - a path, `None` for "nothing cached", and
+    the `_CACHED_NO_EXIST` sentinel for "the hub said 404 and I wrote that down". Only the
+    third is the repository's answer, and `hf_hub_download` does not look at it offline.
+
+    The sentinel is a module-level object rather than a type, so it is compared by identity
+    and imported where it lives; a test asserts that the three answers are distinguishable,
+    because a release that collapsed any two of them would make this read either every
+    uncached file or none as absent.
+    """
+    from huggingface_hub import _CACHED_NO_EXIST, try_to_load_from_cache
+
+    try:
+        answer = try_to_load_from_cache(repo_id, name, revision=revision)
+    except Exception:  # noqa: BLE001 - a cache that cannot be read is not an answer
+        return False
+    return answer is _CACHED_NO_EXIST
 
 
 def _remember_sidecar(weights: Path, sidecar: dict) -> None:

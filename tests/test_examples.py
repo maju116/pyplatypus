@@ -1418,3 +1418,75 @@ def test_the_hc18_registry_entry_carries_the_numbers_it_was_handed():
     # printing something it was not handed.
     for published in ("2.44 mm", "3.84 mm", "0.9494", "85 of the 144"):
         assert published not in flat, f"{published} came from outside this run"
+
+
+# --- the scripts this file did NOT build a configuration for ------------------------------
+#
+# `pyplatypus#391`. `SCRIPTS` is read from the directory, and its own comment says why - a
+# list somebody has to remember to extend is the oversight this file was written for. That
+# argument reached `test_every_example_imports` and not the configuration tests, which were
+# written one per script by hand, and four scripts had none.
+#
+# Measured by the tenth review pass: the historical defect - `"task"` removed and
+# `"n_class"` put back - reintroduced into any of these four passed this whole file.
+
+
+def _scripts_with_a_specification() -> list[str]:
+    """Every script in `examples/` that exposes `specification()`, read off the source."""
+    found = []
+    for name in SCRIPTS:
+        tree = ast.parse((EXAMPLES / f"{name}.py").read_text())
+        if any(
+            isinstance(node, ast.FunctionDef) and node.name == "specification" for node in tree.body
+        ):
+            found.append(name)
+    assert found, "no script declares specification(); the scan is looking in the wrong place"
+    return found
+
+
+def test_every_script_with_a_specification_has_a_configuration_test():
+    """The census, so that a fifth script is covered without anybody remembering.
+
+    A grep over this file's own source, which is the same instrument as `SCRIPTS`: a script
+    is covered when some test here imports it. That cannot see whether the test is any
+    good - the four tests below are what make it true today - but it can see a script
+    nothing imports, which is what four scripts were.
+    """
+    source = Path(__file__).read_text()
+    missing = [
+        name for name in _scripts_with_a_specification() if f"import {name} as script" not in source
+    ]
+    assert not missing, f"no configuration test imports: {', '.join(missing)}"
+
+
+def test_the_split_leak_configuration_is_accepted():
+    import measure_split_leak as script
+
+    _validate(script.specification(Path("splits"), 128, 2, 4))
+
+
+def test_the_target_spacing_configurations_are_accepted():
+    import measure_target_spacing as script
+
+    splits = {name: Path(f"{name}.csv") for name in ("train", "validation", "test")}
+    # Both arms: the example's whole point is the same data with and without a spacing, so
+    # a configuration that only validates in one of them is half the example.
+    _validate(script.specification(splits, None, 96, 1))
+    _validate(script.specification(splits, [1.5, 1.5, 1.5], 96, 1))
+
+
+def test_the_channel_order_configurations_are_accepted():
+    import measure_channel_order as script
+
+    splits = {name: Path(f"{name}.csv") for name in ("train", "validation", "test")}
+    patterns = [f"*_{modality}.nii.gz" for modality in script.MODALITIES]
+    # `fit=False` is the scoring arm, which reads the checkpoint back rather than writing
+    # it - a different model block, and the one a reader reaches second.
+    _validate(script.specification(splits, patterns, 64, 1, Path("best.safetensors")))
+    _validate(script.specification(splits, patterns, 64, 1, Path("best.safetensors"), fit=False))
+
+
+def test_the_instance_separation_configuration_is_accepted():
+    import train_instance_separation as script
+
+    _validate(script.specification("train.csv", "validation.csv", 2, 1))
