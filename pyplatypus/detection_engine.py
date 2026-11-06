@@ -136,6 +136,26 @@ class DetectorRun:
         return sum(p.numel() for p in self.model.parameters())
 
 
+def _network_for(model_spec: DetectionModel, n_class: int):
+    """The detector a specification asks for.
+
+    Extracted from `train` by `maju116/pyplatypus#404` rather than written there, and the
+    reason is the finding: these three arguments were read inside a loop that no test can
+    enter without a full run, so `in_channels=model_spec.channels` could be replaced by a
+    literal with the whole suite still green. A read only one route reaches has to be
+    reachable *as* that route, or the guard written for it sits one level below the change -
+    which is `#395`'s lesson, and this file had no seam for it.
+
+    `n_class` comes from the data rather than from the model, for the reason `build_model`
+    gives one task over: a model that also declared it would be a second place for one fact.
+    """
+    return build_yolo3(
+        n_class=n_class,
+        anchors_per_grid=model_spec.anchors_per_grid,
+        in_channels=model_spec.channels,
+    )
+
+
 class DetectionEngine(EngineBase):
     #: What a labelled split carries here, for the one message that names it.
     labels_are = "annotations"
@@ -406,11 +426,7 @@ class DetectionEngine(EngineBase):
             if model_spec.weights:
                 model_spec, _ = self._adopt_from_weights(model_spec)
 
-            network = build_yolo3(
-                n_class=self.spec.data.n_class,
-                anchors_per_grid=model_spec.anchors_per_grid,
-                in_channels=model_spec.channels,
-            )
+            network = _network_for(model_spec, self.spec.data.n_class)
 
             if model_spec.weights:
                 # The anchors come with the weights, because the weights only mean

@@ -25,6 +25,22 @@ Two things make it honest rather than merely mechanical:
   was held while the decoder's identical read was not;
 * the table is checked against the fields the builders **actually read**, so a new read
   either gets a row or is named in `NOT_A_STRUCTURAL_READ` with a reason.
+
+**`#404`, the twelfth pass, and both halves above were where it bit.** The reason attached
+to an exemption was written for a *field* and was true of one *site*: `blocks` and `filters`
+were called shape-bearing, which they are on the U-net path and are not on the encoder route,
+where no test used a non-default value - so two reads survived behind a sentence about a
+third. The unit is the read site, not the name, which is the eleventh pass's own lesson one
+table over.
+
+And the question itself was too weak for a field read in several places. `activation` has a
+row here and the classifier's **own encoder** read of it survived anyway: `initialise` reads
+the same field two lines further down, so replacing the encoder's read by a literal left the
+parameter values different and *something had changed*. So a row now says WHICH reading it
+claims - the module tree, or the values in it - and a structural row is asked of the tree
+alone, where another read of the same field cannot answer for it. Measured: every field in
+both tables but `initialiser` changes `repr(net)`, and `initialiser` changes nothing but the
+values, so the split is read off the code rather than chosen.
 """
 
 from __future__ import annotations
@@ -42,31 +58,47 @@ from pyplatypus.spec.models import SegmentationModel
 
 MODELS = pathlib.Path(__file__).resolve().parent.parent.parent / "pyplatypus" / "models"
 
-#: field -> (non-default value, companions needed to make it reachable)
+#: What a row claims the field changes, and the reading it is therefore asked of.
+#:
+#: `STRUCTURE` is the module tree with its constructor arguments - `repr(net)` - which no
+#: other read of the same field can answer for, and that is the whole reason the two are
+#: separated. `VALUES` is the numbers in it, for a field that restructures nothing.
+STRUCTURE = "structure"
+VALUES = "values"
+
+#: field -> (non-default value, companions needed to make it reachable, what it changes)
 SEGMENTATION_FIELDS = {
-    "dropout": (0.5, {}),
-    "batch_normalization": (False, {}),
-    "separable_conv": (True, {"upsample": True}),
-    "spatial_dropout": (False, {"dropout": 0.5}),
-    "activation": ("gelu", {}),
-    "initialiser": ("glorot_uniform", {}),
-    "block_width": (3, {}),
-    "upsample": (True, {}),
+    "dropout": (0.5, {}, STRUCTURE),
+    "batch_normalization": (False, {}, STRUCTURE),
+    "separable_conv": (True, {"upsample": True}, STRUCTURE),
+    "spatial_dropout": (False, {"dropout": 0.5}, STRUCTURE),
+    "activation": ("gelu", {}, STRUCTURE),
+    "initialiser": ("glorot_uniform", {}, VALUES),
+    "block_width": (3, {}, STRUCTURE),
+    "upsample": (True, {}, STRUCTURE),
     # A third field needing a companion, and the spec REFUSES it without one:
     # `deep_supervision` has no intermediate outputs to supervise on a plain U-net.
-    "deep_supervision": (True, {"architecture": "u_net_plus_plus", "blocks": 3}),
+    "deep_supervision": (True, {"architecture": "u_net_plus_plus", "blocks": 3}, STRUCTURE),
+    # `#404`: these two were exempt as *shape-bearing*, which is a reason about the U-net's
+    # output size and not about either read. They change the tree here, so they are rows.
+    "blocks": (4, {}, STRUCTURE),
+    "filters": (16, {}, STRUCTURE),
 }
 
 CLASSIFICATION_FIELDS = {
-    "pooling": ("max", {}),
-    "head_dropout": (0.5, {}),
-    "activation": ("gelu", {}),
-    "batch_normalization": (False, {}),
-    "dropout": (0.5, {}),
-    "spatial_dropout": (False, {"dropout": 0.5}),
-    "separable_conv": (True, {}),
-    "block_width": (3, {}),
-    "initialiser": ("glorot_uniform", {}),
+    "pooling": ("max", {}, STRUCTURE),
+    "head_dropout": (0.5, {}, STRUCTURE),
+    "activation": ("gelu", {}, STRUCTURE),
+    "batch_normalization": (False, {}, STRUCTURE),
+    "dropout": (0.5, {}, STRUCTURE),
+    "spatial_dropout": (False, {"dropout": 0.5}, STRUCTURE),
+    "separable_conv": (True, {}, STRUCTURE),
+    "block_width": (3, {}, STRUCTURE),
+    "initialiser": ("glorot_uniform", {}, VALUES),
+    # `#404`, and this is the route whose own `_encoder_for` the pass mutated: a classifier's
+    # output is `(batch, n_class)` whatever these two are, so NO shape test can see them.
+    "blocks": (4, {}, STRUCTURE),
+    "filters": (16, {}, STRUCTURE),
 }
 
 #: Reads this test deliberately does not cover, each with the reason, so the completeness
@@ -75,15 +107,18 @@ CLASSIFICATION_FIELDS = {
 #: The staleness half of that check earned itself on its first run: this held `rank`, which
 #: the builders do read and which is a derived PROPERTY rather than a field, so naming it
 #: here was a claim about something that does not exist.
+#: `#404` took `blocks` and `filters` out of it, because the reason given - *shape-bearing* -
+#: described the U-net's output size rather than either read, and two reads survived behind
+#: it. What is left names the site that holds the field, so a reason here can be checked.
 NOT_A_STRUCTURAL_READ = {
-    # Shape-bearing: ignoring one of these fails an output-shape test rather than this one,
-    # and `test_unet.py` asserts every architecture preserves its input size.
-    "blocks": "shape-bearing; every architecture's shape tests cover it",
-    "filters": "shape-bearing",
-    "channels": "shape-bearing",
-    "input_shape": "shape-bearing",
+    # Genuinely shape-bearing, and the test that would fail is named rather than implied:
+    # every fixture in the suite feeds a 3-channel image, so a builder ignoring `channels`
+    # fails on the first convolution rather than on a fingerprint.
+    "channels": "the first convolution's width; every fixture's input would stop fitting",
+    "input_shape": "the grid itself; `test_unet.py` asserts the output size equals it",
     "architecture": "chooses the builder; `ARCHITECTURES` is parametrised over it",
-    # The backbone route, which needs timm and has its own file.
+    # The backbone route, which needs timm and has its own file - and which carries its own
+    # enumeration with its own completeness half since `#404`.
     "encoder": "chooses the contracting path; `test_pretrained.py`",
     "pretrained": "needs a network to observe; spied in `test_pretrained.py`",
     "normalise": "`#385`, held by `test_pretrained.py`'s encoder-route tests",
@@ -105,19 +140,48 @@ def _reads_in_the_builders() -> set[str]:
     return found
 
 
-def _fingerprint(net) -> tuple:
-    """What the built network is, closely enough that ignoring a field cannot hide.
+def _structure(net) -> str:
+    """The module tree with each module's own constructor arguments.
 
-    The module types, the parameter names and shapes, and the parameter VALUES - the last
-    because `initialiser` changes nothing structural, and a fingerprint that stopped at the
-    shapes would report it as delivered while it was being ignored.
+    `repr` rather than a set of type names, because `Dropout(p=0.5)` and `Dropout(p=0.1)`
+    are the same type and a different network - and because this reading must not be
+    satisfiable by a second read of the same field somewhere else, which is exactly what
+    the parameter values were doing for `activation`.
     """
-    kinds = tuple(sorted(type(module).__name__ for module in net.modules()))
-    state = tuple(
+    return repr(net)
+
+
+def _values(net) -> tuple:
+    """The parameters themselves, for the one field that restructures nothing."""
+    return tuple(
         (name, tuple(tensor.shape), round(float(tensor.detach().sum()), 6))
         for name, tensor in sorted(net.state_dict().items())
     )
-    return kinds, state
+
+
+def _ask(build, field, value, companions, claims):
+    """One row, asked of the reading it claims - and of the other one as a control.
+
+    A `VALUES` row is asked **two-sidedly**: the tree must be identical and the numbers in
+    it must differ. The first half is what makes `initialiser` a reading rather than a
+    second structural row written loosely, and it would fail if that field ever started
+    restructuring anything.
+    """
+    default = build(**companions)
+    asked = build(**companions, **{field: value})
+    if claims == STRUCTURE:
+        assert _structure(default) != _structure(asked), (
+            f"`{field}={value!r}` builds the same module tree as the default, so nothing "
+            f"delivers it to the one site this row is about"
+        )
+        return
+    assert _structure(default) == _structure(asked), (
+        f"`{field}={value!r}` is enumerated as changing the values alone and it changed "
+        f"the module tree; the row is now describing something else"
+    )
+    assert _values(default) != _values(asked), (
+        f"`{field}={value!r}` leaves every parameter where the default put it"
+    )
 
 
 def _segmentation(**overrides):
@@ -134,33 +198,37 @@ def _classification(**overrides):
 
 @pytest.mark.parametrize("field", sorted(SEGMENTATION_FIELDS))
 def test_a_segmentation_field_reaches_the_built_network(field):
-    value, companions = SEGMENTATION_FIELDS[field]
-    default = _fingerprint(_segmentation(**companions))
-    asked = _fingerprint(_segmentation(**companions, **{field: value}))
-    assert default != asked, (
-        f"`{field}={value!r}` builds the same network as the default, so nothing delivers it"
-    )
+    _ask(_segmentation, field, *SEGMENTATION_FIELDS[field])
 
 
 @pytest.mark.parametrize("field", sorted(CLASSIFICATION_FIELDS))
 def test_a_classification_field_reaches_the_built_network(field):
-    value, companions = CLASSIFICATION_FIELDS[field]
-    default = _fingerprint(_classification(**companions))
-    asked = _fingerprint(_classification(**companions, **{field: value}))
-    assert default != asked, (
-        f"`{field}={value!r}` builds the same network as the default, so nothing delivers it"
-    )
+    _ask(_classification, field, *CLASSIFICATION_FIELDS[field])
 
 
 def test_the_seed_is_what_makes_the_comparison_mean_anything():
     """The control, and without it every row above passes for the wrong reason.
 
-    `initialiser` is in the table, so the fingerprint reads parameter values - and two
-    builds of the SAME specification must then agree, or the comparison is reading the
-    draw rather than the field.
+    `initialiser` is in the table, so one reading is the parameter values - and two builds
+    of the SAME specification must then agree, or the comparison is reading the draw rather
+    than the field. Both readings are controlled, because the structural rows would be
+    just as meaningless if `repr` carried an address.
     """
-    assert _fingerprint(_segmentation()) == _fingerprint(_segmentation())
-    assert _fingerprint(_classification()) == _fingerprint(_classification())
+    for build in (_segmentation, _classification):
+        assert _structure(build()) == _structure(build())
+        assert _values(build()) == _values(build())
+
+
+def test_both_readings_occur_in_the_tables():
+    """A split where every row claims the same thing is one reading with extra words.
+
+    The whole-mask pair's lesson, two tables over: a pairing over a family that answers
+    alike proves nothing, so the thing to assert is that both answers are given.
+    """
+    claimed = {
+        claims for _, _, claims in (*SEGMENTATION_FIELDS.values(), *CLASSIFICATION_FIELDS.values())
+    }
+    assert claimed == {STRUCTURE, VALUES}, f"only {claimed} is claimed by any row"
 
 
 def test_every_field_a_builder_READS_is_either_enumerated_or_named():
