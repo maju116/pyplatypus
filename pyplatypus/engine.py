@@ -877,8 +877,7 @@ class Engine(EngineBase):
                         if at == "source"
                         else " x ".join(str(size) for size in run.spec.load_shape)
                     ),
-                    "epochs_run": len(run.history),
-                    "best_epoch": run.history.weights_epoch,
+                    **_provenance_columns(run.history),
                     **{key.removeprefix("val_"): value for key, value in scores.items()},
                 }
             )
@@ -1292,6 +1291,28 @@ class Engine(EngineBase):
             )
         chosen = (min if lower_is_better else max)(table, key=lambda row: row[key])
         return chosen["model"]
+
+
+def _provenance_columns(history: History) -> dict[str, Any]:
+    """The two columns a score table carries about the RUN rather than about the scores.
+
+    One definition with three readers - the semantic, classification and instance tables -
+    which is `pyplatypus#403`. The three had these two keys written out identically, and the
+    `best_epoch` half could be put back to its pre-`0.8.0a68` meaning in two of the three
+    with the whole suite still passing.
+
+    `best_epoch` is the epoch whose weights produced the scores beside it, and it is `None`
+    when they came from no single epoch: an average left by `callback_ema()` or
+    `callback_swa()`, or a run that selected nothing and so ended on its last epoch, which
+    `epochs_run` already names. Reading it off the history's records instead - the lowest
+    `val_loss` - is the defect `#398` fixed, and it is why this is a function rather than a
+    convention.
+
+    **The detection report is not a reader.** `DetectionReport.as_row` carries `epochs_run`
+    alone and no `best_epoch` at all, which is `pyplatypus#408` rather than something to fix
+    by calling this: adding a column to that table is a surface R forwards.
+    """
+    return {"epochs_run": len(history), "best_epoch": history.weights_epoch}
 
 
 def _encoder_for(spec: SegmentationModel) -> PretrainedEncoder | None:

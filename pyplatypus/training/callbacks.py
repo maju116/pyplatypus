@@ -16,7 +16,7 @@ import time
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import nn
@@ -76,6 +76,10 @@ class TrainingStopped(PlatypusError):
 def better_is_lower(key: str) -> bool:
     """Losses fall, metrics rise. Derived from the name so nobody has to declare it."""
     return key.endswith("loss")
+
+
+if TYPE_CHECKING:  # `trainer` imports this module, so the real import would be a cycle.
+    from pyplatypus.training.trainer import History
 
 
 @dataclass
@@ -732,17 +736,32 @@ def _replaces_weights_last(callback: Callback) -> int:
     return 0
 
 
-def finish_training(callbacks: list[Callback], state: TrainingState) -> None:
-    """Run every callback's `on_train_end`, with the weight-replacers last and in order.
+def finish_training(callbacks: list[Callback], state: TrainingState, history: History) -> None:
+    """Run every callback's `on_train_end`, with the weight-replacers last and in order,
+    then record which epoch the weights that survived came from.
 
     One definition with three callers, for `ask_to_stop`'s reason and one more: this
     guarantee has to hold however the list arrived, and a caller may hand a `Trainer` its
     own `callbacks=` list that never went through `build_callbacks`. Ordering at the point
     of building would have left that route exactly as `pyplatypus#333` found it - which is
     what the test for this caught, on the first version of the fix.
+
+    **The provenance is written here rather than by each caller afterwards**, which is
+    `pyplatypus#403`. Which weights a run ends on is decided by whichever replacer runs
+    last, and that is decided in the loop below - so the copy onto the history belongs in
+    the same place by `#333`'s own argument. The three trainers each carried these two
+    lines, byte for byte, and two of the three copies could be deleted with the whole suite
+    still passing: a fourth trainer that forgot the second line would report no epoch for
+    every run it ever made, with nothing anywhere to notice.
+
+    `history` is required rather than optional for that reason. An argument a caller may
+    omit is the same defect with a default.
     """
     for callback in sorted(callbacks, key=_replaces_weights_last):
         callback.on_train_end(state)
+    # After the loop, never before: the weight-replacers run in it, and which of them ran
+    # last is what decides whether these weights are an epoch's at all.
+    history.weights_epoch = state.weights_epoch
 
 
 def build_callbacks(specs: list[CallbackSpec]) -> list[Callback]:
