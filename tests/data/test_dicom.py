@@ -519,6 +519,36 @@ def test_a_16_bit_palette_holding_8_bit_values_is_scaled_by_what_it_HOLDS(tmp_pa
     assert np.allclose(picture[0, 7], [0.0, 0.0, 1.0], atol=1e-4)
 
 
+def test_an_8_bit_entry_means_the_same_in_a_wide_table_as_in_a_narrow_one(tmp_path):
+    """`pyplatypus#402`, and it is `#396`'s own fix dividing by the wrong number - the third
+    turn of this screw.
+
+    `#396` scaled by the brightest entry PRESENT, which is right only when that entry is
+    255. A palette whose brightest colour is not white was stretched until it was: a table
+    of 200 came back 1.0000 where the same table at 8 bits gives 200/255.
+
+    The assertion is the invariant rather than the digits: **the two branches must agree**,
+    because an 8-bit value means 200/255 wherever it is stored. A test that pinned 0.7843
+    alone would pass on a wide branch that had quietly become the narrow one's copy, and
+    would say nothing about the question this is here to ask.
+    """
+    narrow = _palette_file(tmp_path / "narrow.dcm", bits=8, top=200)
+    wide = _palette_file(tmp_path / "wide.dcm", bits=16, top=200)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        plain = read_dicom(narrow, channels=3)
+    with pytest.warns(UserWarning, match=r"8-bit in a wider table"):
+        quirky = read_dicom(wide, channels=3)
+
+    assert np.allclose(plain, quirky, atol=1e-6), (
+        f"the same palette reads {plain[0, 0, 0]:.4f} at 8 bits and {quirky[0, 0, 0]:.4f} at 16"
+    )
+    # And the control, or the line above passes on two branches that are wrong together:
+    # 200 of 255, which is what the entry says and what neither 1.0 nor 200/65535 is.
+    assert np.allclose(plain[0, 0], [200 / 255, 0.0, 0.0], atol=1e-4)
+
+
 @pytest.mark.parametrize(("bits", "top"), [(16, 65535), (8, 255)])
 def test_an_ordinary_palette_is_untouched_and_says_nothing(tmp_path, bits, top):
     """The controls, and they are what make the row above a reading: a table that uses its

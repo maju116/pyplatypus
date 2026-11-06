@@ -1,6 +1,48 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a69] - 2026-11-06
+
+**The third turn of one screw, and the reviewer's twelfth pass found it.** `#392` read a
+palette file as its indices; `#396` fixed the 16-bit-table case by dividing by what the table
+holds; this divides by **what an 8-bit entry means**, which is the one of the three that does
+not depend on the file.
+
+**The R half: None beyond the pin.** The scaling is inside `read_dicom`, which R forwards to.
+
+### Fixed
+
+ - **A palette whose brightest colour is not white was stretched until it was.**
+   `pyplatypus#402`.
+
+   `#396` scaled a wide lookup table holding 8-bit values by the brightest entry **present**,
+   which is right only when that entry is 255 - and the test written for it used exactly
+   that, so the fixture could not contain the case. Measured on a table of 200 and 100:
+
+       8-bit table, entries 200 and 100 (control)   red 0.7843   blue 0.3922
+       16-bit table, the same entries               red 1.0000   blue 0.5000   <- before
+       16-bit table, the same entries               red 0.7843   blue 0.3922   <- after
+
+   Scaled by 255 now, because that is what an 8-bit value means wherever it is stored, and
+   it is what the 8-bit branch already did. The warning stays and says so.
+
+   **The test asserts the invariant rather than the digits**: the same palette must read the
+   same at 8 bits and at 16. A test pinning 0.7843 alone would pass on a wide branch that had
+   quietly become a copy of the narrow one and would never ask the question. It fails on
+   `#396`'s scaling and on `#392`'s, with an identity control green.
+
+### Documentation
+
+ - **Two schedules said the last epoch trains at `min_lr`, and neither does.**
+   `pyplatypus#402`'s pass, F7. Measured over five epochs from 1.0 with `min_lr` 0: cosine
+   trains at `[1.0000, 0.9045, 0.6545, 0.3455, 0.0955]`, digit for digit
+   `torch.optim.lr_scheduler.CosineAnnealingLR(T_max=5)`, and the linear one at
+   `[1.0, 0.8, 0.6, 0.4, 0.2]`. `min_lr` is written after the last epoch, where it trains
+   nothing.
+
+   The behaviour is torch's, which the same docstring says it should be, so the prose moved
+   rather than the code. Both now say where `min_lr` actually lands.
+
 ## [0.8.0a68] - 2026-11-05
 
 **One row, two epochs.** Every score table reported a `best_epoch` that was the lowest
