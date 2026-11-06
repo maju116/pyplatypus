@@ -43,19 +43,76 @@ def probabilities(logits: torch.Tensor, *, multilabel: bool = False) -> torch.Te
 
 
 def _dilate(x: torch.Tensor) -> torch.Tensor:
-    """Grey dilation with a full 3-wide structuring element, at any rank."""
+    """Grey dilation with a full 3-wide structuring element - a square, at any rank.
+
+    A square here and a **cross** in `_erode_cross`, which is an asymmetry and is
+    deliberate:
+    it is what Shit et al.'s own `soft_skel` does, and therefore what `monai.losses.cldice`
+    does, and therefore what any number anybody compares ours against was computed with.
+    See `_erode` for why the asymmetry is not the maths error it looks like.
+    """
     pool = F.max_pool2d if x.ndim == 4 else F.max_pool3d
     return pool(x, kernel_size=3, stride=1, padding=1)
 
 
 def _erode(x: torch.Tensor) -> torch.Tensor:
-    """Grey erosion, which is dilation of the complement.
+    """Grey erosion with a SQUARE, which is dilation of the complement.
 
     `max_pool` pads with -inf, so the complement is padded with +inf and the border is
     never eroded from outside - the same convention as `scipy.ndimage.binary_erosion`
     with `border_value=1`, which is what the test compares against.
+
+    **The square is right here and wrong in `soft_skeleton`**, which is why there are two.
+    This one's consumer is `surface(x)`, whose tolerance band is calibrated against a
+    EUCLIDEAN distance transform - `tests/objectives/test_surface_dice.py` asserts the
+    agreement - and a cross would make the band a city-block one. `maju116/pyplatypus#405`
+    changed this function first and 15 of those assertions said so.
     """
     return -_dilate(-x)
+
+
+def _erode_cross(x: torch.Tensor) -> torch.Tensor:
+    """Grey erosion with a CROSS, as the minimum of one erosion per axis.
+
+    `maju116/pyplatypus#405`, and it exists because the cross belongs to the PAPER'S
+    skeletonisation rather than to this package's idea of an erosion. Shit et al.'s own
+    `soft_skel` erodes with a cross - `min` over a 3x1 and a 1x3 min-pool in 2D, three in
+    3D - and dilates with a square, and `monai.losses.cldice` is a port of that code, so
+    those two operators are what every clDice anybody compares ours against was computed
+    with. `soft_skeleton` used `_erode`'s square until `0.8.0a72` and cited a paper it did
+    not implement: on a diagonal three-pixel band of 190 pixels the square keeps 184 as
+    "skeleton" where the cross keeps 64, which is one per row and is what a centreline of a
+    diagonal is.
+
+    **The asymmetry is not the error in classical morphology that it appears to be**, and
+    the reason is what `soft_skeleton` does with the opening. An opening whose two operators
+    differ is not anti-extensive, so `_dilate(_erode_cross(x))` can exceed `x` - but the
+    skeleton is the RESIDUAL `relu(x - opened)`, so an opening that recovers too much makes
+    the residual *smaller* and the `relu` clips it at zero. Measured on a real mask and on
+    that band, `max(skeleton - mask)` is 0.000000 for the square pair, this pair and the
+    symmetric cross pair alike: asymmetry loses skeleton and cannot invent any. The authors
+    say as much in their own issue tracker - it is an approximation by pooling, and a correct
+    skeleton is not guaranteed.
+
+    So a `structuring_element=` flag setting both operators would be worse than no flag: its
+    "cross" would be cross-and-cross, which over 10 FIVES masks reads 0.9004 where this pair
+    reads 0.9097 - a third answer that neither the paper nor MONAI computes, and the
+    comparability this buys would be lost again.
+
+    Each axis pads with -inf on its own, so the border convention is `_erode`'s, one axis at
+    a time.
+    """
+    axes = x.ndim - 2
+    pool = F.max_pool2d if axes == 2 else F.max_pool3d
+    eroded = None
+    for axis in range(axes):
+        kernel = [1] * axes
+        kernel[axis] = 3
+        padding = [0] * axes
+        padding[axis] = 1
+        one = -pool(-x, kernel_size=tuple(kernel), stride=1, padding=tuple(padding))
+        eroded = one if eroded is None else torch.minimum(eroded, one)
+    return eroded
 
 
 def soft_skeleton(x: torch.Tensor, iterations: int = 5) -> torch.Tensor:
@@ -85,11 +142,11 @@ def soft_skeleton(x: torch.Tensor, iterations: int = 5) -> torch.Tensor:
     >>> bool(torch.equal(skeleton, line))     # one pixel wide already
     True
     """
-    opened = _dilate(_erode(x))
+    opened = _dilate(_erode_cross(x))
     skeleton = F.relu(x - opened)
     for _ in range(iterations):
-        x = _erode(x)
-        opened = _dilate(_erode(x))
+        x = _erode_cross(x)
+        opened = _dilate(_erode_cross(x))
         peeled = F.relu(x - opened)
         # Soft union: add what this round found and the running skeleton did not have.
         skeleton = skeleton + F.relu(peeled - skeleton * peeled)

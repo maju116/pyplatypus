@@ -1,6 +1,78 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a72] - 2026-11-06
+
+**The soft skeleton now erodes with the cross the paper's own code erodes with**, which is
+the twelfth review pass's F1 and the author's decision: compatibility over keeping a number
+still. `soft_skeleton` cited Shit et al., CVPR 2021 and did not implement it - the reference
+code erodes with a cross and dilates with a square, and both of ours were squares.
+
+**The R half: None beyond the pin.** `clDice` is a metric and a loss R forwards; nothing it
+calls changes name or shape, and the numbers move.
+
+### Changed
+
+ - **`soft_skeleton` erodes with `_erode_cross`, the minimum of one erosion per axis, at
+   any rank.** `pyplatypus#405`. Asserted against `scipy.ndimage.binary_erosion` with
+   `generate_binary_structure(ndim, 1)` in 2D and 3D, **with the square erosion as the
+   negative control**, because a square erosion is also exactly some scipy call and a test
+   without that control passes on what this release is fixing.
+
+   `_dilate` is unchanged and stays a square, which is the same asymmetry the reference has.
+
+   **It is a second function rather than a change to `_erode`, and the suite is what said
+   so.** The cross went into `_erode` first, which has a second consumer: `surface(x)`,
+   whose tolerance band is calibrated against a **euclidean** distance transform. 15
+   assertions in `test_surface_dice.py` went red, and they were right - a cross would make
+   that band a city-block one. So the cross belongs to the paper's skeletonisation rather
+   than to this package's idea of an erosion, which is also the honest place for it, and a
+   test now asserts **both**: that the skeleton's erosion is the cross and that `_erode` is
+   still the square. Mutating `surface` to use the cross fails 15 tests; mutating the
+   skeleton to use the square fails 8.
+
+   **Why that asymmetry is not the error in classical morphology it looks like**, since it is
+   the first thing anybody objects to: an opening whose two operators differ is not
+   anti-extensive, so `dilate(erode(x))` can exceed `x` - and the skeleton is the **residual**
+   `relu(x - opened)`, so an opening that recovers too much makes the residual *smaller* and
+   the `relu` clips it at zero. Measured on a real mask and on a diagonal band,
+   `max(skeleton - mask)` is **0.000000** for the square pair, the reference pair and the
+   symmetric cross pair alike: asymmetry loses skeleton and cannot invent any. The authors
+   say the same in their own issue tracker - it is an approximation by pooling, and a correct
+   skeleton is not guaranteed.
+
+ - **No `structuring_element=` flag, and that is a measurement rather than a preference.**
+   A flag setting both operators would make its `"cross"` mean cross-and-cross, which is a
+   **third** answer: over 10 FIVES masks with a thinned prediction it gives 0.9004 where the
+   reference pair gives 0.9097, a gap above every run-to-run floor this project has recorded.
+   So the comparability this release buys would be lost again by the one flag anybody would
+   ask for.
+
+### Measured
+
+ - **What the change costs, so that nobody has to rediscover it.** The same masks, the
+   prediction thinned by `k` erosions, 10 FIVES test masks:
+
+       k=2   square/square 0.9134   cross/square 0.9097   cross/cross 0.9004
+       k=3   square/square 0.7471   cross/square 0.6731   cross/cross 0.6703
+
+   The cross is **stricter**, and the gap grows with how wrong the prediction is - 0.004 at
+   0.91 and 0.074 at 0.75. A diagonal three-pixel band is the sharpest single case: 190 band
+   pixels, **184 kept** as "skeleton" by the square erosion against **64** by the cross, which
+   is one pixel per row and is what a centreline of a diagonal is.
+
+ - **`fives-unet`'s published sidecar records `cldice` mean 0.8329694 over 200 cases**, and
+   this release is the reason that figure is no longer what the engine would produce. The
+   weights are unchanged and their `dice` is unaffected; the registry description quotes the
+   Dice and not the clDice, so nothing in the package states a figure this moves. Re-scoring
+   the published weights needs no retraining and is `pyplatypus#410`.
+
+### Known
+
+ - **`vignette("retinal-vessels")` prints clDice in 24 places and is not re-knitted here.**
+   It owes a re-knit for `rplatypus#289` already - it prints a `best_epoch` the pinned engine
+   no longer produces - so one run of 2 h 32 pays both debts rather than two.
+
 ## [0.8.0a71] - 2026-11-06
 
 **One place that records which epoch the weights came from.** `0.8.0a68` made `best_epoch`

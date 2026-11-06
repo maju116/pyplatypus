@@ -23,17 +23,28 @@ def skeleton_by_openings(mask: np.ndarray, iterations: int = 5) -> np.ndarray:
 
     `border_value=1` on the erosion because that is what `max_pool`'s -inf padding means
     for the complement: the image border is not eroded from outside.
+
+    **Two different structuring elements, which is the point rather than an oversight.**
+    `maju116/pyplatypus#405`: the reference clDice erodes with a cross and dilates with a
+    square, so a reference written with one element for both shares the premise it is
+    supposed to be checking. This used `np.ones((3,) * ndim)` for both until `0.8.0a72`,
+    and it agreed with our code the whole time **because our code had the same premise** -
+    an outside implementation is only an outside opinion if it disagrees about something.
+
+    `generate_binary_structure(ndim, 1)` is the cross at any rank: the voxels sharing a
+    face, which is one separable min-pool per axis written as a set.
     """
-    element = np.ones((3,) * mask.ndim, bool)
+    cross = ndimage.generate_binary_structure(mask.ndim, 1)
+    square = np.ones((3,) * mask.ndim, bool)
     eroded = mask.astype(bool)
     skeleton = np.zeros_like(eroded)
     for step in range(iterations + 1):
         opened = ndimage.binary_dilation(
-            ndimage.binary_erosion(eroded, element, border_value=1), element
+            ndimage.binary_erosion(eroded, cross, border_value=1), square
         )
         skeleton |= eroded & ~opened
         if step < iterations:
-            eroded = ndimage.binary_erosion(eroded, element, border_value=1)
+            eroded = ndimage.binary_erosion(eroded, cross, border_value=1)
     return skeleton
 
 
@@ -231,3 +242,103 @@ def test_the_metric_is_built_from_the_specification():
     assert isinstance(built["cldice"], ClDice)
     assert built["cldice"].iterations == 7
     assert built["cldice"].include_background is False
+
+
+# --- which two operators, asserted against scipy rather than against our own arithmetic ---
+#
+# `maju116/pyplatypus#405`. Everything above compares a skeleton; these two name the pair it
+# is built from, because that is the thing the citation is about and the thing that was wrong.
+
+
+@pytest.mark.parametrize("ndim", [2, 3])
+def test_the_pair_is_the_reference_s_pair_a_cross_and_a_square(ndim):
+    """A cross to erode and a square to dilate, which is Shit et al.'s own code.
+
+    Asserted against `scipy.ndimage` at both ranks, with **the square erosion as the
+    negative control**: without it this test passes on the implementation `#405` found,
+    since a square erosion is also exactly some scipy call.
+    """
+    rng = np.random.default_rng(0)
+    mask = rng.random((12,) * ndim) > 0.5
+    x = torch.from_numpy(mask.astype(np.float32))[None, None]
+
+    cross = ndimage.generate_binary_structure(ndim, 1)
+    square = np.ones((3,) * ndim, bool)
+
+    assert np.array_equal(
+        f._erode_cross(x)[0, 0].numpy() > 0.5,
+        ndimage.binary_erosion(mask, cross, border_value=1),
+    ), "the skeleton's erosion is not a cross"
+    assert np.array_equal(
+        f._dilate(x)[0, 0].numpy() > 0.5,
+        ndimage.binary_dilation(mask, square),
+    ), "the dilation is not a square"
+
+    # And the OTHER erosion is still the square, which is a claim worth making rather than
+    # an implementation detail: `surface()` reads it and its tolerance band is calibrated
+    # against a euclidean distance transform. `#405` changed this one first and 15 of
+    # `test_surface_dice.py`'s assertions said so.
+    assert np.array_equal(
+        f._erode(x)[0, 0].numpy() > 0.5,
+        ndimage.binary_erosion(mask, square, border_value=1),
+    ), "`_erode` is no longer the square that `surface()` needs"
+
+    assert not np.array_equal(
+        ndimage.binary_erosion(mask, cross, border_value=1),
+        ndimage.binary_erosion(mask, square, border_value=1),
+    ), "a cross and a square erosion agree on this input, so it cannot tell them apart"
+
+
+def test_a_diagonal_band_is_what_the_two_shapes_disagree_most_about():
+    """The case `#405` was found on, with both bounds read off the fixture rather than pinned.
+
+    A three-pixel-wide diagonal is thin, and a square erosion cannot peel it at all, because
+    every pixel of it keeps a diagonal neighbour - so the "skeleton" stays almost the whole
+    band. The cross peels it to one pixel per row, which is what a centreline of a diagonal
+    IS. Measured on this fixture: 190 band pixels, 64 by the cross, 184 by the square.
+
+    The first version of this test asserted `10 <= ours <= 25` from a figure remembered off a
+    differently sized band, and failed on correct code at 64 - which is the right answer,
+    since the band spans 64 rows. Hence both bounds below in the fixture's own terms.
+    """
+    side = 64
+    band = torch.zeros(1, 1, side, side)
+    for i in range(side):
+        for offset in (-1, 0, 1):
+            if 0 <= i + offset < side:
+                band[0, 0, i, i + offset] = 1.0
+    thickness = float(band.sum())
+
+    ours = float(f.soft_skeleton(band).sum())
+    assert ours == pytest.approx(side), (
+        f"a centreline of this band is one pixel per row, so {side}; the cross gave {ours}"
+    )
+
+    # The square, as the control that this fixture separates the two at all.
+    original = f._erode_cross
+    try:
+        f._erode_cross = f._erode  # the square, which is what `soft_skeleton` used to use
+        square = float(f.soft_skeleton(band).sum())
+    finally:
+        f._erode_cross = original
+    assert square > 0.9 * thickness, (
+        f"a square erosion should keep nearly the whole {thickness}-pixel band and kept "
+        f"{square}; the fixture does not separate the two shapes"
+    )
+
+
+@pytest.mark.parametrize("ndim", [2, 3])
+def test_the_skeleton_is_contained_in_the_mask_it_came_from(ndim):
+    """The claim the asymmetry is usually objected to with, settled in code.
+
+    An opening whose two operators differ is not anti-extensive, so `dilate(erode(x))` can
+    exceed `x` - and the skeleton is the RESIDUAL `relu(x - opened)`, so that can only make
+    the residual smaller. Asymmetry loses skeleton; it cannot invent any, and this is what
+    says so for a reader who arrives at `_erode`'s docstring unconvinced.
+    """
+    rng = np.random.default_rng(1)
+    mask = ndimage.gaussian_filter(rng.random((24,) * ndim), 2.0) > 0.5
+    x = torch.from_numpy(mask.astype(np.float32))[None, None]
+    skeleton = f.soft_skeleton(x)
+    assert float((skeleton - x).max()) <= 0.0, "the skeleton leaves the mask it was built from"
+    assert float(skeleton.sum()) > 0.0, "an empty skeleton satisfies the line above for free"
