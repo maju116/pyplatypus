@@ -385,7 +385,12 @@ class CosineAnnealing(_Schedule):
       epoch.
     * **it steps after an epoch, from the epoch just finished.** That is where
       `scheduler.step()` goes in an ordinary loop, so epoch 1 trains at the initial rate
-      and epoch `total_epochs` trains at `min_lr`.
+      and `min_lr` is written **after** the last epoch, where it trains nothing. This
+      sentence said epoch `total_epochs` trains at `min_lr` until `pyplatypus#402`'s
+      release; measured over five epochs from 1.0 with `min_lr` 0, the rates trained at
+      are `[1.0000, 0.9045, 0.6545, 0.3455, 0.0955]` - digit for digit
+      `torch.optim.lr_scheduler.CosineAnnealingLR(T_max=5)`, which is what the bullet
+      above promises and is the reason the off-by-one step is right rather than a defect.
 
     It is a callback and not a field on the optimizer because that is where this package
     puts things that change the rate. It is **not** combinable with

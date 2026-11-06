@@ -168,12 +168,23 @@ def read_dicom(path: str | Path, window="auto", channels: int = 1) -> np.ndarray
                 warnings.warn(
                     f"'{path}' declares a {coloured.dtype.itemsize * 8}-bit palette lookup "
                     f"table whose largest entry is {highest:.0f}, so its values are 8-bit "
-                    f"in a wider table - a known writer quirk. Scaling by {highest:.0f} "
-                    f"rather than by {ceiling:.0f}, which would read this picture as "
-                    f"almost black.",
+                    f"in a wider table - a known writer quirk. Scaling by 255, the range "
+                    f"those values are in, rather than by {ceiling:.0f}, which would read "
+                    f"this picture as almost black.",
                     stacklevel=2,
                 )
-                ceiling = max(highest, 1.0)
+                # **255 rather than the brightest entry present**, which is what `#396`
+                # divided by and is `pyplatypus#402`. An 8-bit entry of 200 means 200/255
+                # wherever it is stored, and the 8-bit branch below already says so - so
+                # dividing by the maximum stretched every palette whose brightest colour
+                # is not white until it was. Measured on a table of 200 and 100: red came
+                # back 1.0000 and blue 0.5000 where the same table at 8 bits gives 0.7843
+                # and 0.3922.
+                #
+                # The comment above this block makes the argument already, one level up: a
+                # palette whose extreme entry is not 0 is a palette rather than a contrast
+                # problem, and the same holds at the other end.
+                ceiling = 255.0
         else:
             ceiling = 1.0
         values = np.asarray(coloured, dtype=np.float32) / ceiling
