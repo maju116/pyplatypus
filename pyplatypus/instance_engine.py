@@ -36,7 +36,12 @@ from pyplatypus.data.augmentation import build_augmenter
 from pyplatypus.data.instances import InstanceDataset
 from pyplatypus.data.paths import Sample, discover
 from pyplatypus.data.splits import group_of
-from pyplatypus.engine import EngineBase, EngineError, labels_in_test_split
+from pyplatypus.engine import (
+    EngineBase,
+    EngineError,
+    _provenance_columns,
+    labels_in_test_split,
+)
 from pyplatypus.instances.decode import decode_instances, read_prediction
 from pyplatypus.instances.metrics import foreground_dice, score_cases, summarise_instances
 from pyplatypus.models import build_model
@@ -670,8 +675,7 @@ class InstanceEngine(EngineBase):
                         "decode": name,
                         "loss_function": run.spec.loss.name,
                         "parameters": run.parameters,
-                        "epochs_run": len(run.history),
-                        "best_epoch": run.history.weights_epoch,
+                        **_provenance_columns(run.history),
                         "foreground_dice": decoded.foreground_dice,
                         "average_precision": summary["mean_average_precision"],
                         "truth_objects": summary["truth_objects"],

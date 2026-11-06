@@ -1,6 +1,66 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a71] - 2026-11-06
+
+**One place that records which epoch the weights came from.** `0.8.0a68` made `best_epoch`
+the epoch a score row's own figures came from, by recording the provenance in the places that
+decide it. The twelfth review pass mutated each of those places against the **whole suite**
+and **five of the nine survived**: `swa`'s clear, the classification and detection trainers'
+copies, and the instance and classification tables' reads. The two tests written for `#398`
+each held the one route they were written on - a guard at the right level covering one of
+three parallel copies.
+
+**Six of the nine were one rule written out three times**, so the repair is deduplication
+rather than five more tests - which is what `ask_to_stop`, `finish_training` and
+`object_labels` each concluded before it.
+
+**The R half: None beyond the pin.** Guards, two deduplications with no behaviour in them,
+and one comment; nothing an R user can reach moves.
+
+### Fixed
+
+ - **`finish_training` records which epoch the surviving weights came from**, in the loop
+   that decides it. `pyplatypus#403`.
+
+   Which weights a run ends on is settled by whichever weight-replacer runs last, and that
+   is settled there - the same argument `#333` made about where a rule about what runs last
+   belongs. The three trainers each carried the two lines afterwards, byte for byte, and two
+   of the three copies could be deleted with the whole suite passing.
+
+   `history` is a **required** argument rather than an optional one, because an argument a
+   caller may omit is the same defect with a default.
+
+ - **`engine._provenance_columns` is the one definition of the two columns a score table
+   carries about the run.** `pyplatypus#403`. `epochs_run` and `best_epoch` were written out
+   identically in three tables, and the `best_epoch` half could be put back to its
+   pre-`0.8.0a68` meaning in two of the three with nothing failing.
+
+   The classification engine's `described` set - which decides what its error message offers
+   a reader as a metric - now takes its keys from the same place instead of restating two of
+   them, so a column added to that row cannot be described as something to `monitor`.
+
+ - **And deduplication alone does not close the class, which the mutation said.** A trainer
+   that passes a **throwaway** `History()` satisfies the signature, writes the provenance
+   nowhere a caller can see, and the suite passes. So the question is asked of what `fit`
+   **returns**, per trainer, off `test_trainer_contract.py`'s own builders: two epochs at
+   `min_delta=1e9`, so `best_epoch` must be 1 while `epochs_run` is 2 - which neither a
+   constant, nor the last epoch, nor the lowest `val_loss` satisfies - with the other half
+   asserting that a run with no callback to select an epoch reports none.
+
+   Both averagers' clears are held at the placement that is observable, which is **after
+   each one's own early return** rather than after the load: moving either clear to just
+   before `load_state_dict` changes nothing, measured rather than assumed.
+
+### Known
+
+ - **`DetectionReport.as_row` carries `epochs_run` and no `best_epoch`**, so detection is the
+   one task of four where the trainer records which epoch the weights came from and the
+   report discards it one line before printing - although `callback_early_stopping` works
+   there exactly as it does elsewhere. `pyplatypus#408`, because `rplatypus` pins that
+   table's columns exactly, so the column needs an R half, and because whether a report
+   wants a column that is often empty is a question before it is a change.
+
 ## [0.8.0a70] - 2026-11-06
 
 **Six reads and a decision rule, every one of them survivable.** `0.8.0a67` closed the

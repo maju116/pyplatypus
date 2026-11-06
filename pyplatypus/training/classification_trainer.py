@@ -272,10 +272,9 @@ class ClassificationTrainer:
                 history.stop_reason = state.stop_reason
                 break
 
-        finish_training(self.callbacks, state)
-        # After, never before: the weight-replacers run in there, and which of them ran
-        # last is what decides whether these weights are an epoch's at all.
-        history.weights_epoch = state.weights_epoch
+        # `finish_training` records the provenance itself, in the place that decides it -
+        # `pyplatypus#403`, after two of these three copies turned out to be deletable.
+        finish_training(self.callbacks, state, history)
         return history
 
     # -------------------------------------------------------------- scoring, answering

@@ -482,3 +482,65 @@ def test_leaving_it_unset_builds_one_group(task):
         trainer = ClassificationTrainer(model, spec, n_class=2, device="cpu", callbacks=[])
 
     assert len(trainer.optimizer.param_groups) == 1
+
+
+# ------------------------------------- the third contract: which epoch the weights are of
+#
+# `maju116/pyplatypus#403`. `0.8.0a68` made `best_epoch` the epoch a score row's figures came
+# from, and each trainer copied the answer onto its history with the same two lines. **Two of
+# the three copies could be deleted with the whole suite passing**: one test held the
+# segmentation route and nothing held the other two, which is `CLAUDE.md` §4's *guard one
+# level below the change* one layer out - the guard was at the right level and covered one of
+# three parallel copies.
+#
+# `0.8.0a70` moved the write into `finish_training`, where the order of the weight-replacers
+# decides it, so the copy is one line in one place and a trainer cannot forget it. That is not
+# enough on its own and the mutation says so: a trainer that passes a THROWAWAY history
+# instead of its own satisfies the signature, writes the provenance nowhere a caller can see
+# it, and the whole suite passes. So the question is asked of what `fit` RETURNS, per trainer,
+# off the same `BUILDERS` as the two contracts above.
+
+
+@pytest.mark.parametrize("name", sorted(BUILDERS))
+def test_the_history_a_trainer_returns_says_which_epoch_its_weights_came_from(name):
+    """Two epochs and `min_delta=1e9`, which pins the answer somewhere a shortcut cannot be.
+
+    That is `test_callback_order.py`'s own trick: nothing can improve on epoch 1 by that
+    margin, so `restore_best` puts epoch 1's weights back after a run that reached epoch 2 -
+    and `best_epoch` must then be 1 while `epochs_run` is 2. A trainer reporting the last
+    epoch, or the lowest `val_loss`, or nothing at all, fails on a different number each
+    time, which is what makes one assertion enough here.
+    """
+    from pyplatypus.training.callbacks import EarlyStopping
+
+    trainer, loader = BUILDERS[name]()
+    trainer.callbacks = [
+        EarlyStopping(monitor="train_loss", restore_best=True, min_delta=1e9, patience=10)
+    ]
+    history = trainer.fit(loader, loader, epochs=2)
+
+    assert len(history) == 2, "the run did not reach epoch 2, so the assertion below is empty"
+    assert history.weights_epoch == 1, (
+        f"{name} ran 2 epochs, restored epoch 1's weights and reports "
+        f"{history.weights_epoch!r} as the epoch they came from"
+    )
+
+
+@pytest.mark.parametrize("name", sorted(BUILDERS))
+def test_a_run_with_no_callback_to_select_an_epoch_reports_none(name):
+    """The other half, and the one that makes the column readable rather than guessable.
+
+    A run that selected nothing ended on its last epoch, which `epochs_run` already names,
+    so the honest answer is no epoch at all. Without this row a trainer writing
+    `len(history)` would pass the test above - it restores epoch 1 and the run has 2 epochs,
+    so a constant would have to be 1 - but any `best_epoch` defaulting to the last epoch
+    would survive, and that is exactly the pre-`0.8.0a68` shape of being plausibly wrong.
+    """
+    trainer, loader = BUILDERS[name]()
+    trainer.callbacks = []
+    history = trainer.fit(loader, loader, epochs=2)
+
+    assert len(history) == 2
+    assert history.weights_epoch is None, (
+        f"{name} had no callback to select an epoch and reports {history.weights_epoch!r}"
+    )

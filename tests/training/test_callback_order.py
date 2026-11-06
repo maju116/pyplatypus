@@ -38,6 +38,7 @@ from pyplatypus.training.callbacks import (
     build_callbacks,
     finish_training,
 )
+from pyplatypus.training.trainer import History
 
 
 def model_spec(**overrides):
@@ -223,6 +224,7 @@ def test_the_epochs_keep_the_order_that_was_written_and_only_the_ending_is_reord
     finish_training(
         [_Ema(decay=0.5), _Early(monitor="train_loss", restore_best=True), _Plain()],
         TrainingState(model=nn.Linear(1, 1), optimizer=None),
+        History(),
     )
     assert ended == ["logger", "early_stopping", "ema"], ended
 
@@ -233,6 +235,7 @@ def test_the_epochs_keep_the_order_that_was_written_and_only_the_ending_is_reord
     finish_training(
         [_Ema(decay=0.5), _Early(monitor="train_loss", restore_best=False), _Plain()],
         TrainingState(model=nn.Linear(1, 1), optimizer=None),
+        History(),
     )
     assert ended == ["early_stopping", "logger", "ema"], ended
 

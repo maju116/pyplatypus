@@ -85,6 +85,11 @@ class DetectionReport:
             "model": self.model,
             "architecture": run.spec.architecture.value,
             "parameters": run.parameters,
+            # `epochs_run` alone, and NOT `engine._provenance_columns`: this is the one score
+            # table of four with no `best_epoch`, so a detection user cannot see which epoch
+            # produced the figures beside it although `callback_early_stopping` works here
+            # and the trainer records the answer. Adding the column is `pyplatypus#408`
+            # rather than a line here, because `rplatypus` pins this table's columns.
             "epochs_run": len(run.history),
             "map_50": self.half.mean_average_precision,
             "map_50_95": self.coco.mean_average_precision,

@@ -26,6 +26,7 @@ from pyplatypus.data.classification import ClassBalance, ClassificationDataset, 
 from pyplatypus.engine import (
     EngineBase,
     EngineError,
+    _provenance_columns,
     labels_in_test_split,
     split_from_train,
 )
@@ -351,8 +352,7 @@ class ClassificationEngine(EngineBase):
                     "loss_function": run.spec.loss.name,
                     "parameters": run.parameters,
                     "split": split,
-                    "epochs_run": len(run.history),
-                    "best_epoch": run.history.weights_epoch,
+                    **_provenance_columns(run.history),
                     **{key.removeprefix("val_"): value for key, value in scored.items()},
                 }
             )
@@ -461,14 +461,17 @@ class ClassificationEngine(EngineBase):
         column = key.removeprefix("val_")
         missing = [row["model"] for row in rows if column not in row]
         if missing:
+            # The run's own two come from the one definition rather than being written
+            # again here: this set decides which columns the message offers as metrics, so
+            # a column added to the row above and not to this set would be described to a
+            # reader as something they could `monitor`. `pyplatypus#403`.
             described = {
                 "model",
                 "architecture",
                 "loss_function",
                 "parameters",
                 "split",
-                "epochs_run",
-                "best_epoch",
+                *_provenance_columns(History()),
             }
             available = sorted(set(rows[0]) - described) if rows else []
             raise EngineError(
