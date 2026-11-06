@@ -14,10 +14,12 @@ failed the day that shipped, offline, in milliseconds.
 """
 
 import builtins
+import pathlib
 
 import pytest
 import torch
 
+from pyplatypus import engine as engine_module
 from pyplatypus.models.encoders import PretrainedEncoder, verify_encoder
 from pyplatypus.models.layers import ModelError
 from pyplatypus.models.unet import build_model
@@ -374,6 +376,22 @@ ENCODER_ROUTE_FIELDS = {
     "separable_conv": (True, {}),
     "dropout": (0.5, {}),
     "spatial_dropout": (False, {"dropout": 0.5}),
+    # `#404`: this table had no completeness half, so these three could simply be absent -
+    # and `blocks` and `filters` were, with the builder enumeration one directory over
+    # exempting them as *shape-bearing*. They size the one stage this route owns and the
+    # number of backbone stages it takes, and nothing about the output shape says so.
+    "blocks": (3, {}),
+    "filters": (16, {}),
+    "channels": (1, {}),
+}
+
+#: The reads in `_encoder_for` that are held somewhere else, each naming where. The scan
+#: below intersects with the model's own fields, so `rank` - a derived property - is not
+#: here and cannot go stale as a name for something that does not exist.
+NOT_ENUMERATED_HERE = {
+    "encoder": "names the backbone; every row above is built with one",
+    "pretrained": "spied at `timm.create_model` above - the flag, not what timm does with it",
+    "normalise": "`#385`, asserted above against `weights_fingerprint()`",
 }
 
 
@@ -390,7 +408,10 @@ def _through_the_route(**overrides):
     from pyplatypus.engine import _encoder_for
 
     torch.manual_seed(0)
-    return _encoder_for(spec(encoder="resnet18", blocks=2, filters=8, **overrides))
+    # Merged rather than passed alongside, because `blocks` and `filters` are rows in the
+    # table now and a row's value has to be able to replace the baseline's.
+    asked = {"encoder": "resnet18", "blocks": 2, "filters": 8, **overrides}
+    return _encoder_for(spec(**asked))
 
 
 @pytest.mark.parametrize("field", sorted(ENCODER_ROUTE_FIELDS))
@@ -407,3 +428,50 @@ def test_two_builds_of_one_specification_agree_through_the_route():
     """The control, as in the builder enumeration: the fingerprint reads parameter values,
     so two builds of the same spec must agree or every row above reads the draw."""
     assert _encoder_fingerprint(_through_the_route()) == _encoder_fingerprint(_through_the_route())
+
+
+def _reads_in_the_route() -> set[str]:
+    """Every `spec.<name>` inside `engine._encoder_for`, by AST rather than by grep.
+
+    Scoped to that one function rather than to the file, because this is the route's own
+    enumeration and a read elsewhere in `engine.py` is a different question. `#404`: the
+    unit of this whole class is the read site, so the scan is pointed at a site.
+    """
+    import ast
+
+    source = pathlib.Path(engine_module.__file__).read_text()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.FunctionDef) and node.name == "_encoder_for":
+            found = {
+                child.attr
+                for child in ast.walk(node)
+                if isinstance(child, ast.Attribute)
+                and isinstance(child.value, ast.Name)
+                and child.value.id == "spec"
+            }
+            assert found, "`_encoder_for` was found and reads no `spec.<field>` at all"
+            return found
+    raise AssertionError("no `_encoder_for` in the engine; the scan is looking in the wrong place")
+
+
+def test_every_field_the_encoder_ROUTE_reads_is_enumerated_or_named():
+    """What this table did not have, and the reason two reads survived behind a sentence
+    about a third.
+
+    `#404`. The builder enumeration has carried this half since it was written; this route's
+    did not, so `blocks` and `filters` were missing rather than exempted - which looks
+    identical from inside the file.
+    """
+    fields = set(SegmentationModel.model_fields)
+    read = _reads_in_the_route() & fields
+    assert read, "the AST scan found no field reads at all"
+
+    covered = set(ENCODER_ROUTE_FIELDS) | set(NOT_ENUMERATED_HERE)
+    missing = sorted(read - covered)
+    assert not missing, (
+        f"these fields are read by `_encoder_for` and neither enumerated above nor named "
+        f"in NOT_ENUMERATED_HERE: {', '.join(missing)}"
+    )
+
+    stale = sorted(set(NOT_ENUMERATED_HERE) - read)
+    assert not stale, f"NOT_ENUMERATED_HERE names reads `_encoder_for` does not make: {stale}"

@@ -1,6 +1,89 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a70] - 2026-11-06
+
+**Six reads and a decision rule, every one of them survivable.** `0.8.0a67` closed the
+field-delivery class with three enumerating tests, each carrying a completeness half read off
+the code by AST **and an exemption list**. The twelfth review pass went at the exemptions and
+at the half of the class the eleventh had called *unmeasured rather than held*. Six reads and
+one threshold could be replaced by a literal with the whole suite - 2894 tests - still green.
+
+**The transferable half is the unit.** An exemption was written for a *field* - `blocks` and
+`filters` as *shape-bearing* - and was true of one *site*: the U-net's output size does say
+so, the encoder route's does not, and a classifier's output is `(batch, n_class)` whatever
+either field is. So two reads survived behind a sentence about a third. And one field with a
+row survived anyway: `activation` is read by the classifier's own encoder **and** by
+`initialise` two lines further down, so replacing the first by a literal still left *something*
+changed. The unit of this class is the read site, which is the eleventh pass's own lesson one
+table over.
+
+**The R half: None beyond the pin.** Guards, one extraction with no behaviour in it, and two
+documentation lines; nothing an R user can reach moves.
+
+### Fixed
+
+ - **A row now says which reading it claims, so a second read of the same field cannot
+   answer for the first.** `pyplatypus#404`.
+
+   `tests/models/test_field_delivery.py` asked the weakest question that cannot be satisfied
+   by accident - *does a non-default value change the built network at all?* - over a
+   fingerprint carrying the module types **and the parameter values**. That is one question
+   too few for a field read in two places. Measured: with the classifier's
+   `act=spec.activation` replaced by `"relu"`, every activation module in the built network is
+   `ReLU` under `activation: gelu` and the file still passed, because `initialise` reads the
+   same field and perturbed the weights.
+
+   Each row carries `STRUCTURE` or `VALUES` now, and the split is read off the code rather
+   than chosen: every field in both tables **but** `initialiser` changes `repr(net)`, and
+   `initialiser` changes nothing else. A structural row is asked of the module tree alone,
+   where no other read can answer for it; a `VALUES` row is asked two-sidedly - the tree
+   identical, the numbers different - so a field that started restructuring something would
+   fail rather than pass more easily.
+
+ - **`blocks` and `filters` are rows rather than exemptions, in both tables and on the
+   encoder route.** `pyplatypus#404`. Four reads, all four caught by mutation now with an
+   identity control green. What is left in the exemption list names the test that holds the
+   field rather than a property of the name.
+
+ - **The encoder route's enumeration had no completeness half**, which is why `blocks` and
+   `filters` were *missing* rather than exempted - a state that looks identical from inside
+   the file. It is read off `engine._encoder_for` by AST now, scoped to that one function
+   because the unit is the site, and a thirteenth argument there fails this file. `channels`
+   joined it as a row at the same time.
+
+ - **The detector's three build arguments had no site to be asked at**, so
+   `in_channels=model_spec.channels` could be a literal. `network_for` is lifted out of
+   `DetectionEngine.train`'s loop - the same three arguments, no behaviour - because a read
+   only one route reaches has to be reachable *as* that route, or the guard written for it
+   sits one level below the change. `pyplatypus#404`.
+
+ - **Every optimiser field a builder reads, enumerated for the first time.**
+   `pyplatypus#404`. `_BUILDERS` is eight lambdas over **38 `(class, field)` read sites** and
+   not one of them was held; the pass replaced `Adam`'s `weight_decay` by `0.0` and the suite
+   passed. `tests/training/test_optimizer_field_delivery.py` is the table, attributed to the
+   class whose key each lambda sits under, with the completeness half read off the lambdas.
+
+   Its own control earned itself on the first run: `AdamW`'s `weight_decay` defaults to
+   **0.01** rather than to 0 - that difference is what AdamW *is* - so the value shared with
+   the other seven optimisers was that one's own default, and the row would have passed
+   against the mutation.
+
+ - **A multi-label prediction is hardened at `logits > 0`, and nothing could tell that from
+   `logits > 0.5`.** `pyplatypus#404`, F3. Both sites - `SegmentationMetric.forward` and
+   `MultiLabelMetric.update` - carry a comment saying `logits > 0` is `sigmoid > 0.5` exactly,
+   which it is; moved to `logits > 0.5`, which is `p > 0.622` and a different model, the whole
+   suite passed. 169 executing tests reach the first site and 8 the second, and **not one of
+   them predicts a logit between 0 and 0.5**: confident logits are what a fixture is written
+   with, and they answer alike under both rules.
+
+   `tests/objectives/test_hardening_threshold.py` is that one input, asked at both sites, of
+   every segmentation metric the configuration offers and both multi-label classification
+   metrics that harden - with `auc` named by its own `needs_scores` rather than by a list, and
+   a mirror-image row so a rule loosened to `> -0.5` fails as well. All four mutations are
+   caught with the identity control green, and the file asserts outright that a confident
+   logit cannot distinguish the two, which is why the suite was green.
+
 ## [0.8.0a69] - 2026-11-06
 
 **The third turn of one screw, and the reviewer's twelfth pass found it.** `#392` read a
