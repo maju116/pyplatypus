@@ -178,36 +178,54 @@ def test_finish_training_is_what_writes_the_provenance_onto_the_history():
 
 #: Dict keys in the package that say `epochs_run` or `best_epoch` without going through the
 #: one definition, each with the reason - so a fourth table gets a row or fails this file.
-WRITTEN_OUT_ON_PURPOSE = {
-    (
-        "detection_engine.py",
-        "epochs_run",
-    ): "the one table of four with no `best_epoch` at all; `pyplatypus#408`",
-}
+#:
+#: **It is empty, and that is the state `pyplatypus#408` reached.** It held
+#: `detection_engine.py: epochs_run` until then, with a reason that turned out to be false -
+#: `_provenance_columns`' own docstring has what was wrong with it - and the staleness half
+#: below is exactly what failed when the column was finally added. An exemption list that
+#: empties is the best outcome such a list can have.
+WRITTEN_OUT_ON_PURPOSE: dict[tuple[str, str], str] = {}
+
+#: The positive control for the scan below, and it is needed BECAUSE the list above is empty:
+#: with no literal anywhere in the package, `assert found` would be a test of nothing. One
+#: line the extractor must find both keys in, which no state of the package can satisfy for
+#: it. A string rather than a fixture file, so the control cannot drift away from it.
+A_SOURCE_THAT_WRITES_BOTH = (
+    'row = {"model": name, "epochs_run": len(history), "best_epoch": history.weights_epoch}'
+)
 
 
-def _literal_column_keys() -> set[tuple[str, str]]:
-    """Every `"epochs_run"` or `"best_epoch"` written as a dict key, by file.
+def _keys_in(tree: ast.AST, name: str) -> set[tuple[str, str]]:
+    """Every `"epochs_run"` or `"best_epoch"` written as a dict key in one parsed module.
 
     By AST rather than by grep, so the docstring of `_provenance_columns` - which names both
     columns in prose, as it must - is not a hit. The one definition's own `return` is
     excluded by name, because that is the copy everything else is being compared against.
+
+    Split out from the scan below so the same extractor can be pointed at a string, which is
+    what makes "the package holds none" an answer rather than an absence of data.
     """
+    inside = {
+        node
+        for definition in ast.walk(tree)
+        if isinstance(definition, ast.FunctionDef) and definition.name == "_provenance_columns"
+        for node in ast.walk(definition)
+    }
+    found: set[tuple[str, str]] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Dict) or node in inside:
+            continue
+        for key in node.keys:
+            if isinstance(key, ast.Constant) and key.value in {"epochs_run", "best_epoch"}:
+                found.add((name, key.value))
+    return found
+
+
+def _literal_column_keys() -> set[tuple[str, str]]:
+    """The same extractor over every module in the package."""
     found: set[tuple[str, str]] = set()
     for path in sorted(PACKAGE.rglob("*.py")):
-        tree = ast.parse(path.read_text())
-        inside = {
-            node
-            for definition in ast.walk(tree)
-            if isinstance(definition, ast.FunctionDef) and definition.name == "_provenance_columns"
-            for node in ast.walk(definition)
-        }
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Dict) or node in inside:
-                continue
-            for key in node.keys:
-                if isinstance(key, ast.Constant) and key.value in {"epochs_run", "best_epoch"}:
-                    found.add((path.name, key.value))
+        found |= _keys_in(ast.parse(path.read_text()), path.name)
     return found
 
 
@@ -215,11 +233,14 @@ def test_the_two_run_columns_are_written_in_one_place():
     """The completeness half. A fourth score table that writes its own `best_epoch` is free
     to drift from the three, which is exactly how two of the three drifted far enough to be
     deletable - so it fails here instead."""
-    written = _literal_column_keys()
-    # Control: the scan must be able to see the exemption, or it is reporting a clean
-    # comparison over nothing at all.
-    assert written, "the AST scan found no literal column keys, not even the known one"
+    # The control first, and it is the whole reason this reads as a measurement: the package
+    # is expected to hold NO literal now, so the extractor has to be shown finding one.
+    control = _keys_in(ast.parse(A_SOURCE_THAT_WRITES_BOTH), "<synthetic>")
+    assert control == {("<synthetic>", "epochs_run"), ("<synthetic>", "best_epoch")}, (
+        f"the extractor cannot find a literal it is pointed straight at: {control}"
+    )
 
+    written = _literal_column_keys()
     unexplained = sorted(written - set(WRITTEN_OUT_ON_PURPOSE))
     assert not unexplained, (
         "these write a run column as a literal dict key instead of spreading "
@@ -244,10 +265,14 @@ def test_every_score_table_that_reports_an_epoch_goes_through_the_one_definition
         for module in (engine, classification_engine, instance_engine, detection_engine)
         if "_provenance_columns(" in pathlib.Path(module.__file__).read_text()
     ]
+    # All FOUR since `pyplatypus#408`: detection was the exception and kept `epochs_run` on
+    # its own, so the trainer recorded which epoch the weights came from and the report threw
+    # the answer away one line before printing it.
     assert {module.__name__.rsplit(".", 1)[-1] for module in readers} == {
         "engine",
         "classification_engine",
         "instance_engine",
+        "detection_engine",
     }
 
 

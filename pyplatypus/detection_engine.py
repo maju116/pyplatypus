@@ -42,7 +42,12 @@ from pyplatypus.detection.metrics import (
     image_report,
 )
 from pyplatypus.detection.yolo3 import build_yolo3
-from pyplatypus.engine import EngineBase, EngineError, labels_in_test_split
+from pyplatypus.engine import (
+    EngineBase,
+    EngineError,
+    _provenance_columns,
+    labels_in_test_split,
+)
 from pyplatypus.spec.detection import DetectionModel
 from pyplatypus.spec.spec import (
     ClassificationSpec,
@@ -85,12 +90,12 @@ class DetectionReport:
             "model": self.model,
             "architecture": run.spec.architecture.value,
             "parameters": run.parameters,
-            # `epochs_run` alone, and NOT `engine._provenance_columns`: this is the one score
-            # table of four with no `best_epoch`, so a detection user cannot see which epoch
-            # produced the figures beside it although `callback_early_stopping` works here
-            # and the trainer records the answer. Adding the column is `pyplatypus#408`
-            # rather than a line here, because `rplatypus` pins this table's columns.
-            "epochs_run": len(run.history),
+            # Both run columns from the one definition, `pyplatypus#408`, which makes this
+            # the fourth reader rather than the one table that kept its own copy. It had
+            # `epochs_run` alone, so a detection user could not see which epoch produced
+            # the figures beside it although `callback_early_stopping` works here and the
+            # trainer has recorded the answer since `0.8.0a68`.
+            **_provenance_columns(run.history),
             "map_50": self.half.mean_average_precision,
             "map_50_95": self.coco.mean_average_precision,
             "mean_matched_iou": self.half.mean_matched_iou,

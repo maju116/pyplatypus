@@ -1308,9 +1308,13 @@ def _provenance_columns(history: History) -> dict[str, Any]:
     `val_loss` - is the defect `#398` fixed, and it is why this is a function rather than a
     convention.
 
-    **The detection report is not a reader.** `DetectionReport.as_row` carries `epochs_run`
-    alone and no `best_epoch` at all, which is `pyplatypus#408` rather than something to fix
-    by calling this: adding a column to that table is a surface R forwards.
+    **All four score tables read this**, since `pyplatypus#408` - the semantic, instance,
+    classification and detection ones. Detection was the exception until `0.8.0a73` and kept
+    `epochs_run` on its own, with a comment here saying the column could not be added because
+    `rplatypus` pinned that table's columns. **That reason was false**: R's exact column set
+    is asserted for the per-IMAGE table, which is the one `#364` moved, and the per-model
+    table is checked with `%in%` - a subset, which a new column satisfies. A wrong reason in a
+    docstring is worse than no reason, because it is what the next reader decides against.
     """
     return {"epochs_run": len(history), "best_epoch": history.weights_epoch}
 
