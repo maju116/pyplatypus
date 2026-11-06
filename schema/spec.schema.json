@@ -2931,7 +2931,7 @@
             }
           ],
           "default": null,
-          "description": "How many epochs to spread the decay over. Unset means the model's `epochs`, which is what you want: a line that reaches `min_lr` where the run ends. Setting it shorter parks the rate at `min_lr` for the remaining epochs.",
+          "description": "How many epochs to spread the decay over. Unset means the model's `epochs`, which is what you want: a line whose last epoch trains one step above `min_lr`, with `min_lr` itself written after the run ends - five epochs from 1.0 train at 1.0, 0.8, 0.6, 0.4 and 0.2, which is where a scheduler stepping after each epoch lands and is torch's own behaviour. Setting it shorter parks the rate at `min_lr` for the remaining epochs, which is the only way a run trains at `min_lr` at all.",
           "title": "Epochs"
         },
         "min_lr": {
