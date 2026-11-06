@@ -1,6 +1,44 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a73] - 2026-11-06
+
+**The detection table was the one of four that threw the answer away.** `0.8.0a68` made the
+trainer record which epoch a run's surviving weights came from, and `DetectionReport.as_row`
+carried `epochs_run` on its own - so detection was the only task where
+`callback_early_stopping(restore_best = TRUE)` worked, the provenance existed, and a user
+could not see it. `pyplatypus#408`.
+
+**The R half: the pin, and one page.** R names `best_epoch` nowhere and forwards the table as
+it comes, so nothing an R user calls changes - but `vignette("blood-cells")` prints this
+table in full and is re-knitted for the column by the author's decision.
+
+### Added
+
+ - **`best_epoch` in the detection report, from the one definition rather than a fourth
+   copy.** `as_row` spreads `engine._provenance_columns` now, which makes it the fourth
+   reader and empties that enumeration's exemption list - and the staleness half of
+   `test_weights_provenance.py` is what failed when the column landed, which is the guard
+   from `0.8.0a71` doing exactly what it was written for.
+
+ - **The empty exemption list needed a new control, which is the entry worth keeping.** That
+   test asserted `found` was non-empty so that a clean comparison could not be a comparison
+   over nothing - and with no literal left anywhere in the package, that assertion became a
+   test of nothing itself. The extractor is now pointed at a one-line synthetic source it
+   must find both keys in, so *the package holds none* is an answer rather than an absence of
+   data. Measured both ways: blinding the extractor fails the test, and so does either
+   mutation that puts detection's own copy back.
+
+### Fixed
+
+ - **A false reason in released code, and it was mine.** `detection_engine.py`'s comment and
+   `_provenance_columns`' docstring both said the column could not be added because
+   `rplatypus` pins this table's columns. R's exact column set is asserted for the
+   **per-image** table - the one `pyplatypus#364` moved - and the per-model table is checked
+   with `%in%`, a subset, which a new column satisfies. So the cost I used to defer this was
+   not there. A wrong reason in a docstring is worse than no reason, because it is what the
+   next reader decides against.
+
 ## [0.8.0a72] - 2026-11-06
 
 **The soft skeleton now erodes with the cross the paper's own code erodes with**, which is
