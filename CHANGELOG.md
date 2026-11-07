@@ -1,7 +1,7 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
-## [0.8.0a76] - 2026-11-07
+## [0.8.0a76] - 2026-11-08
 
 **A weights sidecar now records the tiling, which decides which pictures were scored.**
 `0.8.0a75` asked, per task, which settings a reported figure depends on, and answered it by
