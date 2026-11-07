@@ -160,7 +160,21 @@ def by_group(rows: list[dict], column: str) -> dict[str, dict]:
     }
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """The options that decide the run, in the one place that decides them.
+
+    Separated from `main()` for `publish_fives_weights.py`, which calls `specification()`
+    from this module so that the published weights cannot drift from the run this example
+    documents - and which, until `pyplatypus#418`, re-declared all thirteen of these
+    options with its own defaults. `--iterations` was `5` there against `12` here, so the
+    published sidecar stated a clDice measured at five skeleton peels for a run documented
+    at twelve, and `#413` cost a day of measurement to find out why. **The function was
+    protected and the arguments it is read with were not.**
+
+    So a publisher takes this parser and overrides only what is genuinely its own. What
+    belongs here is what the run is made of; `--figures` is `main()`'s, because nothing but
+    this script draws.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -182,6 +196,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--out", default="measurements/fives")
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     parser.add_argument("--figures", default=None, help="a directory to draw the worst cases into")
     arguments = parser.parse_args()
 

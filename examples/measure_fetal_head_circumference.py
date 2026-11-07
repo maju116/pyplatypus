@@ -607,7 +607,20 @@ def figure(rows: list[dict], perturbations: list[dict], floor: float, path: Path
     print(f"wrote {path}")
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """The options that decide the run, in the one place that decides them.
+
+    Separated from `main()` for `publish_hc18_weights.py`, which calls `specification()`
+    from this module so that the published weights cannot drift from the run this script
+    documents. Until `pyplatypus#418` that publisher re-declared all thirteen of these with
+    its own defaults, and they happened to agree on twelve of the thirteen - which is not a
+    guard, it is nobody having edited either side yet. The same shape in
+    `publish_fives_weights.py` published a clDice measured at five skeleton peels for a run
+    documented at twelve, and `#413` cost a day of measurement to find out why.
+
+    What belongs here is what the run is made of. `--figures`, `--controls-only` and
+    `--redraw` are `main()`'s, because nothing but this script draws or stops early.
+    """
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -629,6 +642,11 @@ def main() -> None:
         default=200,
         help="how many truth masks the two no-model controls read",
     )
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
     parser.add_argument("--figures", default=None, help="a directory to draw the figure into")
     parser.add_argument(
         "--controls-only",

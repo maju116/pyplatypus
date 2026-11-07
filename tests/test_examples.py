@@ -18,6 +18,7 @@ before: `--n-class` was once parsed and never used, and the reverse is the same 
 from __future__ import annotations
 
 import ast
+import importlib
 import json
 import sys
 from argparse import Namespace
@@ -320,15 +321,17 @@ def test_published_fives_weights_configuration_is_accepted():
     """The published weights' configuration is the example's, and the flags have to match.
 
     `publish_fives_weights.py` hands its own `arguments` to the example's `specification()`,
-    so every flag that function reads has to be declared here too - a coupling nothing else
-    would notice until six hours into a run. `_declared_arguments` reads the publishing
-    script's parser, so a flag the example grows and the publisher does not raises
-    `AttributeError` in this test rather than in the dark.
+    so every flag that function reads has to reach it - a coupling nothing else would notice
+    until six hours into a run. Since `pyplatypus#418` those flags are the example's own,
+    because the publisher builds its parser from `build_parser()` rather than declaring a
+    second copy; so this reads **the parser that runs** instead of the publisher's source,
+    and a flag the example grows and the publisher does not reach raises `AttributeError`
+    here rather than in the dark.
     """
     import publish_fives_weights as script
     import segment_retinal_vessels as example
 
-    arguments = _declared_arguments("publish_fives_weights")
+    arguments = script.build_parser().parse_args([])
     splits = {name: Path(f"{name}.csv") for name in ("train", "test")}
     config = script.with_checkpoint(example.specification(splits, arguments), Path("weights"))
     _validate(config)
@@ -1220,41 +1223,166 @@ def test_an_open_curve_fills_to_itself_which_is_what_the_guard_reads():
     )
 
 
-def test_the_published_hc18_weights_are_the_run_the_example_documents():
-    """Every argument that shapes the model has the same default in both scripts.
+# --------------------------------------------------------------------------------------
+# A publisher that reuses an example's `specification()` must not re-declare the options
+# that function is READ WITH. `pyplatypus#418`.
+#
+# The test that stood here held one of the two pairs, and it held it over a hand-written
+# tuple of nine names while its own docstring said "an argument added to either script is
+# covered by arriving rather than by being listed here". **That was false**: the flags were
+# read off the source, the names compared were a list, and a tenth option had to be added
+# to the tuple by hand. The other pair had no such test at all, and the option nobody
+# listed there was `--iterations` - `publish_fives_weights.py` declared `default=5` against
+# the example's `12`, so the published `fives-unet` sidecar stated a clDice measured at
+# five skeleton peels for a run documented at twelve, from 2026-10-12 until `#413`
+# reproduced both figures to the digit.
+#
+# So the repair is structural and the guard is over the structure: each publisher calls the
+# example's `build_parser()` and overrides only what is its own, which makes the drift
+# impossible rather than detected. Three questions, none of them a list of names:
+#
+#   the pairs    discovered by AST - a script calling `<module>.specification(` - and
+#                compared against the map below, so a third publisher gets a row or fails
+#   the names    read off the example's `specification()` by AST, so an option that
+#                function starts reading is covered by arriving, which is what the old
+#                docstring claimed
+#   the shape    the publisher declares NONE of those options itself, asserted over its
+#                source, and its parser agrees with the example's on every one of them
 
-    `publish_hc18_weights.py` imports `specification()` rather than copying it, so the
-    *structure* cannot drift - but it declares its own flags, and a `--filters 32` here
-    would publish a model the example does not describe while both files still looked right.
-    The flags are read out of the source, so an argument added to either script is covered
-    by arriving rather than by being listed here.
+#: Each publishing script that hands its own `arguments` to an example's `specification()`,
+#: with the example it reuses. Checked for completeness below rather than trusted.
+REUSING_PUBLISHERS = {
+    "publish_fives_weights": "segment_retinal_vessels",
+    "publish_hc18_weights": "measure_fetal_head_circumference",
+}
+
+
+def _calls_a_reused_specification(name: str) -> bool:
+    """Whether this script calls `specification()` on something else rather than its own.
+
+    An attribute call - `module.specification(...)` - is the reuse; a bare call is a script
+    using the function it defines itself, which `publish_dsbowl_weights.py` does because no
+    example trains that model. The distinction is what keeps this scan from demanding a pair
+    where there is nothing to pair with.
     """
-    example = _declared_arguments("measure_fetal_head_circumference")
-    publish = _declared_arguments("publish_hc18_weights")
-
-    shapes_the_model = (
-        "height",
-        "width",
-        "epochs",
-        "patience",
-        "batch",
-        "filters",
-        "rate",
-        "loss",
-        "seed",
+    tree = ast.parse((EXAMPLES / f"{name}.py").read_text())
+    return any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "specification"
+        for node in ast.walk(tree)
     )
-    for name in shapes_the_model:
-        assert hasattr(example, name), f"the example no longer declares --{name}"
-        assert getattr(publish, name) == getattr(example, name), (
-            f"--{name} is {getattr(publish, name)!r} in the publishing script and "
-            f"{getattr(example, name)!r} in the example, so the published weights would not "
-            "be the run the example documents"
+
+
+def _specification_reads(name: str) -> list[str]:
+    """Every `arguments.<field>` the named script's own `specification()` reads."""
+    tree = ast.parse((EXAMPLES / f"{name}.py").read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "specification":
+            return sorted(
+                {
+                    inner.attr
+                    for inner in ast.walk(node)
+                    if isinstance(inner, ast.Attribute)
+                    and getattr(inner.value, "id", "") == "arguments"
+                }
+            )
+    return []
+
+
+def _declared_flags(name: str) -> set[str]:
+    """The `--flag` names this script declares itself, as destinations."""
+    tree = ast.parse((EXAMPLES / f"{name}.py").read_text())
+    found = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            continue
+        if node.func.attr != "add_argument" or not node.args:
+            continue
+        flag = node.args[0]
+        if isinstance(flag, ast.Constant) and str(flag.value).startswith("--"):
+            found.add(str(flag.value)[2:].replace("-", "_"))
+    return found
+
+
+def test_every_publisher_that_reuses_a_specification_is_listed():
+    """The completeness half, and the reason the map above is not just a list.
+
+    A third publisher that imports an example's `specification()` either appears in
+    `REUSING_PUBLISHERS` or fails here - which is what the replaced test's docstring
+    promised and did not do.
+    """
+    reusing = {name for name in SCRIPTS if _calls_a_reused_specification(name)}
+    assert reusing, (
+        "no script calls `<module>.specification(` - the AST pattern is wrong, not the "
+        "examples, and every assertion below would be comparing nothing"
+    )
+    assert reusing == set(REUSING_PUBLISHERS), (
+        f"only here: {sorted(reusing - set(REUSING_PUBLISHERS))}\n"
+        f"only listed: {sorted(set(REUSING_PUBLISHERS) - reusing)}\n"
+        "a publisher that reuses an example's `specification()` has to be in this map, "
+        "because the two assertions below are what stop its defaults drifting"
+    )
+
+
+@pytest.mark.parametrize(
+    ("publisher", "example"), sorted(REUSING_PUBLISHERS.items()), ids=sorted(REUSING_PUBLISHERS)
+)
+def test_a_publisher_declares_none_of_the_options_its_examples_specification_reads(
+    publisher, example
+):
+    """The structural half: one declaration, so there is nothing to agree.
+
+    The mutation this exists for is putting a single `add_argument` back - which is exactly
+    what `publish_fives_weights.py` carried for a month, and what a test comparing two
+    hand-listed sets would have caught only if somebody had added the name to the list.
+    """
+    reads = _specification_reads(example)
+    assert reads, (
+        f"{example}.specification() reads no `arguments.<field>` at all - the extractor is "
+        "wrong, and an empty set makes the comparison below vacuous"
+    )
+
+    re_declared = sorted(_declared_flags(publisher) & set(reads))
+    assert not re_declared, (
+        f"{publisher}.py declares {re_declared} itself, and {example}.specification() reads "
+        f"them. That is a second copy of the configuration: `--iterations` was 5 here and 12 "
+        "in the example for a month. Take the example's `build_parser()` and override only "
+        "what is genuinely this script's"
+    )
+
+
+@pytest.mark.parametrize(
+    ("publisher", "example"), sorted(REUSING_PUBLISHERS.items()), ids=sorted(REUSING_PUBLISHERS)
+)
+def test_a_publishers_parser_agrees_with_the_examples_on_every_option_it_is_read_with(
+    publisher, example
+):
+    """And the behavioural half, off the parsers that RUN rather than off the source.
+
+    The structural test above says the publisher declares none of them; this says the
+    defaults a reader gets are the example's, which is the claim the sidecar rests on. Read
+    by building both parsers, because a `set_defaults` call is invisible to any AST scan
+    looking at `add_argument`.
+    """
+    their_parser = importlib.import_module(example).build_parser()
+    our_parser = importlib.import_module(publisher).build_parser()
+    theirs = vars(their_parser.parse_args([]))
+    ours = vars(our_parser.parse_args([]))
+
+    for field in _specification_reads(example):
+        assert field in theirs, f"{example}.build_parser() does not declare --{field}"
+        assert field in ours, f"{publisher}'s parser does not carry --{field}"
+        assert ours[field] == theirs[field], (
+            f"--{field} is {ours[field]!r} for {publisher} and {theirs[field]!r} in "
+            f"{example}, so the published weights would not be the run it documents"
         )
 
-    # And the control: the two scripts do differ, or this test is comparing a file with
-    # itself. `--out` is the difference that matters - the example writes measurements, this
-    # writes weights.
-    assert publish.out != example.out
+    # The control: the two scripts DO differ, or this is comparing a file with itself.
+    # `--out` is the difference that matters - the example writes measurements and the
+    # publisher writes weights - and it is deliberately not one `specification()` reads.
+    assert ours["out"] != theirs["out"]
+    assert "out" not in _specification_reads(example)
 
 
 def test_the_hc18_checkpoint_watches_what_the_stopping_rule_watches():
