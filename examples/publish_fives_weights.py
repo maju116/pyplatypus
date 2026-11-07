@@ -416,7 +416,6 @@ def main() -> None:
         data_licence="CC BY 4.0",
         citation=CITATION,
         weights_licence="CC BY 4.0",
-        trained_with=f"pyplatypus {pp.__version__}",
         split={"train": 600, "test": 200, "seed": arguments.seed},
         validation=list(distribution.values()),
         by_disease=measured["by_disease"]["dice"],

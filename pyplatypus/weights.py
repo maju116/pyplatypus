@@ -650,6 +650,8 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
     state = {name: value.detach().cpu().contiguous() for name, value in model.state_dict().items()}
     save_state(state, target)
 
+    from pyplatypus import __version__
+
     sidecar = {
         **spec.weights_fingerprint(),
         # Two different counts, named apart. `parameters` is what the comparison table reports;
@@ -658,8 +660,40 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
         # `evaluate()` by 2,962 for no stated reason.
         "parameters": sum(value.numel() for value in model.parameters()),
         "state_dict_numel": sum(value.numel() for value in state.values()),
+        # Written HERE rather than by whoever calls this. Four publishing scripts each
+        # carried `trained_with=f"pyplatypus {pp.__version__}"`, which is four copies of a
+        # fact only this function is in a position to know - and `tests/test_version.py`'s
+        # own docstring already said *`export_weights()` stamps it into every weights
+        # sidecar*, which was not true of any code. `pyplatypus#419`.
+        "trained_with": f"pyplatypus {__version__}",
+        # What the figures beside these weights were measured WITH, which no sidecar
+        # recorded. `trained_with` says which engine produced the file and said nothing
+        # about the parameters of the numbers in it: `cldice`'s `iterations` moves the
+        # published `fives-unet` figure by 0.049 and was written nowhere, so *is this
+        # reproducible* had to be answered by sweeping the parameter until a run landed on
+        # the published digits. `pyplatypus#413` is that day; `#419` is this key.
+        #
+        # `engine` is repeated inside it on purpose: the two can differ. A sidecar's
+        # figures may be re-measured later by a newer engine - `#410` did exactly that to
+        # this one name, by hand, as `cldice_measured_with` - and then the file records one
+        # engine that trained and another that scored.
+        "measured_with": {"engine": __version__, **spec.measurement_fingerprint()},
     }
     if extra:
+        # A caller may add to the record and may not quietly replace what this function
+        # computed: a publisher passing its own `trained_with` is how that key came to have
+        # four copies, and a publisher passing `measured_with` would be a second answer to
+        # the question this release exists to answer once. Same guard as the run record's,
+        # for the same reason - a file quietly saying the wrong thing is worse than one that
+        # could not be written.
+        clash = sorted(set(extra) & set(sidecar))
+        if clash:
+            raise WeightsError(
+                f"the sidecar already records {clash}, computed from the model and the "
+                f"specification. Remove it from `extra` rather than overriding it - these "
+                f"are the facts this function is in a position to know, and a caller's copy "
+                f"is a copy that will drift"
+            )
         sidecar.update(extra)
     target.with_suffix(SIDECAR_SUFFIX).write_text(json.dumps(sidecar, indent=2) + "\n")
     return target

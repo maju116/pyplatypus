@@ -755,7 +755,6 @@ def main() -> None:
         "data_licence": "CC0 1.0",
         "citation": semantic.CITATION,
         "weights_licence": "MIT",
-        "trained_with": f"pyplatypus {pp.__version__}",
         # Not `separation`: that name is part of what the weights say they are for, and
         # overwriting it with this block would make the file refuse to load. See the check.
         "separation_settings": config["models"][0]["separation"],

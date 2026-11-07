@@ -462,6 +462,19 @@ class ClassificationModel(EncoderModel):
             fingerprint |= {"blocks": self.blocks, "filters": self.filters}
         return fingerprint
 
+    def measurement_fingerprint(self) -> dict:
+        """The metrics, resolved.
+
+        A multi-label head's metrics are re-implemented over a two-by-two table per class
+        and `accuracy` is deliberately absent from that family - `pyplatypus#309` measured
+        why - so which metrics a row was measured with is a fact about the row rather than a
+        restatement of the task.
+        """
+        return {
+            **super().measurement_fingerprint(),
+            "metrics": [metric.model_dump(mode="json") for metric in self.metrics],
+        }
+
     @model_validator(mode="after")
     def the_contracting_path_is_ours_or_theirs(self):
         """Our encoder's knobs, written beside somebody else's backbone, reach nothing.
