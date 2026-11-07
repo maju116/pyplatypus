@@ -100,12 +100,25 @@ def test_giou_has_a_gradient_where_iou_has_none():
 # --- the loss ---------------------------------------------------------------------------
 
 
-def _targets_and_a_perfect_prediction():
+#: A frame whose sides differ, and three boxes that all place on it. `#430`: three sites in
+#: the loss and the encoder exchange the grid's height and width, and **every fixture that
+#: reached them was square**. The grids here are 4x8, 8x16 and 16x32.
+RECTANGLE = (128, 256)
+RECTANGULAR_BOXES = [
+    [20.0, 10.0, 90.0, 60.0],
+    [150.0, 30.0, 230.0, 100.0],
+    [100.0, 60.0, 140.0, 120.0],
+]
+
+
+def _targets_and_a_perfect_prediction(input_shape=(416, 416), boxes=None):
     """Targets for three boxes, and logits that decode to exactly those boxes."""
     boxes = np.array(
-        [[40.0, 50.0, 150.0, 170.0], [220.0, 60.0, 300.0, 140.0], [10.0, 300.0, 70.0, 360.0]]
+        boxes
+        if boxes is not None
+        else [[40.0, 50.0, 150.0, 170.0], [220.0, 60.0, 300.0, 140.0], [10.0, 300.0, 70.0, 360.0]]
     )
-    enc = encode(boxes, [0, 1, 2], anchors=COCO_ANCHORS, input_shape=(416, 416), n_class=3)
+    enc = encode(boxes, [0, 1, 2], anchors=COCO_ANCHORS, input_shape=input_shape, n_class=3)
     assert enc.placed == 3, "the fixture is only meaningful if every box was placed"
     targets = [torch.tensor(t, dtype=torch.float32)[None] for t in enc.targets]
 
@@ -124,8 +137,8 @@ def _targets_and_a_perfect_prediction():
     return predictions, targets
 
 
-def _loss(mode):
-    return Yolo3Loss(anchors=COCO_ANCHORS, n_class=3, input_shape=(416, 416), box_loss=mode)
+def _loss(mode, input_shape=(416, 416)):
+    return Yolo3Loss(anchors=COCO_ANCHORS, n_class=3, input_shape=input_shape, box_loss=mode)
 
 
 def test_a_perfect_prediction_costs_nothing_under_giou_and_something_under_offsets():
@@ -142,7 +155,12 @@ def test_a_perfect_prediction_costs_nothing_under_giou_and_something_under_offse
 
     assert giou["coordinates"] == pytest.approx(0.0, abs=1e-5)
     assert giou["loss"] == pytest.approx(0.0, abs=1e-5)
-    assert offsets["coordinates"] > 4.0  # measured: 4.2138 on this fixture
+    # `#430`: this read `> 4.0` with *measured: 4.2138* in a comment, and the comment is
+    # what made it checkable - the bound is one-sided, so the `2 - w*h` scale replaced by a
+    # constant 2 RAISES the term to 4.2873363 and stays above it. Pinned at the measurement
+    # with both ends written down: the defect moves it by 0.0735549, and `abs=1e-4` sits 735
+    # times below that and two orders above a float32 reduction's own noise here.
+    assert offsets["coordinates"] == pytest.approx(4.2137814, abs=1e-4)
     assert offsets["loss"] == pytest.approx(offsets["coordinates"], abs=1e-5)
 
 
@@ -185,3 +203,41 @@ def test_offsets_is_the_default_so_published_weights_keep_their_objective():
 def test_an_unknown_box_loss_is_refused_by_name():
     with pytest.raises(DetectionError, match="box_loss is 'offsets' or 'giou'"):
         Yolo3Loss(n_class=3, box_loss="ciou")
+
+
+def test_the_ignore_masks_decode_recovers_the_boxes_it_was_GIVEN():
+    """`#430`: `_decode_boxes` is the ignore mask's own decode, and it has the same two
+    factors the encoder does - `grid_w` for x, `grid_h` for y.
+
+    Held against the pixel boxes the fixture started from rather than against the encoder's
+    round trip, which is what the thirteenth review pass found unable to see this: encode
+    and decode are mutually inverse under a transposition too, so a round trip is satisfied
+    by the wrong pair. The original boxes are outside both.
+    """
+    predictions, targets = _targets_and_a_perfect_prediction(RECTANGLE, RECTANGULAR_BOXES)
+    height, width = RECTANGLE
+    loss = _loss("giou", RECTANGLE)
+
+    assert [tuple(target.shape[1:3]) for target in targets] == [(4, 8), (8, 16), (16, 32)], (
+        "the control: these grids must be rectangular, or a transposition is invisible here"
+    )
+
+    expected = sorted(
+        (x1 / width, y1 / height, x2 / width, y2 / height) for x1, y1, x2, y2 in RECTANGULAR_BOXES
+    )
+
+    recovered = []
+    for grid, (prediction, target) in enumerate(zip(predictions, targets, strict=True)):
+        decoded = loss._decode_boxes(grid, prediction)
+        for box in decoded[target[..., 4] > 0.5]:
+            recovered.append(tuple(float(value) for value in box))
+
+    assert len(recovered) == len(expected), (
+        f"the fixture placed {len(recovered)} boxes and started from {len(expected)}"
+    )
+    for got, want in zip(sorted(recovered), expected, strict=True):
+        assert got == pytest.approx(want, abs=1e-4), (
+            f"the mask decodes a placed cell to {got} where the box it was given is {want}. "
+            "A transposed decode moves the centre, and the ignore mask then measures overlap "
+            "against a box nobody asked about"
+        )

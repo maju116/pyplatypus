@@ -74,6 +74,58 @@ def test_a_rectangular_input_round_trips_too():
     assert np.allclose(as_set(out), as_set(boxes), atol=1e-4)
 
 
+def test_the_same_rectangle_lands_in_the_cell_the_PAPER_names_and_stores_an_offset_a_sigmoid_can_reach():
+    """`pyplatypus#430`, and the test above is the reason this one exists.
+
+    `encode` places a centre with `column = int(x * grid_w)` and `row = int(y * grid_h)`.
+    Exchange the two factors and **the round trip above still passes**, because `decode`
+    carries the same two and a wrong pair is still mutually inverse - which is what the
+    thirteenth review pass measured. So the round trip is not the instrument here; the
+    paper's own formula is, asked once on a frame where the two sides differ.
+
+    Worked by hand on these exact boxes at `(416, 608)`, grids 13x19, 26x38 and 52x76:
+
+        box [300, 200, 500, 380]   centre (0.657895, 0.697115)
+          grid 0, 13x19   col = floor(0.657895 * 19) = 12   row = floor(0.697115 * 13) = 9
+        box [10, 20, 110, 90]      centre (0.098684, 0.132212)
+          grid 1, 26x38   col = floor(0.098684 * 38) =  3   row = floor(0.132212 * 26) = 3
+
+    And the half that needs no arithmetic at all: a stored offset is what a sigmoid has to
+    produce, so it lies in [0, 1). Transposed, this fixture stores -3.447368 and -0.434211 -
+    values no sigmoid reaches, on a frame the round trip calls fine.
+    """
+    boxes = [[10, 20, 110, 90], [300, 200, 500, 380]]
+    encoded = encode(boxes, [0, 1], input_shape=(416, 608), n_class=3)
+    assert encoded.unplaced == 0, "both boxes must place, or the cells below are not theirs"
+
+    shapes = [(target.shape[0], target.shape[1]) for target in encoded.targets]
+    assert shapes == [(13, 19), (26, 38), (52, 76)], (
+        f"the control: these grids must be rectangular, and they are {shapes}"
+    )
+
+    placed = {}
+    for grid, target in enumerate(encoded.targets):
+        for row, column, slot in np.argwhere(target[..., 4] == 1.0):
+            placed[(grid, int(row), int(column))] = target[row, column, slot, :2]
+
+    assert sorted(placed) == [(0, 9, 12), (1, 3, 3)], (
+        f"the centres landed in {sorted(placed)} and the paper's formula puts them in "
+        "[(0, 9, 12), (1, 3, 3)] - the cell is what a transposed pair of factors moves"
+    )
+
+    for (grid, row, column), (offset_x, offset_y) in sorted(placed.items()):
+        for name, offset in (("x", float(offset_x)), ("y", float(offset_y))):
+            assert 0.0 <= offset < 1.0, (
+                f"grid {grid} cell ({row}, {column}) stores {name} = {offset}, which a "
+                "sigmoid cannot produce - so no prediction can ever match this target"
+            )
+
+    assert placed[(0, 9, 12)][0] == pytest.approx(0.5)
+    assert placed[(0, 9, 12)][1] == pytest.approx(0.0625)
+    assert placed[(1, 3, 3)][0] == pytest.approx(0.75)
+    assert placed[(1, 3, 3)][1] == pytest.approx(0.4375)
+
+
 def test_the_class_survives_the_round_trip():
     encoded = encode([[10, 10, 50, 50]], [2], n_class=3)
     _, _, labels = decode(encoded.targets, n_class=3)
