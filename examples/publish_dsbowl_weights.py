@@ -208,7 +208,6 @@ def main() -> None:
         data_licence="CC0 1.0",
         citation=CITATION,
         weights_licence="MIT",
-        trained_with=f"pyplatypus {__import__('pyplatypus').__version__}",
         split={"fractions": [0.8, 0.2], "seed": arguments.seed, **split["samples"]},
         validation=distribution,
         worst_cases=[{"case": row["case"], "dice": row["dice"]} for row in worst],

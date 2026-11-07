@@ -1234,3 +1234,102 @@ def test_the_cache_s_three_ANSWERS_are_distinguishable(fake_hub, tmp_path):
     assert absent is _CACHED_NO_EXIST
     assert isinstance(present, str)
     assert unknown is None
+
+
+# --------------------------------------------------------------------------------------
+# The provenance the sidecar writes ITSELF - `pyplatypus#419`.
+#
+# Until this release a sidecar recorded `trained_with` and the figures, and nothing about
+# what the figures were measured with. `cldice`'s `iterations` moves the published
+# `fives-unet` number by 0.049 and appeared in no file, because it was `ClDice.__init__`'s
+# default arriving through a publisher's flag - so *is this reproducible* had to be answered
+# by sweeping the parameter until a run landed on the published digits (`#413`).
+#
+# And `trained_with` itself was **four copies in four publishing scripts**, each writing
+# `f"pyplatypus {pp.__version__}"` by hand, while `tests/test_version.py`'s own docstring
+# said *`export_weights()` stamps it into every weights sidecar*. That sentence described no
+# code. Both facts are written here now, by the only function in a position to know them.
+
+
+def test_the_sidecar_stamps_the_engine_WITHOUT_the_caller_passing_it(tmp_path):
+    """What `tests/test_version.py` has claimed in prose since it was written.
+
+    The four publishing scripts each passed `trained_with` and this function wrote none, so
+    a fifth publisher would have had to remember. Nothing is passed here.
+    """
+    import pyplatypus
+
+    spec = model_spec()
+    path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "w.safetensors")
+    sidecar = json.loads(path.with_suffix(".json").read_text())
+
+    assert sidecar["trained_with"] == f"pyplatypus {pyplatypus.__version__}"
+
+
+def test_the_sidecar_records_what_the_figures_were_MEASURED_with(tmp_path):
+    """The key `#419` is about, on the case `#413` cost a day to answer.
+
+    `iterations` is not in the specification below. It is the metric's own default, and it
+    is the parameter whose value made the published figure unreproducible without a sweep.
+    """
+    import pyplatypus
+
+    spec = model_spec(metrics=[{"name": "dice"}, {"name": "cldice"}])
+    path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "w.safetensors")
+    sidecar = json.loads(path.with_suffix(".json").read_text())
+
+    measured = sidecar["measured_with"]
+    assert measured["engine"] == pyplatypus.__version__
+    recorded = {row["name"]: row for row in measured["metrics"]}
+    assert set(recorded) == {"dice", "cldice"}
+    assert recorded["cldice"]["iterations"] == 5, (
+        "the peel count is the whole point: it moves the published clDice by 0.049 and was "
+        "written in no file before this"
+    )
+    # `engine` is inside the block as well as being the file's `trained_with`, because the
+    # two can differ - `#410` re-measured one published sidecar under a later engine by
+    # hand. Here they agree, and that they are two keys is the thing being asserted.
+    assert sidecar["trained_with"].endswith(measured["engine"])
+
+
+def test_a_caller_may_not_quietly_REPLACE_what_the_sidecar_computed(tmp_path):
+    """`extra` adds to the record and does not overwrite it.
+
+    A publisher passing its own `trained_with` is how that key came to have four copies;
+    one passing `measured_with` would be a second answer to the question this exists to
+    answer once. The refusal names the key, so the repair is obvious from the message.
+    """
+    spec = model_spec()
+    model = build_model(spec, n_class=2)
+    for key in ("trained_with", "measured_with", "architecture"):
+        with pytest.raises(WeightsError, match=key):
+            export_weights(model, spec, tmp_path / "w.safetensors", extra={key: "anything"})
+
+    # The control: an ordinary `extra` is not refused, or the guard would break every
+    # publisher rather than the one mistake it is written for.
+    path = export_weights(
+        model, spec, tmp_path / "ok.safetensors", extra={"n_class": 2, "data": "synthetic"}
+    )
+    assert json.loads(path.with_suffix(".json").read_text())["data"] == "synthetic"
+
+
+def test_the_new_keys_cannot_refuse_a_load(tmp_path):
+    """A key added to the sidecar must not become a field the loader compares.
+
+    `_refuse_mismatch` walks the MODEL's fields rather than the sidecar's keys, which is
+    what keeps the five published names loading - and is also why adding provenance is safe.
+    Asserted rather than reasoned about, because getting this wrong would break every
+    published name at once.
+    """
+    spec = model_spec(metrics=[{"name": "cldice"}])
+    model = build_model(spec, n_class=2)
+    path = export_weights(model, spec, tmp_path / "w.safetensors", extra={"n_class": 2})
+
+    sidecar = json.loads(path.with_suffix(".json").read_text())
+    assert "measured_with" in sidecar and "trained_with" in sidecar
+
+    again = build_model(spec, n_class=2)
+    loaded = load_into(again, str(path), spec, extra={"n_class": 2})
+    # And the sidecar comes back whole, so the provenance is readable by whoever loaded it
+    # rather than only by whoever opens the json.
+    assert loaded["measured_with"]["metrics"][0]["iterations"] == 5

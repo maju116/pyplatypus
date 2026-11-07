@@ -559,7 +559,6 @@ def main() -> None:
         data_licence="CC BY 4.0",
         citation=CITATION,
         weights_licence="CC BY 4.0",
-        trained_with=f"pyplatypus {pp.__version__}",
         split={**counts, "group_by": script.GROUP_BY, "seed": arguments.seed},
         validation=[{"metric": "dice", "mean": totals["dice"], "worst": totals["dice_worst"]}],
         millimetres={

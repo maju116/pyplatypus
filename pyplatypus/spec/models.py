@@ -152,6 +152,35 @@ class ModelSpec(SpecModel):
             "rank": self.rank,
         }
 
+    def measurement_fingerprint(self) -> dict:
+        """What a reported figure depends on, beyond the weights and the data.
+
+        Asked of the spec for `weights_fingerprint`'s own reason, written one method up: the
+        answer is task-specific, and a fixed list in `pyplatypus.weights` would have to grow
+        a branch per task and reach for fields that are not there. Segmentation reports a
+        configured list of metrics; a detector reports one table whose numbers move with
+        three thresholds and has no `metrics` field at all.
+
+        **Why it exists**: a weights sidecar recorded `trained_with` and the figures, and not
+        what the figures were measured with. For `dice` that is harmless. For `cldice`,
+        `iterations` is the skeleton's peel count and moves the number by 0.049 on the
+        published `fives-unet` - and that value was never written anywhere, because it
+        arrived as `ClDice.__init__`'s default through a publisher's own flag. So *is this
+        figure reproducible* had to be answered by sweeping the parameter until a run landed
+        on the published digits. `pyplatypus#413`, `#419`.
+
+        **Resolved rather than as written**, which is the whole point: `model_dump` fills in
+        every default, so a default that changes in a later release is still readable in a
+        file written today. Recording only what a configuration stated would have recorded
+        nothing at all in the case this exists for.
+
+        An empty answer means *nothing configurable decides this task's figures*, and
+        `tests/spec/test_measurement_fingerprint.py` holds every member of `AnySpec` to
+        giving one or being named with a reason - because a task added next month would
+        otherwise inherit silence, which is the shape this method was written against.
+        """
+        return {}
+
     @model_validator(mode="after")
     def swa_and_a_decaying_rate_cancel_each_other(self):
         """`swa` with `cosine_annealing` averages a set of nearly identical snapshots.
@@ -647,6 +676,18 @@ class SegmentationModel(EncoderModel):
         # nothing to say about it. The engine contributes it through `_class_fingerprint`,
         # along with the colormap or labels it came from.
         return {**super().weights_fingerprint(), "blocks": self.blocks, "filters": self.filters}
+
+    def measurement_fingerprint(self) -> dict:
+        """The metrics, resolved - which is where `cldice`'s `iterations` lives.
+
+        `model_dump` rather than the configuration as written, because the value this method
+        exists for was never written: `iterations: 5` was `ClDice.__init__`'s default
+        arriving through a flag. A dump carries it.
+        """
+        return {
+            **super().measurement_fingerprint(),
+            "metrics": [metric.model_dump(mode="json") for metric in self.metrics],
+        }
 
     @property
     def monitorable(self) -> set[str]:

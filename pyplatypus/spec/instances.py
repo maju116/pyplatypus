@@ -768,6 +768,31 @@ class InstanceModel(SegmentationModel):
         """
         return {**super().weights_fingerprint(), "separation": self.signal.value}
 
+    def measurement_fingerprint(self) -> dict:
+        """The metrics, plus the two things that decide what an object IS here.
+
+        `decode` belongs in it because an instance figure is a figure *per decoding*: one
+        trained file scored 0.5445 by `nearest_seed`, 0.5390 by `watershed` and 0.4822 by
+        `connected_components` - 0.0623 between the best and the worst against a run-to-run
+        spread of 0.009 - so a number from these weights means nothing without the decoding
+        it came from. `dsbowl-instances`' registry description says exactly that in prose,
+        and this is the same fact in the file.
+
+        `separation`'s settings are here and deliberately NOT in `weights_fingerprint`,
+        which is the distinction worth keeping: `width` and `mode` change what the channels
+        were trained *towards*, so they must not refuse a load - and they change the figures,
+        so they must be recorded beside them.
+        """
+        return {
+            **super().measurement_fingerprint(),
+            "separation": None
+            if self.separation is None
+            else self.separation.model_dump(mode="json"),
+            "decode": None
+            if self.decode is None
+            else [step.model_dump(mode="json") for step in self.decode],
+        }
+
     @model_validator(mode="after")
     def instances_are_two_dimensional(self):
         """Both targets and all four decodings are written for images.

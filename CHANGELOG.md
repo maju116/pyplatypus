@@ -1,6 +1,71 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a75] - 2026-11-07
+
+**A weights sidecar says what its figures were measured with, and stamps the engine
+itself.** A sidecar recorded `trained_with` and the `validation` block and nothing about the
+parameters of the numbers in it. For `dice` that is harmless - it takes `include_background`
+and nothing else. For `cldice` it is not: `iterations` is the skeleton's peel count, it moves
+the published `fives-unet` figure by **0.049**, and it was written in no file at all, because
+it arrived as `ClDice.__init__`'s default through a publisher's own flag. So *is this figure
+reproducible* had to be answered by sweeping the parameter until a run landed on the published
+digits. `pyplatypus#413` is that day; `#419` is this key.
+
+**The R half: the pin and one sentence.** `?export_weights` says the sidecar records
+"architecture, input shape, channels, classes, and whatever else you pass", and from this
+release it also records what the caller does **not** pass. Nothing an R user calls changes.
+
+### Added
+
+ - **`measured_with` on every sidecar**, carrying the engine that measured the figures and
+   the configuration it measured them with, **resolved rather than as written**. That is the
+   whole design: recording the configuration as a caller stated it would have recorded
+   nothing in the case this exists for, since nobody stated `iterations` anywhere.
+
+ - **`measurement_fingerprint()`, asked of the spec**, for the reason `weights_fingerprint`'s
+   own docstring gives one method up - the answer is task-specific, and a fixed list in
+   `pyplatypus.weights` would have to grow a branch per task and reach for a field that is
+   not there. Measured rather than assumed, which widened the issue's own scope: segmentation
+   and classification report a configured metrics list; **instances** add `separation` and
+   `decode`, because one trained file scores 0.5445, 0.5390 and 0.4822 through three
+   decodings and a number from it means nothing without the one it came from; and
+   **detection has no `metrics` field at all** and reports a table whose rows move with
+   `score_threshold`, `nms_threshold` and `operating_point`.
+
+ - **`ignore_threshold` is deliberately NOT in a detector's block.** It shapes the training
+   target's ignore mask, so it changes what the weights learnt rather than how they are
+   scored - the same distinction `separation`'s settings get on the instance side, where
+   `width` and `mode` are recorded beside the figures and kept out of the fingerprint that
+   refuses a load.
+
+ - **The base class answers empty and a test enumerates `AnySpec`**, so a task added next
+   month either says what decides its figures or is named with a reason. A base returning
+   something plausible - the metrics, say - would have answered for a task that has none and
+   read as a record rather than as an omission.
+
+### Fixed
+
+ - **`trained_with` was four copies in four publishing scripts**, each writing
+   `f"pyplatypus {pp.__version__}"` by hand, while `tests/test_version.py`'s own docstring
+   said *"`export_weights()` stamps it into every weights sidecar"*. **That sentence
+   described no code.** `export_weights` writes it now, which is the only function in a
+   position to know it, and the four copies are gone - so a fifth publisher cannot forget.
+
+ - **`extra` may add to the sidecar and may not replace what it computed.** A caller passing
+   its own `trained_with` is how that key came to have four copies, and one passing
+   `measured_with` would be a second answer to the question this release exists to answer
+   once. The refusal names the key.
+
+### Not done, on purpose
+
+ - **The four older published sidecars are not backfilled.** A sidecar states what the
+   engine of its day measured, so writing today's reading into a record of another day would
+   replace an honest silence with a certainty nobody measured. `#413` is the precedent that
+   an unrecorded parameter is recoverable *by measurement* while the weights still exist -
+   which is a better guarantee than a rewritten file. `fives-unet` carries
+   `cldice_measured_with` from `#410`, added by hand, and keeps it.
+
 ## [0.8.0a74] - 2026-11-07
 
 **The run record says which epoch the weights came from, and it is two facts rather than

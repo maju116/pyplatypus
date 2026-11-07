@@ -324,6 +324,32 @@ class DetectionModel(ModelSpec):
         it, from the data's `classes`."""
         return {**super().weights_fingerprint(), "anchors_per_grid": self.anchors_per_grid}
 
+    def measurement_fingerprint(self) -> dict:
+        """A detector has no `metrics` field, and three thresholds move every row it reports.
+
+        Which is why this is asked of the spec rather than listed in `pyplatypus.weights`:
+        the base class's answer would have reached for `metrics` and found nothing, and an
+        empty record would have read as *nothing configurable decides these figures*.
+
+        `score_threshold` and `nms_threshold` decide which predictions exist before anything
+        is matched - `pyplatypus#382` is the release where the first of them was found gating
+        the wrong quantity, and it dropped 234 of 2,771 predictions without moving `map_50`
+        by a digit. `operating_point` is the cut the per-class table is read at. All three
+        change a published number while the weights and the data stay the same, which is the
+        only test for belonging here.
+
+        `ignore_threshold` is left out on purpose and that is a measurement rather than a
+        judgement: it shapes the training target's ignore mask, so it changes what the
+        weights learnt and not how they are scored. `pyplatypus#359`'s own fixtures are
+        where that was measured.
+        """
+        return {
+            **super().measurement_fingerprint(),
+            "score_threshold": self.score_threshold,
+            "nms_threshold": self.nms_threshold,
+            "operating_point": self.operating_point,
+        }
+
     min_visibility: float = Field(
         0.25,
         ge=0,
