@@ -1,6 +1,80 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a74] - 2026-11-07
+
+**The run record says which epoch the weights came from, and it is two facts rather than
+one.** `0.8.0a68` recorded the provenance where it is decided and `0.8.0a71` gave all four
+score tables one definition to read it through - and it still left the process with the
+session. `write_record` reached past the history into `history.records`, so `run.json` said
+which epoch was best by every metric the run logged and not which epoch's weights it shipped,
+in the one file whose own docstring calls it a thing you can run rather than read.
+`pyplatypus#417`.
+
+The column answers that question for somebody reading a table in the session that produced
+it. The record answers it for somebody holding a directory six months later, which is what
+`trained_with` on a weights sidecar exists for - and a run whose weights were published had
+its epoch in neither place.
+
+**Measuring it found `stop_reason` missing by exactly the same mechanism**, on the same
+object, beside it - and `spec/components.py` tells a reader that *"the run's `stop_reason`
+names the clock, so a run that ran out of time does not read as a run that converged"*, which
+was true in a session and false of the file. Adding one and leaving the other is §3F's
+omission failure with one release's delay.
+
+**The R half: the pin, one help page and one print method.** `read_record()`'s `@return`
+enumerates the record's keys and `test-records.R` asserts that set with `expect_setequal`, so
+the pin move turns R's suite red until it follows - which is the ratchet rather than a break.
+
+### Added
+
+ - **`weights_epoch` and `stop_reason` as siblings of `history` in `run.json`.** Siblings and
+   not fields inside it, because that key is a list of per-epoch rows and R reads exactly it -
+   `read_record()` turns it into a data frame, so a scalar in there would change the type for
+   the one reader that exists. The alternative, a `run` object gathering the scalars the record
+   already carries loose, is tidier and a breaking change to a published format for no reader
+   that exists.
+
+ - **They are read off `History.to_dict()`, which until now had no caller at all.** That
+   method is the one place saying what a history carries, so `write_record` reads the rows out
+   of it and writes everything else beside them: a field added to `History` reaches the record
+   by arriving, rather than by somebody remembering a second list. A name that would overwrite
+   one of the record's own keys is a refusal rather than a silent replacement - a `model` field
+   on a history would otherwise rewrite the model's name, and a record quietly saying the wrong
+   thing is worse than one that could not be written.
+
+ - **`weights_epoch` is present and `null` where a run selected no epoch**, which is the
+   deliberate half: such a run ended on its last epoch and `history`'s own length already says
+   so, while a key that vanished would be indistinguishable from this release never having
+   happened.
+
+ - **Five tests, and the one that closes the class is the third.** The record is built from a
+   history the **trainer** produced and held against what `evaluate()` reports for the same run
+   - two readers, one definition, because a record disagreeing with the table beside it would be
+   worse than one that said nothing. Then every field `History` declares, by introspection,
+   each set to a value no default could produce. Then the record's **exact** key set, from its
+   two sources. Then the refusal.
+
+ - **The registry's `fives-unet` moves to `799fea5c`, which `pyplatypus#413` unblocked.** The
+   pinned commit was `c4492f7a`, whose sidecar carries the clDice figure `#413` proved no
+   definition in this package can reproduce - so the Hub card a human reads was corrected by
+   `#410` and the sidecar the engine fetches was not. Read back from the Hub before moving it:
+   the sidecar's sha256 goes `ea8c12ee` to `2a71513d` and `cldice` 0.8329694 to 0.8779068, with
+   `dice` and `iou` identical at both, and **the weights file is byte-identical at the two
+   revisions** - `size 7793480`, `oid 747f478d5efa3c4a` - so the pin move changes the sidecar
+   and the card and nothing about the model. `pyplatypus#420`.
+
+### Fixed
+
+ - **A mutation survived and the test it needed is about the format rather than the field.**
+   Reading the rows out of `to_dict()` with `get` instead of `pop` leaves a duplicate `records`
+   key beside `history` - the same file semantically, and a silent change to a published format
+   that **only R's suite could have caught**, since R pins `names(record)` exactly and the engine
+   pinned nothing. §3F's own argument, paid: the engine's answer has to be held in the engine's
+   suite, or the next person to read the R failure fixes the R side. The record's key set is
+   asserted here now, built from the structural keys and `History`'s fields rather than from one
+   list.
+
 ## [0.8.0a73] - 2026-11-06
 
 **The detection table was the one of four that threw the answer away.** `0.8.0a68` made the
