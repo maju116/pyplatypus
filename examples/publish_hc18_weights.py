@@ -65,7 +65,6 @@ Citation, which CC BY 4.0 does require:
 
 from __future__ import annotations
 
-import argparse
 import importlib.util
 import json
 import sys
@@ -388,40 +387,42 @@ def registry_entry(measured: dict, shape: tuple[int, int]) -> str:
     )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-    )
-    parser.add_argument("--data", default="examples/data/hc18")
-    parser.add_argument("--out", default="weights")
+def build_parser():
+    """The example's parser, with only what is genuinely this script's added to it.
+
+    A function rather than lines inside `main()` so that a test can read the parser this
+    script actually runs, rather than a second copy of it read off the source.
+    """
+    script = example_module()
+    # The example's own parser, not a copy of it. The comment that stood here said *every
+    # default is the example's own* and named a test that holds the two sets equal - and
+    # that test compares a HAND-WRITTEN list of nine names while its own docstring claims
+    # an argument is covered "by arriving". It is not: a tenth option would have had to be
+    # added to that tuple. `pyplatypus#418` is the other pair's version of the same
+    # declaration, where the option nobody listed was `--iterations` and the published
+    # sidecar stated a clDice measured at five skeleton peels for a run documented at
+    # twelve.
+    #
+    # Sharing the parser is what makes the drift impossible rather than detected. What
+    # follows overrides only what is genuinely this script's: where the weights go, where
+    # the prepared masks are, and the floor the run has to clear.
+    parser = script.build_parser()
+    parser.description = __doc__
+    parser.set_defaults(out="weights")
     parser.add_argument("--prepared", default="measurements/hc18")
-    # Every argument below shapes the model, and every default is the example's own.
-    # `tests/test_examples.py` holds the two sets equal.
-    parser.add_argument("--height", type=int, default=544, help="divisible by 2^blocks")
-    parser.add_argument("--width", type=int, default=800)
-    parser.add_argument("--epochs", type=int, default=40)
-    parser.add_argument("--patience", type=int, default=8)
-    parser.add_argument("--batch", type=int, default=4)
-    parser.add_argument("--filters", type=int, default=16)
-    parser.add_argument("--rate", type=float, default=1e-3)
-    parser.add_argument("--loss", default="cce_dice")
-    parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--workers", type=int, default=4)
-    parser.add_argument(
-        "--controls",
-        type=int,
-        default=200,
-        help="how many truth masks the no-model control reads for the card's dataset figures",
-    )
     parser.add_argument(
         "--floor",
         type=float,
         default=4.0,
         help="refuse to write if the MEDIAN absolute error exceeds this many millimetres",
     )
-    arguments = parser.parse_args()
+    return parser
 
+
+def main() -> None:
     script = example_module()
+    arguments = build_parser().parse_args()
+
     root = Path(arguments.data)
     prepared = Path(arguments.prepared)
     out = Path(arguments.out)

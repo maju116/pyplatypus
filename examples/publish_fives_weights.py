@@ -38,7 +38,6 @@ Citation, which CC BY 4.0 does require:
 
 from __future__ import annotations
 
-import argparse
 import importlib.util
 import json
 import re
@@ -296,21 +295,28 @@ def with_checkpoint(configuration: dict, out: Path) -> dict:
     return configuration
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data", default="examples/data/fives")
-    parser.add_argument("--out", default="weights")
-    parser.add_argument("--epochs", type=int, default=40)
-    parser.add_argument("--size", type=int, default=512)
-    parser.add_argument("--tiles", type=int, default=4)
-    parser.add_argument("--batch", type=int, default=4)
-    parser.add_argument("--filters", type=int, default=16)
-    parser.add_argument("--rate", type=float, default=1e-3)
-    parser.add_argument("--loss", default="cce_dice")
-    parser.add_argument("--iterations", type=int, default=5)
-    parser.add_argument("--patience", type=int, default=8)
-    parser.add_argument("--seed", type=int, default=1)
-    parser.add_argument("--workers", type=int, default=4)
+def build_parser():
+    """The example's parser, with only what is genuinely this script's added to it.
+
+    A function rather than lines inside `main()` so that a test can read the parser this
+    script actually runs - `tests/test_examples.py` compares the defaults `specification()`
+    is read with against the example's own, and reading them off the AST would be reading
+    two copies rather than the one that exists.
+    """
+    module = example_module()
+    # The example's own parser, not a copy of it. `specification()` is imported so that the
+    # published weights cannot drift from the run the example documents, and the thirteen
+    # options that function is READ WITH were declared again here until
+    # `pyplatypus#418` - with `--iterations` at 5 against the example's 12, so this script
+    # published a clDice measured at five skeleton peels for a run documented at twelve.
+    # A copy of the defaults is a copy of the configuration, and `#413` is what it cost.
+    #
+    # So what follows overrides only what is genuinely this script's: where the artefacts
+    # go, which device to train on, and the floor the run has to clear before anything is
+    # written. Everything else arrives from the one file that decides it.
+    parser = module.build_parser()
+    parser.description = __doc__
+    parser.set_defaults(out="weights")
     parser.add_argument("--device", default=None)
     parser.add_argument(
         "--floor",
@@ -318,9 +324,13 @@ def main() -> None:
         default=0.80,
         help="refuse to write the weights if the mean Dice comes in below this",
     )
-    arguments = parser.parse_args()
+    return parser
 
+
+def main() -> None:
     module = example_module()
+    arguments = build_parser().parse_args()
+
     root = Path(arguments.data)
     graded = quality_grades(root)
     check_polarity(graded)
