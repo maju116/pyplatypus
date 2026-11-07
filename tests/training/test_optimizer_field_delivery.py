@@ -182,3 +182,37 @@ def test_every_read_in_the_builders_has_a_row_for_ITS_CLASS():
         f"PER_CLASS names rows that do not exist: "
         f"{', '.join(f'{cls}.{field}' for cls, field in orphans)}"
     )
+
+
+#: The one field no builder passes to torch, with the reason - `#428`'s other direction for
+#: this family. The completeness half above asks *every read has a row for its class*, which
+#: a field nobody reads satisfies by being invisible: measured 2026-11-07, `Adam.maximize`
+#: planted with a description and no forward passed all five enumerating files in this suite.
+NOT_A_PARAMETER = {
+    "name": "the discriminator `_BUILDERS` keys on, not a value it hands to torch",
+}
+
+
+@pytest.mark.parametrize("cls", CLASSES, ids=lambda c: c.__name__)
+def test_every_FIELD_of_every_optimiser_is_read_or_named(cls):
+    """A field on an optimiser specification either reaches torch or says why not.
+
+    This is the direction that catches the forgotten forward, and it is per class because
+    the fields differ: `beta_1` exists on four of the eight and `rho` on one, so a union
+    would excuse a field on the class that actually has it.
+    """
+    read = {field for class_name, field in _reads_in_the_builders() if class_name == cls.__name__}
+    assert read, f"the scan found no reads for {cls.__name__}, so this asks nothing"
+
+    missing = sorted(set(cls.model_fields) - read - set(NOT_A_PARAMETER))
+    assert not missing, (
+        f"{cls.__name__} declares {', '.join(missing)} and its builder reads neither - so a "
+        "value a user writes reaches torch nowhere, and nothing else in this suite says so"
+    )
+
+
+def test_the_exemption_is_a_field_every_optimiser_has():
+    """The staleness half, which both of the other two lists earned on their first run."""
+    for cls in CLASSES:
+        stale = sorted(set(NOT_A_PARAMETER) - set(cls.model_fields))
+        assert not stale, f"NOT_A_PARAMETER names {stale}, which {cls.__name__} does not have"

@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import re
 
 import pytest
 import torch
@@ -125,18 +126,102 @@ NOT_A_STRUCTURAL_READ = {
 }
 
 
+#: The three spellings a builder reaches a specification by. `#428`: this scan saw the first
+#: only, so `self.spec.blocks` in `models/unet.py` was invisible to it - the field has a row
+#: anyway, which is why a scan that could not see it still passed. A spelling the scan cannot
+#: see is a read it cannot enumerate, and enumeration is the whole claim.
+SPEC_NAMES = {"spec", "model_spec", "s"}
+
+
+def _is_spec(node: ast.expr) -> bool:
+    """`spec`, `model_spec`, or any `<something>.spec` - which covers `self.spec`."""
+    if isinstance(node, ast.Name):
+        return node.id in SPEC_NAMES
+    return isinstance(node, ast.Attribute) and node.attr == "spec"
+
+
+#: field -> (the module that consumes it, what consumes it there). The OTHER direction's
+#: exemption list, and `#428` is why it exists.
+#:
+#: The completeness half at the bottom of this file asked *every read has a row*. A field
+#: with no read at all was invisible to it by construction - which is the forgotten forward,
+#: the commonest way a field fails to reach the object it configures and the shape nine of
+#: the tenth pass's ten survivors had. Measured 2026-11-07: thirteen fields of these two
+#: models were neither enumerated nor named, and three fields planted with no forward passed
+#: all five enumerating files in this suite.
+#:
+#: So the direction below is *every field has a row, an exemption, or a consumer named here*,
+#: and the module named is checked rather than taken - a reason that cannot be followed is
+#: the decoration §4's newest category is about.
+CONSUMED_ELSEWHERE = {
+    "name": ("engine.py", "the engine keys everything it reports by it"),
+    "fit": ("engine.py", "the engine decides whether to train at all"),
+    "weights": ("engine.py", "the engine loads them before any builder runs"),
+    "loss": ("engine.py", "the objective is built from it, not the network"),
+    "metrics": ("engine.py", "built beside the loss and read by the trainer"),
+    "augmentation": ("engine.py", "the loader's pipeline, not the module tree"),
+    "batch_size": ("engine.py", "the loader's, and `#404` holds detection's own"),
+    "splits": ("data/dataset.py", "the loader tiles with it; `#427` records it in the sidecar"),
+    "epochs": ("training/trainer.py", "the loop's length"),
+    "callbacks": ("training/trainer.py", "built by `build_callbacks`"),
+    "optimizer": ("training/trainer.py", "built by the optimiser table, `#404`"),
+    "freeze_encoder": ("training/trainer.py", "the trainer sets requires_grad"),
+    "encoder_learning_rate": (
+        "training/trainer.py",
+        "`parameter_groups`, held at three levels since `#396`",
+    ),
+}
+
+
+def reads_the_field(text: str, field: str) -> bool:
+    """Does this module consume the field, under any spelling a consumer actually uses?
+
+    Three, and the third is `#428`'s own finding while the list below was being written:
+    `DetectionModel.anchors` is consumed as `model.anchors_as_tuples`, a derived property, so
+    no `.anchors` read exists anywhere outside the specification layer. A checker that only
+    looked for the field's own name would have called that reason false and been wrong.
+
+    The digit in the pattern is this session's other one: a first version of this scan wrote
+    `[a-z_]+` and lost `beta_1` and `beta_2`, which the optimiser builders do read. §4's
+    *when a count comes back zero, check the instrument*.
+    """
+    return bool(
+        re.search(rf"\b(?:self\.)?(?:spec|model_spec|model|s)\.{field}(?:_[a-z0-9_]+)?\b", text)
+    )
+
+
 def _reads_in_the_builders() -> set[str]:
-    """Every `spec.<name>` the model builders read, by AST rather than by grep."""
+    """Every field the model builders read, by AST rather than by grep.
+
+    Three spellings and one refusal. `getattr(spec, "x")` is a read with a string in it, so
+    it is collected; `getattr(spec, name)` is a read this scan **cannot** resolve, and it
+    fails here rather than being passed over - otherwise a builder could reach a field in a
+    way that makes the completeness halves below silently smaller.
+    """
     found: set[str] = set()
+    unresolved: list[str] = []
     for path in sorted(MODELS.glob("*.py")):
         for node in ast.walk(ast.parse(path.read_text())):
-            if (
-                isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Name)
-                and node.value.id == "spec"
-            ):
+            if isinstance(node, ast.Attribute) and _is_spec(node.value):
                 found.add(node.attr)
-    assert found, "no `spec.<field>` reads found; the scan is looking in the wrong place"
+            elif (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "getattr"
+                and node.args
+                and _is_spec(node.args[0])
+            ):
+                named = node.args[1] if len(node.args) > 1 else None
+                if isinstance(named, ast.Constant) and isinstance(named.value, str):
+                    found.add(named.value)
+                else:
+                    unresolved.append(f"{path.name}:{node.lineno}")
+    assert not unresolved, (
+        "a builder reads a field through a `getattr` this scan cannot resolve: "
+        f"{', '.join(unresolved)}. Either name the field, or the enumeration below is a "
+        "claim about a set that does not include it"
+    )
+    assert found, "no field reads found; the scan is looking in the wrong place"
     return found
 
 
@@ -252,3 +337,52 @@ def test_every_field_a_builder_READS_is_either_enumerated_or_named():
     # And the exemptions are real fields rather than a list that drifted.
     stale = sorted(set(NOT_A_STRUCTURAL_READ) - fields)
     assert not stale, f"NOT_A_STRUCTURAL_READ names fields that do not exist: {stale}"
+
+
+def test_every_field_IS_either_enumerated_or_named_whether_a_builder_reads_it_or_not():
+    """The direction the forgotten forward arrives from, and `#428`'s whole point.
+
+    The test above asks *every read has a row*, so a field nothing reads needs neither - and
+    a field forwarded nowhere is exactly the defect this file exists to catch. Measured when
+    this was written: three planted fields that forwarded nowhere passed all five enumerating
+    files in this suite, and the only assertion in the whole engine suite that noticed one of
+    them was `test_save_spec.py`'s count of thirty, which says *a field arrived* rather than
+    *a field is delivered*.
+
+    So every field is accounted for here in one of three ways, and the third names where it
+    goes instead.
+    """
+    fields = set(SegmentationModel.model_fields) | set(ClassificationModel.model_fields)
+    covered = (
+        set(SEGMENTATION_FIELDS)
+        | set(CLASSIFICATION_FIELDS)
+        | set(NOT_A_STRUCTURAL_READ)
+        | set(CONSUMED_ELSEWHERE)
+    )
+    missing = sorted(fields - covered)
+    assert not missing, (
+        f"these fields have no row, no exemption and no named consumer: {', '.join(missing)}. "
+        "A field nothing forwards is the shape this file was written for, so it is named here "
+        "with where it goes or it gets a row"
+    )
+
+    stale = sorted(set(CONSUMED_ELSEWHERE) - fields)
+    assert not stale, f"CONSUMED_ELSEWHERE names fields that do not exist: {stale}"
+
+
+@pytest.mark.parametrize("field", sorted(CONSUMED_ELSEWHERE))
+def test_the_consumer_named_for_a_field_really_reads_it(field):
+    """A reason that cannot be followed is decoration, which is §4's newest category.
+
+    Both of this file's exemption lists caught their own author on their first run - one
+    named a derived property, the other four arguments no constructor takes - so the reason
+    beside a field is checked here rather than read. The module is named and not the line,
+    because a line number names the place somebody looked rather than the place the code is.
+    """
+    module, why = CONSUMED_ELSEWHERE[field]
+    path = MODELS.parent / module
+    assert path.exists(), f"{field} names {module}, which is not a file"
+    assert reads_the_field(path.read_text(), field), (
+        f"{field} is exempt because {why}, in {module} - and {module} does not read it. "
+        "Either the consumer moved or the reason was never true"
+    )
