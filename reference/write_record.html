@@ -1014,10 +1014,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 4%">
-<col style="width: 13%">
-<col style="width: 75%">
-<col style="width: 6%">
+<col style="width: 2%">
+<col style="width: 7%">
+<col style="width: 85%">
+<col style="width: 3%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1049,7 +1049,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="even">
 <td>history</td>
 <td>Any</td>
-<td>The per-epoch numbers, as the trainer produced them.</td>
+<td>The per-epoch numbers, as the trainer produced them. Whatever run-level facts it carries beside those rows - <code>weights_epoch</code>, <code>stop_reason</code> - are written as siblings of <code>history</code> rather than inside it, read off <code>History.to_dict()</code> so that a field added there needs no edit here.</td>
 <td><code>None</code></td>
 </tr>
 </tbody>

@@ -1049,12 +1049,22 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td></td>
 <td>dict[str, Any]</td>
-<td>The record as plain data: <code>specification</code>, <code>pyplatypus</code>, <code>history</code>, and <code>derived</code></td>
+<td>The record as plain data: <code>specification</code>, <code>pyplatypus</code>, <code>history</code>, <code>derived</code> if</td>
 </tr>
 <tr class="even">
 <td></td>
 <td>dict[str, Any]</td>
-<td>if the run had any. Nothing is reconstructed into objects, because the record is a</td>
+<td>the run had any, and the run-level facts beside the history - <code>weights_epoch</code>, the</td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>dict[str, Any]</td>
+<td>epoch the surviving weights came from or <code>None</code> when they are not any one epoch’s,</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>dict[str, Any]</td>
+<td>and <code>stop_reason</code>. Nothing is reconstructed into objects, because the record is a</td>
 </tr>
 <tr class="odd">
 <td></td>
