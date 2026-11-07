@@ -1,6 +1,70 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a76] - 2026-11-08
+
+**A weights sidecar now records the tiling, which decides which pictures were scored.**
+`0.8.0a75` asked, per task, which settings a reported figure depends on, and answered it by
+reading each task's scoring path. The thirteenth review pass found the field that answer
+missed on the segmentation side: `splits`. A source image is read at `splits * input_shape`
+and cut, so the tiling changes the pictures the metric sees while the weights and the data
+stay the same - and `weights_fingerprint` cannot refuse a mismatch, because only
+`input_shape` is checked and every tile is `input_shape` either way. `pyplatypus#427`.
+
+Measured on the published `fives-unet`, which was trained and scored at four tiles by four,
+with nothing else changed:
+
+    splits 4 x 4   dice 0.8788833   iou 0.7956029   clDice 0.8779068
+    splits 2 x 2   dice 0.8054393   iou 0.6790225   clDice 0.8216820
+
+**0.0734 of Dice on the same file**, and the sidecar `export_weights` would write for those
+two runs was identical. The 4 x 4 row reproduces the published figures to every digit, which
+is the control that the move is the field's rather than the harness's.
+
+**The R half: None beyond the pin.** R calls `export_weights()` and forwards what the engine
+writes; nothing it passes or reads changes name or shape, and `measured_with` gains a key.
+R's own receipt for that structure asserts the metric list and not the key set, which is why
+this is a key arriving rather than a ratchet - unlike `0.8.0a74`, where R pinned the run
+record's names exactly.
+
+### Changed
+
+ - **`SegmentationModel.measurement_fingerprint()` records `splits`**, as a list or `null`
+   rather than by omission - absent and `null` read alike through `jsonlite`, which is
+   `0.8.0a74`'s own lesson one file over. `InstanceModel` inherits it, which answers the
+   other half of `#427`: an instance figure is a figure per decoding **and** per tiling.
+
+   Three mutations, each caught by the two tests written for it, with an identity case green:
+   the key removed, the value replaced by a constant `None`, and the tuple recorded as
+   written rather than JSON-ready.
+
+ - **`fives-unet`'s registry description names the peel count beside its clDice figure.**
+   `pyplatypus#426`. The published sidecar carries 0.8779068 measured at twelve peels while
+   this engine defaults to five, where the same file reads 0.7970546 - **0.0809 apart, with
+   nothing in the file to say why**, which is the defect `0.8.0a75` was written for standing
+   on the one name it was written about. The sidecar itself is on the Hub and its correction
+   is an upload rather than a release, so `#426` stays open for it; what is in this
+   repository is the description, and it now says both numbers.
+
+   Held as a shape rather than as the figures, because the measurement lives on the Hub and
+   nothing offline can confirm 0.878: a description quoting a clDice figure has to name the
+   peel count beside it and name the default it is not at. Both halves proven able to fail.
+
+### Fixed
+
+ - **`0.8.0a74`'s registry-move bullet read as one variable and the move was two**, which
+   the thirteenth pass asked about and the published weights answered without retraining:
+   `square/5` to `square/12` is **+0.0491**, the `--iterations` default
+   `publish_fives_weights.py` re-declared against the example's 12 and `#418` removed, and
+   `square/12` to `cross/12` is **-0.0041**, `0.8.0a72`'s erosion. A reader of that bullet
+   alone would attribute +0.045 to the erosion and be out by a factor of twelve with the sign
+   reversed. Corrected in place, where that file already keeps its corrections.
+
+   `0.8.0a72`'s own sentence about the same figure is **true as written** and is left alone:
+   before that release the publisher did produce 0.8329694, and after it no peel count can.
+   Correcting a true sentence because a neighbouring one is wrong is how a changelog stops
+   being readable.
+
 ## [0.8.0a75] - 2026-11-07
 
 **A weights sidecar says what its figures were measured with, and stamps the engine
@@ -128,6 +192,17 @@ the pin move turns R's suite red until it follows - which is the ratchet rather 
    `dice` and `iou` identical at both, and **the weights file is byte-identical at the two
    revisions** - `size 7793480`, `oid 747f478d5efa3c4a` - so the pin move changes the sidecar
    and the card and nothing about the model. `pyplatypus#420`.
+
+   > Corrected after release: **that move is two variables and this bullet reads as one.**
+   > The reviewer's thirteenth pass asked which, and the published weights answer it without
+   > retraining: `square/5` to `square/12` is **+0.0491** - the `--iterations` default
+   > `publish_fives_weights.py` re-declared against the example's 12, which is `#418` - and
+   > `square/12` to `cross/12` is **-0.0041**, which is `0.8.0a72`'s erosion. So the figure
+   > rose because the flag went, and the erosion moved it slightly the other way. `0.8.0a72`'s
+   > own sentence about this is true as written - before that release the publisher did
+   > produce 0.8329694, and after it no peel count can - but a reader of this bullet alone
+   > would attribute +0.045 to the erosion and be out by a factor of twelve with the sign
+   > reversed. `pyplatypus#426`.
 
 ### Fixed
 

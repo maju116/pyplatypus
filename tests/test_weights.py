@@ -530,6 +530,26 @@ def test_the_fives_entry_carries_the_two_things_a_reader_would_get_wrong():
         "assumes the repository's MIT applies to these would be wrong"
     )
 
+    # And the third, added by `pyplatypus#426`: a clDice figure without its peel count is a
+    # figure nobody can reproduce. The published sidecar carries 0.8779068 measured at twelve
+    # peels while this engine defaults to five, where the same file reads 0.7970546 - 0.0809
+    # apart, with nothing in the sidecar to say why. Held as a SHAPE rather than as the
+    # numbers: the measurement lives on the Hub, so nothing offline can confirm 0.878, and
+    # what this can confirm is that the description does not quote one without the other.
+    if "clDice" in description or "cldice" in description:
+        quoted = re.search(r"clDice\s+([\d.]+)", description, re.IGNORECASE)
+        assert quoted, "a clDice figure is quoted in a form this test cannot read"
+        after = description[quoted.end() : quoted.end() + 80]
+        assert "peel" in after, (
+            "the description quotes a clDice figure and does not name the peel count beside "
+            f"it: {after!r}. Five peels and twelve are 0.0809 apart on this very file, which "
+            "is what `#413` cost a day of measurement to find out"
+        )
+        assert "five" in description, (
+            "the engine's own default is five and the published figure is not at it; a "
+            "reader running `metric_cldice()` as it comes gets the other number"
+        )
+
 
 def test_the_instance_entry_cannot_quote_a_score_without_its_decoding():
     """These are the first published weights whose score is not one number, and the registry

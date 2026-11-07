@@ -678,15 +678,29 @@ class SegmentationModel(EncoderModel):
         return {**super().weights_fingerprint(), "blocks": self.blocks, "filters": self.filters}
 
     def measurement_fingerprint(self) -> dict:
-        """The metrics, resolved - which is where `cldice`'s `iterations` lives.
+        """The metrics, resolved - which is where `cldice`'s `iterations` lives - and the
+        tiling, which decides what gets scored at all.
 
         `model_dump` rather than the configuration as written, because the value this method
         exists for was never written: `iterations: 5` was `ClDice.__init__`'s default
         arriving through a flag. A dump carries it.
+
+        `splits` is here for the same reason one layer out, and it was missing until
+        `pyplatypus#427`: a source image is read at `splits * input_shape` and cut, so the
+        tiling changes the pictures the metric sees while the weights and the data stay the
+        same. Measured on the published `fives-unet`, which was trained and scored at four
+        by four: re-scored at two by two the same file reads Dice 0.8054393 against
+        0.8788833, and `weights_fingerprint` cannot refuse the difference because only
+        `input_shape` is checked and every tile is `input_shape` either way. 0.073 of Dice
+        with nothing about the model different.
+
+        `InstanceModel` inherits it, which is the answer to the other half of that issue:
+        an instance figure is a figure per decoding AND per tiling.
         """
         return {
             **super().measurement_fingerprint(),
             "metrics": [metric.model_dump(mode="json") for metric in self.metrics],
+            "splits": None if self.splits is None else list(self.splits),
         }
 
     @property
