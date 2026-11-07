@@ -347,3 +347,296 @@ def test_a_yaml_configuration_an_article_shows_is_accepted(path, line, block):
         from_dict(parsed, check_paths=False)
     except ConfigError as refusal:
         pytest.fail(f"the configuration at {path.name} line {line} is refused:\n{refusal}")
+
+
+# --------------------------------------------------------------------------------------
+# The figures the two retinal pages quote OF EACH OTHER - `pyplatypus#415`.
+#
+# This is a §3F pair nobody wrote down. `retinal-vessels.qmd` reports a forty-epoch run and
+# argues from R's fifteen-epoch one; `vignettes/retinal-vessels.Rmd` reports the fifteen and
+# argues from the forty, **quoting two of its figures to three decimals**. Each page's claim
+# rests on a number printed on the other, both pages are right to argue that way - *the
+# better-trained model closes the gap* is the finding and it needs both runs - and until this
+# test nothing noticed when one of the two moved.
+#
+# It moved. The vignette was re-knitted for `maju116/rplatypus#289` under `0.8.0a73` and its
+# mean difference went from -0.0523 to -0.0833, so the article's *about five points below*
+# became about eight and said five until somebody read both pages. Neither instrument nearby
+# can see it: R's `test-precomputed-vignettes.R` compares a vignette against its own source,
+# and the prose test above resolves `name()` and reads no figures at all.
+#
+# WHAT IS HELD, since the issue's own question was *which figures*. The two pages do not print
+# the same quantity and should not - one ran forty epochs and the other fifteen:
+#
+#   the sign        each page's own gap, in the direction its own prose claims
+#   the ordering    the forty-epoch gap sits above the fifteen-epoch one, which IS the
+#                   shared claim and the only thing the two pages assert together
+#   a quoted NUMBER held to the other page's own output, wherever a page states one
+#   a quoted WORD   held in its direction alone, because *several points below* is a claim
+#                   about a sign and about nothing else
+#
+# That last distinction is the whole design: it survives a re-knit, which the issue asks for,
+# **and** still fails on the stale *five*, which a sign-only guard would have passed. A number
+# in prose is pinned; a direction is not.
+#
+# This pair is NAMED rather than scanned, unlike everything above it in this file. There is no
+# general rule that an article quotes its vignette's figures - this one pair does, because its
+# two runs differ in epochs on purpose. A second such pair earns its own §3F row and its own
+# extractor, and a scan written now for pages nobody has written would be a guess.
+
+RETINAL = "retinal-vessels"
+RETINAL_ARTICLE = ROOT / "retinal-vessels.qmd"
+
+# The prose writes a count of points as a word, which is the house style in both packages.
+# `several`, `a few` and `some` are deliberately absent rather than mapped to a number: they
+# are not numbers, and the word/number distinction above only means something if a page that
+# names no number pins nothing.
+NUMBER_WORDS = {
+    "one": 1.0,
+    "two": 2.0,
+    "three": 3.0,
+    "four": 4.0,
+    "five": 5.0,
+    "six": 6.0,
+    "seven": 7.0,
+    "eight": 8.0,
+    "nine": 9.0,
+    "ten": 10.0,
+    "eleven": 11.0,
+    "twelve": 12.0,
+}
+
+# A point is a hundredth, so a mean difference of -0.0833 is 8.33 points. The bound is one
+# point: twice the most an honest rounding can be out - half a point - and a third of the
+# defect this exists for, *five* against 8.33, which is 3.33 away. Both figures are measured
+# off the pages as they stood when `#415` was filed, which is what §4 asks of a tolerance:
+# above the noise and below the thing it is written to catch, with both numbers written down.
+POINT = 1.0
+
+
+def r_printed_figures(text: str) -> dict[str, float]:
+    """The figures the vignette's own chunk prints, read by the names printed above them.
+
+    By role rather than by position. knitr writes a named vector as two `#>` lines, the first
+    carrying the names, so a reordered `round(c(...))` still answers correctly and a renamed
+    one fails loudly rather than reading a neighbour's column.
+    """
+    printed = [line[2:] for line in text.splitlines() if line.startswith("#>")]
+    for index, header in enumerate(printed[:-1]):
+        names = header.split()
+        if {"correlation", "mean_difference"} <= set(names):
+            values = printed[index + 1].split()
+            if len(values) == len(names):
+                return dict(zip(names, (float(value) for value in values)))
+    return {}
+
+
+def article_table_figures(text: str) -> dict[str, float]:
+    """The article's own two figures, read out of its table by the row labels."""
+    labels = {
+        "correlation": "correlation of dice and cldice",
+        "mean_difference": "mean of clDice minus Dice",
+    }
+    found = {}
+    for key, label in labels.items():
+        row = re.search(
+            r"^\|\s*" + re.escape(label) + r"\s*\|\s*([+-]?[\d.]+)\s*\|\s*$",
+            text,
+            re.MULTILINE | re.IGNORECASE,
+        )
+        if row:
+            found[key] = float(row.group(1))
+    return found
+
+
+def r_quotes_the_engine(text: str) -> dict[str, str]:
+    """What the vignette states the engine's forty-epoch run measured, AS WRITTEN.
+
+    The strings rather than the floats, because how many decimals a page quotes is part of
+    what it claims: `0.978` is a claim about three of them and nothing about the fourth.
+    """
+    said = re.search(
+        # The digits and not a trailing full stop: `[\d.]+` swallowed the one that ends
+        # the sentence and handed `float()` the string `+0.004.`, which is §4's extractor
+        # answering a question one character wider than the one asked.
+        r"correlation of\s+(\d+(?:\.\d+)?)\s+and a mean difference of\s+([+-]?\d+(?:\.\d+)?)",
+        re.sub(r"\s+", " ", text),
+    )
+    if not said:
+        return {}
+    return {"correlation": said.group(1), "mean_difference": said.group(2)}
+
+
+def article_quotes_r(text: str) -> tuple[str, float | None]:
+    """What the article says about the other page's gap: a direction, and a number or not.
+
+    The emphasis is stripped first because this one phrase has carried `about five\npoints
+    *below*` and `**several points below**` inside one month - the markdown around a word is
+    not part of the claim, and neither is where the line happens to wrap.
+    """
+    flat = re.sub(r"\s+", " ", re.sub(r"[*_]", "", text))
+    said = re.search(
+        r"clDice sits (?:about )?([a-z]+|\d+(?:\.\d+)?) points? (below|above) Dice", flat
+    )
+    if not said:
+        return "", None
+    stated, direction = said.group(1), said.group(2)
+    if re.fullmatch(r"\d+(?:\.\d+)?", stated):
+        return direction, float(stated)
+    return direction, NUMBER_WORDS.get(stated)
+
+
+@pytest.fixture(scope="module")
+def retinal_pair():
+    """Both pages, with the same control the section walk uses rather than a second one."""
+    theirs = fetch(VIGNETTE.format(name=RETINAL))
+    if theirs is None:
+        if fetch(CONTROL) is not None:
+            pytest.fail(
+                f"{CONTROL} is reachable and vignettes/{RETINAL}.Rmd is not - the vignette "
+                "moved or was renamed, which is a finding rather than a network problem"
+            )
+        pytest.skip(f"no network: vignettes/{RETINAL}.Rmd could not be fetched")
+    return RETINAL_ARTICLE.read_text(), theirs
+
+
+def test_the_retinal_pages_still_print_the_figures_they_argue_from(retinal_pair):
+    """The positive control, and the half that turns a rewrite into a failure.
+
+    Without it the two assertions below compare empty dicts and pass - §4's category in the
+    form where both sides agree on nothing, and the wrap's-warning pair's own lesson: assert
+    that each half was found before comparing them. So a page rewritten past these extractors
+    fails as *the page changed* rather than quietly holding nothing.
+    """
+    ours, theirs = retinal_pair
+
+    mine = article_table_figures(ours)
+    assert {"correlation", "mean_difference"} <= set(mine), (
+        f"{RETINAL_ARTICLE.name} no longer prints its own clDice-minus-Dice table rows - "
+        f"found {sorted(mine)}. The page was rewritten, or the row labels moved"
+    )
+
+    printed = r_printed_figures(theirs)
+    assert {"correlation", "mean_difference"} <= set(printed), (
+        f"vignettes/{RETINAL}.Rmd no longer prints `correlation` and `mean_difference` as a "
+        f"named vector - found {sorted(printed)}. The chunk changed, or it stopped being knit"
+    )
+
+    assert r_quotes_the_engine(theirs), (
+        f"vignettes/{RETINAL}.Rmd stopped quoting the engine's forty-epoch correlation and "
+        "mean difference. If that cross-reference went on purpose, this pair is smaller than "
+        "it was and the §3F row says so; if not, the page lost the evidence for its claim"
+    )
+
+    direction, _ = article_quotes_r(ours)
+    assert direction, (
+        f"{RETINAL_ARTICLE.name} stopped saying which way the vignette's gap runs. That "
+        "sentence is the article's half of the shared claim, so losing it loses the argument "
+        "rather than only the number"
+    )
+
+
+def page_states_its_own_sign(text: str) -> str:
+    """Which way a page says ITS OWN mean difference runs, read out of its own sentence.
+
+    Hard-coding the two signs looked right and was the weaker test: `forty >= 0` beside
+    `fifteen < 0` is an invented pair of bounds, and a forty-epoch rebuild landing at -0.001
+    would fail it on a page that had been rewritten to say so. Read from the prose, the same
+    assertion holds the figure to the sentence over it, which is a pair rather than a guess -
+    and it leaves the ordering below with something of its own to say.
+
+    Exactly one of the two words, or nothing: prose carrying both is prose this extractor
+    cannot read, and answering anyway would be §4's probe giving the comfortable answer.
+    """
+    flat = re.sub(r"\s+", " ", re.sub(r"[*_]", "", text))
+    said = re.search(r"mean difference is ([^.;\-]+)", flat, re.IGNORECASE)
+    if not said:
+        return ""
+    claimed = {word for word in ("positive", "negative") if word in said.group(1).lower()}
+    return claimed.pop() if len(claimed) == 1 else ""
+
+
+def test_each_retinal_page_agrees_with_its_own_PROSE_about_the_sign_of_its_gap(retinal_pair):
+    """The sign, held to the sentence each page writes over its own figure.
+
+    Two pairs rather than two bounds. The article says the mean difference is *small and
+    positive* and measures one; the vignette says *negative and not small* and measures one.
+    A re-knit that moves a figure across zero without touching the sentence fails here, which
+    is the half of `#415` that lives inside one page rather than between the two.
+    """
+    for label, text, figures in (
+        (RETINAL_ARTICLE.name, retinal_pair[0], article_table_figures(retinal_pair[0])),
+        (f"vignettes/{RETINAL}.Rmd", retinal_pair[1], r_printed_figures(retinal_pair[1])),
+    ):
+        claimed = page_states_its_own_sign(text)
+        assert claimed, (
+            f"{label} no longer says which way its own mean difference runs, or says both - "
+            "the sentence is what the figure under it is held to, so this is not a pass"
+        )
+        measured = figures["mean_difference"]
+        assert (measured >= 0) == (claimed == "positive"), (
+            f"{label} says its mean clDice-minus-Dice is {claimed} and measures "
+            f"{measured:+.4f}. The figure was rebuilt and the sentence over it was not"
+        )
+
+
+def test_the_better_trained_retinal_run_closes_the_gap(retinal_pair):
+    """The shared claim, and the only thing the two pages assert together.
+
+    *The better-trained model closes the gap* is written on both pages, in those words, and
+    neither page measures it: the article has forty epochs and the vignette fifteen. Held as
+    an ordering rather than as either number, because both numbers move whenever either page
+    is rebuilt - the vignette's did, which is what `#415` is - and because the ordering is the
+    sentence, where the two signs are only today's way of satisfying it.
+
+    It is its own test rather than a third assertion beside the signs: in one test the sign
+    assertions run first and a mutation that moves a figure far enough to break the ordering
+    breaks a sign too, so the line below would never be reached and would be guarded by
+    nothing. §4's *ask what the change would have to break* - here the answer was *nothing*,
+    inside a test that was passing.
+    """
+    ours, theirs = retinal_pair
+    forty = article_table_figures(ours)["mean_difference"]
+    fifteen = r_printed_figures(theirs)["mean_difference"]
+    assert forty > fifteen, (
+        f"the forty-epoch gap is {forty:+.4f} and the fifteen-epoch one is {fifteen:+.4f}, so "
+        "the better-trained model does NOT close the gap on these figures. That sentence is "
+        "written on both pages and is the reason either of them quotes the other"
+    )
+
+
+def test_each_retinal_page_quotes_the_others_figures_as_that_page_prints_them(retinal_pair):
+    """A number quoted of the other page is held to that page's own output; a word is not.
+
+    The two halves run in opposite directions and that is the point. The vignette states the
+    engine's figures to three decimals, so they are held to three. The article states only a
+    direction for the vignette's, so only the direction is held - and if it ever names a count
+    of points again, that count is held to within `POINT` of the vignette's own figure, which
+    is what the stale *five* against -0.0833 failed.
+    """
+    ours, theirs = retinal_pair
+    mine = article_table_figures(ours)
+    printed = r_printed_figures(theirs)
+
+    for key, literal in r_quotes_the_engine(theirs).items():
+        places = len(literal.partition(".")[2])
+        assert round(mine[key], places) == pytest.approx(float(literal), abs=10 ** -(places + 3)), (
+            f"vignettes/{RETINAL}.Rmd tells a reader the engine's {key.replace('_', ' ')} is "
+            f"{literal}, and {RETINAL_ARTICLE.name} measures {mine[key]:+.4f}. One of the two "
+            "pages was rebuilt and the other's sentence about it was not"
+        )
+
+    direction, stated = article_quotes_r(ours)
+    fifteen = printed["mean_difference"]
+    assert (fifteen < 0) == (direction == "below"), (
+        f"{RETINAL_ARTICLE.name} says clDice sits {direction} Dice in the vignette, and the "
+        f"vignette measures {fifteen:+.4f}"
+    )
+    if stated is not None:
+        points = abs(fifteen) * 100
+        assert abs(stated - points) <= POINT, (
+            f"{RETINAL_ARTICLE.name} pins the vignette's gap at {stated:g} points and the "
+            f"vignette measures {points:.2f}. A number quoted of another page is a number that "
+            "page can move: either re-read it, or say the direction without a count, which is "
+            "what this sentence does today"
+        )
