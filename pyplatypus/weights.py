@@ -116,8 +116,11 @@ REGISTRY: dict[str, Published] = {
             "over the 200 held-out images, worst case 0.105. The per-disease table reads "
             "picture quality as pathology: 14 of the 15 test images flagged for low contrast "
             "are glaucoma, and over the images FIVES grades clean glaucoma is the strongest "
-            "group rather than the weakest. **These weights are CC BY 4.0, not MIT**, because "
-            "the data is - attribution travels with them and the sidecar carries the citation."
+            "group rather than the weakest. **clDice 0.878 at twelve skeleton peels**, not "
+            "at the engine's default of five: at five the same file reads 0.797, so that "
+            "figure means nothing without its peel count. **These weights are CC BY "
+            "4.0, not MIT**, because the data is - attribution travels with them and the "
+            "sidecar carries the citation."
         ),
     ),
     "hc18-unet": Published(

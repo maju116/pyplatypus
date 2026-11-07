@@ -120,7 +120,7 @@ def inspect_keys(model) -> set[str]:
 # And the behaviour, on the case this exists for.
 
 
-def _segmentation(metrics):
+def _segmentation(metrics, **model):
     return from_dict(
         {
             "task": "semantic_segmentation",
@@ -129,7 +129,7 @@ def _segmentation(metrics):
                 "validation_path": "b",
                 "colormap": [[0, 0, 0], [255, 255, 255]],
             },
-            "models": [{"name": "m", "input_shape": [32, 32], "metrics": metrics}],
+            "models": [{"name": "m", "input_shape": [32, 32], "metrics": metrics, **model}],
         },
         check_paths=False,
     ).models[0]
@@ -180,3 +180,61 @@ def test_the_detection_fingerprint_names_the_thresholds_that_move_its_table(dete
     # adding it later is a decision rather than a slip.
     assert "ignore_threshold" in type(model).model_fields
     assert "ignore_threshold" not in recorded
+
+
+def test_the_TILING_is_recorded_because_it_decides_which_pictures_were_scored():
+    """`pyplatypus#427`: the field that was out and is one.
+
+    A source image is read at `splits * input_shape` and cut, so the tiling changes the
+    pictures the metric sees rather than the model. On the published `fives-unet` - trained
+    and scored at four by four - a re-score at two by two reads Dice 0.8054393 against
+    0.8788833, and `weights_fingerprint` cannot refuse it: only `input_shape` is checked and
+    every tile is `input_shape` either way. So the sidecar for those two runs was identical
+    and one of the two numbers was wrong for it.
+
+    Both directions, because recording a constant would satisfy either one alone.
+    """
+    untiled = _segmentation([{"name": "dice"}])
+    tiled = _segmentation([{"name": "dice"}], splits=[4, 4])
+
+    assert untiled.measurement_fingerprint()["splits"] is None, (
+        "a model that resizes instead of tiling has to say so rather than leave the key out: "
+        "absent and `null` read alike to `jsonlite`, which is `0.8.0a74`'s own lesson"
+    )
+    assert tiled.measurement_fingerprint()["splits"] == [4, 4]
+    assert tiled.measurement_fingerprint() != untiled.measurement_fingerprint(), (
+        "two runs that score different pictures write the same sidecar, which is the whole "
+        "of what this records"
+    )
+
+
+def test_an_instance_model_inherits_the_tiling_as_well_as_its_own_two():
+    """The other half of `#427`: an instance figure is per decoding AND per tiling.
+
+    `InstanceModel` extends `SegmentationModel`, so this is inheritance rather than a second
+    copy - and it is asserted because nothing else says the inheritance is wanted, which is
+    how `surface_dice` reached one side of the whole-mask pair and not the other.
+    """
+    model = from_dict(
+        {
+            "task": "instance_segmentation",
+            "data": {"train_path": ".", "validation_path": "."},
+            "models": [
+                {
+                    "name": "nuclei",
+                    "input_shape": [256, 256],
+                    "separation": {"name": "rim"},
+                    "splits": [2, 2],
+                }
+            ],
+        },
+        check_paths=False,
+    ).models[0]
+    recorded = model.measurement_fingerprint()
+
+    assert "splits" in recorded, (
+        f"an instance model records {sorted(recorded)}. It can tile exactly as a semantic "
+        "one can, and the field it inherits is the one that decides what was scored"
+    )
+    assert recorded["splits"] == [2, 2]
+    assert {"separation", "decode", "metrics"} <= set(recorded)
