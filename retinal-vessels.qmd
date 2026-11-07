@@ -234,8 +234,9 @@ draws are about as connected as their pixel overlap suggests.
 
 That is a property of the metric's **peel count** before it is one of either model, and the R
 vignette is where the difference shows. `iterations: 12` above is not what that page measures:
-`metric_cldice()` there takes its default of five, so its clDice sits **several points below**
-Dice where this page's sits just above it. Those are two measurements rather than one.
+it leaves the peel count unset, so it takes this engine's default of **five** where this page
+asks for twelve - and its clDice sits **several points below** Dice where this page's own
+sits just above it. Those are two measurements rather than one.
 
 A run of this page's own configuration is published as `fives-unet`, so the comparison can be
 made without training anything. Re-scored on the same 200 cases with nothing but the peel
