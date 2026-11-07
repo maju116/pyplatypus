@@ -232,21 +232,42 @@ the two metrics rank the cases much the same way, so clDice is not finding a dif
 bad images. The **mean difference** is small and positive, which says the vessels this model
 draws are about as connected as their pixel overlap suggests.
 
-That is a property of the model rather than of the metric, and the R vignette's own run is the
-evidence. At fifteen epochs instead of forty, clDice sits **several points below** Dice there:
-the model is getting the right pixels and breaking the lines. **The better-trained model closes
-the gap**, so a large negative gap is not clDice being pessimistic - it is clDice measuring
-what fifteen epochs had not finished learning, and Dice not noticing.
+That is a property of the metric's **peel count** before it is one of either model, and the R
+vignette is where the difference shows. `iterations: 12` above is not what that page measures:
+`metric_cldice()` there takes its default of five, so its clDice sits **several points below**
+Dice where this page's sits just above it. Those are two measurements rather than one.
 
-**Those three figures, and every clDice on this page, were measured before clDice's own
-definition changed.** `0.8.0a72` made the soft skeleton erode with a four-neighbour cross
-rather than a 3 x 3 square, because that is what the reference implementation this metric
-cites does; a cross erodes less, leaves a thinner skeleton, and scores lower. How much lower
-depends on the prediction - between 0.004 and 0.074 across three thinning levels on ten of
-these masks - so a clDice from one definition and a clDice from the other are not a difference
-worth reading, and the R vignette's own page is now measured with the new one while this walk
-is not. The figures here are left as they were measured rather than adjusted: this run's
-weights were not kept, and an adjusted number is a number nothing produced.
+A run of this page's own configuration is published as `fives-unet`, so the comparison can be
+made without training anything. Re-scored on the same 200 cases with nothing but the peel
+count changed:
+
+| | |
+|---|---|
+| correlation of dice and cldice, at five peels | 0.8563 |
+| mean of clDice minus Dice, at five peels | -0.0818 |
+
+Those are the vignette's own 0.8581 and -0.0833 to within 0.002, on a model trained for forty
+epochs rather than fifteen. So of the 0.0874 between the two pages' gaps, **about 0.085 is the
+peel count and 0.0015 is the training** - and the sentence this page carried until
+`pyplatypus#425`, *the better-trained model closes the gap*, was an artefact of reading a
+figure measured at five peels against one measured at twelve.
+
+What survives it is the reason twelve is the right number here, which is the paragraph above:
+a nine-pixel vessel needs about half that many erosions to reach its centreline, and at five
+the widest vessels in the set keep a skeleton several pixels across. Part of what clDice then
+measures is thickness, which is the thing it exists to ignore - the same sentence that applies
+to a square erosion, one parameter over.
+
+**The three figures in the first table, and every other clDice on this page, were measured
+before clDice's own definition changed; the two in the second were measured after it.**
+`0.8.0a72` made the soft skeleton erode with a four-neighbour cross rather than a 3 x 3
+square, because that is what the reference implementation this metric cites does; a cross
+erodes less, leaves a thinner skeleton, and scores lower. How much lower depends on the
+prediction - between 0.004 and 0.074 across three thinning levels on ten of these masks, and
+0.004 on the published weights at twelve peels - so a clDice from one definition and a clDice
+from the other are not a difference worth reading. The first table is left as it was measured
+rather than adjusted: this walk's own weights were not kept, and an adjusted number is a
+number nothing produced.
 
 The last section finds the same column doing the same work across eleven objectives, which is
 the strongest version of this point available.

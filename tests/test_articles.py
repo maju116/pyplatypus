@@ -431,12 +431,21 @@ def r_printed_figures(text: str) -> dict[str, float]:
     return {}
 
 
-def article_table_figures(text: str) -> dict[str, float]:
-    """The article's own two figures, read out of its table by the row labels."""
-    labels = {
-        "correlation": "correlation of dice and cldice",
-        "mean_difference": "mean of clDice minus Dice",
-    }
+# The bound on the two pages agreeing once they are measured alike, and both ends of it are
+# measured. The published weights at the vignette's own five peels give -0.0818 against the
+# vignette's printed -0.0833, 0.0015 apart, and 0.8563 against 0.8581, 0.0018 apart; two runs
+# of the article's own configuration differ by 0.0009 (its printed +0.0041 against the same
+# weights at twelve peels, +0.0032). What this has to refuse is the comparison both pages made
+# until `#425` - five peels read against twelve, 0.0850 apart - so 0.01 sits six times above
+# the agreement and eight times below the defect. The pages claim *to within 0.002*, which is
+# tighter than this on purpose: that claim is a number in prose and is held by the quote test
+# below, where it fails against the page's own output rather than against a bound.
+RESCORED = 0.01
+
+
+def _table_rows(text: str, labels: dict[str, str]) -> dict[str, float]:
+    """A quarto table's rows, by label. One reader, because two copies of a regex is the
+    thing §3F is a list of."""
     found = {}
     for key, label in labels.items():
         row = re.search(
@@ -447,6 +456,39 @@ def article_table_figures(text: str) -> dict[str, float]:
         if row:
             found[key] = float(row.group(1))
     return found
+
+
+def article_table_figures(text: str) -> dict[str, float]:
+    """The article's own two figures: its forty-epoch run at TWELVE peels.
+
+    Not comparable with anything the vignette prints, which is what `#425` is about - the
+    label carries no peel count because this is the page's own walk, and the row the
+    comparison uses is the one below.
+    """
+    return _table_rows(
+        text,
+        {
+            "correlation": "correlation of dice and cldice",
+            "mean_difference": "mean of clDice minus Dice",
+        },
+    )
+
+
+def article_rescored_figures(text: str) -> dict[str, float]:
+    """The article's second table: the published weights at the vignette's own peel count.
+
+    These two rows are the only figures on either page that are comparable with the other's,
+    because only the peel count differs from the vignette's measurement - the weights are a
+    run of the article's configuration, published as `fives-unet`, and nothing was retrained
+    to produce them. So this is the pair the shared claim is held over.
+    """
+    return _table_rows(
+        text,
+        {
+            "correlation": "correlation of dice and cldice, at five peels",
+            "mean_difference": "mean of clDice minus Dice, at five peels",
+        },
+    )
 
 
 def r_quotes_the_engine(text: str) -> dict[str, str]:
@@ -516,6 +558,14 @@ def test_the_retinal_pages_still_print_the_figures_they_argue_from(retinal_pair)
         f"found {sorted(mine)}. The page was rewritten, or the row labels moved"
     )
 
+    rescored = article_rescored_figures(ours)
+    assert {"correlation", "mean_difference"} <= set(rescored), (
+        f"{RETINAL_ARTICLE.name} no longer prints the published weights re-scored at five "
+        f"peels - found {sorted(rescored)}. Those two rows are the only figures on either "
+        "page comparable with the other's, so without them the shared claim below is held "
+        "over nothing - which is exactly the state `#425` found"
+    )
+
     printed = r_printed_figures(theirs)
     assert {"correlation", "mean_difference"} <= set(printed), (
         f"vignettes/{RETINAL}.Rmd no longer prints `correlation` and `mean_difference` as a "
@@ -580,28 +630,29 @@ def test_each_retinal_page_agrees_with_its_own_PROSE_about_the_sign_of_its_gap(r
         )
 
 
-def test_the_better_trained_retinal_run_closes_the_gap(retinal_pair):
-    """The shared claim, and the only thing the two pages assert together.
+def test_the_two_retinal_pages_compare_at_ONE_peel_count(retinal_pair):
+    """The shared claim, held over the two figures that are measured alike.
 
-    *The better-trained model closes the gap* is written on both pages, in those words, and
-    neither page measures it: the article has forty epochs and the vignette fifteen. Held as
-    an ordering rather than as either number, because both numbers move whenever either page
-    is rebuilt - the vignette's did, which is what `#415` is - and because the ordering is the
-    sentence, where the two signs are only today's way of satisfying it.
+    Until `#425` this read `forty > fifteen` over the article's twelve-peel figure and the
+    vignette's five-peel one, and the sentence it protected - *the better-trained model closes
+    the gap* - was an artefact of that comparison. Measured at one peel count the gap does not
+    close: the published forty-epoch weights at the vignette's own five peels give -0.0818
+    against its printed -0.0833, and 0.085 of the 0.0874 between the two pages was the
+    parameter. An ordering of two numbers measured two ways is §4's *a number that agrees is
+    not evidence that the thing agrees*, in a test written to hold a pair.
 
-    It is its own test rather than a third assertion beside the signs: in one test the sign
-    assertions run first and a mutation that moves a figure far enough to break the ordering
-    breaks a sign too, so the line below would never be reached and would be guarded by
-    nothing. §4's *ask what the change would have to break* - here the answer was *nothing*,
-    inside a test that was passing.
+    So what is held is the agreement rather than an ordering, which is the claim both pages
+    make now. It stays its own test for the reason the ordering did: in one test with the sign
+    assertions the line below is unreachable once a sign has already failed.
     """
     ours, theirs = retinal_pair
-    forty = article_table_figures(ours)["mean_difference"]
+    rescored = article_rescored_figures(ours)["mean_difference"]
     fifteen = r_printed_figures(theirs)["mean_difference"]
-    assert forty > fifteen, (
-        f"the forty-epoch gap is {forty:+.4f} and the fifteen-epoch one is {fifteen:+.4f}, so "
-        "the better-trained model does NOT close the gap on these figures. That sentence is "
-        "written on both pages and is the reason either of them quotes the other"
+    assert abs(rescored - fifteen) <= RESCORED, (
+        f"{RETINAL_ARTICLE.name} re-scores its own weights at five peels to {rescored:+.4f} "
+        f"and vignettes/{RETINAL}.Rmd measures {fifteen:+.4f}, {abs(rescored - fifteen):.4f} "
+        f"apart against a bound of {RESCORED}. Both pages say the two agree at one peel count "
+        "and that the distance between their tables is the parameter rather than the training"
     )
 
 
@@ -615,15 +666,19 @@ def test_each_retinal_page_quotes_the_others_figures_as_that_page_prints_them(re
     is what the stale *five* against -0.0833 failed.
     """
     ours, theirs = retinal_pair
-    mine = article_table_figures(ours)
+    rescored = article_rescored_figures(ours)
     printed = r_printed_figures(theirs)
 
     for key, literal in r_quotes_the_engine(theirs).items():
         places = len(literal.partition(".")[2])
-        assert round(mine[key], places) == pytest.approx(float(literal), abs=10 ** -(places + 3)), (
-            f"vignettes/{RETINAL}.Rmd tells a reader the engine's {key.replace('_', ' ')} is "
-            f"{literal}, and {RETINAL_ARTICLE.name} measures {mine[key]:+.4f}. One of the two "
-            "pages was rebuilt and the other's sentence about it was not"
+        assert round(rescored[key], places) == pytest.approx(
+            float(literal), abs=10 ** -(places + 3)
+        ), (
+            f"vignettes/{RETINAL}.Rmd tells a reader the engine's {key.replace('_', ' ')} at "
+            f"five peels is {literal}, and {RETINAL_ARTICLE.name} measures "
+            f"{rescored[key]:+.4f}. One of the two pages was rebuilt and the other's sentence "
+            "about it was not - and the figure quoted is the re-scored one since `#425`, "
+            "because the twelve-peel row is not a number this vignette can be read against"
         )
 
     direction, stated = article_quotes_r(ours)
