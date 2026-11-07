@@ -12,13 +12,16 @@ anchors have to be there, because the specification that produced it does not na
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from pyplatypus import Engine, build_engine, from_dict, read_record
 from pyplatypus.runs import write_record
+from pyplatypus.training.trainer import History
 
 
 def tiny_segmentation(root, output_dir=None):
@@ -227,3 +230,212 @@ def test_a_record_holding_a_NAN_is_written_as_null_so_R_can_read_it(tmp_path):
     # pass the assertions above and destroy the record.
     assert back["history"][0]["train_loss"] == 0.5
     assert back["history"][0]["epoch"] == 1
+
+
+# --- which epoch the weights came from, which the record did not say ----------------------
+#
+# `pyplatypus#417`, the remainder of `#403`. The provenance is recorded where it is decided
+# and read by all four score tables, and until this it **left the process with the session**:
+# `write_record` reached past the history into `history.records`, so `run.json` said which
+# epoch was best by every metric the run logged and not which epoch's weights it shipped.
+# `History.to_dict()` carried the field since `#398` and had no caller at all.
+#
+# The column answers the question for somebody reading a table in the session that produced
+# it. The record answers it for somebody holding a directory six months later, which is the
+# case `trained_with` on a weights sidecar exists for - and a run whose weights were published
+# had its epoch in neither place.
+#
+# It is a SIBLING of `history` rather than a field inside it, because that key is a list of
+# per-epoch rows and R reads exactly it: `read_record()` turns it into a data frame, so a
+# scalar in there would change the type for the one reader that exists.
+
+
+def _with_early_stopping(root, output_dir, *, epochs, patience):
+    """A tiny run that selects an epoch, so the provenance has a value to carry.
+
+    `restore_best` is what makes the weights an epoch's rather than the last one's, and
+    `monitor` is left at its default because the point here is the record rather than the
+    monitor - `#398` is where the two are told apart.
+    """
+    spec = tiny_segmentation(root, output_dir=output_dir)
+    config = spec.to_dict()
+    config["models"][0]["epochs"] = epochs
+    config["models"][0]["callbacks"] = [
+        {"name": "early_stopping", "patience": patience, "restore_best": True}
+    ]
+    return from_dict(config)
+
+
+def test_the_record_says_which_epoch_the_weights_came_from(tmp_path):
+    """End to end, and compared against the TABLE rather than against a number.
+
+    Built from a history the trainer produced, which the issue asks for in those words: a
+    test that hands `write_record` a literal asserts that `json.dumps` works. So a real fit
+    runs, `early_stopping(restore_best = TRUE)` decides which epoch the weights are from, and
+    the record is then held to what `evaluate()` reports for the same run. Two readers, one
+    definition - a record that answered differently from the table beside it would be worse
+    than one that said nothing.
+    """
+    out = tmp_path / "runs"
+    spec = _with_early_stopping(tmp_path, out, epochs=3, patience=5)
+    built = Engine(spec, device="cpu", check_masks=False)
+    built.fit()
+    table = built.evaluate("validation")
+
+    record = read_record(out / "u" / "run.json")
+    assert "weights_epoch" in record, (
+        "the record does not say which epoch the weights came from - which is the one fact "
+        "about a run that cannot be worked out again from the directory it left behind"
+    )
+    # `evaluate` answers with a list of rows, and the column is read by its name. NOT through
+    # a `hasattr` fallback, which is what the first version of this did: it answered `None`
+    # when the accessor was wrong and reported the record disagreeing with the table by 3
+    # against None - §4's probe giving the comfortable answer, here as a finding that was not
+    # there. A missing column raises instead.
+    assert len(table) == 1, f"one model, so one row - got {len(table)}"
+    reported = table[0]["best_epoch"]
+    assert record["weights_epoch"] == reported, (
+        f"the record says epoch {record['weights_epoch']} and the score table says "
+        f"{reported}. Both read `history.weights_epoch`, so this is two copies of one fact "
+        "disagreeing rather than either of them being wrong on its own"
+    )
+    assert isinstance(record["weights_epoch"], int), (
+        f"the epoch arrived as {type(record['weights_epoch']).__name__}; `restore_best` ran, "
+        "so a run that selected an epoch should report the number and not null"
+    )
+    # The rows are untouched, which is the whole reason this is a sibling key: R turns this
+    # one into a data frame and a scalar in it would change its type.
+    assert isinstance(record["history"], list)
+    assert len(record["history"]) == 3
+    assert all(isinstance(row, dict) for row in record["history"])
+
+
+def test_the_record_carries_a_NULL_epoch_when_the_weights_are_no_single_epochs(tmp_path):
+    """The deliberate half: present and null, not absent.
+
+    A run with no callback that replaces weights ended on its last epoch, which `history`
+    already says by its length - so `None` is the honest answer rather than a gap, and a key
+    that vanished would be indistinguishable from this release never having happened.
+    """
+    out = tmp_path / "runs"
+    Engine(tiny_segmentation(tmp_path, output_dir=out), device="cpu", check_masks=False).fit()
+
+    record = read_record(out / "u" / "run.json")
+    assert "weights_epoch" in record
+    assert record["weights_epoch"] is None
+    # The control that this run really had no selection to report, so the null above is the
+    # answer rather than a run that failed to record one.
+    assert len(record["history"]) == 1
+
+
+def test_every_run_LEVEL_FACT_a_history_carries_reaches_the_record(tmp_path):
+    """The class rather than the two instances of it, read off `History` by introspection.
+
+    `weights_epoch` was the field this release is about and `stop_reason` was missing by
+    exactly the same mechanism, in the same object, beside it - and `spec/components.py` tells
+    a reader that *"the run's `stop_reason` names the clock, so a run that ran out of time
+    does not read as a run that converged"*, which was true in a session and false of the
+    file. Adding one and leaving the other is §3F's omission with a release's delay.
+
+    So nothing here names the fields. `write_record` reads them off `History.to_dict()` and
+    this reads them off the dataclass, so a field added to `History` either reaches the
+    record or fails this test - which is what closes the class instead of the instance.
+
+    Each is given a value no default could produce, because a field dropped on the way would
+    otherwise be indistinguishable from one that is legitimately empty.
+    """
+    carried = [field.name for field in dataclasses.fields(History) if field.name != "records"]
+    assert carried, (
+        "`History` declares nothing beside its rows, so this test is comparing nothing - "
+        "the dataclass was restructured and this guard has to be re-aimed"
+    )
+
+    history = History(records=[{"epoch": 1, "train_loss": 0.5}])
+    distinctive = {}
+    for name in carried:
+        value = {"stop_reason": "a reason nothing defaults to", "weights_epoch": 7}.get(name)
+        assert value is not None, (
+            f"`History` gained the field `{name}` and this test has no distinctive value for "
+            "it. Add one here rather than relaxing the comparison: a field set to its own "
+            "default cannot be told from a field that was dropped"
+        )
+        setattr(history, name, value)
+        distinctive[name] = value
+
+    spec = tiny_segmentation(tmp_path, output_dir=tmp_path / "runs")
+    record = read_record(write_record(spec, "m", history=history))
+
+    for name, value in distinctive.items():
+        assert name in record, (
+            f"a history carries `{name}` and the record does not. `write_record` reads them "
+            "off `History.to_dict()`, so either that method stopped offering it or the "
+            "record stopped writing what it offers"
+        )
+        assert record[name] == value, f"`{name}` arrived as {record[name]!r}, not {value!r}"
+    # The rows still went where they always went, under their own key and as a list.
+    assert record["history"] == [{"epoch": 1, "train_loss": 0.5}]
+
+
+def test_a_history_field_that_would_overwrite_the_record_is_REFUSED(tmp_path):
+    """The guard on the mechanism above, because reading fields off an object is open-ended.
+
+    A `model` field on a history would otherwise rewrite the model's name and the record would
+    say the wrong thing quietly, which is worse than a record that could not be written. The
+    refusal names the key, so the repair is obvious from the message.
+    """
+
+    class _Colliding(History):
+        def to_dict(self):
+            return {"records": [], "model": "not the model's name", "written": "nor this"}
+
+    spec = tiny_segmentation(tmp_path, output_dir=tmp_path / "runs")
+    with pytest.raises(ValueError, match=r"\['model', 'written'\]"):
+        write_record(spec, "m", history=_Colliding())
+
+    # And the ordinary case is not refused, which is the control: a guard that fired on
+    # everything would pass the assertion above and break every run.
+    assert write_record(spec, "m", history=History(records=[{"epoch": 1}])).is_file()
+
+
+#: The record's structural keys - everything in it that is not a history's. Written out by
+#: hand on purpose, because this IS the file format: R's `test-records.R` asserts
+#: `names(record)` with `expect_setequal`, so a key added here turns that suite red when the
+#: pin moves, and a key added by ACCIDENT should fail in the engine first.
+#:
+#: It exists because a mutation survived without it. `_history_parts` popping the rows out of
+#: `to_dict()` rather than reading them with `get` is the difference between a record with one
+#: `history` key and a record carrying a duplicate `records` beside it - semantically the same
+#: file, and a silent change to a published format that only R's suite could have caught.
+#: §3F's own argument: the engine's answer has to be held in the engine's suite, or the next
+#: person to read the R failure fixes the R side.
+RECORD_KEYS = frozenset({"written", "pyplatypus", "model", "specification", "derived", "history"})
+
+
+def test_the_record_holds_EXACTLY_the_keys_the_format_declares(tmp_path):
+    """The format, from its two sources rather than from one list.
+
+    The structural keys are this module's and the rest are whatever a `History` carries, so
+    the expected set is built the same way the record is - and both an extra key and a missing
+    one fail here. That is the assertion R has had since before this release and the engine
+    had not.
+    """
+    out = tmp_path / "runs"
+    spec = _with_early_stopping(tmp_path, out, epochs=2, patience=5)
+    Engine(spec, device="cpu", check_masks=False).fit()
+    record = read_record(out / "u" / "run.json")
+
+    beside_the_rows = {
+        field.name for field in dataclasses.fields(History) if field.name != "records"
+    }
+    expected = set(RECORD_KEYS) | beside_the_rows
+    assert set(record) == expected, (
+        f"the record's keys have changed.\n  only in the file: {sorted(set(record) - expected)}"
+        f"\n  only expected:    {sorted(expected - set(record))}\n"
+        "`run.json` is a published format and R pins this set exactly, so a key arriving or "
+        "leaving is a decision - take it here, in `RECORD_KEYS` or on `History`, and move R's "
+        "assertion with the pin"
+    )
+    # The control that the comparison is over something: an empty set equals an empty set,
+    # and `History` having no fields would make the half above vacuous.
+    assert beside_the_rows, "`History` declares nothing beside its rows - re-aim this guard"
+    assert len(expected) > len(RECORD_KEYS)

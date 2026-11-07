@@ -29,6 +29,30 @@ def wants_a_record(spec) -> bool:
     return "output_dir" in spec.model_fields_set
 
 
+def _history_parts(history: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """The per-epoch rows, and the run-level facts that sit beside them.
+
+    `History.to_dict()` is the one place that says what a history carries, and until
+    `pyplatypus#417` it had **no caller at all**. So `weights_epoch` and `stop_reason` were
+    recorded where they are decided, read by all four score tables, and then left the process
+    with the session: a directory six months later said which epoch was best by every metric
+    the run logged and not which epoch's weights it shipped, in the one file whose docstring
+    calls it a thing you can run rather than read.
+
+    Reading them off `to_dict()` rather than naming them here is what keeps this from being a
+    second list to maintain - a field added to `History` reaches the record by arriving, which
+    is the shape §3F prefers over two places agreeing.
+
+    `history` can also be a bare list of rows: `fit` passes on whatever it was given, and the
+    fallback is what this module has always done with it.
+    """
+    if not hasattr(history, "to_dict"):
+        return list(history or []), {}
+    carried = dict(history.to_dict())
+    rows = carried.pop("records", None) or []
+    return rows, carried
+
+
 def write_record(
     spec, name: str, *, derived: dict[str, Any] | None = None, history: Any = None
 ) -> Path:
@@ -44,7 +68,10 @@ def write_record(
             record is enough to reproduce the run without the file it came from.
         name: The model's name, which is also the directory the record goes in.
         derived: What the run worked out for itself, if anything.
-        history: The per-epoch numbers, as the trainer produced them.
+        history: The per-epoch numbers, as the trainer produced them. Whatever run-level
+            facts it carries beside those rows - `weights_epoch`, `stop_reason` - are
+            written as siblings of `history` rather than inside it, read off
+            `History.to_dict()` so that a field added there needs no edit here.
 
     Returns:
         The path written: `<output_dir>/<name>/run.json`.
@@ -61,6 +88,7 @@ def write_record(
     directory = Path(spec.output_dir) / name
     directory.mkdir(parents=True, exist_ok=True)
 
+    rows, run_level = _history_parts(history)
     record = {
         "written": datetime.now(UTC).isoformat(timespec="seconds"),
         "pyplatypus": __version__,
@@ -70,8 +98,27 @@ def write_record(
         # the specification that produced them did not name them.
         "specification": spec.to_dict(),
         "derived": derived or {},
-        "history": getattr(history, "records", history) or [],
+        "history": rows,
     }
+    # The run-level facts go BESIDE the rows rather than inside them, because `history` is a
+    # list of per-epoch rows and R reads exactly that key - `read_record()` turns it into a
+    # data frame. A scalar in there would change the key's type for the one reader that
+    # exists, which is the whole reason this is additive.
+    #
+    # A clash is a refusal rather than a silent replacement: a `model` field added to
+    # `History` would otherwise overwrite the model's name, and a record quietly saying the
+    # wrong thing is worse than one that could not be written. A plain `ValueError` and not a
+    # `PlatypusError`, because this cannot be reached by anything a user wrote - it is this
+    # module's two dicts disagreeing, and R documents the `PlatypusError` kinds as conditions
+    # a caller can meet.
+    clash = sorted(set(run_level) & set(record))
+    if clash:
+        raise ValueError(
+            f"a history carries {clash}, which the record already uses for something else. "
+            "Rename the field on `History` or give it its own key here - writing it would "
+            "overwrite what the record says about the run"
+        )
+    record.update(run_level)
     path = directory / "run.json"
     # `allow_nan=False` after `_without_nonfinite` has already replaced every NaN and
     # infinity with `null`: the walk handles the case a run really produces, and the flag
@@ -92,8 +139,10 @@ def read_record(path: str | Path) -> dict[str, Any]:
         path: The `run.json` to read.
 
     Returns:
-        The record as plain data: `specification`, `pyplatypus`, `history`, and `derived`
-        if the run had any. Nothing is reconstructed into objects, because the record is a
+        The record as plain data: `specification`, `pyplatypus`, `history`, `derived` if
+        the run had any, and the run-level facts beside the history - `weights_epoch`, the
+        epoch the surviving weights came from or `None` when they are not any one epoch's,
+        and `stop_reason`. Nothing is reconstructed into objects, because the record is a
         description of what happened and not a live thing.
 
     >>> import json, pathlib, tempfile
