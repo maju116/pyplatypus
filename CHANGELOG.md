@@ -46,8 +46,16 @@ the twelfth review pass's F1 and the author's decision: compatibility over keepi
 still. `soft_skeleton` cited Shit et al., CVPR 2021 and did not implement it - the reference
 code erodes with a cross and dilates with a square, and both of ours were squares.
 
-**The R half: None beyond the pin.** `clDice` is a metric and a loss R forwards; nothing it
-calls changes name or shape, and the numbers move.
+**The R half: None beyond the pin.** `clDice` is a metric R forwards as `metric_cldice()`;
+nothing it calls changes name or shape, and the numbers move.
+
+> Corrected after release: this said *"a metric and a loss R forwards"*, and clDice is a
+> metric in both packages and an objective in neither - `cldice` is in the engine's metric
+> catalogue and in no loss catalogue, and R exports `metric_cldice` alone. The same false
+> claim was written into R's own `NEWS.md` entry for this pin and was caught there by §3F's
+> NEWS-prose rule, which asks that every `` `name()` `` in the newest entry resolve: it named
+> `loss_cldice()`. The rule cannot read this file, which is why one copy was caught and the
+> other had to be read.
 
 ### Changed
 

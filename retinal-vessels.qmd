@@ -184,7 +184,9 @@ cases = engine.evaluate_cases("vessels")
 ```
 
 Over the 200 test images: **mean Dice 0.8828, mean IoU 0.8014, mean clDice 0.8869**, best case
-0.9596 and worst 0.1098. Now by the disease in the file name:
+0.9596 and worst 0.1098. Every clDice on this page, here and in the tables at the end, is the
+engine's clDice **before `0.8.0a72`** - *clDice beside Dice* below says what changed and why
+the figures are left as they were measured. Now by the disease in the file name:
 
 | disease | n | dice | sd | worst |
 |---|---|---|---|---|
@@ -231,10 +233,20 @@ bad images. The **mean difference** is small and positive, which says the vessel
 draws are about as connected as their pixel overlap suggests.
 
 That is a property of the model rather than of the metric, and the R vignette's own run is the
-evidence. At fifteen epochs instead of forty, clDice sits about five points *below* Dice there:
+evidence. At fifteen epochs instead of forty, clDice sits **several points below** Dice there:
 the model is getting the right pixels and breaking the lines. **The better-trained model closes
 the gap**, so a large negative gap is not clDice being pessimistic - it is clDice measuring
 what fifteen epochs had not finished learning, and Dice not noticing.
+
+**Those three figures, and every clDice on this page, were measured before clDice's own
+definition changed.** `0.8.0a72` made the soft skeleton erode with a four-neighbour cross
+rather than a 3 x 3 square, because that is what the reference implementation this metric
+cites does; a cross erodes less, leaves a thinner skeleton, and scores lower. How much lower
+depends on the prediction - between 0.004 and 0.074 across three thinning levels on ten of
+these masks - so a clDice from one definition and a clDice from the other are not a difference
+worth reading, and the R vignette's own page is now measured with the new one while this walk
+is not. The figures here are left as they were measured rather than adjusted: this run's
+weights were not kept, and an adjusted number is a number nothing produced.
 
 The last section finds the same column doing the same work across eleven objectives, which is
 the strongest version of this point available.
@@ -279,6 +291,13 @@ The tables below are **transcriptions**. The runs live in the project's workbenc
 `measurements/fives/`, and each table is printed by a script that reads the stored records
 back: `losses-read.py`, `boundary-read.py` and `tiling-read.py`. Nothing on this page runs
 them.
+
+**Every arm below ran between 2026-10-16 and 2026-10-22, which the `clDice - dice` column
+makes matter.** It is the pre-`0.8.0a72` clDice, those arms' checkpoints were not kept, and
+re-scoring the column under the current definition would mean retraining fifteen models -
+18.6 hours for the loss table alone. Within each table the comparison is sound, since every
+arm in it was scored the same way; it is reading one of those columns against a clDice the
+engine produces today that is not.
 
 **The setting is not this page's**, which is the first thing to know before comparing anything
 to the numbers above. Every arm trained on **148 of the 600 training retinas** - every second
