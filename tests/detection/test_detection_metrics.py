@@ -143,6 +143,44 @@ def test_the_three_conventions_disagree_and_that_is_why_they_are_named():
     assert average_precision(hit, n_truth, interpolation="101") == pytest.approx(51 / 101)
 
 
+def test_the_eleven_point_convention_is_not_the_highest_of_the_three():
+    """`pyplatypus#431`: the docstring said `"11"` *reads highest of the three*.
+
+    It was true of the case above - 6/11 > 51/101 > 0.5 - which is why nothing noticed, and
+    that is §4's *a test named after a rule*, one row along: the fixture satisfied the claim
+    by accident and the claim was about every curve.
+
+    Worked by hand on five predictions T F T T F against four truths. The ranking's recall
+    reaches 0.25, 0.5 and 0.75, so the eleven-level grid samples 0, 0.1, 0.2 at precision
+    1.0, then 0.3 to 0.5 at 2/3 and 0.6 to 0.75's level at 3/4, and the coarse grid loses
+    what the curve reached between levels:
+
+        all   0.625        every point on the curve
+        101   0.628713     63.5 / 101
+        11    0.613636     6.75 / 11, the LOWEST of the three
+
+    No share of random curves is asserted, deliberately: how often `"11"` comes lowest is a
+    property of the distribution the curves are drawn from - measured 19.0% against `"101"`
+    and 45.5% against `"all"` on one generator here, and the review that found this measured
+    21.1% on another - so a figure would be a number about the generator. §3C's rule about a
+    number that is not portable, applied to a count rather than to a tolerance.
+    """
+    hit, n_truth = [True, False, True, True, False], 4
+
+    every_point = average_precision(hit, n_truth, interpolation="all")
+    coco = average_precision(hit, n_truth, interpolation="101")
+    voc_2007 = average_precision(hit, n_truth, interpolation="11")
+
+    assert every_point == pytest.approx(0.625)
+    assert coco == pytest.approx(63.5 / 101)
+    assert voc_2007 == pytest.approx(6.75 / 11)
+    assert voc_2007 < every_point < coco, (
+        f"`11` is {voc_2007:.6f}, `all` is {every_point:.6f} and `101` is {coco:.6f}. The "
+        "three are worked by hand above; if the code is right and this fails, it is the "
+        "arithmetic in the docstring that moved"
+    )
+
+
 def test_a_class_with_no_truth_has_no_average_precision():
     """None rather than zero: a class the data never contained should not drag a mean
     down, and it did not score badly - it was not scored."""

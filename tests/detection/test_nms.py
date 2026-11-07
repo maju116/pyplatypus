@@ -40,9 +40,17 @@ def test_suppression_is_per_class_because_two_things_can_share_a_place():
 
 def test_the_result_is_ordered_by_confidence_across_classes():
     """So a caller taking the first N takes the most confident N, not the most confident
-    of class 0."""
+    of class 0.
+
+    **The labels are what makes this able to fail**, and until `pyplatypus#431` they were
+    `[1, 0, 1]`: class 0's single box was the most confident one, so grouping by class was
+    already in global order and removing the final re-sort left this test green along with
+    the other 33 that execute it. Written as `[0, 1, 0]` the two orders disagree - grouping
+    gives `[2, 0, 1]` and the re-sort gives `[1, 2, 0]` - which is §4's *a test named after
+    a rule*, in the one test whose name is this rule.
+    """
     boxes = [[0, 0, 10, 10], [100, 100, 110, 110], [200, 200, 210, 210]]
-    assert nms(boxes, [0.3, 0.9, 0.6], [1, 0, 1]).tolist() == [1, 2, 0]
+    assert nms(boxes, [0.3, 0.9, 0.6], [0, 1, 0]).tolist() == [1, 2, 0]
 
 
 def test_the_threshold_decides_how_much_overlap_is_too_much():
@@ -57,8 +65,11 @@ def test_a_score_threshold_drops_the_tail_first():
 
 
 def test_a_limit_takes_the_most_confident():
+    """With labels, because the limit is applied after the sort and a cut over one group
+    says nothing about a cut across several - `#431` again: this passed no labels at all,
+    so there was one group and the global order was the group's."""
     boxes = [[0, 0, 10, 10], [100, 100, 110, 110], [200, 200, 210, 210]]
-    assert nms(boxes, [0.1, 0.9, 0.5], limit=2).tolist() == [1, 2]
+    assert nms(boxes, [0.1, 0.9, 0.5], [0, 1, 0], limit=2).tolist() == [1, 2]
 
 
 def test_nothing_in_gives_nothing_out():

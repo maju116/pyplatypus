@@ -229,8 +229,14 @@ def average_precision(
     - `"all"` - every point on the curve, with precision made monotonically decreasing
       first. Pascal VOC from 2010 onwards. The exact area.
     - `"101"` - precision at 101 evenly spaced recall levels. What COCO reports.
-    - `"11"` - precision at 11 levels, Pascal VOC 2007. Reads highest of the three and is
-      here because papers from that era quote it.
+    - `"11"` - precision at 11 levels, Pascal VOC 2007. Here because papers from that era
+      quote it, and it is **not a bound on the other two in either direction**: eleven
+      levels is a coarse sample, so a curve whose recall lands between two of them loses
+      the precision it reached there, while one that reaches a level exactly keeps it with
+      full weight. Five predictions T F T T F against four truths give `"all"` 0.625,
+      `"101"` 0.628713 and `"11"` 0.613636 - lowest of the three. This said *reads highest
+      of the three* until `pyplatypus#431`, which was true of the one case the test beside
+      it used and of nothing else.
     """
     if interpolation not in ("all", "101", "11"):
         raise DetectionError(f"interpolation must be 'all', '101' or '11'; got {interpolation!r}")
