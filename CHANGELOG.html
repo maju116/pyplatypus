@@ -1600,7 +1600,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a72---2026-11-06" class="level2">
 <h2 class="anchored" data-anchor-id="a72---2026-11-06">[0.8.0a72] - 2026-11-06</h2>
 <p><strong>The soft skeleton now erodes with the cross the paper’s own code erodes with</strong>, which is the twelfth review pass’s F1 and the author’s decision: compatibility over keeping a number still. <code>soft_skeleton</code> cited Shit et al., CVPR 2021 and did not implement it - the reference code erodes with a cross and dilates with a square, and both of ours were squares.</p>
-<p><strong>The R half: None beyond the pin.</strong> <code>clDice</code> is a metric and a loss R forwards; nothing it calls changes name or shape, and the numbers move.</p>
+<p><strong>The R half: None beyond the pin.</strong> <code>clDice</code> is a metric R forwards as <code>metric_cldice()</code>; nothing it calls changes name or shape, and the numbers move.</p>
+<blockquote class="blockquote">
+<p>Corrected after release: this said <em>“a metric and a loss R forwards”</em>, and clDice is a metric in both packages and an objective in neither - <code>cldice</code> is in the engine’s metric catalogue and in no loss catalogue, and R exports <code>metric_cldice</code> alone. The same false claim was written into R’s own <code>NEWS.md</code> entry for this pin and was caught there by §3F’s NEWS-prose rule, which asks that every <code>`name()`</code> in the newest entry resolve: it named <code>loss_cldice()</code>. The rule cannot read this file, which is why one copy was caught and the other had to be read.</p>
+</blockquote>
 <section id="changed" class="level3">
 <h3 class="anchored" data-anchor-id="changed">Changed</h3>
 <ul>
