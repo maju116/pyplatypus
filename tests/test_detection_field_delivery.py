@@ -168,3 +168,87 @@ def test_every_field_the_build_route_reads_is_enumerated():
     )
     stale = sorted(set(BUILD_ROUTE_FIELDS) - read)
     assert not stale, f"these rows describe reads `_network_for` does not make: {stale}"
+
+
+#: field -> (the module that consumes it, what consumes it there). `#428`'s other direction
+#: for this family: the completeness half below asks *every read in `_network_for` has a
+#: row*, so a field that route never reads needs neither a row nor a reason - and a field
+#: forwarded nowhere is the defect. Measured 2026-11-07: `DetectionModel.no_object_weight`,
+#: planted with a description and no forward, passed all five enumerating files in this
+#: suite.
+#:
+#: `anchors` is the entry worth reading. It is consumed as `model.anchors_as_tuples`, a
+#: derived property, so **no `model_spec.anchors` read exists outside the specification
+#: layer at all** - which is the third spelling this pair of lists has had to learn, after
+#: `self.spec.x` and `getattr(spec, "x")`.
+CONSUMED_ELSEWHERE = {
+    "name": ("detection_engine.py", "the engine keys its runs by it"),
+    "fit": ("detection_engine.py", "whether this is a training run or a scoring one"),
+    "weights": ("detection_engine.py", "loaded with their own anchors before anything builds"),
+    "architecture": ("detection_engine.py", "chooses the network `_network_for` builds"),
+    "anchors": ("detection_engine.py", "through `anchors_as_tuples`, a derived property"),
+    "augmentation": ("detection_engine.py", "the loader's pipeline, not the module tree"),
+    "batch_size": ("detection_engine.py", "the loader's"),
+    "min_visibility": ("detection_engine.py", "drops a box a crop left too little of"),
+    "input_shape": ("data/detection.py", "the letterbox's target size"),
+    "epochs": ("training/detection_trainer.py", "the loop's length"),
+    "callbacks": ("training/detection_trainer.py", "built by `build_callbacks`"),
+    "optimizer": ("training/detection_trainer.py", "built by the optimiser table"),
+    "box_loss": ("training/detection_trainer.py", "picks the coordinate term"),
+    "ignore_threshold": (
+        "training/detection_trainer.py",
+        (
+            "shapes the target's ignore mask, which is why `#419` keeps it OUT of the "
+            "measurement fingerprint: it changes what the weights learnt rather than how "
+            "they are scored"
+        ),
+    ),
+    "score_threshold": ("detection_engine.py", "the score cut; recorded by `#419`"),
+    "nms_threshold": ("detection_engine.py", "suppression; recorded by `#419`"),
+    "operating_point": ("detection_engine.py", "the reported row; recorded by `#419`"),
+}
+
+
+def _reads_the_field(text: str, field: str) -> bool:
+    """Any spelling a consumer uses, including a derived property over the field."""
+    import re
+
+    return bool(
+        re.search(rf"\b(?:self\.)?(?:spec|model_spec|model)\.{field}(?:_[a-z0-9_]+)?\b", text)
+    )
+
+
+def test_every_FIELD_is_either_enumerated_or_named_whether_the_route_reads_it_or_not():
+    """`#428`: the direction a forgotten forward arrives from.
+
+    The route scan cannot see a field nothing forwards, by construction. So every field of
+    the model is accounted for here - a row in `BUILD_ROUTE_FIELDS`, or a named consumer -
+    and `test_the_consumer_named_for_a_field_really_reads_it` checks the second kind rather
+    than reading it.
+    """
+    fields = set(DetectionModel.model_fields)
+    missing = sorted(fields - set(BUILD_ROUTE_FIELDS) - set(CONSUMED_ELSEWHERE))
+    assert not missing, (
+        f"these fields of a detection model have no row and no named consumer: "
+        f"{', '.join(missing)}. A field forwarded nowhere is what this asks about"
+    )
+
+    stale = sorted(set(CONSUMED_ELSEWHERE) - fields)
+    assert not stale, f"CONSUMED_ELSEWHERE names fields that do not exist: {stale}"
+
+
+@pytest.mark.parametrize("field", sorted(CONSUMED_ELSEWHERE))
+def test_the_consumer_named_for_a_field_really_reads_it(field):
+    """A reason that cannot be followed is decoration - §4's newest category, in test code."""
+    import pathlib
+
+    import pyplatypus
+
+    module, why = CONSUMED_ELSEWHERE[field]
+    path = pathlib.Path(pyplatypus.__file__).parent / module
+    assert path.exists(), f"{field} names {module}, which is not a file"
+    assert _reads_the_field(path.read_text(), field), (
+        f"{field} is exempt because {why}, in {module} - and {module} does not read it under "
+        "any spelling this checker knows. Either the consumer moved or the reason was never "
+        "true"
+    )
