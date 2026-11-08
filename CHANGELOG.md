@@ -42,8 +42,19 @@ must not reach huggingface.co.
 **The R half: None beyond the pin.** `available_weights()` reads the registry from the
 engine, so an R user meets the corrected sidecar by the pin moving and by nothing else -
 and in this case not even the listing changes, because the description that names the peel
-count shipped in `0.8.0a76`. The one thing an R user gains is that
-`load_weights("fives-unet")` now writes a sidecar they can reproduce the figure from.
+count shipped in `0.8.0a76`. The one thing an R user gains is that a model written with
+`weights = "fives-unet"` fetches the corrected file: `platypus_fit()` brings it down on
+first use and the sidecar comes with it. `rplatypus#300` is that pin move, one move for
+this release and `0.8.0a76` together.
+
+**This sentence named `load_weights` until 2026-11-08 and neither package has such a
+function**, which is `rplatypus#229`'s defect with the packages swapped - an invented name
+in prose about functions. R's `NEWS.md` has been held against exactly that since then, by a
+test over its newest entry in both namespaces; **this file is held by nothing**, and of the
+four prose-about-functions documents in these two packages it is the only one. The name was
+invented while describing a route that had just been verified by hand, which is how these
+arrive: the sentence is about something true and the noun is made up. `pyplatypus#440` is
+the guard.
 
 ### Changed
 
@@ -100,6 +111,36 @@ record's names exactly.
    Held as a shape rather than as the figures, because the measurement lives on the Hub and
    nothing offline can confirm 0.878: a description quoting a clDice figure has to name the
    peel count beside it and name the default it is not at. Both halves proven able to fail.
+
+### Also in this tag
+
+**The `v0.8.0a76` tag contains five commits and the entry above describes one.** Written
+down on 2026-11-08, after the fact, because a reader asking what a version changed reads
+this file rather than a commit range - and three of those five changed something a user can
+see. The two bullets below are those; the rule they follow is that **a test gets no bullet**,
+which is `pyplatypus#355`'s own argument - a test is not something a release gives a user -
+so `#434` and `#436` are deliberately not here.
+
+ - **`average_precision`'s docstring stopped claiming `"11"` reads highest of the three**,
+   `pyplatypus#431` as `#435`. It is not a bound on the other two in either direction: on
+   five predictions T F T T F against four truths, `"all"` is 0.625, `"101"` 0.628713 and
+   `"11"` **0.613636** - the lowest. The docstring names the mechanism now, that eleven
+   levels is a coarse sample so a curve whose recall lands between two of them loses the
+   precision it reached there, and it carries that hand case.
+
+   **It is in the wheel**, which is why it belongs in a release entry at all: that docstring
+   is the published reference text for the function. No share of random curves is asserted,
+   deliberately - how often `"11"` comes lowest is a property of the distribution the curves
+   are drawn from, 19.0% against `"101"` here against the review's 21.1% on another
+   generator, and §3C refuses a number that is not portable.
+
+ - **`retinal-vessels.qmd` stopped arguing that a better-trained model closes the clDice
+   gap**, `pyplatypus#425` as `#432`. That sentence read a figure measured at five skeleton
+   peels against one measured at twelve. Re-scored on the published `fives-unet` with nothing
+   but the peel count changed, at five peels the correlation is 0.8563 and the mean
+   difference -0.0818, against the R vignette's printed 0.8581 and -0.0833 - so of the 0.0874
+   between the two pages' gaps, **about 0.085 is the peel count and 0.0015 is the training**.
+   The page carries the re-score as its own table and says which setting each figure is at.
 
 ### Fixed
 
