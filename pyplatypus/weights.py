@@ -109,7 +109,7 @@ REGISTRY: dict[str, Published] = {
     "fives-unet": Published(
         repo="maju116/platypus-weights",
         filename="fives-unet.safetensors",
-        revision="799fea5c44abbcceae23416a78602d31205bc281",
+        revision="d342f3adad6448fcd19229b8bc4be30071e370ba",
         description=(
             "U-Net, 512x512 tiles over 2048x2048, retinal vessels in colour fundus "
             "photographs. Trained on FIVES (CC BY 4.0) using its own split. Dice 0.879 mean "

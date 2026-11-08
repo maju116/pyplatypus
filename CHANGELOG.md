@@ -1,6 +1,57 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a77] - 2026-11-08
+
+**`fives-unet`'s pin moves to the commit where its sidecar states the peel count.**
+`pyplatypus#426` closes here. `0.8.0a76` put both numbers in the registry description and
+said in this file that the sidecar itself was an upload rather than a release; that upload
+happened on 2026-11-08, so a `weights = "fives-unet"` resolved by this engine now fetches a
+file a reader can reproduce the clDice figure from - `cldice_iterations: 12` and
+`splits: [4, 4]`, beside the `cldice_measured_with: "0.8.0a73"` that `0.8.0a74` added.
+
+**The published numbers do not move and the weights do not either.** The blob was read at
+both revisions before the pin was touched: `fives-unet.safetensors` is oid
+`6e44ed6c763daa7dbb9e85578b503bf0d8cd874a`, 7,793,480 bytes, at `799fea5c` and at
+`d342f3ad` alike. Two files were uploaded, the sidecar and the card, and the four other
+names were fetched back **at their own revisions** and compared by sha256 against the local
+copies: all eight identical, with the same name at the old pin as the control that the
+comparison can report a difference - 23 keys against 25.
+
+**Why the sidecar was patched rather than re-exported**, since `0.8.0a75` is the release
+that made an engine write those parameters: `trained_with: "pyplatypus 0.8.0a11"` is the
+engine that **trained** this file, and a scoring-only pass through `export_weights` has no
+training to report and would overwrite it. The two values are not typed - they are read off
+the publishing example's own configuration by asking the engine for
+`measurement_fingerprint()` - and 12 is controlled against the re-score that reproduces the
+published Dice and IoU at **0.0** absolute difference, which is what says it is the same
+scoring pass over the same weights rather than a different run that agrees.
+
+**The flat keys are deliberate and are not `0.8.0a76`'s nested `measured_with`.** This
+file's figures come from two engines - `dice` and `iou` from `0.8.0a11`, `cldice` from the
+`0.8.0a73` re-score - so one `measured_with.engine` would claim a single provenance where
+there are two.
+
+**There is no new test, and that is the honest state rather than an omission.** What a
+release can hold about a pin is that it is forty hex characters rather than a branch, and
+two tests already do. Whether the commit contains what this entry says is a question only
+the network can answer, so it is a check beside the weights -
+`weights/.check-pins.py`, run before this pin moved - rather than a test in a suite that
+must not reach huggingface.co.
+
+**The R half: None beyond the pin.** `available_weights()` reads the registry from the
+engine, so an R user meets the corrected sidecar by the pin moving and by nothing else -
+and in this case not even the listing changes, because the description that names the peel
+count shipped in `0.8.0a76`. The one thing an R user gains is that
+`load_weights("fives-unet")` now writes a sidecar they can reproduce the figure from.
+
+### Changed
+
+ - **`fives-unet`'s registry `revision`**, `799fea5c` to `d342f3ad`. One line, and the four
+   older pins stay exactly where they are: their numbers were measured at those commits, and
+   a pinned commit survives later edits to the repository - verified by sha256 for the second
+   time here, the first having been the fifth upload replacing the same card.
+
 ## [0.8.0a76] - 2026-11-08
 
 **A weights sidecar now records the tiling, which decides which pictures were scored.**
