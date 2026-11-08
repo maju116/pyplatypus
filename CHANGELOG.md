@@ -14,6 +14,106 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a79] - 2026-11-08
+
+**A weights sidecar now records how the DATA was read, which is the other half of what a
+figure was measured on.** `pyplatypus#447` closes here, and it is the fourteenth review
+pass's one remaining finding. `0.8.0a76` put `splits` into the model's
+`measurement_fingerprint` because a source image is read at `splits * input_shape` and cut,
+so the tiling changes the pictures a metric sees while the weights and the data stay the
+same. Three fields one layer out pass that same test and **none of them is the model's**:
+
+    window          soft_tissue against lung on pydicom's own `CT_small.dcm` moves a
+                    picture by 0.793 of its range; against the full range, 0.449, 0.493
+                    and 0.192 for soft tissue, lung and bone, with the same window twice
+                    as the control at 0.000
+    channels_from   `measurements/braintumour/channel-order.json` in this project's own
+                    workbench scores ONE trained model at Dice 0.467 against 0.110 on a
+                    permuted order, and `channel-order-20ep.json` 0.233 against 0.022
+    target_spacing  a 24-voxel cube at source spacing (1, 1, 3) resamples to (24, 24, 72),
+                    (24, 24, 24) or (12, 12, 36) for targets (1,1,1), (1,1,3) and (2,2,2) -
+                    18432, 13824 and 4608 real voxels at an IDENTICAL model `input_shape`,
+                    control 0.000 for the same target twice
+
+**It is a method on the data rather than three keys somewhere**, and the layering is what
+decided where: `ModelSpec.measurement_fingerprint`'s first sentence is *what a reported
+figure depends on, beyond the weights and the data*, so putting data fields there would make
+that sentence false, and `export_weights` is handed a **model** and never sees a data
+specification at all. So `DataSpec.measurement_fingerprint` is the data's half - per task by
+inheritance, which is the argument the model's half already makes for itself - and
+`Engine.export_weights` joins the two, exactly as it already contributes
+`_class_fingerprint`. The issue proposed a fourth field, `labels`, and that one **is**
+recorded: `Engine._class_fingerprint` writes `n_class` plus exactly one of `regions`,
+`classes_from`, `labels` or `colormap`. The unrecorded set was three, not four.
+
+**Only what is set**, which is the author's decision. Three `null`s would say *measured
+without a window* where the truth is *written by an engine that could not answer*, and those
+are different facts - the distinction `0.8.0a74` drew in R, where `jsonlite` returns `NULL`
+for a JSON `null` and for an absent key alike. `window` is therefore always there, because
+it always has a value: `'auto'` is a windowing rather than an absence, and it means *the
+window the file recorded*, so two datasets read with `auto` are not necessarily read alike.
+Resolved rather than as written, for the reason `#419` gives.
+
+**Additive and safe, checked rather than reasoned about.** The three land inside
+`measured_with` and add no top-level key, and `_refuse_mismatch` walks the **model's** fields
+rather than the sidecar's keys - so a load cannot start refusing, which is what keeps the
+five published names loading. A clash between the two halves is a refusal, for the reason
+`trained_with` came to have four copies.
+
+**THREE engines write weights and wiring one of them left two silent**, which was found by
+reading the code rather than by anything failing. `InstanceEngine` and `DetectionEngine`
+override `export_weights` and call `pyplatypus.weights.export_weights` themselves, so an
+instance or a detection sidecar recorded nothing about how its data was read - and `window`
+is on the **base** `DataSpec`, so both of those tasks have one. The end-to-end test written
+for the semantic route passed throughout. §4's *a guard one level below the change is a guard
+the change can be removed under*, in its sibling-copy costume, and the third time this project
+has paid that bullet.
+
+So the guard is an **enumerating** test rather than a third example:
+`test_every_engine_that_exports_contributes_the_datas_half` reads the engine classes off the
+modules, asserts which three define `export_weights`, and captures the call on each route -
+with the capture itself asserted to have happened, because a patch that bound nothing reads
+exactly like a route that passes the argument. `ClassificationEngine` is named as the one that
+does not export at all, with its reason, so a fourth exporting engine fails that list rather
+than inheriting silence.
+
+**Ten mutations, ten caught**, identity case first and every file restored afterwards: the
+data's half answering nothing (13 tests), each of the two optional fields dropped (3 each),
+both recorded always as `null` (4), an explicit window left a tuple (1), the data's half
+replacing the model's instead of merging (1), the clash guard removed (1), and each of the
+three engines in turn stopping passing it (2, 1, 1).
+
+**One mutation was deliberately not written, because it is not a mutation.** Writing the merge
+the other way round - `{**data, **model}` instead of `model.update(data)` - leaves the whole
+suite green and has to: the clash guard raises on any shared key, so afterwards the two key
+sets are disjoint and the two orders are provably the same dict. 2,000 random disjoint pairs
+agree and an overlapping pair differs, which is the control. §4's *ask what the change would
+have to break, and if the answer is nothing, the site has no behaviour to guard rather than
+no guard*.
+
+**The R half is NOT none**, which §3E asks to be said where it will be found rather than in a
+commit message. R reads this block already - `test-weights.R` has a receipt for it since the
+`a75` pin - and `?export_weights` tells a reader what the block holds, task by task: *a
+segmentation or classification fit records its metrics, an instance fit adds how objects were
+separated and decoded, and a detection fit records the three thresholds*. That sentence is
+true and becomes incomplete with this release, because every task now also records how its
+data was read. So R owes one paragraph and a receipt when the pin moves; R's suite will not
+go red in the meantime, because nothing there pins the block's key set - unlike
+`test-records.R`, which pins the run record's and went red at `a74`.
+
+**The run record needed nothing**, which is worth stating because it is where a reader would
+look next: `write_record` writes `specification` whole, so all three fields have always been
+in it. The gap was only ever the sidecar, which records a fingerprint rather than a
+specification.
+
+**The remainder is filed rather than left**: `split`, `validation` and `shuffle` decide WHICH
+cases were scored and pass this section's own test, and all five published names carry a
+top-level `split` written by hand by their own publishing script - `#419`'s shape one key
+over. It is a question rather than a defect, because the configured split and the realised
+counts are different facts and recording both under one name is what the clash guard above
+refuses. `pyplatypus#450` has the three options, the recommendation and the one measurement
+nobody has taken.
+
 ## [0.8.0a78] - 2026-11-08
 
 **The four losses nothing could have caught a formula error in now have values from

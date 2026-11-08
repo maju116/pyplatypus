@@ -551,6 +551,12 @@ class InstanceEngine(EngineBase):
                 "separation_settings": run.spec.separation.model_dump(mode="json"),
                 **(extra or {}),
             },
+            # The data's half of `measured_with`, for `Engine.export_weights`'s reason:
+            # this is the only object holding the data specification and the model at once.
+            # Three engines write weights and each one has to pass it, which is what
+            # `test_every_engine_that_exports_contributes_the_datas_half` enumerates rather
+            # than trusting. `pyplatypus#447`.
+            measured_with=self.spec.data.measurement_fingerprint(),
         )
 
     # --------------------------------------------------------------- evaluate

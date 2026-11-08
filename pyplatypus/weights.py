@@ -618,7 +618,14 @@ def _refuse_mismatch(sidecar: dict, spec, reference: str, *, extra: dict | None 
         )
 
 
-def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) -> Path:
+def export_weights(
+    model,
+    spec,
+    path: str | Path,
+    *,
+    extra: dict | None = None,
+    measured_with: dict | None = None,
+) -> Path:
     """Write a model's weights as safetensors, with the sidecar that describes them.
 
     The sidecar is not optional here. Weights without a record of what they are for are the
@@ -632,6 +639,11 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
         extra: Anything else worth recording - for a detector, the anchors, which are
             not optional metadata: the same weights read with different anchors decode
             every box scaled by a fixed factor, and nothing in the output says so.
+        measured_with: The DATA's half of `measured_with`, which only a caller holding the
+            data specification can supply - `spec` here is the model, and
+            `ModelSpec.measurement_fingerprint` is explicitly about what a figure depends
+            on *beyond the weights and the data*. The engine passes
+            `self.spec.data.measurement_fingerprint()`. `pyplatypus#447`.
 
     Returns:
         The path written.
@@ -682,6 +694,22 @@ def export_weights(model, spec, path: str | Path, *, extra: dict | None = None) 
         # engine that trained and another that scored.
         "measured_with": {"engine": __version__, **spec.measurement_fingerprint()},
     }
+    if measured_with:
+        # Merged INTO the block rather than written beside it, so that a reader asking
+        # *what were these figures measured with* has one place to look instead of two
+        # that have to be known about. A clash is refused for `extra`'s reason below: the
+        # model's half and the data's half answering one key would be two answers to the
+        # question this block exists to answer once, and `window` becoming a model field
+        # some day is exactly how that would arrive.
+        clash = sorted(set(measured_with) & set(sidecar["measured_with"]))
+        if clash:
+            raise WeightsError(
+                f"the model's half of `measured_with` already records {clash}, and the "
+                f"data's half offers it too. One of the two has to stop: a sidecar with "
+                f"two answers to what a figure was measured with is worse than one that "
+                f"could not be written"
+            )
+        sidecar["measured_with"].update(measured_with)
     if extra:
         # A caller may add to the record and may not quietly replace what this function
         # computed: a publisher passing its own `trained_with` is how that key came to have

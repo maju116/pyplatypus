@@ -488,7 +488,17 @@ class Engine(EngineBase):
         # The colormap always, whatever else the caller adds: it is what makes the sidecar
         # able to refuse weights that would load cleanly and mean something else.
         return export_weights(
-            run.model, run.spec, path, extra={**self._class_fingerprint(), **(extra or {})}
+            run.model,
+            run.spec,
+            path,
+            extra={**self._class_fingerprint(), **(extra or {})},
+            # The data's half of `measured_with`, which this is the only place that can
+            # supply: `export_weights` is handed the MODEL, and three fields that decide
+            # what a figure was measured on live on the data. `pyplatypus#447`, and the
+            # same division as `_class_fingerprint` one line up - that one says what the
+            # weights are FOR and refuses a bad load, this one says what the numbers beside
+            # them were measured on and refuses nothing.
+            measured_with=self.spec.data.measurement_fingerprint(),
         )
 
     # ------------------------------------------------------------------ checks
