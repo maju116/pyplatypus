@@ -32,7 +32,10 @@ set of weights in the registry has one score. These have one per decoding, from 
 pass, because `decode` is a list: 0.5442 by `nearest_seed`, 0.5396 by `watershed` and 0.4767 by
 `connected_components` on `#215`'s run. A number taken off this card without naming the
 decoding it came from is worth nothing, and the spread between the first and the last is 0.0675
-- ten times the run-to-run noise.
+- seven and a half times `SPREAD`, the 0.009 this route's own three decodings differ by. It
+said TEN TIMES until `pyplatypus#445`, and no pairing of this file's own three noise figures
+gives ten: 0.0112 makes it 6.0x, 0.009 makes it 7.5x and 0.0074 makes it 9.1x. The card
+generated below says *about seven times* of its own 0.0623 / 0.009, and the card was right.
 
 **The data is fetched from the Broad Institute rather than read off this disk, and that is a
 licence decision rather than tidiness.** `examples/data/data_science_bowl/` is a 2022 Kaggle
