@@ -1,6 +1,19 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+**A `` `name()` `` here means a name of THIS package**, and `tests/test_changelog_prose_names.py`
+asserts that every one in the newest entry resolves - including methods and `Class.method`
+forms. An `rplatypus` function, or any name this package does not answer to, is written in
+backticks **without** the parentheses: that is the notation for a name being cited rather
+than offered, and it is what lets an entry name a function that lives elsewhere, or one that
+has been deleted, without telling a reader to go and call it. `pyplatypus#440` says why the
+symmetric rule - resolving R's names too, the way R's own `NEWS.md` test resolves this
+package's - is not available here: R runs the engine and can ask it; the engine cannot run R.
+
+The scope is the newest entry alone, for the reason R's half records: over the whole file a
+changelog legitimately names functions that no longer exist, and that is often why they are
+mentioned.
+
 ## [0.8.0a78] - 2026-11-08
 
 **The four losses nothing could have caught a formula error in now have values from
@@ -89,8 +102,8 @@ a reading of the paper's setting.
 
 **The R half: a fixture regeneration.** The `gamma` description moves the field-prose
 ledger's digest, so `rplatypus` regenerates `tests/testthat/fixtures/field-prose.yml` and
-re-reads the `@param` the ledger names - which is `?losses` and `loss_focal_tversky()`'s own
-argument, where R states the same parameter in its own words. That is the ledger's first
+re-reads the `@param` the ledger names - which is `?losses` and R's own
+`loss_focal_tversky` argument, where R states the same parameter in its own words. That is the ledger's first
 answer, a description rewritten, which this file has recorded producing a finding once.
 
 ## [0.8.0a77] - 2026-11-08
