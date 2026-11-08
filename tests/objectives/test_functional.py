@@ -117,12 +117,64 @@ def test_lovasz_is_zero_for_a_perfect_prediction():
     assert f.lovasz_softmax(logits, target).item() == pytest.approx(0.0, abs=1e-4)
 
 
+def _lovasz_case(n_label_values: int):
+    """A fixed, deliberately IMPERFECT case, built the same way both tests below need it.
+
+    float64 and seeded, because the figures under them are baked to ten digits.
+    """
+    torch.manual_seed(0)
+    logits = torch.randn(2, 3, 6, 6, dtype=torch.float64)
+    labels = torch.randint(0, n_label_values, (2, 6, 6))
+    target = torch.zeros(2, 3, 6, 6, dtype=torch.float64).scatter_(1, labels[:, None], 1.0)
+    return logits, target
+
+
+def test_lovasz_agrees_with_the_PUBLISHED_algorithm_on_a_fixed_case():
+    """`pyplatypus#429`: a value from outside, because every test over this was a property.
+
+    The ten tests that execute `lovasz_softmax` assert finiteness, a decrease, and a perfect
+    prediction scoring 0 - and the twelfth review pass mutated the union, `|e|` to `e^2`, the
+    absent-class rule and the SORT ORDER, and all four survived every one of them. They
+    survive because a perfect prediction has every error 0 whatever the weights on them are.
+
+    Where this number comes from, so it can be re-derived rather than trusted: Berman et
+    al.'s own `lovasz_losses.py` (`bermanmaxim/LovaszSoftmax`) was read and its
+    `lovasz_grad` + `lovasz_softmax_flat` transcribed by hand - never executed, because
+    downloaded code is data. That transcription was then controlled on a two-pixel two-class
+    case worked out on paper:
+
+        class 0: fg=[0,1] p=[0.4,0.7] -> errors [0.4,0.3], sorted fg [0,1], grad [0.5,0.5] -> 0.35
+        class 1: fg=[1,0] p=[0.6,0.3] -> errors [0.4,0.3], sorted fg [1,0], grad [1.0,0.0] -> 0.40
+        the mean over the two present classes                                        -> 0.375
+
+    and both the transcription and this package answer exactly 0.375 there. On the fixed
+    case below both answer 0.7027821477, and the review that found the gap measured the same
+    figure independently.
+
+    The ascending sort - the one mutation of the four that is a real defect rather than a
+    guard - moves this by 0.3485, and a two-layer network trained under it stalls at mIoU
+    0.29 where Berman's reaches 0.97 over four seeds.
+    """
+    logits, target = _lovasz_case(3)
+    assert f.lovasz_softmax(logits, target).item() == pytest.approx(0.7027821477, abs=1e-9)
+
+
 def test_lovasz_skips_classes_that_are_absent():
-    """Scoring an absent class as perfect would quietly inflate the loss's opinion."""
-    target = torch.zeros(1, 3, 16)
-    target[:, 0] = 1.0  # only the background is present
-    logits = (target - 0.5) * 40
-    assert f.lovasz_softmax(logits, target).item() == pytest.approx(0.0, abs=1e-4)
+    """Scoring an absent class as perfect would quietly inflate the loss's opinion.
+
+    **This asserted 0 on a saturated prediction until `pyplatypus#429`**, which is §4's *a
+    test named after a rule*: with the prediction perfect, an absent class scored contributes
+    `max(error) = 0`, so the rule could not fail here and the mutation that scores absent
+    classes passed. The case is imperfect now, and the two figures are what separate the two
+    behaviours - 0.0992 apart, measured by the transcription the test above describes.
+    """
+    logits, target = _lovasz_case(2)  # class 2 never occurs
+    assert target[:, 2].sum() == 0, "the fixture must leave one class absent"
+
+    assert f.lovasz_softmax(logits, target).item() == pytest.approx(0.6683985262, abs=1e-9)
+    # What scoring the absent class would give on this very case, so the number the rule
+    # avoids is written down rather than implied.
+    assert f.lovasz_softmax(logits, target).item() != pytest.approx(0.7676393149, abs=1e-6)
 
 
 def test_onehot_accepts_indices_or_onehot():
