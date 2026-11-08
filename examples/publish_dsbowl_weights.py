@@ -21,7 +21,9 @@ Citation, which CC0 does not require and which is owed anyway:
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import sys
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -58,6 +60,38 @@ def fetch(into: Path) -> Path:
     return unpacked
 
 
+def _comparison() -> object:
+    """The architecture comparison, loaded by path, because it owns this recipe.
+
+    `pyplatypus#446`. This script stated the `dsbowl-unet` model field for field and
+    `compare_dsbowl_architectures.py` stated it again as the `u_net` row of its table - 61
+    shared literals, and nothing held the two together. Measured: the learning rate changed
+    in either copy alone left 318 tests passing.
+
+    `#418` exempted this pair on a reason that was not true - *"no example trains that
+    model, so it is the only copy rather than a second one"* - and `ARCHITECTURES` begins
+    with `u_net`. An example does train it, and it is the first row of the table the
+    published weights are judged by.
+
+    The direction is `#418`'s own: `publish_fives_weights.py` loads
+    `segment_retinal_vessels.py` and says why - *"drift from the run the example documents
+    is the one thing this script must not do"*. The example owns the recipe; the publisher
+    borrows it.
+    """
+    path = Path(__file__).with_name("compare_dsbowl_architectures.py")
+    spec = importlib.util.spec_from_file_location("compare_dsbowl_architectures", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+#: Everything this script says about the model that the comparison does not: the published
+#: name, and the batch size the comparison takes as an argument. Two keys, and a reader can
+#: see the whole difference between the two runs here rather than by diffing two files.
+PUBLISHED_OVERRIDES = {"name": "dsbowl-unet", "batch_size": 8}
+
+
 def specification(train: str, validation: str, epochs: int, size: int) -> dict:
     """The experiment, as the spec the engine takes.
 
@@ -65,7 +99,16 @@ def specification(train: str, validation: str, epochs: int, size: int) -> dict:
     - that is the layout this dataset is known for. And `include_background=False` on the metric,
     because most of a microscopy image is background and averaging it in turns a model that found
     nothing into one that scores 0.9.
+
+    The model itself comes from `compare_dsbowl_architectures.model("u_net", ...)` - see
+    `_comparison()` for why that direction.
     """
+    model = dict(
+        _comparison().model(
+            "u_net", epochs=epochs, size=size, batch=PUBLISHED_OVERRIDES["batch_size"]
+        )
+    )
+    model.update(PUBLISHED_OVERRIDES)
     return {
         "task": "semantic_segmentation",
         "data": {
@@ -74,47 +117,7 @@ def specification(train: str, validation: str, epochs: int, size: int) -> dict:
             "colormap": [[0, 0, 0], [255, 255, 255]],
             "mode": "config_file",
         },
-        "models": [
-            {
-                "name": "dsbowl-unet",
-                "architecture": "u_net",
-                "input_shape": [size, size],
-                "channels": 3,
-                "blocks": 4,
-                "filters": 16,
-                "batch_size": 8,
-                "epochs": epochs,
-                "loss": {"name": "cce_dice"},
-                "metrics": [
-                    {"name": "dice", "include_background": False},
-                    {"name": "iou", "include_background": False},
-                ],
-                "optimizer": {"name": "adam", "learning_rate": 0.001},
-                "callbacks": [
-                    {
-                        "name": "reduce_lr_on_plateau",
-                        "monitor": "val_loss",
-                        "factor": 0.5,
-                        "patience": 4,
-                    },
-                    {
-                        "name": "early_stopping",
-                        "monitor": "val_loss",
-                        "patience": 10,
-                        "restore_best": True,
-                    },
-                ],
-                "augmentation": [
-                    # A transform's own arguments live under `params`, which is what keeps the spec
-                    # free of albumentations' API: the names are checked against the installed
-                    # version, the parameters are passed through untouched.
-                    {"name": "HorizontalFlip", "params": {"p": 0.5}},
-                    {"name": "VerticalFlip", "params": {"p": 0.5}},
-                    {"name": "RandomRotate90", "params": {"p": 0.5}},
-                    {"name": "RandomBrightnessContrast", "params": {"p": 0.3}},
-                ],
-            }
-        ],
+        "models": [model],
     }
 
 
