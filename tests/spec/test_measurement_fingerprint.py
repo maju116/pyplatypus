@@ -22,6 +22,7 @@ would otherwise inherit the base class's silence and nothing would say so.
 
 from __future__ import annotations
 
+import json
 from typing import get_args
 
 import pytest
@@ -135,6 +136,23 @@ def _segmentation(metrics, **model):
     ).models[0]
 
 
+def _data(**fields):
+    """The same configuration's DATA half, which is where `pyplatypus#447`'s fields live."""
+    return from_dict(
+        {
+            "task": "semantic_segmentation",
+            "data": {
+                "train_path": "a",
+                "validation_path": "b",
+                "colormap": [[0, 0, 0], [255, 255, 255]],
+                **fields,
+            },
+            "models": [{"name": "m", "input_shape": [32, 32]}],
+        },
+        check_paths=False,
+    ).data
+
+
 def test_a_metric_parameter_NOBODY_WROTE_is_recorded():
     """The defect's own case, and the whole argument for dumping rather than copying.
 
@@ -238,3 +256,130 @@ def test_an_instance_model_inherits_the_tiling_as_well_as_its_own_two():
     )
     assert recorded["splits"] == [2, 2]
     assert {"separation", "decode", "metrics"} <= set(recorded)
+
+
+# ------------------------------------------------------- the data's half, `pyplatypus#447`
+#
+# `#427` recorded `splits` because a source image is read at `splits * input_shape` and cut,
+# so the tiling changes the pictures a metric sees while the weights and the data stay the
+# same. Three fields one layer out pass that same test and are the DATA's: `window`,
+# `channels_from` and `target_spacing`. They cannot live on the model's method, whose first
+# sentence is *beyond the weights and the data*, and `pyplatypus.weights` is handed a model
+# and never sees a data spec - so the division is one method per half and the engine joins
+# them, exactly as it already does for `_class_fingerprint`.
+
+#: The data class of every task, read off the union for `MODEL_CLASSES`' reason rather than
+#: listed. A task's data class is where a field that shapes what gets read actually lands.
+DATA_CLASSES = {
+    spec.__name__: spec.model_fields["data"].annotation for spec in get_args(get_args(AnySpec)[0])
+}
+
+
+def test_the_data_classes_were_found_at_all():
+    """Or every parametrised case below is a case over an empty mapping."""
+    assert len(DATA_CLASSES) == 4, (
+        f"found {sorted(DATA_CLASSES)} - `AnySpec`'s shape changed and this file's "
+        "introspection has to follow it rather than quietly covering fewer tasks"
+    )
+
+
+@pytest.mark.parametrize("task", sorted(DATA_CLASSES))
+def test_every_tasks_data_says_how_it_was_READ(task):
+    """`window` is on the base, so every task answers rather than three of four.
+
+    It is the one of the three that is not segmentation's alone, and it is also the one that
+    applies to a format every task can read. A method on `SegmentationData` only would have
+    left a CT classifier's sidecar silent about the windowing its figures were measured
+    under, which is the shape `surface_dice` had when it reached one side of the whole-mask
+    pair and not the other.
+    """
+    fingerprint = DATA_CLASSES[task].measurement_fingerprint
+    assert fingerprint is not None
+    # Asked of an instance rather than of the class, because the answer is the resolved
+    # value and a class cannot have one.
+    data = DATA_CLASSES[task].model_construct(window="auto")
+    assert data.measurement_fingerprint() == {"window": "auto"}
+
+
+def test_the_window_is_recorded_EVEN_WHEN_NOBODY_WROTE_ONE():
+    """`'auto'` is a windowing rather than an absence, which is why it is not skipped.
+
+    This is the resolved-rather-than-as-written rule the model's half gives in full: the
+    value that made `#413` a day of measurement was a default nobody typed. A sidecar that
+    recorded `window` only when a configuration named it would be silent in exactly the case
+    where a reader cannot guess - and `auto` means *the window the file recorded*, so two
+    datasets read with `auto` are not necessarily read alike.
+    """
+    assert _data().measurement_fingerprint() == {"window": "auto"}
+
+
+def test_the_two_segmentation_ONLY_fields_are_recorded_only_when_SET():
+    """The author's decision of 2026-11-08, and both directions of it.
+
+    Three `null`s would say *measured without a window* where the truth is *written by an
+    engine that could not answer*, and those are different facts - the same distinction
+    `0.8.0a74` drew in R, where `jsonlite` returns `NULL` for a JSON `null` and for a key
+    that is not there alike. Absence is the honest answer for a field nobody set, because
+    `_class_fingerprint` beside it already works that way: it writes the one naming that is
+    there.
+    """
+    unset = _data().measurement_fingerprint()
+    assert set(unset) == {"window"}, (
+        f"a run that named neither field records {sorted(unset)}; the two it did not name "
+        "are absent rather than null"
+    )
+
+    named = _data(
+        channels_from=["*_t1.nii", "*_t2.nii"], target_spacing=[1.0, 1.0, 3.0]
+    ).measurement_fingerprint()
+    assert named["channels_from"] == ["*_t1.nii", "*_t2.nii"]
+    assert named["target_spacing"] == [1.0, 1.0, 3.0]
+    assert named != unset, (
+        "two runs that read the same files into different volumes write the same record, "
+        "which is the whole of what this adds"
+    )
+
+
+def test_each_of_the_two_is_recorded_on_its_OWN():
+    """Or the test above passes on a method that records both or neither.
+
+    `channels_from` 0.467 against 0.110 of Dice on one trained model, and `target_spacing`
+    18432 real voxels against 4608 at an identical model input shape - two independent
+    facts, so a run naming one of them has to say which.
+    """
+    channels = _data(channels_from=["*_t1.nii", "*_t2.nii"]).measurement_fingerprint()
+    spacing = _data(target_spacing=[2.0, 2.0, 2.0]).measurement_fingerprint()
+
+    assert set(channels) == {"window", "channels_from"}
+    assert set(spacing) == {"window", "target_spacing"}
+
+
+def test_an_explicit_window_is_a_PAIR_a_json_file_can_hold():
+    """A named window is a string and an explicit one is a `(centre, width)` tuple.
+
+    Converted here rather than left to whoever serialises, so that what this returns is
+    already what the file will hold: `json.dumps` writes a tuple as a list and
+    `safetensors`' metadata would not take it at all, and a record that survives one
+    serialiser and not another is a record whose shape depends on its reader.
+    """
+    recorded = _data(window=[40.0, 400.0]).measurement_fingerprint()
+    assert recorded["window"] == [40.0, 400.0]
+    assert isinstance(recorded["window"], list)
+    assert json.loads(json.dumps(recorded))["window"] == [40.0, 400.0]
+
+
+def test_the_datas_half_and_the_models_half_share_no_key_TODAY():
+    """The guard in `export_weights` refuses a clash; this says there is not one yet.
+
+    Both halves land in one `measured_with` block, so a `window` arriving as a model field
+    some day would be two answers to one question. That is a refusal rather than a silent
+    overwrite - and this is the control that the refusal is not currently firing, which a
+    test of the refusal alone cannot tell you.
+    """
+    # Two patterns, because `channels_from` names the files that BECOME the channels and
+    # one of them is not a channel ordering at all - the validator says so.
+    data = _data(channels_from=["*_t1.nii", "*_t2.nii"], target_spacing=[1.0, 1.0, 1.0])
+    model = _segmentation([{"name": "cldice"}], splits=[2, 2])
+
+    shared = set(data.measurement_fingerprint()) & set(model.measurement_fingerprint())
+    assert shared == set(), f"the two halves both claim {sorted(shared)}"

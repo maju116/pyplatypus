@@ -994,7 +994,18 @@ class DetectionEngine(EngineBase):
             "classes": list(self.spec.data.classes),
             **extra,
         }
-        return export_weights(run.model, run.spec, path, extra=payload)
+        return export_weights(
+            run.model,
+            run.spec,
+            path,
+            extra=payload,
+            # The data's half of `measured_with`, for `Engine.export_weights`'s reason:
+            # this is the only object holding the data specification and the model at once.
+            # Three engines write weights and each one has to pass it, which is what
+            # `test_every_engine_that_exports_contributes_the_datas_half` enumerates rather
+            # than trusting. `pyplatypus#447`.
+            measured_with=self.spec.data.measurement_fingerprint(),
+        )
 
     def best_model(self, key: str = "map_50", split: str = "validation") -> str:
         """Which model scored highest on one column.

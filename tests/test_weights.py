@@ -13,6 +13,7 @@ import os
 import re
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -1353,3 +1354,266 @@ def test_the_new_keys_cannot_refuse_a_load(tmp_path):
     # And the sidecar comes back whole, so the provenance is readable by whoever loaded it
     # rather than only by whoever opens the json.
     assert loaded["measured_with"]["metrics"][0]["iterations"] == 5
+
+
+# ------------------------------------------- the data's half of `measured_with`, `#447`
+def _data_spec(**fields):
+    from pyplatypus.spec.data import SegmentationData
+
+    block = {
+        "train_path": "a",
+        "validation_path": "b",
+        "colormap": [(0, 0, 0), (255, 255, 255)],
+    }
+    block.update(fields)
+    return SegmentationData(**block)
+
+
+def test_the_datas_half_is_merged_INTO_measured_with_rather_than_beside_it(tmp_path):
+    """`pyplatypus#447`. One block, so a reader has one place to look.
+
+    `a76` recorded `splits` on the model's side because a source image is read at
+    `splits * input_shape` and cut. Three fields pass the same test and are the data's:
+    `window` moves a picture by 0.793 of its range between soft tissue and lung on
+    pydicom's own `CT_small.dcm`; `channels_from` is 0.467 against 0.110 of Dice on ONE
+    trained model in this project's own measurement; and `target_spacing` gives 18432,
+    13824 or 4608 real voxels at an identical model `input_shape`.
+
+    They arrive as an argument because `export_weights` is handed the MODEL and nothing
+    else - which is also why they could not be added to `ModelSpec.measurement_fingerprint`,
+    whose first sentence is *beyond the weights and the data*.
+    """
+    spec = model_spec()
+    data = _data_spec(channels_from=["*_t1.nii", "*_t2.nii"], target_spacing=(1.0, 1.0, 3.0))
+    path = export_weights(
+        build_model(spec, n_class=2),
+        spec,
+        tmp_path / "run.safetensors",
+        extra={"n_class": 2},
+        measured_with=data.measurement_fingerprint(),
+    )
+    sidecar = json.loads(path.with_suffix(".json").read_text())
+
+    recorded = sidecar["measured_with"]
+    assert recorded["window"] == "auto"
+    assert recorded["channels_from"] == ["*_t1.nii", "*_t2.nii"]
+    assert recorded["target_spacing"] == [1.0, 1.0, 3.0]
+    # The model's half is still there: merged, not replaced. Dropping this assertion is how
+    # an `update` written the other way round would pass.
+    assert "metrics" in recorded and "splits" in recorded
+    assert recorded["engine"], "the block's own engine version survived the merge"
+    # And NOT at the top level, which is the half that decides whether a load can refuse.
+    for key in ("window", "channels_from", "target_spacing"):
+        assert key not in sidecar, (
+            f"{key} is at the sidecar's top level, where `_refuse_mismatch` walks the "
+            "model's fields. These three say what the FIGURES were measured on and must "
+            "refuse nothing"
+        )
+
+
+def test_a_sidecar_written_without_the_datas_half_is_unchanged(tmp_path):
+    """The control: the argument is optional and omitting it adds no keys.
+
+    Every call in `examples/` and in the registry's five published names predates this, so a
+    default that wrote something would change what those files mean rather than add to it.
+    """
+    spec = model_spec()
+    path = export_weights(build_model(spec, n_class=2), spec, tmp_path / "run.safetensors")
+    recorded = json.loads(path.with_suffix(".json").read_text())["measured_with"]
+    assert set(recorded) == {"engine", "metrics", "splits"}
+
+
+def test_a_clash_between_the_models_half_and_the_datas_is_REFUSED(tmp_path):
+    """Two answers to one question is worse than a file that could not be written.
+
+    The same guard `extra` carries, for the same reason: `trained_with` came to have four
+    copies because a caller could pass its own. Here the arrival route is a `window` becoming
+    a model field some day, and then one block would hold the model's answer and the data's
+    under one key with nothing saying which won.
+    """
+    spec = model_spec()
+    with pytest.raises(WeightsError) as raised:
+        export_weights(
+            build_model(spec, n_class=2),
+            spec,
+            tmp_path / "run.safetensors",
+            measured_with={"splits": [8, 8]},
+        )
+    message = str(raised.value)
+    assert "splits" in message, f"the refusal has to name the key: {message}"
+    assert "measured_with" in message
+
+
+def test_the_datas_half_cannot_refuse_a_LOAD(tmp_path):
+    """The reason this is additive and safe, asserted rather than reasoned about.
+
+    `_refuse_mismatch` walks the MODEL's fields rather than the sidecar's keys, so a new key
+    cannot make a load fail - which is what keeps the five published names loading and is
+    also what made `#370`'s silence possible. These three are in `measured_with`, one level
+    down, so they are not even candidates.
+    """
+    spec = model_spec()
+    model = build_model(spec, n_class=2)
+    path = export_weights(
+        model,
+        spec,
+        tmp_path / "run.safetensors",
+        extra={"n_class": 2},
+        measured_with=_data_spec(target_spacing=(9.0, 9.0, 9.0)).measurement_fingerprint(),
+    )
+    # A model built from the same specification, loading weights whose sidecar records a
+    # target spacing it never heard of.
+    load_into(build_model(spec, n_class=2), str(path), spec, extra={"n_class": 2})
+
+
+def test_the_engine_contributes_the_datas_half_WITHOUT_BEING_ASKED(tmp_path, nested_root):
+    """End to end, because the engine is the only place that holds both specifications.
+
+    A unit test of `DataSpec.measurement_fingerprint` plus one of `export_weights`' argument
+    says nothing about whether anything joins them - §4's *a guard one level below the change
+    is a guard the change can be removed under*, which this project has paid twice. Removing
+    the `measured_with=` line in `Engine.export_weights` leaves both of those passing and
+    fails this.
+    """
+    from pyplatypus import Engine
+
+    engine = Engine(
+        from_dict(
+            {
+                "task": "semantic_segmentation",
+                "data": {
+                    "train_path": str(nested_root),
+                    "validation_path": str(nested_root),
+                    "colormap": [[0, 0, 0], [255, 255, 255]],
+                    "window": "lung",
+                },
+                "models": [
+                    {
+                        "name": "m",
+                        "input_shape": [32, 32],
+                        "channels": 3,
+                        "blocks": 2,
+                        "filters": 4,
+                        "batch_size": 2,
+                        "epochs": 1,
+                    }
+                ],
+            }
+        ),
+        device="cpu",
+    )
+    engine.fit()
+    path = engine.export_weights("m", tmp_path / "trained")
+    recorded = json.loads(path.with_suffix(".json").read_text())["measured_with"]
+
+    assert recorded["window"] == "lung", (
+        f"the engine recorded {sorted(recorded)}. It is the only object holding the data "
+        "specification and the model at once, so if it does not pass the data's half "
+        "nothing does"
+    )
+
+
+#: Every engine class that writes weights, read off the module rather than listed. Three of
+#: them define `export_weights` and `ClassificationEngine` does not - a classification fit
+#: cannot export at all, which is why it is named here with a reason instead of being an
+#: absence somebody has to notice.
+def _engines_that_export():
+    from pyplatypus.classification_engine import ClassificationEngine
+    from pyplatypus.detection_engine import DetectionEngine
+    from pyplatypus.engine import Engine
+    from pyplatypus.instance_engine import InstanceEngine
+
+    every = {Engine, InstanceEngine, DetectionEngine, ClassificationEngine}
+    return {cls for cls in every if "export_weights" in cls.__dict__}, every
+
+
+def test_the_engines_that_export_were_FOUND_rather_than_assumed():
+    """Or the parametrised case below is a case over a set somebody got wrong.
+
+    `ClassificationEngine` is the one that does not export, and that is a fact about the
+    task rather than a gap: §3H records the BCCD classifier's weights question answered NO.
+    A fourth exporting engine arriving has to appear here, which is what makes the next test
+    a statement about every route instead of about three remembered ones.
+    """
+    exporting, every = _engines_that_export()
+    assert len(every) == 4
+    assert {cls.__name__ for cls in exporting} == {"Engine", "InstanceEngine", "DetectionEngine"}
+
+
+@pytest.mark.parametrize("engine_name", ["Engine", "InstanceEngine", "DetectionEngine"])
+def test_every_engine_that_exports_contributes_the_datas_half(engine_name, monkeypatch):
+    """`pyplatypus#447`. Three engines write weights and each one has to pass it.
+
+    Wiring `Engine` alone left an instance and a detection sidecar silent about how its data
+    was read, and the end-to-end test written for the semantic route passed throughout -
+    §4's *a guard one level below the change is a guard the change can be removed under*, in
+    its sibling-copy costume. `window` is on the BASE `DataSpec`, so both of those tasks have
+    one to record.
+
+    The call is captured rather than trained, because what is being asked is *does this route
+    pass the argument* and three one-epoch fits would answer the same question at a hundred
+    times the cost. The capture itself is asserted to have happened, or a patch that bound
+    nothing would read exactly like a route that passes it.
+    """
+    import pyplatypus.weights as weights_module
+    from pyplatypus.detection_engine import DetectionEngine
+    from pyplatypus.engine import Engine
+    from pyplatypus.instance_engine import InstanceEngine
+
+    seen = {}
+
+    def capture(model, spec, path, *, extra=None, measured_with=None):
+        seen["extra"] = extra
+        seen["measured_with"] = measured_with
+        return Path(path)
+
+    monkeypatch.setattr(weights_module, "export_weights", capture)
+
+    classes = {
+        "Engine": Engine,
+        "InstanceEngine": InstanceEngine,
+        "DetectionEngine": DetectionEngine,
+    }
+    engine = classes[engine_name].__new__(classes[engine_name])
+
+    task = {
+        "Engine": "semantic_segmentation",
+        "InstanceEngine": "instance_segmentation",
+        "DetectionEngine": "object_detection",
+    }[engine_name]
+    model_block = {"name": "m", "input_shape": [32, 32]}
+    data_block = {"train_path": "a", "validation_path": "b", "window": "lung"}
+    if task == "semantic_segmentation":
+        data_block["colormap"] = [[0, 0, 0], [255, 255, 255]]
+    elif task == "instance_segmentation":
+        model_block["separation"] = {"name": "rim"}
+    else:
+        data_block["classes"] = ["rbc", "wbc"]
+        model_block["architecture"] = "yolo3"
+
+    spec = from_dict({"task": task, "data": data_block, "models": [model_block]}, check_paths=False)
+    engine.spec = spec
+
+    run = SimpleNamespace(
+        model=torch.nn.Conv2d(3, 2, 1),
+        spec=spec.models[0],
+        anchors=(((10, 13), (16, 30)),),
+    )
+    # Each route reaches its run differently - `self.runs` on one, `self._run` on the other
+    # two - and both are stubbed so that this test is about the argument rather than about
+    # how a model is looked up.
+    engine.runs = {"m": run}
+    engine._run = lambda name=None: run
+
+    engine.export_weights("m", "ignored.safetensors")
+
+    assert seen, "the patch bound nothing, so this measured the tree it was standing in"
+    recorded = seen["measured_with"]
+    assert recorded is not None, (
+        f"{engine_name}.export_weights passes no data half, so an {task} sidecar records "
+        "nothing about how its data was read"
+    )
+    assert recorded["window"] == "lung", (
+        f"{engine_name} recorded {sorted(recorded)}; `window` is on the base `DataSpec`, so "
+        "every task has one"
+    )

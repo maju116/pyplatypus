@@ -313,6 +313,54 @@ class DataSpec(SpecModel):
                 problems.append(f"{field}: '{value}' is not a file, but mode is config_file")
         return problems
 
+    def measurement_fingerprint(self) -> dict:
+        """How the data was READ, which decides what a reported figure was measured on.
+
+        The data's half of a sidecar's `measured_with`. `ModelSpec.measurement_fingerprint`
+        is the model's, and its first sentence says it is about what a figure depends on
+        *beyond the weights and the data* - so these fields cannot go there without making
+        that sentence false, and `pyplatypus.weights` is handed a model and never sees a data
+        spec at all. The engine joins the two, the way it already contributes
+        `_class_fingerprint`.
+
+        `pyplatypus#447`. `#427` recorded `splits` because a source image is read at
+        `splits * input_shape` and cut, so the tiling changes the pictures a metric sees
+        while the weights and the data stay the same. Three fields one layer out pass that
+        same test and are the data's rather than the model's:
+
+            window          soft_tissue against lung on pydicom's own `CT_small.dcm` moves
+                            a picture by 0.793 of its range; against the full range,
+                            0.449, 0.493 and 0.192 for soft tissue, lung and bone
+            channels_from   `measurements/braintumour/channel-order.json` scores ONE
+                            trained model at Dice 0.467 against 0.110 on a permuted order
+            target_spacing  a 24-voxel cube at source spacing (1, 1, 3) resamples to
+                            (24, 24, 72), (24, 24, 24) or (12, 12, 36) for targets
+                            (1,1,1), (1,1,3) and (2,2,2) - 18432, 13824 and 4608 real
+                            voxels at an IDENTICAL model input shape
+
+        **Only what is set**, which is the author's decision of 2026-11-08 and
+        `_class_fingerprint`'s own shape, since that writes the one naming that is there.
+        Three `null`s would say *measured without a window*, and that is false of a file an
+        older engine wrote because it could not answer. `window` is therefore always here:
+        it always has a value, and `'auto'` is a windowing rather than an absence.
+
+        **Resolved rather than as written**, for the reason the model's half gives in full:
+        the value that made `#413` a day of measurement was a default nobody typed.
+
+        What this does NOT claim is that every data field a figure depends on is recorded.
+        `split`, `validation` and `shuffle` decide which cases were held out, and all five
+        published sidecars carry `split` because each publisher writes it by hand - which is
+        `#419`'s argument about `trained_with` one key over. `pyplatypus#450` is that
+        question with its three options and a recommendation, so this is a remainder rather
+        than a silence.
+        """
+        # A named window is a string and an explicit one is a (centre, width) tuple, which
+        # `json.dump` would write as a list anyway. Converted here so that what this returns
+        # is already what the file will hold, rather than something that survives one
+        # serialiser and not another.
+        window = self.window if isinstance(self.window, str) else list(self.window)
+        return {"window": window}
+
 
 class SegmentationData(DataSpec):
     subdirs: tuple[str, str] = Field(
@@ -590,3 +638,18 @@ class SegmentationData(DataSpec):
         looking for a field they have not got.
         """
         return "regions" if self.regions is not None else "classes_from"
+
+    def measurement_fingerprint(self) -> dict:
+        """The base's `window`, plus the two fields only this task has.
+
+        Both default to `None`, so a run that named neither says so by their absence rather
+        than by two `null`s - the author's decision of 2026-11-08, and the reason the base's
+        docstring gives for it. That docstring also carries the measurement for each of the
+        three and the question this deliberately leaves open.
+        """
+        recorded = super().measurement_fingerprint()
+        if self.channels_from is not None:
+            recorded["channels_from"] = list(self.channels_from)
+        if self.target_spacing is not None:
+            recorded["target_spacing"] = list(self.target_spacing)
+        return recorded
