@@ -1007,17 +1007,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="pyplatypus.export_weights" class="level1">
 <h1>export_weights</h1>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>export_weights(model, spec, path, <span class="op">*</span>, extra<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>export_weights(model, spec, path, <span class="op">*</span>, extra<span class="op">=</span><span class="va">None</span>, measured_with<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Write a model’s weights as safetensors, with the sidecar that describes them.</p>
 <p>The sidecar is not optional here. Weights without a record of what they are for are the thing this module exists to prevent, and the moment to write it is while the information is still at hand.</p>
 <section id="parameters" class="level2 doc-section doc-section-parameters">
 <h2 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h2>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 3%">
-<col style="width: 5%">
-<col style="width: 86%">
 <col style="width: 4%">
+<col style="width: 3%">
+<col style="width: 88%">
+<col style="width: 3%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1050,6 +1050,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td>extra</td>
 <td>dict | None</td>
 <td>Anything else worth recording - for a detector, the anchors, which are not optional metadata: the same weights read with different anchors decode every box scaled by a fixed factor, and nothing in the output says so.</td>
+<td><code>None</code></td>
+</tr>
+<tr class="odd">
+<td>measured_with</td>
+<td>dict | None</td>
+<td>The DATA’s half of <code>measured_with</code>, which only a caller holding the data specification can supply - <code>spec</code> here is the model, and <code>ModelSpec.measurement_fingerprint</code> is explicitly about what a figure depends on <em>beyond the weights and the data</em>. The engine passes <code>self.spec.data.measurement_fingerprint()</code>. <code>pyplatypus#447</code>.</td>
 <td><code>None</code></td>
 </tr>
 </tbody>
