@@ -14,6 +14,82 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a81] - 2026-11-09
+
+**The pad value is grey on a 0-1 scale and on no other, and silence now says so.**
+`pyplatypus#453` closes here - the reviewer's fifteenth pass, F4. `crop_boxes(...,
+fill=0.5)` padded in the image's own units whatever those were, so an 8-bit photograph
+letterboxed with the default came back with **black** bars, under the module docstring
+whose own argument is that *"black is a legitimate pixel value in a radiograph"*.
+
+Measured on a 40x20 `uint8` image of constant 200, one box:
+
+    size=None                      uint8     200.0000 .. 200.0
+    size=(16,16) fit=letterbox     float32     0.5000 .. 200.0     <- 0.5 on a 0-255 scale
+    size=(16,16) fit=stretch       float32   200.0000 .. 200.0     <- no padding, no issue
+    control, the same image / 255  float32     0.5000 .. 0.7843    <- 0.5 on a 0-1 scale
+
+**There is no default that is right for every range, which is the whole of the decision.**
+For 8-bit grey is 127.5; for a 0-1 float it is 0.5; and for a CT in Hounsfield units the
+midpoint of the stored range is **bone**. So *use the midpoint of the input's range* - the
+obvious repair, and the shape `#396` took when it scaled a palette colour by what the table
+holds - is right for two of those three and wrong for the one this module's sentence is
+about. Silence is **refused** instead, naming the scale it found and the value to pass;
+`fill` given explicitly still means exactly what it says in the image's own units, so
+nothing changes for any caller who passes one. What changes is what silence means.
+
+**An array's scale is its dtype's range for an integer and its own values for a float**,
+which is one sentence and the truth of the matter: 0.5 is not the middle of 0-255, whatever
+one picture happens to hold. `bool` is answered before that rule rather than by it, because
+`True` and `False` really are a 0-1 scale with 0.5 between them - and `np.iinfo` raises on
+it, so the order is load-bearing.
+
+**The float bound is calibrated at both ends**, which is what `CLAUDE.md` §4 asks of a
+tolerance: float32's eps at 1.0 is 1.19e-07, so an image that is 0-1 up to its own
+arithmetic can hold 1.0000001 and must not be refused; the tolerance is 1e-6, eight times
+that figure and six orders of magnitude below the smallest wrong scale a test pins here,
+0-2. A bound below the rounding condemns correct content and a bound above the defect
+passes broken content, and both directions are tests.
+
+**The value is resolved once per call, from the whole image, rather than per crop.** A crop
+taken from a dark corner of a 0-255 float picture is within 0-1 by accident, so deciding
+inside the loop would refuse some boxes of one call and accept others - an error that
+depends on which box you asked about. `fit="stretch"` and a call with no `size` pad nothing
+and are untouched, because `fill` is documented as the padding value for a letterbox.
+
+**What it did NOT cost, checked rather than assumed.** `DetectionEngine.crops` reads through
+`source_image`, which is `to_float(read_image(...))`, and `DetectionDataset.read` the same -
+measured on three BCCD photographs and on pydicom's `CT_small.dcm` at three windows, every
+one of them 0-1. So the default was right for this package's own route and for R's, and the
+defect was the direct Python caller the first paragraph of `crop_boxes` describes. The two
+internal call sites are left **silent** rather than passing 0.5, so the refusal covers them
+too if that ever stops being true; the two reductions it costs are 0.220 ms against 6.040 ms
+for the resize they sit beside.
+
+**Why nothing caught it is the part worth keeping.** Every image fixture in
+`tests/detection/test_crops.py` was `np.arange(...) / (20 * 30)` - `float32` already on a
+0-1 scale - and a grep for `uint8` over that file returned 0. All fourteen of its tests were
+written in the units the default assumes. `CLAUDE.md` §4's fixture that never contained the
+case, for the seventh recorded time; the fixtures added here are the case.
+
+**And one of this package's own guards found the refusal's first draft out**, which is the
+cheapest possible argument for having it. The message said *`to_float(read_image(...))` is
+what this package's own route does*, and
+`test_every_function_an_error_message_names_is_reachable` failed: `to_float` is importable
+from `pyplatypus.data` and **not** from `pyplatypus`, so a refusal naming it sends a reader
+hunting for a module path it does not give. It says *dividing an 8-bit picture by 255* now.
+§4's *an instruction addressed to a human is code nothing runs*, with an instrument on it
+for once.
+
+And the return dtype, which depended on an argument and said nothing about it: a crop cut
+with no `size` keeps the image's own dtype and one brought to a `size` comes back `float32`,
+both fits alike. Measured on both dtypes and both fits, written into the docstring, and held
+by a test rather than left as prose.
+
+**The R half: none beyond nothing - `rplatypus` does not expose `fill` at all**, and its
+route is `source_image`'s, so §3E applies in its plainest form and the pin stays at
+`0.8.0a80`.
+
 ## [0.8.0a80] - 2026-11-08
 
 **A weights sidecar now records WHICH cases were scored.** `pyplatypus#450` closes here, and

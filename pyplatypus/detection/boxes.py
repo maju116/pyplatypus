@@ -127,12 +127,18 @@ class Letterbox:
         out[:, [1, 3]] = np.clip(out[:, [1, 3]], 0, height)
         return out
 
-    def apply_to_image(self, image, fill: float = 0.5) -> np.ndarray:
+    def apply_to_image(self, image, fill: float | None = None) -> np.ndarray:
         """The image itself, scaled and padded. Channels last, any number of them.
 
         Nearest-neighbour is deliberate for the resize of a *mask-like* array and wrong for
         a photograph, so this does bilinear through the same reader the rest of the package
         uses rather than inventing a second resize.
+
+        `fill` is the pad value **in the image's own units**, and leaving it out asks for
+        grey - which only exists on a 0-1 scale, so an image on any other is refused rather
+        than padded with something arbitrary. `_pad_value` has the argument. The array that
+        comes back is `float32` whatever went in, because padding a picture with a value
+        between two integers is the point.
         """
         from pyplatypus.data.images import resize_image
 
@@ -155,11 +161,66 @@ class Letterbox:
         resized = resize_image(array, (inner_h, inner_w))
 
         target_h, target_w = self.target_shape
-        out = np.full((target_h, target_w, array.shape[2]), fill, dtype=np.float32)
+        out = np.full(
+            (target_h, target_w, array.shape[2]), _pad_value(array, fill), dtype=np.float32
+        )
         top = int(self.pad_y)
         left = int(self.pad_x)
         out[top : top + inner_h, left : left + inner_w] = resized
         return out
+
+
+def _pad_value(array: np.ndarray, fill: float | None) -> float:
+    """The pad colour, with silence meaning grey and refused wherever grey is unknown.
+
+    `fill=0.5` is grey on a 0-1 scale and on no other. On an 8-bit photograph it is nearly
+    black, which is the one pixel value the module docstring above argues against padding
+    with - so the default was right for the engine's own route, where an image has been
+    through `to_float`, and wrong for the direct caller the first paragraph of `crop_boxes`
+    describes. `pyplatypus#453`.
+
+    There is no value that is grey in every unit: 0.5 for a 0-1 float, 127.5 for 8-bit,
+    and for a CT in Hounsfield units the midpoint of the stored range is **bone**. So the
+    midpoint of the input's range - the obvious repair, and the shape `#396` took when it
+    scaled a palette colour by what the table holds - is right for two of those three and
+    wrong for the one this module's own sentence is about. Silence is refused instead, and
+    `fill` given explicitly always means exactly what it says.
+
+    An array's scale is its dtype's range when the dtype is an integer and its own values
+    when it is a float: 0.5 is not the middle of 0-255, whatever one picture happens to
+    hold.
+
+    The refusal says *divide by 255* rather than naming `to_float`, because
+    `test_every_function_an_error_message_names_is_reachable` found the first draft out:
+    that function is importable from `pyplatypus.data` and not from `pyplatypus`, so a
+    message telling a reader to call it sends them hunting for a module path it does not
+    give.
+    """
+    if fill is not None:
+        return float(fill)
+    if array.dtype == np.bool_:
+        # True and False are a 0-1 scale and 0.5 is between them.
+        return 0.5
+    if np.issubdtype(array.dtype, np.floating):
+        low, high = float(array.min()), float(array.max())
+        # float32's eps at 1.0 is 1.19e-07, so a value that is 1 up to its own rounding can
+        # read as 1.0000001. The tolerance is eight times that figure and six orders of
+        # magnitude below the smallest wrong scale a test pins here, 0-2.
+        if low >= -1e-6 and high <= 1.0 + 1e-6:
+            return 0.5
+        held = f"{array.dtype} holding values {low:.4g} to {high:.4g}"
+    elif np.issubdtype(array.dtype, np.integer):
+        held = f"{array.dtype}, whose scale is 0 to {np.iinfo(array.dtype).max}"
+    else:
+        held = str(array.dtype)
+    raise DetectionError(
+        f"the pad value defaults to 0.5, which is grey on a 0-1 scale and on no other, "
+        f"and this image is {held}. Either scale the image to 0-1 first - dividing an "
+        f"8-bit picture by 255 is what this package's own reader does on the way in - or "
+        f"pass `fill` yourself in the image's units, which for an 8-bit photograph is "
+        f"127.5. Refused rather than guessed at because no one value is grey in every "
+        f"unit: the midpoint of a CT's stored range is bone."
+    )
 
 
 def _boxes(boxes) -> np.ndarray:
@@ -183,7 +244,7 @@ def crop_boxes(
     context: float = 0.0,
     size: tuple[int, int] | None = None,
     fit: str = "letterbox",
-    fill: float = 0.5,
+    fill: float | None = None,
 ) -> list[np.ndarray]:
     """One sub-image per box: detect, cut out, hand to something else.
 
@@ -226,10 +287,15 @@ def crop_boxes(
         context: expand each box by this fraction of its width and height per side.
         size: `(height, width)` every crop is brought to, or None to keep each as cut.
         fit: `"letterbox"` to preserve aspect by padding, `"stretch"` to resize both axes.
-        fill: the padding value for `"letterbox"`, in the image's own units.
+        fill: the padding value for `"letterbox"`, in the image's own units. Left out it
+            is grey, which exists only on a 0-1 scale - so an image on any other scale is
+            refused rather than padded with a value that means something in it. The
+            argument for refusing rather than guessing is in `_pad_value`.
 
     Returns:
-        One array per box, in the order given.
+        One array per box, in the order given. A crop cut with no `size` keeps the image's
+        own dtype; one brought to a `size` comes back `float32`, because both branches go
+        through a resize and the letterbox pads between two integers.
     """
     from pyplatypus.data.images import resize_image
 
@@ -247,6 +313,12 @@ def crop_boxes(
 
     wanted = _boxes(boxes)
     height, width = array.shape[0], array.shape[1]
+
+    if size is not None and fit == "letterbox":
+        # Resolved from the whole image, once, rather than per crop inside the loop: a crop
+        # taken from a dark corner of a 0-255 float picture is within 0-1 by accident, and
+        # deciding per crop would refuse some boxes of one call and accept others.
+        fill = _pad_value(array, fill)
 
     out = []
     for index, (x1, y1, x2, y2) in enumerate(wanted):
