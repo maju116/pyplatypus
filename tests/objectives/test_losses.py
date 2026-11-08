@@ -261,7 +261,31 @@ def _focal_tversky_fixture():
 
 
 def _focal_tversky_by_hand(alpha: float, gamma: float, smooth: float) -> float:
-    """The paper's formula, in plain Python, with nothing imported from the package."""
+    """THIS PACKAGE's formula, in plain Python, with nothing imported from the package.
+
+    It said *the paper's formula* until `pyplatypus#444`, and it is not. Abraham and Khan,
+    arXiv:1810.07842, page 2, equations (3) and (4):
+
+        TI_c  = (SUM p_ic g_ic + e) / (SUM p_ic g_ic + a SUM p_ic' g_ic + b SUM p_ic g_ic' + e)
+        FTL_c = SUM_c (1 - TI_c)^(1/gamma)          with gamma in [1, 3]
+
+    Three departures, and only the first was ever written down:
+
+        the exponent    theirs 1/gamma, ours gamma   DOCUMENTED - `#429`, a decision, and
+                                                     the field's own description says so
+        over classes    theirs a SUM, ours the MEAN  over (sample, class)
+        beta            theirs independent of alpha, ours tied to `1 - alpha`
+
+    The paper trains at `alpha = 0.7, beta = 0.3`, which happen to sum to 1 - which is
+    exactly why tying them is easy to miss when reading it.
+
+    **So this is a second implementation of our own definition, and that is worth having**:
+    it is written from the formula rather than from the code, it imports nothing, and it
+    catches the four mutations listed below. What it is not is a value from outside. The
+    control for the method is `_combo_paper_equation_three` in `test_functional.py`, whose
+    docstring says *equation (3) verbatim* and was checked against the same kind of source
+    and found term for term.
+    """
     import math
 
     terms = []
@@ -390,3 +414,43 @@ def test_focal_tverskys_gamma_says_it_is_NOT_the_papers_gamma():
     # Both directions of the conversion, because stating one invites the reader to apply it
     # backwards - and the numbers are the paper's own recommendation and its image here.
     assert "4/3" in description and "0.75" in description
+
+
+def test_the_focal_tversky_hand_copy_does_not_claim_to_be_the_PAPERS_formula():
+    """`pyplatypus#444`. It said *the paper's formula* and it is this package's, three ways.
+
+    The departures are deliberate and two of them were undocumented: the exponent (`#429`'s
+    decision, and the only one that was written down), the **mean** over classes where
+    equation (4) **sums**, and `beta` tied to `1 - alpha` where equation (3) leaves them
+    independent. The paper's own `alpha = 0.7, beta = 0.3` sum to 1, which is why the third
+    is easy to miss.
+
+    §4's newest category is a declaration attributing a mechanism to code that lacks it, and
+    its sharper half: a claim of COMPLETENESS ends the enquiry that a confessed gap invites.
+    This asks for the three pieces a reader needs rather than for the wording, which is the
+    shape `test_focal_tverskys_gamma_says_it_is_NOT_the_papers_gamma` already uses one
+    function over.
+    """
+    doc = _focal_tversky_by_hand.__doc__
+    assert doc, "the hand copy has no docstring at all"
+    summary = doc.strip().splitlines()[0]
+
+    assert "paper's formula" not in summary, (
+        "this helper computes this package's definition, not the paper's, and the summary "
+        f"line is where it says so: {summary!r}"
+    )
+    assert "1810.07842" in doc, "a departure from a paper has to name which paper"
+
+    rows = [line.strip() for line in doc.splitlines() if "theirs" in line]
+    assert len(rows) == 3, (
+        f"the docstring lists {len(rows)} departures and there are three; a row dropped "
+        f"from that table is a departure nobody is told about: {rows}"
+    )
+    for label, why in (
+        ("the exponent", "theirs is 1/gamma and ours is gamma"),
+        ("over classes", "equation (4) sums and this takes the mean"),
+        ("beta", "the paper leaves beta independent and this ties it to 1 - alpha"),
+    ):
+        assert any(row.startswith(label) for row in rows), (
+            f"the departure table has no row for {label!r}: {why}"
+        )
