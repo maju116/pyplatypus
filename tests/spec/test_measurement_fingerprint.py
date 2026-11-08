@@ -137,13 +137,18 @@ def _segmentation(metrics, **model):
 
 
 def _data(**fields):
-    """The same configuration's DATA half, which is where `pyplatypus#447`'s fields live."""
+    """The same configuration's DATA half, which is where `pyplatypus#447`'s fields live.
+
+    `validation_path=None` drops the key, so a caller can hand it a `split` instead - the
+    two are exclusive and the validator says so.
+    """
+    fields = {k: v for k, v in fields.items() if v is not None}
     return from_dict(
         {
             "task": "semantic_segmentation",
             "data": {
+                **({} if "split" in fields else {"validation_path": "b"}),
                 "train_path": "a",
-                "validation_path": "b",
                 "colormap": [[0, 0, 0], [255, 255, 255]],
                 **fields,
             },
@@ -383,3 +388,143 @@ def test_the_datas_half_and_the_models_half_share_no_key_TODAY():
 
     shared = set(data.measurement_fingerprint()) & set(model.measurement_fingerprint())
     assert shared == set(), f"the two halves both claim {sorted(shared)}"
+
+
+# ------------------------------------------------ WHICH cases were scored, `pyplatypus#450`
+#
+# `#447` recorded how the data was READ and nothing about which cases the figures came from.
+# That issue named three candidates and the measurement that scoped it says ONE belongs,
+# which is the same shape `#447` had one issue earlier, where it named four fields and
+# `labels` turned out to be recorded already:
+#
+#     split        IN.  `fractions`, `group_by` and `seed` with the discovered samples decide
+#                  the partition, so two runs on one folder at different fractions score
+#                  different pictures. It changes a NUMBER.
+#     shuffle      OUT. Training only, by its own description and by every call site: each
+#                  `shuffle=self.spec.data.shuffle` is on the "train" split and every scoring
+#                  and predicting loader passes `shuffle=False`. It changes what the weights
+#                  LEARNT, which is `ignore_threshold`'s class in the detection test above.
+#     validation   OUT. It gates whether a validation split EXISTS - `false` makes asking for
+#                  one a refusal by name - rather than changing the value of a figure.
+
+
+def test_the_SPLIT_is_recorded_because_it_decides_which_cases_were_scored():
+    """`pyplatypus#450`. Both directions, and the absent one is a real case.
+
+    `CLAUDE.md` §4 has what the silence costs: `dsbowl-unet`'s card reports Dice over "134
+    held-out images", the 134 case directories on this disk are a **different** 134, and the
+    discrepancy that gave it away was 0.01 of Dice - which is also what a rounding difference
+    looks like.
+    """
+    partitioned = _data(
+        train_path="a", validation_path=None, split={"fractions": [0.8, 0.2], "group_by": None}
+    )
+    named = _data()
+
+    assert "split" not in named.measurement_fingerprint(), (
+        "a run whose second folder is named partitioned nothing, and the record says so by "
+        "saying nothing - `only what is set`, which has a real second case here"
+    )
+    recorded = partitioned.measurement_fingerprint()["split"]
+    assert recorded["fractions"] == [0.8, 0.2]
+    assert partitioned.measurement_fingerprint() != named.measurement_fingerprint()
+
+
+def test_the_splits_SEED_arrives_resolved_although_nobody_wrote_it():
+    """The `#413` argument one field over, and the half that makes the record reproducible.
+
+    `fractions` alone describes a partition; `fractions` plus `group_by` plus `seed` plus the
+    discovered samples **determines** it. The seed defaults to 0 and arrives by resolution, so
+    a record of the configuration as written would carry a partition nobody can rebuild.
+    """
+    default = _data(
+        train_path="a", validation_path=None, split={"fractions": [0.8, 0.2], "group_by": None}
+    )
+    eleven = _data(
+        train_path="a",
+        validation_path=None,
+        split={"fractions": [0.8, 0.2], "group_by": None, "seed": 11},
+    )
+
+    assert default.measurement_fingerprint()["split"]["seed"] == 0, (
+        "the seed is missing or unresolved; nothing above wrote it, which is exactly the case "
+        "this records"
+    )
+    assert eleven.measurement_fingerprint()["split"]["seed"] == 11
+    assert (
+        default.measurement_fingerprint()["split"] != eleven.measurement_fingerprint()["split"]
+    ), "two runs that hold out different pictures write the same record"
+
+
+def test_the_splits_GROUP_BY_is_recorded_because_it_is_the_leak_the_examples_exist_for():
+    """`group_by` is what makes a split by patient rather than by slice.
+
+    `examples/measure_split_leak.py` exists for the number this field moves, so a sidecar
+    that recorded `fractions` and not `group_by` would record the shape of a partition and
+    not the thing that makes it honest.
+    """
+    by_slice = _data(
+        train_path="a", validation_path=None, split={"fractions": [0.8, 0.2], "group_by": None}
+    )
+    by_case = _data(
+        train_path="a",
+        validation_path=None,
+        split={"fractions": [0.8, 0.2], "group_by": "^(case[0-9]+)_"},
+    )
+
+    assert by_case.measurement_fingerprint()["split"]["group_by"] == "^(case[0-9]+)_"
+    assert by_slice.measurement_fingerprint()["split"]["group_by"] is None
+    assert by_case.measurement_fingerprint() != by_slice.measurement_fingerprint()
+
+
+def test_shuffle_and_validation_are_NOT_recorded_and_that_is_the_decision():
+    """`pyplatypus#450` named three fields and the measurement says one. Asserted, not left.
+
+    This is the shape the detection test uses for `ignore_threshold` one function up: a field
+    deliberately out of the fingerprint is pinned so that **adding it later is a decision
+    rather than a slip**, and so that the reasoning is somewhere a reader can find it.
+
+    `shuffle` is training only - its own description says *"Only the training data: validation
+    is read in order so that two epochs measure the same thing in the same way"*, and every
+    `shuffle=self.spec.data.shuffle` in the four engines is on the `"train"` split while every
+    scoring and predicting loader passes `shuffle=False`. So it changes what the weights
+    learnt, not how they were scored.
+
+    `validation` gates whether a validation split EXISTS rather than changing a figure's
+    value: `validation: false` makes asking for one an `EngineError` that names the field, so
+    there is no number to misread.
+    """
+    data = _data(
+        train_path="a", validation_path=None, split={"fractions": [0.8, 0.2], "group_by": None}
+    )
+    recorded = data.measurement_fingerprint()
+
+    assert "shuffle" not in recorded
+    assert "validation" not in recorded
+    # Both ARE fields, so their absence is a choice rather than a spelling mistake.
+    assert {"shuffle", "validation"} <= set(type(data).model_fields)
+
+
+def test_split_and_SPLITS_are_different_facts_one_letter_apart_in_one_block():
+    """The two halves of `measured_with` now hold `split` and `splits`, and they are not kin.
+
+    `splits` is the model's TILING - a source image read at `splits * input_shape` and cut,
+    `pyplatypus#427`. `split` is the data's PARTITION - which cases were held out,
+    `pyplatypus#450`. One decides which pictures a metric sees inside a case; the other
+    decides which cases there are. A reader meeting both in one dictionary will read one for
+    the other, so this pins that they are both there, that they differ, and that neither
+    half of the fingerprint claims the other's key.
+    """
+    data = _data(
+        train_path="a", validation_path=None, split={"fractions": [0.8, 0.2], "group_by": None}
+    )
+    model = _segmentation([{"name": "dice"}], splits=[4, 4])
+
+    their_half = data.measurement_fingerprint()
+    its_half = model.measurement_fingerprint()
+
+    assert "split" in their_half and "split" not in its_half
+    assert "splits" in its_half and "splits" not in their_half
+    # And so the clash guard in `export_weights` still has nothing to fire on, which is the
+    # control for a pair of keys this similar.
+    assert set(their_half) & set(its_half) == set()

@@ -14,6 +14,66 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a80] - 2026-11-08
+
+**A weights sidecar now records WHICH cases were scored.** `pyplatypus#450` closes here, and
+it is `#447`'s remainder: that release recorded how the data was *read* and nothing about
+where the figures came from. The issue named three candidates. **The measurement says one**,
+which is the same shape `#447` had one issue earlier, where it named four fields and `labels`
+turned out to be recorded already:
+
+    split        IN.  `fractions`, `group_by` and `seed` together with the discovered
+                      samples decide the partition, so two runs on one folder at different
+                      fractions or a different seed score DIFFERENT PICTURES and said
+                      nothing about it
+    shuffle      OUT. Training only. Its own description says *"Only the training data:
+                      validation is read in order so that two epochs measure the same thing
+                      in the same way"*, and every `shuffle=self.spec.data.shuffle` in the
+                      four engines is on the `"train"` split while every scoring and
+                      predicting loader passes `shuffle=False`. It changes what the weights
+                      LEARNT, which is `ignore_threshold`'s class and already excluded by
+                      name in the detection fingerprint's test
+    validation   OUT. It gates whether a validation split EXISTS rather than changing a
+                      figure's value: `validation: false` makes asking for one an
+                      `EngineError` naming the field, so there is no number to misread
+
+**Why `split` is the one that mattered is in §4 rather than in an argument.** `dsbowl-unet`'s
+card reports Dice over *"134 held-out images"*, the 134 case directories on this disk are a
+**different** 134, and the discrepancy that gave it away was 0.01 of Dice - which is also
+exactly what a rounding difference looks like. A sidecar that carries `fractions`, `group_by`
+and `seed` turns *which 134* from a question into a reading.
+
+**Resolved, and the seed is the half that makes it reproducible rather than descriptive.**
+`seed` defaults to 0 and arrives by resolution rather than by anybody typing it, which is
+`#413`'s whole argument; `fractions` alone *describes* a partition while `fractions` plus
+`group_by` plus `seed` plus the samples *determines* it. And `group_by` is the field
+`examples/measure_split_leak.py` exists for, so recording the shape of a partition without
+the thing that makes it honest would have been the weaker half.
+
+**Only when set**, and that has a real second case here rather than a theoretical one: a run
+whose second folder is named by `validation_path` partitioned nothing, and the record says so
+by saying nothing. The two are exclusive and a validator already says which.
+
+**`split` and `splits` now sit in one block one letter apart, and a test pins that they are
+not kin.** `splits` is the model's tiling - a source image read at `splits * input_shape` and
+cut, `#427` - and `split` is the data's partition. One decides which pictures a metric sees
+inside a case; the other decides which cases there are. A reader meeting both in one
+dictionary will read one for the other.
+
+**Four publishers write a realised `split` by hand and this does not replace it**, which is
+the distinction that kept `#450` a question rather than a defect. What they write is the
+**outcome** - how many cases landed in each part, the grouping, the seed they passed - and
+what this writes is the **configuration**, resolved. Both are worth having and they are
+different facts, so they live at different levels: the publishers' at the sidecar's top
+level, this one inside `measured_with`. The clash guard has nothing to fire on, which is
+asserted rather than assumed.
+
+**The R half is a paragraph again.** `?export_weights` gained *how the data was read* at
+`a79`; this adds *which cases were scored*, and that is a different sentence rather than a
+longer one. R forwards `split` through `segmentation_data` and reads nothing back from the
+block, so R's suite will not go red in the meantime - the same prediction that held at `a79`,
+for the same reason.
+
 ## [0.8.0a79] - 2026-11-08
 
 **A weights sidecar now records how the DATA was read, which is the other half of what a

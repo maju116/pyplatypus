@@ -359,7 +359,26 @@ class DataSpec(SpecModel):
         # is already what the file will hold, rather than something that survives one
         # serialiser and not another.
         window = self.window if isinstance(self.window, str) else list(self.window)
-        return {"window": window}
+        recorded = {"window": window}
+        if self.split is not None:
+            # WHICH cases were scored, which `#447` recorded nothing about. `split` is the
+            # only one of this class's three candidates that changes a reported NUMBER:
+            # `fractions`, `group_by` and `seed` together with the discovered samples decide
+            # the partition, so two runs on one folder at different fractions or a different
+            # seed score different pictures and said nothing about it.
+            #
+            # Resolved, which is where the value is: `seed` defaults to 0 and arrives by
+            # resolution rather than by anybody typing it, which is `#413`'s whole argument.
+            # §4 records what the alternative costs - `dsbowl-unet`'s card reports Dice over
+            # "134 held-out images" and the 134 case directories on this disk are a DIFFERENT
+            # 134, a discrepancy that showed up as 0.01 of Dice and looks exactly like
+            # rounding.
+            #
+            # Absent when `validation_path` names a second folder, which is a real second
+            # case rather than a theoretical one: then nothing was partitioned and the record
+            # says so by saying nothing.
+            recorded["split"] = self.split.model_dump(mode="json")
+        return recorded
 
 
 class SegmentationData(DataSpec):
