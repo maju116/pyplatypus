@@ -309,7 +309,14 @@ class FocalTverskyLoss(_Loss):
         description=(
             "Exponent on the Tversky index, which is where this differs from `tversky`: "
             "above 1 it concentrates the gradient on the cases scoring badly. Note 1 is the "
-            "default and means plain Tversky, not 'off'."
+            "default and means plain Tversky, not 'off'. "
+            "**This is not the gamma of Abraham and Khan (arXiv:1810.07842), who write the "
+            "exponent as 1/gamma and recommend values in [1, 3].** Theirs is the reciprocal "
+            "of this one: their 4/3 is this field's 0.75, and this field's 4/3 is their "
+            "0.75. The two agree only at 1. The name is kept because changing what a "
+            "released field means would alter a saved configuration silently - both "
+            "readings are valid numbers and nothing could refuse the old one - so the "
+            "conversion is stated instead."
         ),
     )
     smooth: float = Field(1.0, gt=0, description=_SMOOTH)

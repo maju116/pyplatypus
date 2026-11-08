@@ -229,6 +229,114 @@ def test_focal_at_gamma_zero_is_cross_entropy():
     )
 
 
+# `pyplatypus#429`. Both tests below this one are named after `gamma = 1`, which is the
+# single value where mean-of-powers equals power-of-mean - so neither can see where the power
+# is taken, and the one that does run `gamma = 2` only asserts that the answer DIFFERS from
+# Tversky's, which any wrong implementation that is not the identity satisfies.
+#
+# What closes it is a value from outside. The closed form is the mean over (sample, class) of
+# `(1 - TI)^gamma` with `TI = (tp + s) / (tp + alpha*fn + (1-alpha)*fp + s)`, and
+# `_FOCAL_TVERSKY_BY_HAND` computes exactly that in plain Python - no torch, no helper out of
+# `functional`, the softmax written out - so agreement is two implementations of one formula
+# rather than the formula compared with itself.
+#
+# The fixture is integer logits over a 2x2 frame, two samples and three classes, with a label
+# map where every class is present somewhere and none is present everywhere: a class absent
+# from a sample makes `tp` and `fn` zero and drops whole terms of the formula out unexercised.
+_FT_LOGITS = [
+    [[[2.0, -1.0], [0.0, 1.0]], [[-1.0, 3.0], [1.0, -2.0]], [[0.0, 0.0], [2.0, 1.0]]],
+    [[[-2.0, 1.0], [1.0, 0.0]], [[3.0, -1.0], [-1.0, 2.0]], [[1.0, 2.0], [0.0, -1.0]]],
+]
+_FT_LABELS = [[[0, 1], [2, 0]], [[1, 2], [0, 1]]]
+
+
+def _focal_tversky_fixture():
+    logits = torch.tensor(_FT_LOGITS, dtype=torch.float32)
+    target = torch.zeros_like(logits)
+    for sample, labels in enumerate(_FT_LABELS):
+        for row in range(2):
+            for column in range(2):
+                target[sample, labels[row][column], row, column] = 1.0
+    return logits, target
+
+
+def _focal_tversky_by_hand(alpha: float, gamma: float, smooth: float) -> float:
+    """The paper's formula, in plain Python, with nothing imported from the package."""
+    import math
+
+    terms = []
+    for sample, labels in zip(_FT_LOGITS, _FT_LABELS):
+        n_class = len(sample)
+        for c in range(n_class):
+            tp = fp = fn = 0.0
+            for row in range(2):
+                for column in range(2):
+                    column_logits = [sample[k][row][column] for k in range(n_class)]
+                    biggest = max(column_logits)
+                    exps = [math.exp(v - biggest) for v in column_logits]
+                    probability = exps[c] / sum(exps)
+                    truth = 1.0 if labels[row][column] == c else 0.0
+                    tp += probability * truth
+                    fp += probability * (1.0 - truth)
+                    fn += (1.0 - probability) * truth
+            index = (tp + smooth) / (tp + alpha * fn + (1.0 - alpha) * fp + smooth)
+            terms.append((1.0 - index) ** gamma)
+    return sum(terms) / len(terms)
+
+
+# Both ends measured, which is what a bound costs. The implementation agrees with the hand
+# value to 1.2e-09 at gamma 1.5 and to 7.4e-09 across the four gammas - float32 noise over
+# sums of twelve terms. The four mutations this test exists for move it by:
+#
+#     the power taken AFTER the mean          0.0578573768 -> 0.0551081531   2.75e-03
+#     alpha and beta swapped                               -> 0.0594312200   1.57e-03
+#     gamma ignored, treated as 1                          -> 0.1448140070   8.70e-02
+#     alpha ignored, treated as 0.5                        -> 0.0586104880   7.53e-04
+#
+# So `abs=1e-6` sits 830 times above the noise and 750 times below the smallest of the four.
+# A bound with only one of those measured is a guess that happens to be green.
+_FOCAL_TVERSKY_TOLERANCE = 1e-6
+
+
+@pytest.mark.parametrize("gamma", [1.0, 1.5, 2.0, 3.0])
+def test_focal_tversky_equals_the_PAPERS_formula_computed_HERE_at_any_gamma(gamma):
+    """The identity case is in the list first, and on purpose.
+
+    `gamma = 1` is where every existing test lives, so running it here is the control that
+    the hand implementation is right about the case the suite already agrees on - and the
+    three above it are the cases nothing could see. A parametrisation whose first case fails
+    says the instrument is wrong rather than the subject.
+    """
+    logits, target = _focal_tversky_fixture()
+    loss = build_loss(FocalTverskyLoss(alpha=0.6, gamma=gamma, smooth=1.0))
+    assert loss(logits, target).item() == pytest.approx(
+        _focal_tversky_by_hand(0.6, gamma, 1.0), abs=_FOCAL_TVERSKY_TOLERANCE
+    )
+
+
+def test_focal_tversky_is_the_mean_of_POWERS_and_not_the_power_of_the_mean():
+    """The one thing `gamma = 1` makes invisible, asked as its own question.
+
+    Jensen: the power is convex above 1, so taking it per class before averaging is not the
+    same as averaging and then taking it - and the two are equal exactly at `gamma = 1`,
+    which is the value both older tests here are named after. Measured on this fixture at
+    gamma 1.5: 0.0578573768 against 0.0551081531, which is 2.75e-03 apart and 2.3 million
+    times the float32 noise.
+    """
+    logits, target = _focal_tversky_fixture()
+    loss = build_loss(FocalTverskyLoss(alpha=0.6, gamma=1.5, smooth=1.0))
+    mean_of_powers = _focal_tversky_by_hand(0.6, 1.5, 1.0)
+    power_of_mean = _focal_tversky_by_hand(0.6, 1.0, 1.0) ** 1.5
+
+    assert loss(logits, target).item() == pytest.approx(
+        mean_of_powers, abs=_FOCAL_TVERSKY_TOLERANCE
+    )
+    # And the wrong answer is named rather than merely excluded, so that a future reader can
+    # see which of the two this package computes without re-deriving Jensen.
+    assert mean_of_powers > power_of_mean
+    assert loss(logits, target).item() != pytest.approx(power_of_mean, abs=1e-4)
+
+
 def test_focal_tversky_at_gamma_one_is_tversky():
     """Because mean(1 - TI) is 1 - mean(TI). Stated in `focal_tversky`'s description, and
     the same shape of claim as focal's."""
@@ -240,3 +348,45 @@ def test_focal_tversky_at_gamma_one_is_tversky():
     )
     harsher = build_loss(FocalTverskyLoss(alpha=0.5, gamma=2.0, smooth=1.0))
     assert harsher(logits, target).item() != pytest.approx(tversky(logits, target).item(), rel=1e-6)
+
+
+def test_focal_tverskys_gamma_says_it_is_NOT_the_papers_gamma():
+    """`pyplatypus#429`. The field is the reciprocal of Abraham and Khan's and the names match.
+
+    Their exponent is `1/gamma` with gamma in [1, 3]; this field IS the exponent. So their
+    recommended 4/3 is this field's 0.75, and a reader who copies 4/3 straight out of the
+    paper gets a sharper exponent where the paper meant a flatter one - in the direction that
+    makes the loss concentrate harder rather than less.
+
+    **That has already happened once in this project.** The eleven-loss table of
+    `pyplatypus#203` ran `focal_tversky` at `alpha 0.7, gamma 1.33` - the paper's own number -
+    and `JOURNAL.md` records it as the worst row, concluding that *the focal exponent costs
+    more than the asymmetry it is layered on*. True of exponent 1.33, which is what ran; not
+    a statement about the paper's setting, which is exponent 0.75.
+
+    The author's decision on 2026-11-08 was to keep this field's meaning and state the
+    conversion, because changing what a released field means would alter a stored
+    configuration **silently** - both readings are valid positive floats, so nothing could
+    refuse the old one. This test is what keeps the statement there, and it asks for the
+    three pieces a reader needs rather than for the wording: who, that it is not the same
+    parameter, and which way to convert.
+    """
+    from pyplatypus.spec.components import FocalTverskyLoss
+
+    description = FocalTverskyLoss.model_fields["gamma"].description
+    assert description, "the field has no description at all"
+    assert "Abraham" in description, (
+        "the field is the reciprocal of a published parameter of the same name and does not "
+        "say whose"
+    )
+    assert "1/gamma" in description, (
+        "naming the paper without naming the relation leaves a reader to guess which way "
+        "round it is, which is the thing that already cost this project a table row"
+    )
+    assert "not the gamma" in description.lower(), (
+        "a reader has to be told the two are different parameters before the conversion "
+        "means anything"
+    )
+    # Both directions of the conversion, because stating one invites the reader to apply it
+    # backwards - and the numbers are the paper's own recommendation and its image here.
+    assert "4/3" in description and "0.75" in description
