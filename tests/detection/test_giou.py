@@ -241,3 +241,106 @@ def test_the_ignore_masks_decode_recovers_the_boxes_it_was_GIVEN():
             "A transposed decode moves the centre, and the ignore mask then measures overlap "
             "against a box nobody asked about"
         )
+
+
+def test_the_giou_term_equals_the_papers_formula_computed_HERE_on_a_rectangular_input():
+    """`#430`'s third site: the giou term's own `corners()`, held against an independent decode.
+
+    The term builds the predicted and the truth boxes with ONE function - its docstring says
+    so, *"decoded through the same arithmetic so the two are comparable by construction"* -
+    which makes every property that compares the two blind to a change inside it. A perfect
+    prediction scores 0 whatever the two factors are, and `grid_w` exchanged for `grid_h`
+    survives that, the wrong-box test, the gradient test and every other test that executes
+    the line. So the expected value is computed here from the paper's formula and the only
+    thing borrowed is `_giou`, which is baked against torchvision above.
+
+    **THE NUDGE MUST NOT WIDEN THE BOX, and that is the finding behind this test.** The first
+    version added 0.9 to the x logit *and* 0.3 to the log-width, which makes the prediction
+    1.35 times wider than the truth - and the truth then lies entirely INSIDE it, where
+    `IoU = area(truth) / area(prediction)` and **the centre drops out of the arithmetic
+    altogether**. Every cell of this fixture read `1 - giou = 0.2592793` under both divisors,
+    which is `1 - 0.2734/0.3691` and nothing to do with where the boxes are. §4's fixture
+    that never contained the case, with the twist that the fixture's own generosity is what
+    hid it: a prediction that swallows the truth cannot see a centre error at all.
+
+    **And BOTH offsets are nudged, for the mirror of the same reason.** With x alone the y
+    transposition survives: the prediction's y then equals the truth's, so their y intervals
+    coincide whatever `grid_h` is replaced by, and only x carries information. Measured on
+    this fixture:
+
+        as written                      0.3515753
+        x over grid_h instead of grid_w 0.5410485   a gap of 0.1895
+        y over grid_w instead of grid_h 0.2926345   a gap of 0.0589
+
+    So the bound sits five orders below the smaller of the two gaps, and neither factor is
+    held by the other.
+    """
+    predictions, targets = _targets_and_a_perfect_prediction(RECTANGLE, RECTANGULAR_BOXES)
+    for prediction in predictions:
+        prediction[..., 0] += 0.9
+        prediction[..., 1] += 0.7
+
+    loss = _loss("giou", RECTANGLE)
+    measured = loss(predictions, targets).as_dict()["coordinates"]
+
+    expected = 0.0
+    counted = 0
+    for grid, (prediction, target) in enumerate(zip(predictions, targets, strict=True)):
+        cells_down, cells_across = loss.shapes[grid]
+        anchors = torch.tensor(loss.anchors[grid], dtype=torch.float32)
+        here = target[..., 4] > 0.5
+        _, rows, columns, slots = here.nonzero(as_tuple=True)
+        if rows.numel() == 0:
+            continue
+        counted += int(rows.numel())
+
+        # Every loop variable bound as a default rather than closed over, which `ruff`'s
+        # B023 is for: a closure reading `cells_across` from the enclosing scope sees the
+        # LAST grid's value whenever it is called after the loop moves on. That is the same
+        # late-binding class that cost me an hour on this very term.
+        def corners(
+            offset_x,
+            offset_y,
+            log_w,
+            log_h,
+            rows=rows,
+            columns=columns,
+            slots=slots,
+            across=cells_across,
+            down=cells_down,
+            anchors=anchors,
+        ):
+            centre_x = (offset_x + columns) / across
+            centre_y = (offset_y + rows) / down
+            width = torch.exp(log_w) * anchors[slots, 0]
+            height = torch.exp(log_h) * anchors[slots, 1]
+            return torch.stack(
+                [
+                    centre_x - width / 2,
+                    centre_y - height / 2,
+                    centre_x + width / 2,
+                    centre_y + height / 2,
+                ],
+                dim=-1,
+            )
+
+        chosen, wanted = prediction[here], target[here]
+        predicted = corners(
+            torch.sigmoid(chosen[..., 0]),
+            torch.sigmoid(chosen[..., 1]),
+            chosen[..., 2],
+            chosen[..., 3],
+        )
+        truth = corners(wanted[..., 0], wanted[..., 1], wanted[..., 2], wanted[..., 3])
+        # Divided by this grid's own object count, which is the loss's normalisation and
+        # matters rather than being a detail: this fixture puts two of its three boxes on
+        # grid 0 and one on grid 1, so a sum differs from the mean by more than the defect.
+        expected += float((1.0 - _giou(predicted, truth)).sum()) / rows.numel()
+
+    assert counted == 3, f"the fixture placed {counted} boxes and the arithmetic needs three"
+    assert measured == pytest.approx(expected, abs=1e-6), (
+        f"the term reports {measured:.7f} and the paper's formula computed here gives "
+        f"{expected:.7f}. The two agree to 0.00e+00 on this fixture as written; exchanging "
+        "the grid's height and width inside `corners` moves the term to 0.5410485 one way "
+        "and 0.2926345 the other"
+    )
