@@ -507,6 +507,25 @@ def combo(
     `cross_entropy`, so `multilabel` only has to reach the probabilities: with a sigmoid the
     two terms stop being one voxel's two halves and become each channel's own question,
     which is what the formula was doing to the background channel anyway.
+
+    **Two deliberate departures from equation (3) of arXiv:1805.02798**, both measured
+    against a hand transcription of the paper's own page rather than described from memory.
+    The paper writes `- (1 - alpha) * SUM_k dice_k`; this writes `+ (1 - alpha) * (1 - mean_k
+    dice_k)`.
+
+    - **An additive constant.** `1 - dice` rather than `-dice` shifts the value by
+      `(1 - alpha)` and changes no gradient, so the minimiser is the paper's. At one channel
+      the two forms differ by exactly that, to eight decimals, at every `(alpha, ce_ratio)`
+      measured.
+    - **The mean over channels rather than the sum**, which is NOT a constant once there is
+      more than one channel. Summing makes the Dice half grow with the number of classes, so
+      `alpha` would mean a different balance per dataset; the mean keeps one voxel worth the
+      same whatever it was asked, which is the argument `binary_cross_entropy` below makes
+      about its own reduction. The paper's own experiments flatten the one-hot volumes and
+      compute the loss as if binary, where the two agree.
+
+    Both are held by `tests/objectives/test_functional.py`, including the three-channel case
+    where the difference stops being constant. `pyplatypus#429`.
     """
     probs = probabilities(logits, multilabel=multilabel).clamp(EPS, 1 - EPS)
     weighted_ce = -(

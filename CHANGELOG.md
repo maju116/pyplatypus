@@ -1,6 +1,98 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [0.8.0a78] - 2026-11-08
+
+**The four losses nothing could have caught a formula error in now have values from
+outside.** `pyplatypus#429` closes here. The thirteenth review pass measured that `lovasz`,
+`combo` and `focal_tversky` were held by nothing that can see a formula error, and that two
+branch bodies and one parameter had never executed at all. `0.8.0a77`'s tag carried the
+Lovász third; this is the rest, plus the one decision it turned up.
+
+**Both of `combo`'s knobs survived being removed, and the defaults are why.** At
+`alpha = 0.5` the two halves weigh equally and at `ce_ratio = 0.5` the two cross-entropy
+terms do, so both weight swaps are the identity exactly there - and every test of `combo` in
+this package was written at the defaults. The same shape holds `focal_tversky`: both its
+tests are *named* after `gamma = 1`, the single value where the mean of powers equals the
+power of the mean.
+
+**The reference for `combo` is the paper's own equation (3), transcribed by hand from its
+page rather than recalled** - Taghanaki et al., arXiv:1805.02798 - and transcribing it found
+two departures this package had never written down. Measured at four `(alpha, ce_ratio)`
+pairs:
+
+    one channel      ours - theirs = (1 - alpha) exactly, to eight decimals
+    three channels   ours - theirs = (1 - alpha) * (1 + (K - 1) * mean_dice)
+
+The first is an additive constant - `1 - dice` where the paper writes `-dice` - so the same
+gradient and the same minimiser. The second is **the mean over channels where the paper
+sums**, which is not a constant: summing makes the Dice half grow with the number of classes,
+so `alpha` would mean a different balance per dataset. The mean is the right choice and is
+the argument `binary_cross_entropy` already makes about its own reduction - it was simply
+undocumented, and the paper's own experiments flatten to one channel, where the two agree.
+
+**And `focal_tversky`'s `gamma` is the reciprocal of the parameter of the same name in the
+literature.** Abraham and Khan (arXiv:1810.07842) write the exponent as `1/gamma` and
+recommend values in [1, 3]; this field **is** the exponent. The author's decision on
+2026-11-08 was to keep the meaning and state the conversion, because changing what a
+released field means would alter a stored configuration **silently**: both readings are
+valid positive floats and nothing could refuse the old one.
+
+**That ambiguity has already cost one of this project's own measurements.** The eleven-loss
+table of `pyplatypus#203` ran `focal_tversky` at `alpha 0.7, gamma 1.33` - the paper's own
+number - and concluded that *the focal exponent costs more than the asymmetry it is layered
+on*. True of exponent 1.33, which is what ran; the paper's 4/3 means exponent 0.75, which is
+a flatter curve rather than a sharper one. The row is valid for what it measured and is not
+a reading of the paper's setting.
+
+### Added
+
+ - **An outside value for `focal_tversky` at any gamma**, as the mean over (sample, class)
+   of `(1 - TI)^gamma` computed in plain Python with nothing imported from the package.
+   Parametrised over 1.0, 1.5, 2.0 and 3.0 with the identity case first, so a failure on the
+   first says the instrument is wrong rather than the subject. Four mutations caught, against
+   a measured float32 noise of 1.2e-09: the power taken after the mean (2.75e-03), alpha and
+   beta swapped (1.57e-03), gamma ignored (8.70e-02) and alpha ignored (7.53e-04). The bound
+   is 1e-6, which sits 830 times above the noise and 750 below the smallest defect.
+
+ - **An outside value for `combo` at four `(alpha, ce_ratio)` pairs**, three of them away
+   from the defaults, as the relationship to equation (3) rather than as a pinned number -
+   which is the stronger statement, since it holds at every setting. Five mutations caught,
+   including the two that encode the departures above.
+
+ - **The three branches nothing had ever run.** `cross_entropy`'s and
+   `binary_cross_entropy`'s `label_smoothing` was never passed non-zero anywhere in either
+   suite, and `focal`'s multi-class `alpha` was never passed at all - `binary_focal`'s was,
+   which is the near-miss that makes a grep for the name look reassuring. All three agree
+   with a hand reference, so this is holding rather than correctness. Four mutations caught,
+   including the one `binary_cross_entropy`'s docstring is written about: its smoothing
+   divides by two rather than by `n_class`, 7.7e-03 apart on the fixture.
+
+   **`focal`'s `alpha` is held at its endpoints rather than by a direction**, and the first
+   draft of that test asserted a direction that is false. It claimed raising `alpha` raises
+   the loss because five of the fixture's eight cells are foreground - a count, not a
+   measurement. Measured, the three background cells carry 0.2381 of unweighted loss against
+   0.0824 over the five foreground ones, so raising `alpha` *lowers* it. The direction
+   follows whichever cells the model is currently wrong about and is not a fact about the
+   parameter; what is exact is the interpolation between 0.0297598 at `alpha = 0` and
+   0.0103049 at `alpha = 1`.
+
+### Changed
+
+ - **`combo`'s docstring records the two departures from the equation it cites**, with the
+   measurement for each and the reason the mean is the right choice.
+
+ - **`focal_tversky`'s `gamma` description names Abraham and Khan, says it is not their
+   parameter, and gives the conversion in both directions.** Held by a test that asks for
+   the three pieces a reader needs rather than for the wording, and proven able to fail on
+   each of them.
+
+**The R half: a fixture regeneration.** The `gamma` description moves the field-prose
+ledger's digest, so `rplatypus` regenerates `tests/testthat/fixtures/field-prose.yml` and
+re-reads the `@param` the ledger names - which is `?losses` and `loss_focal_tversky()`'s own
+argument, where R states the same parameter in its own words. That is the ledger's first
+answer, a description rewritten, which this file has recorded producing a finding once.
+
 ## [0.8.0a77] - 2026-11-08
 
 **`fives-unet`'s pin moves to the commit where its sidecar states the peel count.**
