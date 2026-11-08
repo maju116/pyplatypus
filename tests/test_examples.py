@@ -1618,3 +1618,47 @@ def test_the_instance_separation_configuration_is_accepted():
     import train_instance_separation as script
 
     _validate(script.specification("train.csv", "validation.csv", 2, 1))
+
+
+def test_the_published_dsbowl_recipe_IS_the_comparisons_u_net_row():
+    """`pyplatypus#446`. Two files stated one recipe and nothing held them together.
+
+    61 shared literals, and the learning rate changed in either copy alone left 318 tests
+    passing - so the architecture table's `u_net` row, which is what this project's prose
+    judges the published weights by, could drift from the weights in silence. The
+    comparison's own docstring says it *"reuses the data and the split … so the numbers are
+    comparable"*, and *comparable* had no mechanism behind it.
+
+    `#418` exempted this pair on a reason that was false when it was written - *"no example
+    trains that model, so it is the only copy rather than a second one"* - and
+    `ARCHITECTURES[0]` is `u_net`.
+
+    There is one copy now, and this asserts the sharing rather than an agreement: the
+    published model IS the comparison's row, with exactly the keys in `PUBLISHED_OVERRIDES`
+    replaced. A field that stops being shared fails here and nowhere else.
+    """
+    import compare_dsbowl_architectures as comparison
+    import publish_dsbowl_weights as publisher
+
+    borrowed = comparison.model("u_net", epochs=60, size=256, batch=8)
+    published = publisher.specification("train.csv", "validation.csv", 60, 256)["models"][0]
+
+    assert set(published) == set(borrowed), (
+        "the published model and the comparison's row no longer carry the same keys: "
+        f"only published {sorted(set(published) - set(borrowed))}, "
+        f"only in the row {sorted(set(borrowed) - set(published))}"
+    )
+
+    overrides = publisher.PUBLISHED_OVERRIDES
+    assert set(overrides) == {"name", "batch_size"}, (
+        "the list of deliberate differences moved; every one of them has to be a thing a "
+        "reader can see in one place rather than by diffing two files"
+    )
+    for key, value in overrides.items():
+        assert published[key] == value
+
+    differ = {k for k in published if published[k] != borrowed[k]}
+    assert differ <= set(overrides), (
+        "the published recipe and the comparison's row differ in a field nobody declared: "
+        f"{sorted(differ - set(overrides))}. That is the drift `#446` was about."
+    )
