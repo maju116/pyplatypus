@@ -199,3 +199,86 @@ def test_a_box_still_returns_to_its_own_pixels_through_the_inverse():
     )
     back = fit.inverse(fit.forward(boxes))
     assert back == pytest.approx(boxes, abs=1e-9)
+
+
+# `pyplatypus#456`: THREE SENTENCES OF THE REFUSAL DESCRIBED THE ARRAY WRONGLY, and every
+# one of the three refused correctly. The fixtures that existed were `uint8` and 0-1 floats,
+# so none of the three could fail: §4's fixture that never contained the case, in a message
+# §4 also says is the place a reader learns what a healthy run looks like.
+
+
+def test_a_signed_integer_image_is_told_its_own_dtypes_range():
+    """`int16`'s scale is -32768 to 32767, and the message said `0 to 32767`.
+
+    The sharpest part is that the refusal's own reason is *the midpoint of a CT's stored
+    range is bone*, and a CT in Hounsfield units is exactly an array with negative values -
+    so the sentence named a range that excludes every value the case it argues from holds.
+    """
+    hounsfield = np.full((8, 12, 1), -1000, dtype=np.int16)
+    hounsfield[2:5, 3:7, 0] = 400
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(hounsfield)
+    message = str(refusal.value)
+    assert "int16, whose scale is -32768 to 32767" in message
+    # Its own values beside the dtype's, because the two answer different questions.
+    assert "holds values -1000 to 400" in message
+    # And NO midpoint is offered: for physical units the windowing decides what grey is, so
+    # there is nothing honest to suggest. 127.5 belongs to the 8-bit sentence and must not
+    # travel to this one.
+    assert "127.5" not in message
+    assert "window it" in message
+
+
+def test_an_unsigned_integer_image_still_gets_the_eight_bit_sentence():
+    """The control for the test above: the signed branch must not swallow the common case."""
+    photograph = np.full((8, 12, 3), 200, dtype=np.uint8)
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(photograph)
+    message = str(refusal.value)
+    assert "uint8, whose scale is 0 to 255" in message
+    assert "127.5" in message
+    assert "whose scale is -" not in message
+
+
+def test_a_non_finite_value_is_refused_by_name_rather_than_as_a_scale():
+    """`min()` and `max()` of an array holding a `NaN` are `nan`, so the old message said
+    *holding values nan to nan* about an array whose other values are 0.2 - and offered
+    *divide by 255*, which is no advice for a `NaN`."""
+    patchy = np.full((8, 12, 1), 0.2, dtype=np.float32)
+    patchy[3, 4, 0] = np.nan
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(patchy)
+    message = str(refusal.value)
+    assert "non-finite" in message
+    assert "nan to nan" not in message
+    # The finite values ARE named, because they are what the reader can act on.
+    assert "0.2" in message
+    # An infinity is the same complaint, which the finding did not name and the fix covers.
+    patchy[3, 4, 0] = np.inf
+    with pytest.raises(DetectionError, match="non-finite"):
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(patchy)
+
+
+def test_an_array_that_is_entirely_non_finite_says_so():
+    """The other end of the same branch: with no finite value there is no range to name,
+    and a message reporting an empty one would be the defect again."""
+    nothing = np.full((8, 12, 1), np.nan, dtype=np.float32)
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(nothing)
+    assert "no finite value at all" in str(refusal.value)
+
+
+def test_a_float_refused_for_overshooting_one_is_told_the_overshoot():
+    """`:.4g` rounded 1.000002 to `1`, so the refusal described the array as *holding values
+    0 to 1* - a range this function ACCEPTS. The reader was told the image is on the scale
+    the refusal says it is not."""
+    overshooting = np.linspace(0.0, 1 + 2e-6, 8 * 12, dtype=np.float64).reshape(8, 12, 1)
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(overshooting)
+    message = str(refusal.value)
+    assert "1.000002" in message
+    assert "holding values 0 to 1." in message
+    # The control that the boundary itself did not move: one order of magnitude smaller is
+    # still the same scale and is accepted.
+    accepted = np.linspace(0.0, 1 + 1e-7, 8 * 12, dtype=np.float64).reshape(8, 12, 1)
+    assert Letterbox.fit((8, 12), (6, 6)).apply_to_image(accepted).min() >= 0.0

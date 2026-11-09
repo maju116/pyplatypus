@@ -1978,7 +1978,7 @@ wheels = [
 
 [[package]]
 name = "pyplatypus"
-version = "0.8.0a81"
+version = "0.8.0a82"
 source = { editable = "." }
 dependencies = [
     { name = "albumentations" },
