@@ -14,6 +14,63 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a84] - 2026-11-09
+
+### Changed
+
+- **`0.8.0a83` decided *prose only* on an existence claim, and the claim was false.**
+  `pyplatypus#466`, the reviewer's seventeenth pass. That release argued that no mechanism
+  visible to a resolver can express *this package cannot be installed here*, so the README
+  is the whole of the answer. **PEP 592 yanking is such a mechanism**, it has none of the
+  hazards the marker and the refuse-by-name forms were rejected for, and this project had
+  already used it once - `0.3.0a14` has been yanked since long before any of this.
+
+  **What the claim was hiding, measured before anything changed.** On a Python below 3.11
+  an unpinned `pyplatypus` found only the two 2022 releases - the TensorFlow package this
+  one replaced - and **installed them with exit 0**, from wheels, saying nothing:
+
+      x86_64 macOS   py3.9, py3.10    pyplatypus 0.1.0rc2 + tensorflow 2.9.1
+      x86_64 Linux   py3.9            the same
+      x86_64 Windows py3.9            the same
+
+  `0.1.0rc1` and `0.1.0rc2` are `py2.py3-none-any` wheels with `requires_python >= 3.6`,
+  and rc2 declares `tensorflow (==2.9.1)`. The failure is silent at install and loud at
+  first use, because no name this README teaches exists in that package.
+
+  **Both 2022 releases are yanked, reason *"Old version"*, and the four rows now refuse.**
+  Each refusal names it - *"pyplatypus<=0.1.0rc2 was yanked (reason: Old version)"* - over
+  three rounds on a fresh cache, with the platforms that work as the controls: Linux at
+  3.10 still resolves `0.8.0a43`, and 3.11, 3.13, arm64 macOS and Windows still resolve the
+  newest. **An exact pin still takes a yanked file**, so `pip install pyplatypus==0.1.0rc2`
+  works and warns, which is the route this README's own banner offers.
+
+  **The reading flapped before it settled, and that is worth more than the fix.** For
+  several minutes the two canonical index representations disagreed in opposite directions -
+  HTML marking the files yanked while the PEP 691 JSON did not, then the reverse - and the
+  behavioural answer alternated 6:4 between *refuses, naming the yank* and *installs the
+  2022 package*. The `pypi.org/pypi/<name>/json` representation still said `yanked=False`
+  after both canonical ones agreed, which is the lag §3B.9 already records. So a yank needs
+  the same *twice, at the canonical URL* discipline a release does, and the intermediate
+  state is worse than a release's: not *the version is missing* but *the user gets something
+  else, depending on which edge answers*.
+
+  **What was true and was doing the false sentence's work**: *no metadata in a new release
+  changes what a resolver does with an old one*. It does not - and metadata on the **old**
+  release does. The README and the manifest comment say that now, and `0.8.0a83`'s entry is
+  left as the record it is.
+
+- **And the pad guard's docstring told a history that did not happen**, corrected here
+  because the commit that shipped it cannot be. `0.8.0a82` unheld nothing: the sixteenth
+  pass's *"lower end"* mutation edited **both** ends in one pass, and the upper end's own
+  test - `test_float_rounding_at_one_is_not_a_different_scale`, there since `0.8.0a81` -
+  is what caught it. Measured on three trees: the lower end alone survives at a81 and at
+  a82, and `#463`'s test is the first it has ever had. What a82 added was a real hold on
+  the upper end at the coarse scale.
+
+  **The R half: none beyond nothing.** Prose, a comment and a test docstring; `rplatypus`
+  forwards none of it, so the pin stays at `0.8.0a80` - §3E, said here rather than only in
+  a commit message.
+
 ## [0.8.0a83] - 2026-11-09
 
 ### Changed

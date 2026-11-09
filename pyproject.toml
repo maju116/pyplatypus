@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a83"
+version = "0.8.0a84"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -147,11 +147,20 @@ dependencies = [
     # is a dependency on whoever registers one next, fetched and built on exactly the
     # platform being refused. What is left is the resolver's own message, which is already
     # true: pinned, uv says *"torch>=2.7.0 has no wheels with a matching platform tag
-    # (e.g. macosx_13_0_x86_64)"* and lists the platforms that do have one. Unpinned it
-    # says nothing useful, because the resolver walks backwards through 115 published
-    # versions and 76 of them accept Python 3.10 - and no metadata in a NEW release can
-    # change what a resolver does with an old one. So the instrument that reaches an Intel
-    # Mac is the README, and nothing in this file.
+    # (e.g. macosx_13_0_x86_64)"* and lists the platforms that do have one.
+    #
+    # **And the sentence that stood here - *the instrument that reaches an Intel Mac is
+    # the README, and nothing in this file* - was false, which `pyplatypus#466` is.** It
+    # rested on *no metadata in a NEW release changes what a resolver does with an old
+    # one*, which is true and was doing a false sentence's work: metadata on the **old**
+    # one changes it. PEP 592 yanking is resolver-visible, has no unregistered-name
+    # hazard, and leaves an exact pin working - and this project had already used it once,
+    # on `0.3.0a14`. The two 2022 releases were yanked on 2026-11-09 (*"Old version"*),
+    # and the four rows that used to install the TensorFlow package with exit 0 - x86_64
+    # macOS at 3.9 and 3.10, Linux and Windows at 3.9 - now refuse, each naming the yank,
+    # measured over three rounds on a fresh cache with the working platforms as controls.
+    # What is true of THIS file is narrower and still worth saying: nothing here reaches
+    # that machine, and the floor is why the machine is refused at all.
     "torch>=2.7",
 ]
 
