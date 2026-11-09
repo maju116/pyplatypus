@@ -668,7 +668,7 @@ class DetectionEngine(EngineBase):
         context: float = 0.0,
         size: tuple[int, int] | None = None,
         fit: str = "letterbox",
-        fill: float = 0.5,
+        fill: float | None = None,
     ) -> list[dict[str, Any]]:
         """Every detection cut out of the image it was found in.
 
@@ -706,7 +706,12 @@ class DetectionEngine(EngineBase):
             fit: `"letterbox"` to preserve the aspect, `"stretch"` to resize both axes - a
                 stretch changes the aspect of every non-square object and so has to be
                 asked for.
-            fill: Padding value for `"letterbox"`.
+            fill: Padding value for `"letterbox"`, in the image's own units. Left out it
+                is grey - which is 0.5 here, because `source_image` reads through
+                `to_float` and so hands this a 0-1 picture. Threaded as `None` rather
+                than defaulting to 0.5 so that one meaning of *not given* reaches
+                `crop_boxes`, whose refusal would then cover this route as well if that
+                ever stopped being true.
 
         Returns:
             One record per image, each a dict of seven keys. `key` says which image;

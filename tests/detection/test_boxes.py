@@ -74,6 +74,36 @@ def test_grey_padding_rather_than_black():
     assert out[0, 0, 0] == pytest.approx(0.5)
 
 
+def test_grey_is_refused_where_grey_is_unknown():
+    """`pyplatypus#453`: the default is grey on a 0-1 scale and on no other, so an 8-bit
+    photograph padded with it gets a nearly black band - under the very docstring that
+    argues against black. Refused rather than guessed at, because the value that means
+    nothing differs by unit: 127.5 for 8-bit, and for a CT the midpoint of the stored
+    range is bone.
+
+    Asked of `apply_to_image` directly as well as through `crop_boxes`, because this is
+    the entry point `DetectionDataset.read` uses and the two silences are separate code.
+    """
+    fit = Letterbox.fit((480, 640), (416, 416))
+    with pytest.raises(DetectionError, match="grey on a 0-1 scale"):
+        fit.apply_to_image(np.full((480, 640, 3), 200, dtype=np.uint8))
+
+    # And the value given explicitly still means the image's own units.
+    out = fit.apply_to_image(np.full((480, 640, 3), 200, dtype=np.uint8), fill=127.5)
+    assert out[0, 0, 0] == pytest.approx(127.5)
+    assert out[208, 208, 0] == pytest.approx(200.0)
+
+
+def test_a_boolean_mask_is_already_on_a_zero_to_one_scale():
+    """The one integer-like dtype whose scale really is 0-1: True and False, with 0.5
+    between them. Refusing it would be a check failing on correct content, and asking
+    `np.iinfo` about it raises - so it is answered before the dtype rule, not by it."""
+    fit = Letterbox.fit((100, 80), (64, 64))
+    out = fit.apply_to_image(np.ones((100, 80), dtype=bool))
+    assert out[0, 0, 0] == pytest.approx(0.5)
+    assert out[32, 32, 0] == pytest.approx(1.0)
+
+
 def test_a_letterbox_refuses_an_image_it_was_not_fitted_for():
     """Reusing one is how a box ends up scaled by the wrong factor."""
     fit = Letterbox.fit((480, 640), (416, 416))
