@@ -48,7 +48,11 @@ RUNNER_CLASSIFIERS = {
     "macos": "Operating System :: MacOS",
     "windows": "Operating System :: Microsoft :: Windows",
 }
-RUNNER = re.compile(r"^(ubuntu|macos|windows)-[a-z0-9.]+$")
+# `[a-z0-9._-]+` and not `[a-z0-9.]+`: the first pattern stopped at a SECOND hyphen, so
+# `windows-11-arm`, `ubuntu-24.04-arm` and `macos-15-intel` - all real labels - were not
+# matched at all, and the comparison below then reported that `ci.yml` runs no Windows
+# while every Windows cell was present. Loud, and in the wrong direction.
+RUNNER = re.compile(r"^(ubuntu|macos|windows)-[a-z0-9._-]+$")
 
 
 def installing_section() -> str:
@@ -71,42 +75,59 @@ def declared_floors() -> tuple[str, str]:
 
 
 def ci_runner_families() -> set[str]:
-    """Every runner family the suite's own workflow names, found wherever it names them.
+    """The runner families the SUITE runs on: the `test` job's own matrix, and only it.
 
-    Walked rather than read off `runs-on`, because the matrix job's `runs-on` is
-    `${{ matrix.os }}` and the labels are in `strategy.matrix.os` and in its `include` -
-    which is three places a label can hide and two of them are not the obvious one.
+    This walked the whole workflow until `pyplatypus#464`, and that is the difference
+    between a guard and a guard in name only. `lint`, `floors` and `build` all run on
+    `ubuntu-latest`, so a walk over every label in the file answers *Linux* whatever the
+    matrix does - and the mutation that proves it is one line: with
+    `os: [ubuntu-latest]` changed to `[macos-latest]`, the suite runs on Linux NOWHERE
+    and all four tests here passed. The classifiers are a claim about where the package
+    is TESTED, so the matrix is the only part of the file that can answer it.
+
+    Three places a label hides in that job and two are not the obvious one:
+    `strategy.matrix.os`, each `strategy.matrix.include` entry's `os`, and `runs-on`
+    itself when it is a literal rather than `${{ matrix.os }}`.
     """
-    found: set[str] = set()
+    workflow = yaml.safe_load(CI.read_text(encoding="utf-8"))
+    jobs = workflow.get("jobs") or {}
+    # The control for this helper: a renamed job must not read as a matrix with no
+    # platforms, which would make every comparison below pass over an empty set.
+    assert "test" in jobs, f"ci.yml has no `test` job; it has {sorted(jobs)}"
+    job = jobs["test"]
 
-    def walk(node: object) -> None:
-        if isinstance(node, dict):
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-        elif isinstance(node, str):
-            match = RUNNER.match(node.strip())
-            if match:
-                found.add(match.group(1))
+    labels: list[str] = []
+    runs_on = job.get("runs-on")
+    if isinstance(runs_on, str) and "${{" not in runs_on:
+        labels.append(runs_on)
+    matrix = (job.get("strategy") or {}).get("matrix") or {}
+    entry = matrix.get("os")
+    labels.extend(entry if isinstance(entry, list) else [entry] if entry else [])
+    for included in matrix.get("include") or []:
+        if isinstance(included, dict) and included.get("os"):
+            labels.append(included["os"])
 
-    walk(yaml.safe_load(CI.read_text(encoding="utf-8")))
-    return found
+    unreadable = [label for label in labels if not RUNNER.match(str(label).strip())]
+    assert not unreadable, (
+        f"runner labels this pattern cannot read: {unreadable} - widen RUNNER rather "
+        "than letting a label go uncounted, which is how `windows-11-arm` once read as "
+        "no Windows at all"
+    )
+    return {RUNNER.match(str(label).strip()).group(1) for label in labels}
 
 
 def test_everything_below_was_read_at_all():
     """The control, because every assertion in this file is over something parsed.
 
-    An empty section, an unreadable manifest or a walk that found no runner labels would
-    make the comparisons below pass over nothing, which is §4's count over no input.
+    An empty section, an unreadable manifest or a matrix that yielded no runner labels
+    would make the comparisons below pass over nothing, which is §4's count over no input.
     """
     section = installing_section()
     assert len(section) > 500, f"the Installing section is {len(section)} characters"
     assert "pip install" in section, "the Installing section installs nothing"
 
     families = ci_runner_families()
-    assert len(families) >= 2, f"runner families found in ci.yml: {sorted(families)}"
+    assert len(families) >= 2, f"runner families in the test job's matrix: {sorted(families)}"
     assert families <= set(RUNNER_CLASSIFIERS), f"unmapped runner family: {sorted(families)}"
 
 
@@ -164,6 +185,11 @@ def test_the_operating_system_classifiers_are_the_ones_ci_runs():
     Equality in both directions: a classifier naming an operating system nothing is run on is
     a claim, and a platform the matrix tests without a classifier is a reader not being told.
     `OS Independent` fails this by being neither.
+
+    **And `ci.yml runs` means the SUITE's matrix**, which is `pyplatypus#464`: until then
+    this compared against every runner label in the workflow, and `lint`, `floors` and
+    `build` are all on `ubuntu-latest` - so the matrix could leave Linux entirely with this
+    test still green. `ci_runner_families()` reads the `test` job and says why.
     """
     classifiers = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["classifiers"]
     claimed = {c for c in classifiers if c.startswith("Operating System ::")}
