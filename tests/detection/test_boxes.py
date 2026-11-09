@@ -282,3 +282,63 @@ def test_a_float_refused_for_overshooting_one_is_told_the_overshoot():
     # still the same scale and is accepted.
     accepted = np.linspace(0.0, 1 + 1e-7, 8 * 12, dtype=np.float64).reshape(8, 12, 1)
     assert Letterbox.fit((8, 12), (6, 6)).apply_to_image(accepted).min() >= 0.0
+
+
+def test_a_float_a_hair_below_zero_is_still_a_zero_to_one_image():
+    """The tolerance has two ends and after `0.8.0a82` only one of them was held.
+
+    `pyplatypus#462`. The sixteenth pass mutated both ends at `0.8.0a81`: the lower one was
+    caught and the upper one survived. Re-run against the tree a82 left, the two readings had
+    **swapped** - a82's own overshoot test above pins the upper end at `1 + 2e-6`, and nothing
+    was left that needed the lower one. A repair that moves a guard from one end of a bound to
+    the other is the shape that pass is about, carried in this time by the fix for its own
+    finding.
+
+    Why a value below zero is a 0-1 image rather than a different scale: float32's eps at 1.0
+    is 1.19e-07, so a pixel that is 0 up to its own rounding can read as -1e-7. Same argument
+    as the upper end, in the direction nobody wrote a fixture for.
+    """
+    just_under = np.linspace(-1e-7, 1.0, 8 * 12, dtype=np.float64).reshape(8, 12, 1)
+    padded = Letterbox.fit((8, 12), (6, 6)).apply_to_image(just_under)
+    # Row 0 is entirely padding for this shape, which is what makes this an assertion about
+    # the pad value rather than about whether 0.5 occurs anywhere in a resized picture.
+    assert float(padded[0].min()) == pytest.approx(0.5)
+    assert float(padded[0].max()) == pytest.approx(0.5)
+
+    # The control on the other side of the same bound: two orders of magnitude past the
+    # tolerance is a different scale and is refused, with its own figure in the message so
+    # that the reader is not told a range this function accepts.
+    well_under = np.linspace(-1e-5, 1.0, 8 * 12, dtype=np.float64).reshape(8, 12, 1)
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(well_under)
+    assert f"{float(well_under.min()):.9g}" in str(refusal.value)
+
+
+def test_an_unsigned_integer_mask_is_judged_by_its_dtype_rather_than_by_what_it_holds():
+    """*0.5 is not the middle of 0-255, whatever one picture happens to hold.*
+
+    `0.8.0a82`'s changelog calls that the truth of the matter, and until `pyplatypus#462` no
+    fixture reached it: there is no `uint8` image anywhere in this suite whose values lie in
+    0-1. Such an array is a **mask**, which is exactly why the rule is worth pinning rather
+    than left to whoever decides the values look more informative than the dtype - mutating
+    the integer branch to answer 0.5 whenever an integer array's values are within 0-1 passed
+    all 275 tests in `tests/detection` before this test existed.
+    """
+    mask = np.zeros((8, 12, 1), dtype=np.uint8)
+    mask[2:5, 3:7, 0] = 1
+    # The case nothing reached, asserted so that a rewritten fixture cannot quietly stop
+    # being this case.
+    assert (int(mask.min()), int(mask.max())) == (0, 1)
+
+    with pytest.raises(DetectionError) as refusal:
+        Letterbox.fit((8, 12), (6, 6)).apply_to_image(mask)
+    # The dtype's scale rather than the values', because for an integer array the dtype IS
+    # the scale - and the sentence a reader acts on says so.
+    assert "uint8, whose scale is 0 to 255" in str(refusal.value)
+
+    # The control, and it is the DISTINCTION rather than a second case: the same mask as
+    # `bool` is a 0-1 scale by its own dtype, so silence is answered with 0.5 there. A rule
+    # that refused both would be wrong in the other direction, and this is the only place
+    # the two sit side by side.
+    padded = Letterbox.fit((8, 12), (6, 6)).apply_to_image(mask.astype(bool))
+    assert float(padded[0].min()) == pytest.approx(0.5)
