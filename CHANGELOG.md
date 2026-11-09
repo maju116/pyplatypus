@@ -14,6 +14,58 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a82] - 2026-11-09
+
+### Fixed
+
+- **Three sentences of `0.8.0a81`'s pad refusal described the array wrongly**, and every one
+  of the three refused correctly. `pyplatypus#456`, the reviewer's sixteenth pass. A refusal
+  is where the next reader learns what a healthy run looks like, which is why an explanation
+  that is false costs more than it looks.
+
+  **A signed integer's scale was given as unsigned**, and this is the one worth keeping. An
+  `int16` image was told `whose scale is 0 to 32767`, where `numpy`'s own `iinfo` says
+  -32768 to 32767 - and the message's own justification is *the midpoint of a CT's stored
+  range is bone*. A CT in Hounsfield units is exactly an array with negative values, so the
+  sentence named a range that excludes every value the case it argues from holds. It names
+  the dtype's own bounds now, with the array's own range beside them, because the two answer
+  different questions:
+
+      int16 holding -1000 to 400
+        was  "int16, whose scale is 0 to 32767"
+        now  "int16, whose scale is -32768 to 32767 - it holds values -1000 to 400"
+
+  And **no midpoint is offered** on that route, which is the decision rather than the fix:
+  for values in physical units the windowing decides what grey is, so 127.5 would be the
+  8-bit sentence travelling to a case it is false for. It says *window it and scale the
+  result to 0-1, or pass `fill` yourself in the image's own units* instead, and a test
+  asserts 127.5 is absent.
+
+  **A `NaN` ate both ends.** `min()` and `max()` of an array holding one are themselves not
+  a number, both range comparisons are false, and the reader was told the image held *values
+  nan to nan* when its other values were 0.2 - with *divide by 255* as the advice, which is
+  no advice for a `NaN`. It is its own refusal now, naming the finite values, saying why
+  there is no range to read a scale off, and covering `inf` as the same complaint, which the
+  finding did not name. An array with no finite value at all says that rather than naming an
+  empty range.
+
+  **`:.4g` rounded the reason away.** An image reaching 1.000002 was refused and described as
+  *holding values 0 to 1* - a range this function ACCEPTS, so the reader was told the array
+  is on the scale the refusal says it is not. `:.9g` shows the overshoot, and it also stops
+  an `int16`-scale float reading as `3.277e+04`.
+
+  **Why nothing caught any of it**: every fixture around this code was `uint8` or a 0-1
+  float, so no test could reach a signed dtype, a non-finite value or the boundary at 1.
+  §4's fixture that never contained the case, three times in one function. Five tests now,
+  each with its own control - the unsigned message unchanged, the `inf` case, the all-`NaN`
+  case, and the boundary one order of magnitude smaller still accepted - and five mutations,
+  five caught, identity first.
+
+  **The R half: none beyond nothing.** `rplatypus` does not expose `fill` at all and reaches
+  this code on a route where the image has already been through `to_float`, so there is no
+  way to get a refusal from R and the pin stays at `0.8.0a80` - §3E, said here rather than
+  only in a commit message.
+
 ## [0.8.0a81] - 2026-11-09
 
 **The pad value is grey on a 0-1 scale and on no other, and silence now says so.**

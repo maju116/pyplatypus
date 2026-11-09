@@ -195,31 +195,82 @@ def _pad_value(array: np.ndarray, fill: float | None) -> float:
     that function is importable from `pyplatypus.data` and not from `pyplatypus`, so a
     message telling a reader to call it sends them hunting for a module path it does not
     give.
+
+    **Three of its sentences described the array wrongly and `pyplatypus#456` is the
+    repair.** Every one of the three refused correctly and explained the refusal falsely,
+    which §4 is about from the other end: a refusal is where the next reader learns what a
+    healthy run looks like.
+
+    - A SIGNED integer's scale was given as `0 to 32767`, and the sharpest part is that the
+      message's own reason is *the midpoint of a CT's stored range is bone* - a CT in
+      Hounsfield units is exactly an array with negative values, so it named a range
+      excluding every value the case it argues from holds. The dtype's own `iinfo` bounds
+      are named now, the array's own range beside them, and **no midpoint is offered**:
+      for values in physical units the windowing decides what grey is, so there is nothing
+      honest to suggest.
+    - A `NaN` ate both ends. `min()` and `max()` of an array holding one are `nan`, both
+      comparisons below are false, and the reader was told the image held *values nan to
+      nan* when its other values were 0.2. A non-finite value is a different complaint
+      from a wrong scale and *divide by 255* is no advice for it, so it refuses by name.
+    - `:.4g` rounded the reason away: an image reaching 1.000002 was refused and described
+      as *holding values 0 to 1*, which is a range this function ACCEPTS. `:.9g` shows the
+      overshoot, and it also stops an `int16`-scale float reading as `3.277e+04`.
     """
     if fill is not None:
         return float(fill)
     if array.dtype == np.bool_:
         # True and False are a 0-1 scale and 0.5 is between them.
         return 0.5
+    scale_advice = (
+        "Either scale the image to 0-1 first - dividing an 8-bit picture by 255 is what "
+        "this package's own reader does on the way in - or pass `fill` yourself in the "
+        "image's units, which for an 8-bit photograph is 127.5. Refused rather than "
+        "guessed at because no one value is grey in every unit: the midpoint of a CT's "
+        "stored range is bone."
+    )
     if np.issubdtype(array.dtype, np.floating):
         low, high = float(array.min()), float(array.max())
+        if not (np.isfinite(low) and np.isfinite(high)):
+            finite = array[np.isfinite(array)]
+            seen = (
+                f"its finite values run {float(finite.min()):.9g} to {float(finite.max()):.9g}"
+                if finite.size
+                else "it holds no finite value at all"
+            )
+            raise DetectionError(
+                f"the pad value cannot be chosen for an image holding a non-finite value, "
+                f"and this {array.dtype} one does - {seen}. `min()` and `max()` of such an "
+                f"array are themselves not a number, so there is no range to read a scale "
+                f"off. Replace the non-finite values - a windowed read gives a finite "
+                f"array - or pass `fill` yourself, which is taken in the image's units "
+                f"whatever else it holds."
+            )
         # float32's eps at 1.0 is 1.19e-07, so a value that is 1 up to its own rounding can
         # read as 1.0000001. The tolerance is eight times that figure and six orders of
         # magnitude below the smallest wrong scale a test pins here, 0-2.
         if low >= -1e-6 and high <= 1.0 + 1e-6:
             return 0.5
-        held = f"{array.dtype} holding values {low:.4g} to {high:.4g}"
+        # `:.9g` and not `:.4g`: see the docstring - four significant figures turned
+        # 1.000002 into `1`, so the message named a range this function accepts.
+        held = f"{array.dtype} holding values {low:.9g} to {high:.9g}"
     elif np.issubdtype(array.dtype, np.integer):
-        held = f"{array.dtype}, whose scale is 0 to {np.iinfo(array.dtype).max}"
+        bounds = np.iinfo(array.dtype)
+        if bounds.min < 0:
+            raise DetectionError(
+                f"the pad value defaults to 0.5, which is grey on a 0-1 scale and on no "
+                f"other, and this image is {array.dtype}, whose scale is {bounds.min} to "
+                f"{bounds.max} - it holds values {int(array.min())} to "
+                f"{int(array.max())}. A signed integer image is usually in physical units, "
+                f"and no midpoint of that range is grey in them: for a CT in Hounsfield "
+                f"units the middle of the stored range is bone. So window it and scale the "
+                f"result to 0-1, or pass `fill` yourself in the image's own units."
+            )
+        held = f"{array.dtype}, whose scale is 0 to {bounds.max}"
     else:
         held = str(array.dtype)
     raise DetectionError(
         f"the pad value defaults to 0.5, which is grey on a 0-1 scale and on no other, "
-        f"and this image is {held}. Either scale the image to 0-1 first - dividing an "
-        f"8-bit picture by 255 is what this package's own reader does on the way in - or "
-        f"pass `fill` yourself in the image's units, which for an 8-bit photograph is "
-        f"127.5. Refused rather than guessed at because no one value is grey in every "
-        f"unit: the midpoint of a CT's stored range is bone."
+        f"and this image is {held}. {scale_advice}"
     )
 
 
