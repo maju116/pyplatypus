@@ -83,7 +83,7 @@ from pyplatypus.weights import (
     resolve_weights,
 )
 
-__version__ = "0.8.0a82"
+__version__ = "0.8.0a83"
 __all__ = [
     "ClassificationEngine",
     "ClassificationRun",

@@ -14,6 +14,78 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a83] - 2026-11-09
+
+### Changed
+
+- **An Intel Mac cannot install this package at all, and nothing here said so.**
+  `pyplatypus#459`, the sixteenth review pass's open issue, and the only finding in it that
+  came back from a real machine rather than from a reading. torch has published no macOS
+  `x86_64` wheel since **2.2.2**, uploaded 2024-03-27, and the floor here is 2.7 - so on that
+  platform no torch satisfies the one requirement that decides whether a run is possible at
+  all. Read off PyPI and resolved with
+  `uv pip compile --python-platform x86_64-apple-darwin` on 2026-11-09, with the three
+  platforms that do work through the same probe as the controls: arm64 macOS at torch 2.11.0,
+  Linux and Windows at 2.15.0.
+
+  **The platform marker the issue asked for was measured and refused, and that is the half
+  worth keeping.** A marker can only switch a requirement OFF, so the issue's own proposal -
+  `torch>=2.7 ; platform_system != "Darwin" or platform_machine == "arm64"` - resolves to
+  **zero requirements** on Intel macOS: `Resolved in 1ms`, exit 0, no torch, and a package
+  that installs and then fails at import. That is the present loud failure traded for a
+  silent one. Refusing **by name** would mean depending on a package that does not exist, and
+  both candidate names answered 404 on PyPI *today*, so it is a dependency on whoever
+  registers one next - fetched and built on exactly the platform being refused.
+
+  **And no metadata in a new release changes what a resolver does with an old one**, which is
+  the mechanism behind the report's 1571 lines of clang: unpinned, a resolver walks backwards
+  through the 115 published versions looking for one whose requirements can be met, and 76 of
+  them accept Python 3.10, including the 2022 TensorFlow package. Pinned, the message is
+  already true and already names the cause - *"torch>=2.7.0 has no wheels with a matching
+  platform tag (e.g. `macosx_13_0_x86_64`)"*, with the platforms that have one listed beside
+  it. So **the README is the whole of the answer**, which is `CLAUDE.md` §8's shape for the
+  ~5 GB CUDA wheel and the Pascal cap: a fact the package cannot express and has to state.
+  It is stated with the date it was true on.
+
+  **The floor stays at 2.7**, which is the issue's third question answered with numbers
+  rather than with a preference. A floor is what a USER resolves, so `torch>=2.2` asked for
+  `lowest-direct` hands **torch 2.2.0 to every platform** - a version nothing here has ever
+  run, and one carrying the `weights_only` unpickler flaw (CVE-2026-24747) that the manifest
+  would rather close than open. It also buys less than it looks: torch 2.2.2's macOS
+  `x86_64` wheels are cp38 to cp312, so against `requires-python = ">=3.11"` it would admit
+  Python 3.11 and 3.12 and still refuse 3.13 - measured on all three.
+
+  **`Operating System :: OS Independent` is gone from the classifiers**, replaced by the
+  three operating systems CI actually runs. That label is true of the wheel - `py3-none-any`,
+  which is what it is usually chosen for - and false about whether the thing installs, in
+  front of exactly the reader this issue is about. The classifier list has **no architecture
+  axis**, checked against PyPI's own page with a name that is not on it as the control, so
+  `MacOS` is as precise as a classifier can be and the qualification has to live in prose.
+
+  **Three claims, three readers, in `tests/test_platform_claims.py`**: the two floors the
+  README quotes against the manifest that declares them, the macOS sentence's three parts -
+  which macOS works, which does not, and the torch version the claim is pinned to - and the
+  operating-system classifiers against the matrix `ci.yml` runs, equal in both directions.
+  Eleven mutations, eleven caught, identity first. Its own first run failed on prose that was
+  correct, because the version pattern was greedy over the sentence's full stop and read
+  `torch >= 2.7.` as a floor of `2.7.`: when a new check fails, suspect the instrument.
+
+- **The README's Pascal paragraph was carrying a sentence this manifest has recorded as
+  false since `0.8.0a64`**, found while editing the section above it. It said torch 2.8 and
+  later ship CUDA 13 builds which dropped Pascal outright and that *"the last torch built
+  against CUDA 12 is 2.7.x"*. What is true is the narrower claim the manifest already makes:
+  2.7.x is the last torch whose **default PyPI wheel** is a CUDA 12 build. On PyTorch's own
+  cu126 index builds exist up to 2.14.1, and one of them runs a GTX 1070 with the card named
+  and availability true. The distinction is the whole reason the extra exists - neither `pip`
+  nor reticulate's `py_require` takes an index - and the paragraph now also says that
+  `torch==2.14.1` from that index is patched against CVE-2026-24747, which 2.7.x is not.
+
+  **The R half: none beyond nothing.** This release is prose and metadata; `rplatypus`
+  forwards neither, so the pin stays at `0.8.0a80` - §3E, said here rather than only in a
+  commit message. What R does owe is a sentence of its own, because an R user meets this wall
+  through reticulate's `py_require` with a different message again, and that is R's prose
+  rather than this pin.
+
 ## [0.8.0a82] - 2026-11-09
 
 ### Fixed
