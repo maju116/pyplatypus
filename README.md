@@ -32,14 +32,18 @@ Linux and Windows resolving through the same probe as the controls. The floor st
 rather than dropping to admit them, and the comment on the `torch` line in
 `pyproject.toml` has the measurements that decided that.
 
-Nothing in the package's metadata can say that to a resolver, which is why it is said
-here. A *pinned* install does name the real cause - `uv` reports that `torch >= 2.7` has
-no wheel with a matching platform tag, and lists the platforms that do. An unpinned one
-walks backwards through every version ever published looking for one whose requirements
-can be met, and most of them predate this package's own Python floor, so what an Intel
-Mac actually gets is a source build of the 2022 TensorFlow package's dependency tree and
-no mention of either real reason. A new release cannot change what a resolver does with
-an old one.
+A *pinned* install names the real cause: `uv` reports that `torch >= 2.7` has no wheel
+with a matching platform tag, and lists the platforms that do. An **unpinned** one used to
+be the bad case - it walks backwards through every version ever published looking for one
+whose requirements can be met, and on a Python below 3.11 the only ones it finds are the
+two 2022 releases, which are the TensorFlow package this one replaced. It installed them
+and said nothing.
+
+**Those two releases are yanked, since 2026-11-09**, so that route now refuses and names
+the yank. `pip install pyplatypus==0.1.0rc2` still works, because an exact pin takes a
+yanked file - it warns, and the banner at the top of this page is still the way to ask for
+the old package on purpose. A new release cannot change what a resolver does with an old
+one; metadata on the old one can, and that is what this was.
 
 **To fetch published weights by name**, install the `hub` extra:
 

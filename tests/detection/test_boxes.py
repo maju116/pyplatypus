@@ -287,12 +287,18 @@ def test_a_float_refused_for_overshooting_one_is_told_the_overshoot():
 def test_a_float_a_hair_below_zero_is_still_a_zero_to_one_image():
     """The tolerance has two ends and after `0.8.0a82` only one of them was held.
 
-    `pyplatypus#462`. The sixteenth pass mutated both ends at `0.8.0a81`: the lower one was
-    caught and the upper one survived. Re-run against the tree a82 left, the two readings had
-    **swapped** - a82's own overshoot test above pins the upper end at `1 + 2e-6`, and nothing
-    was left that needed the lower one. A repair that moves a guard from one end of a bound to
-    the other is the shape that pass is about, carried in this time by the fix for its own
-    finding.
+    `pyplatypus#462`, and **the history this docstring gave was wrong**: `pyplatypus#464`'s
+    pass measured it, and the lower end was never held at all. The sixteenth pass's "lower
+    end" mutation edited BOTH ends in one `sed`, and what caught it was the upper end's own
+    test - `tests/detection/test_crops.py::test_float_rounding_at_one_is_not_a_different_scale`,
+    which has been there since a81. Measured on three trees: the lower end alone survives at
+    a81 and at a82 and fails only here; the upper end alone is caught at a81; the coarse
+    upper bound, `high <= 1.9`, survives at a81 and is caught from a82 on.
+
+    So `0.8.0a82` unheld nothing. It added a real hold on the upper end at the coarse scale,
+    and this test is the first the lower end has ever had. The commit that shipped it says
+    *"one of which a82 unheld itself"* in its subject and cannot be changed; this is the
+    correction.
 
     Why a value below zero is a 0-1 image rather than a different scale: float32's eps at 1.0
     is 1.19e-07, so a pixel that is 0 up to its own rounding can read as -1e-7. Same argument
