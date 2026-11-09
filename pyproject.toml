@@ -1,6 +1,6 @@
 [project]
 name = "pyplatypus"
-version = "0.8.0a82"
+version = "0.8.0a83"
 description = "Computer vision for medical imaging: the engine behind the platypus R package."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,7 +19,18 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Healthcare Industry",
-    "Operating System :: OS Independent",
+    # `OS Independent` stood here and is a claim this distribution cannot keep. The wheel
+    # is `py3-none-any` and the code is pure Python, which is what that classifier is
+    # usually chosen for - but what a reader filtering by operating system is asking is
+    # whether the thing installs, and on macOS it installs on **Apple Silicon only**:
+    # torch has published no macOS `x86_64` wheel since 2.2.2, read off PyPI on
+    # 2026-11-09. These three are what CI runs. The architecture cannot be said here at
+    # all - the classifier list has no architecture axis, checked against PyPI's own page
+    # with a name that is not on it as the control - so the qualification lives in the
+    # README, where `pyplatypus#459` put it.
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -113,6 +124,34 @@ dependencies = [
     # a cubin serves higher minor revisions of its own generation, so `sm_60` is what
     # matters. What actually pins the Pascal route is which build PyPI serves **by
     # default** - see the `pascal` extra.
+    #
+    # **And this floor is what makes an Intel Mac unable to install the package at all.**
+    # torch's last macOS `x86_64` wheel is 2.2.2, uploaded 2024-03-27, so on that platform
+    # there is no torch this line admits - measured on 2026-11-09 with `uv pip compile
+    # --python-platform x86_64-apple-darwin`, with arm64 macOS and linux resolving through
+    # the same probe as the controls. **The floor stays**, because a floor is what a USER
+    # resolves: `torch>=2.2` asked for `lowest-direct` hands **torch 2.2.0 to every
+    # platform**, a version nothing here has ever run and one the comment above would
+    # rather have closed than opened - CVE-2026-24747 is in it. And it buys less than it
+    # looks: torch 2.2.2's macOS x86_64 wheels are cp38 to cp312, so against
+    # `requires-python = ">=3.11"` it would admit Python 3.11 and 3.12 and still refuse
+    # 3.13, measured on all three.
+    #
+    # **A platform marker was measured and refused**, which is the half `pyplatypus#459`
+    # asked for. A marker can only switch a requirement OFF, so
+    # `torch>=2.7 ; platform_system != "Darwin" or platform_machine == "arm64"` resolves to
+    # **zero requirements** on Intel macOS - `Resolved in 1ms`, exit 0 - and the package
+    # then installs without torch and fails at import, which trades the present loud
+    # failure for a silent one. Refusing BY NAME would need a requirement on a package
+    # that does not exist, and both candidate names answered 404 on PyPI *today*, so that
+    # is a dependency on whoever registers one next, fetched and built on exactly the
+    # platform being refused. What is left is the resolver's own message, which is already
+    # true: pinned, uv says *"torch>=2.7.0 has no wheels with a matching platform tag
+    # (e.g. macosx_13_0_x86_64)"* and lists the platforms that do have one. Unpinned it
+    # says nothing useful, because the resolver walks backwards through 115 published
+    # versions and 76 of them accept Python 3.10 - and no metadata in a NEW release can
+    # change what a resolver does with an old one. So the instrument that reaches an Intel
+    # Mac is the README, and nothing in this file.
     "torch>=2.7",
 ]
 

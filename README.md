@@ -25,6 +25,22 @@ the same file read by the same models whichever language asked.
 
 Python ≥ 3.11, and torch ≥ 2.7.
 
+**On macOS that means Apple Silicon.** torch has published no macOS `x86_64` wheel since
+2.2.2, uploaded 27 March 2024, so on an Intel Mac there is no torch this package will
+accept and the install cannot succeed - read off PyPI on 2026-11-09, with arm64 macOS,
+Linux and Windows resolving through the same probe as the controls. The floor stays at 2.7
+rather than dropping to admit them, and the comment on the `torch` line in
+`pyproject.toml` has the measurements that decided that.
+
+Nothing in the package's metadata can say that to a resolver, which is why it is said
+here. A *pinned* install does name the real cause - `uv` reports that `torch >= 2.7` has
+no wheel with a matching platform tag, and lists the platforms that do. An unpinned one
+walks backwards through every version ever published looking for one whose requirements
+can be met, and most of them predate this package's own Python floor, so what an Intel
+Mac actually gets is a source build of the 2022 TensorFlow package's dependency tree and
+no mention of either real reason. A new release cannot change what a resolver does with
+an old one.
+
 **To fetch published weights by name**, install the `hub` extra:
 
 ```bash
@@ -52,10 +68,15 @@ and torchvision 0.22.1.
 pip install "pyplatypus[pascal]"
 ```
 
-torch 2.8 and later ship CUDA 13 builds, and CUDA 13 dropped the Maxwell, Pascal and
-Volta generations outright - no driver update brings them back. The last torch built
-against CUDA 12 is 2.7.x, which the extra pins. On anything from Turing (RTX 20-series)
-onwards, ignore this.
+What the extra pins is the last torch whose **default PyPI wheel** is a CUDA 12 build -
+which is a different claim from the last torch that supports Pascal, and that second one
+is false: on PyTorch's own cu126 index, builds exist up to 2.14.1 and one of them runs a
+GTX 1070 with the card named and `is_available()` true. But `pip install` and
+`py_require()` take no index, so for them the default wheel is the whole story and 2.7.x
+is where Pascal ends. If you can choose an index, `torch==2.14.1` from
+https://download.pytorch.org/whl/cu126 both runs that card and is patched against
+CVE-2026-24747, which 2.7.x is not. On anything from Turing (RTX 20-series) onwards,
+ignore this.
 
 ## A worked example
 
