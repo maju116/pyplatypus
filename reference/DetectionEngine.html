@@ -1356,7 +1356,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    context<span class="op">=</span><span class="fl">0.0</span>,</span>
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    size<span class="op">=</span><span class="va">None</span>,</span>
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    fit<span class="op">=</span><span class="st">'letterbox'</span>,</span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    fill<span class="op">=</span><span class="fl">0.5</span>,</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    fill<span class="op">=</span><span class="va">None</span>,</span>
 <span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Every detection cut out of the image it was found in.</p>
 <p>The pipeline this is for is a detector followed by a classifier: find the objects with three classes, crop them, hand the crops to something that knows eighty. It is the second thing people ask for after boxes, and doing it by hand means re-reading every image and getting the rounding right.</p>
@@ -1367,10 +1367,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-3">Parameters</h4>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 7%">
-<col style="width: 12%">
-<col style="width: 72%">
+<col style="width: 3%">
 <col style="width: 6%">
+<col style="width: 86%">
+<col style="width: 3%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1419,9 +1419,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 <tr class="odd">
 <td>fill</td>
-<td>float</td>
-<td>Padding value for <code>"letterbox"</code>.</td>
-<td><code>0.5</code></td>
+<td>float | None</td>
+<td>Padding value for <code>"letterbox"</code>, in the image’s own units. Left out it is grey - which is 0.5 here, because <code>source_image</code> reads through <code>to_float</code> and so hands this a 0-1 picture. Threaded as <code>None</code> rather than defaulting to 0.5 so that one meaning of <em>not given</em> reaches <code>crop_boxes</code>, whose refusal would then cover this route as well if that ever stopped being true.</td>
+<td><code>None</code></td>
 </tr>
 </tbody>
 </table>
