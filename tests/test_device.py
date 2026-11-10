@@ -8,6 +8,8 @@ Mac trained on its processor with a working backend in the same wheel.
 
 from __future__ import annotations
 
+import pytest
+
 import pyplatypus
 from pyplatypus.device import (
     BACKENDS,
@@ -96,7 +98,9 @@ def test_the_report_is_reachable_from_the_package_root():
 # Everything above asks the real machine, and this one has CUDA - so the bug this module
 # was written for is invisible to it: restricting the backends to CUDA alone changes no
 # answer here, and neither does a report that hardcodes "cuda". These two fake the machine
-# instead, which is the only way to ask the question on the hardware we have.
+# instead, which is the only way to ask the question on the hardware we have. No count
+# here: this comment said "these two" while there were four below it, which is a number in
+# prose with nothing holding it.
 class _Says:
     def __init__(self, available):
         self._available = available
@@ -118,13 +122,26 @@ def _machine(monkeypatch, *, cuda=False, mps=False, xpu=False):
 
 
 def test_an_apple_silicon_machine_uses_its_accelerator(monkeypatch):
-    """Every Mac sold since 2020, and this package trained on their processors."""
+    """Every Mac sold since 2020, and this package trained on their processors.
+
+    `version.cuda` is forced to `None` because that is what a macOS wheel has, and without
+    it this test described a machine that cannot exist. It is also what it took for the
+    last assertion to be deterministic on every runner rather than a reading of whichever
+    torch the matrix installed.
+    """
+    import torch
+
     _machine(monkeypatch, mps=True)
+    monkeypatch.setattr(torch.version, "cuda", None)
 
     assert available_backend() == "mps"
     assert pick_device().type == "mps"
     assert device_report()["backend"] == "mps"
     assert device_report()["device"] == "mps"
+    # The assertion this test went without, with the contradictory dictionary in its hands
+    # the whole time: it called `device_report()` twice and never asked what the report
+    # said about the build. `#468`, found on an M3 Pro rather than here.
+    assert device_report()["cuda_build"] == "none"
 
 
 def test_an_intel_gpu_is_used_when_it_is_the_only_one(monkeypatch):
@@ -148,3 +165,60 @@ def test_a_machine_with_nothing_says_so(monkeypatch):
     assert available_backend() is None
     assert pick_device().type == "cpu"
     assert device_report()["backend"] is None
+
+
+@pytest.mark.parametrize("accelerator", [None, "mps", "xpu"])
+def test_an_accelerated_machine_is_never_called_a_processor(monkeypatch, accelerator):
+    """`#468`, measured on an M3 Pro on 2026-11-10 - the first time this path ran anywhere.
+
+    A macOS wheel has no CUDA and a working `mps` backend, and the report used to answer
+    `cuda_build` with `"cpu-only build"` on it: three consecutive lines of R's
+    `platypus_device()`, the first denying the two under it, on the machine the fit was
+    about to run on. The `None` row is the control - there the processor IS the answer, so
+    the scan would be wrong to object, and what it holds is that the value does not depend
+    on the backend.
+    """
+    import torch
+
+    _machine(monkeypatch, **({accelerator: True} if accelerator else {}))
+    monkeypatch.setattr(torch.version, "cuda", None)
+    # The wheel CI installs, pinned here so that every machine runs the case CI runs. The
+    # first version of this test left it to whatever torch was on the machine: it passed
+    # here on `2.7.1+cu126` and failed five jobs on `2.15.0+cpu`.
+    monkeypatch.setattr(torch, "__version__", "2.15.0+cpu")
+
+    report = device_report()
+
+    assert report["cuda_build"] == "none"
+    if accelerator is None:
+        return
+    assert report["backend"] == accelerator
+    # `torch` is exempt BY NAME, and the version string above is the reason: `+cpu` there
+    # names the build rather than this machine, and it is true. Scanning it read the report
+    # as calling an `mps` machine a processor - a check tight enough to fail on correct
+    # content, which is as useless as a loose one. Everything else is scanned rather than
+    # listed, so a key added later is covered by arriving; the `assert` under it is why an
+    # exemption cannot quietly empty the scan, since a scan over nothing reads exactly like
+    # a clean one.
+    describes_the_build = {"torch"}
+    scanned = {
+        key: value
+        for key, value in report.items()
+        if isinstance(value, str) and key not in describes_the_build
+    }
+    assert scanned.keys() >= {"cuda_build", "device"}, f"the scan reached only {scanned}"
+    claims = {key: value for key, value in scanned.items() if "cpu" in value.lower()}
+    assert not claims, f"an {accelerator} machine is called a processor by {claims}"
+
+
+def test_a_cuda_build_is_named_by_its_version_whatever_runs_the_work(monkeypatch):
+    """The other side of the same property, and the reason `mps` is the backend here: the
+    value tracks `torch.version.cuda` and nothing else. A build compiled for CUDA on a
+    machine using another accelerator is an ordinary state - this one's own `pascal` extra
+    reaches it - and the version is still the honest answer to what the build carries."""
+    import torch
+
+    _machine(monkeypatch, mps=True)
+    monkeypatch.setattr(torch.version, "cuda", "12.6")
+
+    assert device_report()["cuda_build"] == "12.6"

@@ -113,6 +113,14 @@ def device_report() -> dict[str, Any]:
     and the second False - torch enumerates the card and cannot initialise it, which is
     exactly the case to report. Testing for zero detects nothing. The driver is asked as
     well, because a build with no CUDA support at all enumerates nothing either way.
+
+    `cuda_build` answers about CUDA and about nothing else. It read `"cpu-only build"`
+    until `0.8.0a85`, which is true of a processor-only Linux wheel and false of every
+    macOS one: those carry a working `mps` backend, so the report called the build
+    CPU-only two lines above `device: mps` on a machine that was about to train on its
+    GPU - measured on an M3 Pro on 2026-11-10, `#468`. What that string was reaching for
+    is already carried by `backend`, `device` and `gpu_present_but_unusable`, and a value
+    whose truth depends on a sibling field is exactly what cost that.
     """
     import torch
 
@@ -125,7 +133,7 @@ def device_report() -> dict[str, Any]:
     name = device_name(backend) if backend else "cpu"
     report: dict[str, Any] = {
         "torch": torch.__version__,
-        "cuda_build": torch.version.cuda or "cpu-only build",
+        "cuda_build": torch.version.cuda or "none",
         "cuda_available": backend == "cuda",
         "backend": backend,
         "device": name,
