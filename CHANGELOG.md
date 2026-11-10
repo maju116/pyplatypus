@@ -14,6 +14,58 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a85] - 2026-11-10
+
+### Fixed
+
+- **`device_report()` called an Apple Silicon build CPU-only while the work ran on its
+  GPU.** `pyplatypus#468`, and the first finding this project has from an Apple GPU rather
+  than from a reading: `cuda_build` answered `torch.version.cuda or "cpu-only build"`, and
+  on a macOS wheel `version.cuda` is always falsy while that same wheel carries a working
+  `mps` backend. Measured on a borrowed **M3 Pro**, macOS 26.7.2, torch 2.15.0, where
+  `pick_device()` chose `mps`, the report said `cuda_build: cpu-only build` beside
+  `backend: mps`, and a fit on both devices agreed to `0.000000` on all four measured
+  figures. From R, which forwards this through `platypus_device`, it is three consecutive
+  printed lines with the first denying the two under it.
+
+  The value answers about CUDA and about nothing else now: `none` where there is no CUDA
+  build. Everything the old string was reaching for is already carried by three sibling
+  keys - `backend` is `None`, `device` is `cpu`, and `gpu_present_but_unusable` is the one
+  worth acting on. Making the fallback depend on the backend was rejected as a second copy
+  of a decision `backend` already makes, whose next wrong answer would be an `xpu` machine.
+
+  **Why nothing caught it.** `tests/test_device.py` has faked an Apple machine since
+  `0.8.0a38`, and `test_an_apple_silicon_machine_uses_its_accelerator` called
+  `device_report()` **twice** under it while asserting only `backend` and `device`. The
+  fixture held the contradictory dictionary the whole time, which is sharper than this
+  project's usual *fixture that never contained the case*. The configuration pair over the
+  device answer agrees because both halves are **right about CUDA**: the contradiction is
+  between two values of one returned object, which that pair cannot see by construction.
+
+  Four mutations, four caught, identity first - the old string, a backend-dependent
+  fallback, a value that stops reading `version.cuda`, and `str(torch.version.cuda)`,
+  which yields the string `"None"` and is the one a reader would not predict.
+
+  **The R half is the pin, and the first draft of this entry had that wrong.** It said
+  *a test fixture and nothing else*; `platypus_device` prints what the **pinned** engine
+  returns, so an R user on an Apple machine goes on reading `cuda build : cpu-only build`
+  until the pin moves - the fix reaches them by that and by nothing else, which is
+  `0.8.0a47`'s shape rather than §3E's default. `rplatypus` also pinned
+  `cuda_build = "cpu-only build"` beside `backend = "mps"` as its own Apple Silicon
+  fixture, so the impossible pair was written down in both packages. The pin is four
+  releases behind on purpose, so one move carries `0.8.0a81` through `0.8.0a85`.
+
+### Changed
+
+- **The README no longer mentions the 2022 releases.** The author's call, and the argument
+  is that nobody used them on the Python side: the banner told a reader that
+  `pip install pyplatypus==0.1.0rc2` gets the old TensorFlow package, and `## Installing`
+  spent two paragraphs on a route that no longer exists. `0.8.0a84` yanked both, so an
+  unpinned install on a Python below 3.11 refuses on its own, and the README now says that
+  in one sentence. A release's history belongs in this file and in the journal rather than
+  on the page somebody reads to get started. `## About` keeps the 2020 Keras package,
+  which is what explains the version numbers restarting rather than continuing.
+
 ## [0.8.0a84] - 2026-11-09
 
 ### Changed

@@ -4,13 +4,12 @@
 
 **Computer vision for medical imaging — the engine behind the `platypus` R package.**
 
-> **An alpha.** This replaces the 2022 TensorFlow package with a PyTorch one, and the API
-> still moves, so pin the exact version if you build on it. The
+> **An alpha.** The API still moves, so pin the exact version if you build on it. The
 > [changelog](CHANGELOG.md) says what each release changed; no version number is repeated
 > here, because the one that was went four releases stale.
 >
 > Everything on PyPI so far is a pre-release, so `pip install pyplatypus` resolves to the
-> newest. `pip install pyplatypus==0.1.0rc2` gets the old TensorFlow package.
+> newest.
 
 Most people should reach this through **[rplatypus](https://github.com/maju116/rplatypus)**,
 the R package: it installs this one, calls it, and is where the worked examples and the
@@ -33,17 +32,9 @@ rather than dropping to admit them, and the comment on the `torch` line in
 `pyproject.toml` has the measurements that decided that.
 
 A *pinned* install names the real cause: `uv` reports that `torch >= 2.7` has no wheel
-with a matching platform tag, and lists the platforms that do. An **unpinned** one used to
-be the bad case - it walks backwards through every version ever published looking for one
-whose requirements can be met, and on a Python below 3.11 the only ones it finds are the
-two 2022 releases, which are the TensorFlow package this one replaced. It installed them
-and said nothing.
-
-**Those two releases are yanked, since 2026-11-09**, so that route now refuses and names
-the yank. `pip install pyplatypus==0.1.0rc2` still works, because an exact pin takes a
-yanked file - it warns, and the banner at the top of this page is still the way to ask for
-the old package on purpose. A new release cannot change what a resolver does with an old
-one; metadata on the old one can, and that is what this was.
+with a matching platform tag, and lists the platforms that do. An **unpinned** install on
+a Python below 3.11 refuses too, naming the yanked pre-releases it would otherwise have
+fallen back to - so neither route succeeds quietly.
 
 **To fetch published weights by name**, install the `hub` extra:
 
