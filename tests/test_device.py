@@ -182,6 +182,10 @@ def test_an_accelerated_machine_is_never_called_a_processor(monkeypatch, acceler
 
     _machine(monkeypatch, **({accelerator: True} if accelerator else {}))
     monkeypatch.setattr(torch.version, "cuda", None)
+    # The wheel CI installs, pinned here so that every machine runs the case CI runs. The
+    # first version of this test left it to whatever torch was on the machine: it passed
+    # here on `2.7.1+cu126` and failed five jobs on `2.15.0+cpu`.
+    monkeypatch.setattr(torch, "__version__", "2.15.0+cpu")
 
     report = device_report()
 
@@ -189,11 +193,21 @@ def test_an_accelerated_machine_is_never_called_a_processor(monkeypatch, acceler
     if accelerator is None:
         return
     assert report["backend"] == accelerator
-    claims = {
+    # `torch` is exempt BY NAME, and the version string above is the reason: `+cpu` there
+    # names the build rather than this machine, and it is true. Scanning it read the report
+    # as calling an `mps` machine a processor - a check tight enough to fail on correct
+    # content, which is as useless as a loose one. Everything else is scanned rather than
+    # listed, so a key added later is covered by arriving; the `assert` under it is why an
+    # exemption cannot quietly empty the scan, since a scan over nothing reads exactly like
+    # a clean one.
+    describes_the_build = {"torch"}
+    scanned = {
         key: value
         for key, value in report.items()
-        if isinstance(value, str) and "cpu" in value.lower()
+        if isinstance(value, str) and key not in describes_the_build
     }
+    assert scanned.keys() >= {"cuda_build", "device"}, f"the scan reached only {scanned}"
+    claims = {key: value for key, value in scanned.items() if "cpu" in value.lower()}
     assert not claims, f"an {accelerator} machine is called a processor by {claims}"
 
 
