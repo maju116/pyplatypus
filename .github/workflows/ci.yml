@@ -69,13 +69,28 @@ jobs:
         # cells without renaming the contexts leaves every pull request waiting forever on a
         # check that is never coming - which looks exactly like a run that has not registered
         # yet. The contexts were renamed in the same breath as this list.
+        #
+        # 2026-11-11, `pyplatypus#471`: the ends moved to 3.15, and the sentence above about
+        # "the ends of the supported Python range" was FALSE for a month before anybody
+        # looked - 3.14 was released 2025-10-07 and 3.15 on 2026-10-09, and this package ran
+        # end to end on 3.14.7 on a borrowed M3 while claiming neither. So the same lesson
+        # was paid twice: two contexts were ADDED (`test (ubuntu-latest, 3.14)` and `3.15`)
+        # and two were RENAMED (macOS and Windows, 3.13 -> 3.15), in the same breath as this
+        # list. `#470` now holds the classifiers to these numbers in both directions, with
+        # their lowest against `requires-python`, so a cell and a claim cannot drift apart
+        # again - and `#472` is the cell that watches the Python that does not exist yet,
+        # which is why this list is about what is CLAIMED rather than about what is newest.
+        #
+        # QUOTE THE VERSIONS. YAML reads an unquoted 3.10 as the float 3.1 - measured - so an
+        # unquoted cell is a version that does not exist, and `#470` refuses a non-string
+        # here rather than comparing one.
         os: [ubuntu-latest]
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
         include:
           - { os: macos-latest, python: "3.11" }
-          - { os: macos-latest, python: "3.13" }
+          - { os: macos-latest, python: "3.15" }
           - { os: windows-latest, python: "3.11" }
-          - { os: windows-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.15" }
 
     steps:
       - uses: actions/checkout@v7
