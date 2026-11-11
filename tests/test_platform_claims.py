@@ -22,6 +22,8 @@ Three claims, each with a different reader:
     the macOS sentence               against nothing - it is the fact no resolver will say,
                                      so what is held is that the three parts of it are there
     the operating-system classifiers  against the matrix CI actually runs
+    the PYTHON classifiers            against the same matrix, and their lowest against
+                                      `requires-python` - which is the floor's only guard
 
 The classifiers were `Operating System :: OS Independent` until `0.8.0a83`, which is true of
 the wheel - `py3-none-any` - and false about whether the thing installs. The list has no
@@ -53,6 +55,15 @@ RUNNER_CLASSIFIERS = {
 # matched at all, and the comparison below then reported that `ci.yml` runs no Windows
 # while every Windows cell was present. Loud, and in the wrong direction.
 RUNNER = re.compile(r"^(ubuntu|macos|windows)-[a-z0-9._-]+$")
+
+# A per-minor Python classifier. The bare `Programming Language :: Python :: 3` is excluded
+# on purpose: it is a claim about the major version and says nothing a matrix could answer.
+PYTHON_CLASSIFIER = re.compile(r"^Programming Language :: Python :: (3\.\d+)$")
+# A version as the matrix must spell it - a STRING, which is not a formality. YAML reads an
+# unquoted `3.10` as the float 3.1, measured: `yaml.safe_load("python: [3.10]")` is `[3.1]`.
+# So an unquoted 3.10 cell would enter the matrix reading as a version that does not exist,
+# in the one place this file is asked to keep 3.10 out of.
+PYTHON_VERSION = re.compile(r"^3\.\d+$")
 
 
 def installing_section() -> str:
@@ -116,6 +127,52 @@ def ci_runner_families() -> set[str]:
     return {RUNNER.match(str(label).strip()).group(1) for label in labels}
 
 
+def ci_test_job_pythons() -> set[str]:
+    """The Python minors the SUITE runs, from the `test` job's matrix and only it.
+
+    `ci_runner_families()`'s argument one axis over, and for the same reason: `lint`,
+    `floors`, `build` and `docs` each pin a Python of their own, so a walk over the whole
+    workflow answers about jobs that are not the suite. `pyplatypus#464` is that lesson paid
+    on the operating-system half.
+
+    Two places a version hides in that job: `strategy.matrix.python`, and each
+    `strategy.matrix.include` entry's `python`.
+
+    Every value must be a STRING matching `3.x`. That is the 3.10 guard in the one shape
+    nobody would look for: YAML reads an unquoted `3.10` as the float 3.1, so a cell written
+    without quotes would be a version that does not exist, compared against classifiers that
+    could never match it, and the failure would name `3.1` rather than the mistake.
+    """
+    workflow = yaml.safe_load(CI.read_text(encoding="utf-8"))
+    jobs = workflow.get("jobs") or {}
+    assert "test" in jobs, f"ci.yml has no `test` job; it has {sorted(jobs)}"
+    job = jobs["test"]
+
+    values: list[object] = []
+    matrix = (job.get("strategy") or {}).get("matrix") or {}
+    entry = matrix.get("python")
+    values.extend(entry if isinstance(entry, list) else [entry] if entry else [])
+    for included in matrix.get("include") or []:
+        if isinstance(included, dict) and included.get("python") is not None:
+            values.append(included["python"])
+
+    unquoted = [v for v in values if not isinstance(v, str)]
+    assert not unquoted, (
+        f"these matrix Python versions are not strings: {unquoted} - quote them. YAML reads "
+        "an unquoted 3.10 as the float 3.1, so the version in the job's name and the version "
+        "this test compares would be different things"
+    )
+    unreadable = [v for v in values if not PYTHON_VERSION.match(v)]
+    assert not unreadable, f"matrix Python versions this pattern cannot read: {unreadable}"
+    return set(values)
+
+
+def declared_pythons() -> set[str]:
+    """The per-minor Python classifiers, which are what a reader on PyPI is told."""
+    classifiers = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]["classifiers"]
+    return {match.group(1) for match in (PYTHON_CLASSIFIER.match(c) for c in classifiers) if match}
+
+
 def test_everything_below_was_read_at_all():
     """The control, because every assertion in this file is over something parsed.
 
@@ -129,6 +186,14 @@ def test_everything_below_was_read_at_all():
     families = ci_runner_families()
     assert len(families) >= 2, f"runner families in the test job's matrix: {sorted(families)}"
     assert families <= set(RUNNER_CLASSIFIERS), f"unmapped runner family: {sorted(families)}"
+
+    # The same control one axis over: two empty sets agree about everything, so a matrix
+    # whose `python` key was renamed, or a classifier list this pattern cannot read, must
+    # fail here rather than making the comparison below pass over nothing.
+    pythons = ci_test_job_pythons()
+    assert len(pythons) >= 2, f"Python versions in the test job's matrix: {sorted(pythons)}"
+    claimed = declared_pythons()
+    assert len(claimed) >= 2, f"per-minor Python classifiers: {sorted(claimed)}"
 
 
 def test_the_installing_section_quotes_the_manifest_s_own_floors():
@@ -197,4 +262,54 @@ def test_the_operating_system_classifiers_are_the_ones_ci_runs():
 
     assert claimed == expected, (
         f"the manifest claims {sorted(claimed)} and ci.yml runs {sorted(expected)}"
+    )
+
+
+def test_the_python_classifiers_are_the_ones_ci_runs():
+    """The operating-system pair's argument one axis over, and it had no guard at all.
+
+    `pyplatypus#470`: the OS classifiers have been held to the matrix in both directions
+    since `0.8.0a83`, and the Python ones were held by nothing - so the claim went **two
+    minors behind** what exists without anything failing. 3.14 was released 2025-10-07 and
+    3.15 on 2026-10-09; this package ran end to end on 3.14.7 on a borrowed M3, which is
+    where `#468` came from, and said nothing about it anywhere.
+
+    Equality in both directions, for the OS half's reasons: a classifier for a version
+    nothing is run on is a claim, and a version the matrix tests without a classifier is a
+    reader not being told.
+    """
+    claimed = declared_pythons()
+    tested = ci_test_job_pythons()
+
+    assert claimed == tested, (
+        f"the manifest claims Python {sorted(claimed)} and ci.yml's test job runs {sorted(tested)}"
+    )
+
+
+def test_the_lowest_python_anybody_claims_or_tests_is_the_declared_floor():
+    """The floor's only guard, and the one that keeps 3.10 out.
+
+    Python 3.10 is out of support and the floor moved from 3.10 to 3.11 with
+    `requires-python`. That move cost three renamed required contexts, because a job's name
+    is what branch protection matches - so the expensive half of removing a version is not
+    the removal. With this assertion a 3.10 cell or a 3.10 classifier cannot come back
+    without `requires-python` moving in the same breath, which is a line nobody edits by
+    accident.
+
+    Asked of the minimum rather than by naming 3.10: a test that forbids one version is a
+    test that goes stale the next time the floor moves, and this one holds whatever the floor
+    becomes. `3.11` goes out of support on 2027-10-31, and on that day this test is what
+    says the matrix and the classifiers still agree with the manifest.
+    """
+    floor, _torch = declared_floors()
+    both = declared_pythons() | ci_test_job_pythons()
+    assert both, "no Python version was read from either the manifest or the matrix"
+
+    def key(version: str) -> tuple[int, ...]:
+        return tuple(int(part) for part in version.split("."))
+
+    lowest = min(both, key=key)
+    assert lowest == floor, (
+        f"the lowest Python claimed or tested is {lowest} and `requires-python` declares "
+        f">={floor} - one of the two moved without the other"
     )
