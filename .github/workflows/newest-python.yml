@@ -1,0 +1,111 @@
+# The Python that does not exist yet.
+#
+# `pyplatypus#472`. Every other job in this repository asks a question about our own diff.
+# This one asks about the world: does the suite still pass on the NEWEST stable Python,
+# whatever that has become since anybody last looked?
+#
+# It exists because the answer went stale by two whole minors without anything failing.
+# Python 3.14 was released 2025-10-07 and 3.15 on 2026-10-09; this package ran end to end on
+# 3.14.7 on a borrowed M3 - the report `#468` came out of - while `pyproject.toml` claimed
+# 3.11 to 3.13 and the matrix tested the same three. `#470` now holds the classifiers to the
+# matrix in both directions, so those two can no longer drift from each other; nothing held
+# either of them to what exists, and remembering is not a mechanism.
+#
+# THREE THINGS ABOUT ITS SHAPE, each of which is the reason it is not a cell in `ci.yml`.
+#
+# ITS NAME HAS NO VERSION IN IT, so branch protection never has to be edited for it. A job's
+# name is what protection matches: `#471` moved the off-Linux ends from 3.13 to 3.15 and that
+# was two contexts added and two renamed, with twenty minutes in which `main` required two
+# checks that nothing could report and every pull request was blocked. A floating cell called
+# `test (ubuntu-latest, 3.16)` would buy that cost every October. This one is called the same
+# thing for ever.
+#
+# IT MUST NEVER BE A REQUIRED STATUS CHECK, and `#475` is what that sentence is worth when
+# nothing enforces it: the `floors` job in `ci.yml` carries a comment saying exactly this
+# about itself, and protection requires it anyway. So the argument is written here AND the
+# list is the thing to read: this job can go red for news rather than for a change - a
+# dependency without wheels for a brand-new minor, or a runner image that has not got the
+# interpreter yet - and a red check caused by somebody else's release must not stand between
+# a correct change and `main`.
+#
+# IT RUNS ON A SCHEDULE RATHER THAN ON PULL REQUESTS, which is the first `schedule:` trigger
+# in either repository. On a pull request it would cost a torch download per run to answer a
+# question that changes once a year. Weekly is already far more often than Python moves, and
+# the lag that matters is not ours: `setup-python`'s `3.x` resolves to what the runner image
+# carries, which trails a release by a few weeks.
+#
+# 06:17 on Mondays rather than the top of an hour: GitHub's scheduler is congested on the
+# hour and delays a run that asks for it.
+
+name: Newest Python
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  newest:
+    name: the newest stable Python
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # `3.x` is the selector that means "the newest stable", and it has to come from
+      # `setup-python` rather than from uv: measured on 2026-11-11, `uv python find 3`
+      # answers with ANY Python 3 it can see - here a conda interpreter - so a bare major
+      # given to uv is not a request for the newest one.
+      - uses: actions/setup-python@v6
+        id: python
+        with:
+          python-version: "3.x"
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      # SAY WHICH PYTHON THIS WAS, every time. A green run of this job is a claim about a
+      # version nobody chose, so the version has to be in the log beside the verdict - and
+      # if it is ever one this package already claims, the job is answering a question
+      # `ci.yml`'s matrix already answers and the cron is the thing to look at.
+      - name: Which Python the runner image has today
+        run: |
+          echo "resolved: ${{ steps.python.outputs.python-version }}"
+          python -VV
+          echo "claimed by this package:"
+          python - <<'PY'
+          import re, pathlib
+          text = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          print(sorted(re.findall(r'"Programming Language :: Python :: (3\.\d+)"', text)))
+          PY
+
+      # The interpreter `setup-python` just installed, by path, rather than a version string
+      # uv would resolve its own way.
+      - name: Create the environment on that interpreter
+        run: uv venv --python "$(which python)"
+
+      # The same two installs `ci.yml`'s `test` job does, and for the reasons its comments
+      # give: a CUDA build is roughly 5 GB with no GPU on a runner, and torchvision must come
+      # from the same index in the same command or it loads and then raises
+      # `operator torchvision::nms does not exist` on anything that imports timm.
+      - name: Install CPU torch and torchvision
+        run: uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install the package
+        run: uv pip install -e ".[dev,hub,encoders]"
+
+      - name: Run the tests
+        run: uv run --no-sync pytest -q --durations=10
+
+      - name: Confirm the CPU build is what was tested
+        run: uv run --no-sync python -c "import torch; assert torch.version.cuda is None, f'CUDA build {torch.version.cuda} leaked in'; print(torch.__version__)"
