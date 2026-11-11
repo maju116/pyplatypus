@@ -14,6 +14,52 @@ The scope is the newest entry alone, for the reason R's half records: over the w
 changelog legitimately names functions that no longer exist, and that is often why they are
 mentioned.
 
+## [0.8.0a86] - 2026-11-11
+
+### Changed
+
+- **This package now claims and tests Python 3.14 and 3.15.** `pyplatypus#471`. It ran on a
+  Python it neither claimed nor tested: `0.8.0a84` was installed and run end to end on
+  **3.14.7** on a borrowed M3 Pro, which is the report `#468` came out of, while the
+  classifiers stopped at 3.13 and the matrix tested 3.11 to 3.13. 3.14 was released
+  2025-10-07 and **3.15 on 2026-10-09**, so the claim was two minors behind - the exact
+  inverse of `0.8.0a83`, where the metadata claimed a platform that cannot work at all.
+
+  Measured before anything was edited, because the question is whether the cells can exist:
+
+      torch cp314 wheels   from 2.9.0 up, macosx_*_arm64 + manylinux_2_28 x86_64/aarch64
+                           + win_amd64
+      torch cp315 wheels   2.15.0 ONLY, the same four platforms
+      the whole tree       py3.14 resolves on all three platforms this suite runs
+                           py3.15 resolves on Linux and Windows at torch 2.15.0
+
+  **On 3.15 the effective torch floor is 2.15.0**, because nothing below it ships `cp315`,
+  and `torch>=2.7` needs no edit for that to be true. The `floors (lowest-direct)` job keeps
+  resolving 2.7.1 on its own Python.
+
+  macOS and 3.15 needs a sentence, because the obvious reading of the probe is wrong:
+  `uv pip compile --python-platform aarch64-apple-darwin` refuses, and that is the probe's
+  deployment target rather than the machine - the same probe refuses torch 2.15.0 on **3.14**,
+  where the M3 ran it, because arm64 wheels are `macosx_14_0` from 2.12 on. The wheel exists
+  and was read off PyPI by name.
+
+  **The floor does not move.** `requires-python` stays `>=3.11`: nothing needs 3.14, and
+  raising it would cut off three supported minors for nothing. Python 3.10 is out of support
+  and stays out - `#470`'s guard asserts that the lowest version claimed or tested equals the
+  declared floor, so a 3.10 cell or classifier cannot come back without that line moving in
+  the same breath.
+
+  **Two contexts were added and two renamed, in the same breath as the matrix**, because a
+  job's name is what branch protection matches: `test (ubuntu-latest, 3.14)` and
+  `test (ubuntu-latest, 3.15)` are new, and the off-Linux ends went from 3.13 to 3.15.
+  Dropping the 3.10 cells cost exactly this lesson, and the comment beside the matrix now
+  records both payments.
+
+### The R half
+
+None beyond nothing: `rplatypus` forwards no metadata, so there is nothing for it to follow
+here and the pin stays where it is.
+
 ## [0.8.0a85] - 2026-11-10
 
 ### Fixed
